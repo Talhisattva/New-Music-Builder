@@ -9,6 +9,7 @@ import tkinter.messagebox as messagebox
 from tkinter import ttk
 
 import customtkinter as ctk
+from PIL import Image, ImageTk
 
 from new_music_builder import __version__
 from new_music_builder.platform.paths import app_root
@@ -41,6 +42,8 @@ class MainWindow(ctk.CTk):
         self.audio_workspace = AudioWorkspaceService()
         self.session, saved_path = self.session_store.load()
         self.session = ProjectSession(project=self.session, current_path=saved_path)
+        self._window_icon_image = None
+        self._header_icon_image = None
 
         sibling_root = app_root().parent
         base_mod_root = sibling_root / 'Talis New Music'
@@ -56,12 +59,17 @@ class MainWindow(ctk.CTk):
         self.refresh_all()
         self.protocol('WM_DELETE_WINDOW', self.on_close)
 
+    def _main_icon_path(self) -> Path:
+        return app_root().parent / 'Talis New Music' / 'Contents' / 'mods' / 'Talis New Music' / 'common' / 'media' / 'textures' / 'Item_NM_Cassette4.png'
+
     def _apply_window_icon(self) -> None:
-        icon = app_root().parent / 'Simple-Moozic-Builder-Git' / 'icon.ico'
-        if icon.exists() and sys.platform.startswith('win'):
+        icon = self._main_icon_path()
+        if icon.exists():
             try:
-                self.iconbitmap(default=str(icon))
-            except tk.TclError:
+                image = Image.open(icon)
+                self._window_icon_image = ImageTk.PhotoImage(image)
+                self.iconphoto(True, self._window_icon_image)
+            except Exception:
                 pass
 
     def _build_menu(self) -> None:
@@ -92,7 +100,13 @@ class MainWindow(ctk.CTk):
         header = ctk.CTkFrame(self, fg_color='#101213', corner_radius=0, height=56)
         header.pack(fill='x')
         header.pack_propagate(False)
-        ctk.CTkLabel(header, text='NEW MUSIC BUILDER', text_color='#c7c6c6', font=ctk.CTkFont(family='Orbitron', size=22, weight='bold')).pack(side='left', padx=(16, 8), pady=12)
+        icon_path = self._main_icon_path()
+        title_pad = (16, 8)
+        if icon_path.exists():
+            self._header_icon_image = ctk.CTkImage(light_image=Image.open(icon_path), dark_image=Image.open(icon_path), size=(28, 28))
+            ctk.CTkLabel(header, text='', image=self._header_icon_image).pack(side='left', padx=(16, 8), pady=12)
+            title_pad = (0, 8)
+        ctk.CTkLabel(header, text='NEW MUSIC BUILDER', text_color='#c7c6c6', font=ctk.CTkFont(family='Orbitron', size=22, weight='bold')).pack(side='left', padx=title_pad, pady=12)
         ctk.CTkLabel(header, text=f'v{__version__}', text_color='#c7c6c6', font=ctk.CTkFont(family='Orbitron', size=14)).pack(side='left', pady=16)
 
     def _build_layout(self) -> None:
