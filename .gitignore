@@ -1,0 +1,27 @@
+# Runtime
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+.pytest_cache/
+
+# Builder state
+.cache/
+workspace/
+output/
+logs/
+recent.json
+last_session.json
+
+# Reference / generated
+_references/figma_export/
+_references/figma_export/node_modules/
+_references/figma_export/dist/
+Builder Test.zip
+NewMusicBuilder.ai
+NewMusicBuilder.png
+
+# OS
+.DS_Store
+Thumbs.db
