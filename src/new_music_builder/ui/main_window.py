@@ -52,6 +52,7 @@ class MainWindow(ctk.CTk):
         self.build_log: list[str] = []
         self.preview_entries: list[str] = []
 
+        self._configure_ttk_styles()
         self._apply_window_icon()
         self._build_menu()
         self._build_header()
@@ -120,11 +121,21 @@ class MainWindow(ctk.CTk):
         ctk.CTkLabel(header, text='NEW MUSIC BUILDER', text_color='#c7c6c6', font=ctk.CTkFont(family='Orbitron', size=22, weight='bold')).pack(side='left', padx=title_pad, pady=12)
         ctk.CTkLabel(header, text=f'v{__version__}', text_color='#c7c6c6', font=ctk.CTkFont(family='Orbitron', size=14)).pack(side='left', pady=16)
 
+    def _configure_ttk_styles(self) -> None:
+        style = ttk.Style(self)
+        style.configure(
+            'Dark.TPanedwindow',
+            background='#000000',
+            sashwidth=8,
+            sashrelief='flat',
+            borderwidth=0,
+        )
+
     def _build_layout(self) -> None:
-        outer = ttk.Panedwindow(self, orient='vertical')
+        outer = ttk.Panedwindow(self, orient='vertical', style='Dark.TPanedwindow')
         outer.pack(fill='both', expand=True)
-        top = ttk.Panedwindow(outer, orient='horizontal')
-        bottom = ttk.Panedwindow(outer, orient='horizontal')
+        top = ttk.Panedwindow(outer, orient='horizontal', style='Dark.TPanedwindow')
+        bottom = ttk.Panedwindow(outer, orient='horizontal', style='Dark.TPanedwindow')
         outer.add(top, weight=3)
         outer.add(bottom, weight=2)
 
