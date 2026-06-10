@@ -42,7 +42,8 @@ class MainWindow(ctk.CTk):
         self.session, saved_path = self.session_store.load()
         self.session = ProjectSession(project=self.session, current_path=saved_path)
 
-        base_mod_root = app_root().parents[1] / 'Talis New Music'
+        sibling_root = app_root().parent
+        base_mod_root = sibling_root / 'Talis New Music'
         self.asset_catalog_service = AssetCatalog(base_mod_root)
         self.asset_catalog = self.asset_catalog_service.scan()
         self.build_log: list[str] = []
@@ -56,7 +57,7 @@ class MainWindow(ctk.CTk):
         self.protocol('WM_DELETE_WINDOW', self.on_close)
 
     def _apply_window_icon(self) -> None:
-        icon = app_root().parents[1] / 'Simple-Moozic-Builder-Git' / 'icon.ico'
+        icon = app_root().parent / 'Simple-Moozic-Builder-Git' / 'icon.ico'
         if icon.exists() and sys.platform.startswith('win'):
             try:
                 self.iconbitmap(default=str(icon))
@@ -148,11 +149,22 @@ class MainWindow(ctk.CTk):
         self.session_store.save(self.session.project, self.session.current_path)
 
     def refresh_all(self) -> None:
+        self._apply_default_asset_selections()
+        if self.session.project.media_rows and not any(row.expanded for row in self.session.project.media_rows):
+            self.session.project.media_rows[0].expanded = True
         self.mod_setup.refresh()
         self.media_creation.refresh()
         self.appearance.refresh()
         self.build_export.refresh(self.build_log, self.preview_entries)
         self.build_summary.refresh()
+
+    def _apply_default_asset_selections(self) -> None:
+        for row in self.session.project.media_rows:
+            row.ensure_appearances()
+            for kind, entries in self.asset_catalog.items():
+                if entries and not row.appearances[kind].selected_asset_key:
+                    row.appearances[kind].selected_asset_key = entries[0].key
+                    row.appearances[kind].sprite_mode = entries[0].sprite_mode
 
     def new_project(self) -> None:
         self.session.reset()
