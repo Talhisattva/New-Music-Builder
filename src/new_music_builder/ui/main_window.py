@@ -62,7 +62,18 @@ class MainWindow(ctk.CTk):
     def _main_icon_path(self) -> Path:
         return app_root().parent / 'Talis New Music' / 'Contents' / 'mods' / 'Talis New Music' / 'common' / 'media' / 'textures' / 'Item_NM_Cassette4.png'
 
+    def _native_icon_path(self) -> Path:
+        return app_root() / 'assets' / 'new_music_builder.ico'
+
     def _apply_window_icon(self) -> None:
+        native_icon = self._native_icon_path()
+        if native_icon.exists() and sys.platform.startswith('win'):
+            try:
+                self.iconbitmap(default=str(native_icon))
+                return
+            except tk.TclError:
+                pass
+
         icon = self._main_icon_path()
         if icon.exists():
             try:
