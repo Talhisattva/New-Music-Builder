@@ -6,7 +6,6 @@ import sys
 import tkinter as tk
 import tkinter.filedialog as fd
 import tkinter.messagebox as messagebox
-from tkinter import ttk
 
 import customtkinter as ctk
 from PIL import Image, ImageTk
@@ -52,7 +51,6 @@ class MainWindow(ctk.CTk):
         self.build_log: list[str] = []
         self.preview_entries: list[str] = []
 
-        self._configure_ttk_styles()
         self._apply_window_icon()
         self._build_menu()
         self._build_header()
@@ -121,46 +119,50 @@ class MainWindow(ctk.CTk):
         ctk.CTkLabel(header, text='NEW MUSIC BUILDER', text_color='#c7c6c6', font=ctk.CTkFont(family='Orbitron', size=22, weight='bold')).pack(side='left', padx=title_pad, pady=12)
         ctk.CTkLabel(header, text=f'v{__version__}', text_color='#c7c6c6', font=ctk.CTkFont(family='Orbitron', size=14)).pack(side='left', pady=16)
 
-    def _configure_ttk_styles(self) -> None:
-        style = ttk.Style(self)
-        style.configure(
-            'Dark.TPanedwindow',
-            background='#000000',
-            sashwidth=8,
-            sashrelief='flat',
-            borderwidth=0,
-        )
-
     def _build_layout(self) -> None:
-        outer = ttk.Panedwindow(self, orient='vertical', style='Dark.TPanedwindow')
-        outer.pack(fill='both', expand=True)
-        top = ttk.Panedwindow(outer, orient='horizontal', style='Dark.TPanedwindow')
-        bottom = ttk.Panedwindow(outer, orient='horizontal', style='Dark.TPanedwindow')
-        outer.add(top, weight=3)
-        outer.add(bottom, weight=2)
+        content = ctk.CTkFrame(self, fg_color='transparent')
+        content.pack(fill='both', expand=True, padx=8, pady=8)
 
-        top_left = ctk.CTkFrame(top, fg_color='transparent')
-        top_mid = ctk.CTkFrame(top, fg_color='transparent')
-        top_right = ctk.CTkFrame(top, fg_color='transparent')
-        top.add(top_left, weight=1)
-        top.add(top_mid, weight=2)
-        top.add(top_right, weight=1)
+        self.phase_tabs = ctk.CTkTabview(
+            content,
+            fg_color=theme.BG,
+            segmented_button_fg_color=theme.PANEL,
+            segmented_button_selected_color=theme.ACCENT,
+            segmented_button_selected_hover_color=theme.ACCENT,
+            segmented_button_unselected_color=theme.PANEL_ALT,
+            segmented_button_unselected_hover_color=theme.PANEL,
+            text_color=theme.TEXT,
+            corner_radius=12,
+            border_width=0,
+        )
+        self.phase_tabs.pack(fill='both', expand=True)
+        self.phase_tabs.add('PHASE 1')
+        self.phase_tabs.add('PHASE 2')
+        self.phase_tabs.add('PHASE 3')
+        self.phase_tabs.set('PHASE 1')
 
-        bottom_left = ctk.CTkFrame(bottom, fg_color='transparent')
-        bottom_right = ctk.CTkFrame(bottom, fg_color='transparent')
-        bottom.add(bottom_left, weight=2)
-        bottom.add(bottom_right, weight=1)
+        phase_one = self.phase_tabs.tab('PHASE 1')
+        phase_two = self.phase_tabs.tab('PHASE 2')
+        phase_three = self.phase_tabs.tab('PHASE 3')
 
-        self.mod_setup = ModSetupModule(top_left, self.session, self.on_project_change, self.save_project, self.load_project)
-        self.mod_setup.pack(fill='both', expand=True, padx=8, pady=8)
-        self.media_creation = MediaCreationModule(top_mid, self.session, self.asset_catalog, self.on_project_change, self.on_select_row)
-        self.media_creation.pack(fill='both', expand=True, padx=8, pady=8)
-        self.appearance = AppearanceModule(top_right, self.session, self.asset_catalog, self.on_project_change)
-        self.appearance.pack(fill='both', expand=True, padx=8, pady=8)
-        self.build_export = BuildExportModule(bottom_left, self.session, self.run_build_preview, self.reset_transient_state)
-        self.build_export.pack(fill='both', expand=True, padx=8, pady=8)
-        self.build_summary = BuildSummaryModule(bottom_right, self.session)
-        self.build_summary.pack(fill='both', expand=True, padx=8, pady=8)
+        self.mod_setup = ModSetupModule(phase_one, self.session, self.on_project_change, self.save_project, self.load_project)
+        self.mod_setup.pack(fill='both', expand=True, padx=4, pady=4)
+
+        phase_two.grid_columnconfigure(0, weight=2)
+        phase_two.grid_columnconfigure(1, weight=1)
+        phase_two.grid_rowconfigure(0, weight=1)
+        self.media_creation = MediaCreationModule(phase_two, self.session, self.asset_catalog, self.on_project_change, self.on_select_row)
+        self.media_creation.grid(row=0, column=0, sticky='nsew', padx=(4, 8), pady=4)
+        self.appearance = AppearanceModule(phase_two, self.session, self.asset_catalog, self.on_project_change)
+        self.appearance.grid(row=0, column=1, sticky='nsew', padx=(8, 4), pady=4)
+
+        phase_three.grid_columnconfigure(0, weight=2)
+        phase_three.grid_columnconfigure(1, weight=1)
+        phase_three.grid_rowconfigure(0, weight=1)
+        self.build_export = BuildExportModule(phase_three, self.session, self.run_build_preview, self.reset_transient_state)
+        self.build_export.grid(row=0, column=0, sticky='nsew', padx=(4, 8), pady=4)
+        self.build_summary = BuildSummaryModule(phase_three, self.session)
+        self.build_summary.grid(row=0, column=1, sticky='nsew', padx=(8, 4), pady=4)
 
     def _show_sample_rate_dialog(self) -> None:
         popup = ctk.CTkInputDialog(text='Enter project sample rate', title='Sample Rate')

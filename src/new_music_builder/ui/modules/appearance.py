@@ -17,7 +17,7 @@ class AppearanceModule(ModulePanel):
         self.on_change = on_change
         self.active_kind = 'cassette'
         self.active_row_id = session.project.media_rows[0].row_id if session.project.media_rows else None
-        self.grid = ctk.CTkScrollableFrame(self.body, fg_color='transparent')
+        self.asset_grid = ctk.CTkScrollableFrame(self.body, fg_color='transparent')
         self._build()
         self.refresh()
 
@@ -29,7 +29,7 @@ class AppearanceModule(ModulePanel):
         self.dual_var = ctk.BooleanVar(value=False)
         self.dual_check = ctk.CTkCheckBox(self.body, text='Dual Sprite Full/Empty', variable=self.dual_var)
         self.dual_check.pack(anchor='w', padx=12, pady=(0, 4))
-        self.grid.pack(fill='both', expand=True, padx=8, pady=(0, 8))
+        self.asset_grid.pack(fill='both', expand=True, padx=8, pady=(0, 8))
         self.custom = ctk.CTkFrame(self.body, fg_color=theme.PANEL)
         self.custom.pack(fill='x', padx=10, pady=(0, 10))
         self.custom_label = ctk.CTkLabel(self.custom, text='Add Custom Asset Pair')
@@ -59,7 +59,7 @@ class AppearanceModule(ModulePanel):
         if self.active_kind in {'case', 'jacket', 'cd_cover'}:
             self.dual_var.set(selection.sprite_mode == 'dual')
             self.dual_check.pack(anchor='w', padx=12, pady=(0, 4))
-        for child in self.grid.winfo_children():
+        for child in self.asset_grid.winfo_children():
             child.destroy()
         entries = self.asset_catalog.get(self.active_kind, [])
         if entries and not selection.selected_asset_key:
@@ -67,7 +67,7 @@ class AppearanceModule(ModulePanel):
         row.appearances[self.active_kind] = selection
         for idx, entry in enumerate(entries):
             tile = ctk.CTkButton(
-                self.grid,
+                self.asset_grid,
                 text=entry.label,
                 image=load_ctk_image(entry.inventory_path, (48, 48)),
                 compound='top',
