@@ -17,12 +17,12 @@ class BuildSummaryModule(ModulePanel):
 
     def _build(self) -> None:
         self.stats = ctk.CTkFrame(self.body, fg_color='transparent')
-        self.stats.pack(fill='both', expand=True, padx=10, pady=10)
+        self.stats.pack(fill='both', expand=True, padx=8, pady=8)
         for label in ['Media Rows', 'Total Sides', 'Total Songs', 'Converted', 'Queued', 'Errors']:
             row = ctk.CTkFrame(self.stats, fg_color=theme.PANEL)
-            row.pack(fill='x', pady=(0, 4))
-            make_builder_label(row, label, text_color=theme.TEXT, size=12, weight='bold').pack(side='left', padx=8, pady=6)
-            value = make_builder_label(row, '0', text_color=theme.TEXT, size=12, weight='bold')
+            row.pack(fill='x', pady=(0, 3))
+            make_builder_label(row, label, text_color=theme.TEXT, size=11, weight='bold').pack(side='left', padx=8, pady=5)
+            value = make_builder_label(row, '0', text_color=theme.TEXT, size=11, weight='bold')
             value.pack(side='right', padx=8)
             self.rows[label] = value
 

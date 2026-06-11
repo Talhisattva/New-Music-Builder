@@ -20,17 +20,17 @@ class BuildExportModule(ModulePanel):
         self.on_reset = on_reset
         self.queue_frame = ctk.CTkScrollableFrame(self.body, fg_color=theme.PANEL)
         self.preview_frame = ctk.CTkScrollableFrame(self.body, fg_color=theme.PANEL)
-        self.log_box = ctk.CTkTextbox(self.body, height=120)
+        self.log_box = ctk.CTkTextbox(self.body, height=96)
         apply_builder_textbox_style(self.log_box)
         self._build()
 
     def _build(self) -> None:
         top = ctk.CTkFrame(self.body, fg_color='transparent')
-        top.pack(fill='both', expand=True, padx=10, pady=(10, 6))
+        top.pack(fill='both', expand=True, padx=8, pady=(8, 4))
         left = ctk.CTkFrame(top, fg_color='transparent')
-        left.pack(side='left', fill='both', expand=True, padx=(0, 6))
+        left.pack(side='left', fill='both', expand=True, padx=(0, 4))
         right = ctk.CTkFrame(top, fg_color='transparent')
-        right.pack(side='left', fill='both', expand=True, padx=(6, 0))
+        right.pack(side='left', fill='both', expand=True, padx=(4, 0))
 
         make_builder_label(left, 'QUEUE / PROGRESS', text_color=theme.TEXT, size=12, weight='bold').pack(anchor='w')
         self.queue_frame.pack(in_=left, fill='both', expand=True, pady=(6, 0))
@@ -39,10 +39,10 @@ class BuildExportModule(ModulePanel):
         self.preview_frame.pack(in_=right, fill='both', expand=True, pady=(6, 0))
 
         make_builder_label(self.body, 'BUILD LOG', text_color=theme.TEXT, size=12, weight='bold').pack(anchor='w', padx=10)
-        self.log_box.pack(fill='x', padx=10, pady=(6, 6))
+        self.log_box.pack(fill='x', padx=8, pady=(4, 4))
 
         actions = ctk.CTkFrame(self.body, fg_color='transparent')
-        actions.pack(fill='x', padx=10, pady=(0, 10))
+        actions.pack(fill='x', padx=8, pady=(0, 8))
         make_builder_button(actions, 'OPEN OUTPUT FOLDER', lambda: None).pack(side='left', padx=(0, 6))
         make_builder_button(actions, 'CANCEL / RESET', self.on_reset, variant='secondary').pack(side='left')
         self.refresh([], [])

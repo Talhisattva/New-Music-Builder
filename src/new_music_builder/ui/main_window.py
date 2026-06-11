@@ -27,16 +27,16 @@ from new_music_builder.ui.modules.mod_setup import ModSetupModule
 
 
 class MainWindow(ctk.CTk):
-    MOD_SETUP_WIDTH = 460
-    APPEARANCE_RAIL_WIDTH = 392
-    SUMMARY_RAIL_WIDTH = 356
+    MOD_SETUP_WIDTH = 404
+    APPEARANCE_RAIL_WIDTH = 360
+    SUMMARY_RAIL_WIDTH = 320
 
     def __init__(self) -> None:
         super().__init__()
         ctk.set_appearance_mode('dark')
         self.title(f'New Music Builder v{__version__}')
-        self.geometry('1780x1060')
-        self.minsize(1460, 900)
+        self.geometry('1600x900')
+        self.minsize(1366, 820)
         self.configure(fg_color=theme.BG)
 
         self.project_store = ProjectStore()
@@ -115,27 +115,27 @@ class MainWindow(ctk.CTk):
         self.configure(menu=menu)
 
     def _build_header(self) -> None:
-        header = ctk.CTkFrame(self, fg_color='#101213', corner_radius=0, height=56)
+        header = ctk.CTkFrame(self, fg_color='#101213', corner_radius=0, height=52)
         header.pack(fill='x')
         header.pack_propagate(False)
         icon_path = self._main_icon_path()
         title_pad = (16, 8)
         if icon_path.exists():
             self._header_icon_image = ctk.CTkImage(light_image=Image.open(icon_path), dark_image=Image.open(icon_path), size=(28, 28))
-            ctk.CTkLabel(header, text='', image=self._header_icon_image).pack(side='left', padx=(16, 8), pady=12)
+            ctk.CTkLabel(header, text='', image=self._header_icon_image).pack(side='left', padx=(14, 8), pady=10)
             title_pad = (0, 8)
-        ctk.CTkLabel(header, text='NEW MUSIC BUILDER', text_color='#c7c6c6', font=ctk.CTkFont(family='Orbitron', size=22, weight='bold')).pack(side='left', padx=title_pad, pady=12)
-        ctk.CTkLabel(header, text=f'v{__version__}', text_color='#c7c6c6', font=ctk.CTkFont(family='Orbitron', size=14)).pack(side='left', pady=16)
+        ctk.CTkLabel(header, text='NEW MUSIC BUILDER', text_color='#c7c6c6', font=ctk.CTkFont(family='Orbitron', size=20, weight='bold')).pack(side='left', padx=title_pad, pady=10)
+        ctk.CTkLabel(header, text=f'v{__version__}', text_color='#c7c6c6', font=ctk.CTkFont(family='Orbitron', size=13)).pack(side='left', pady=14)
 
     def _build_layout(self) -> None:
         content = ctk.CTkFrame(self, fg_color='transparent')
-        content.pack(fill='both', expand=True, padx=10, pady=10)
+        content.pack(fill='both', expand=True, padx=8, pady=8)
         content.grid_rowconfigure(0, weight=3)
         content.grid_rowconfigure(1, weight=2)
         self.dashboard = content
 
         top_row = ctk.CTkFrame(content, fg_color='transparent')
-        top_row.grid(row=0, column=0, sticky='nsew', pady=(0, 8))
+        top_row.grid(row=0, column=0, sticky='nsew', pady=(0, 6))
         top_row.grid_columnconfigure(0, weight=0)
         top_row.grid_columnconfigure(1, weight=1)
         top_row.grid_columnconfigure(2, weight=0)
@@ -144,7 +144,7 @@ class MainWindow(ctk.CTk):
         self.top_row = top_row
 
         bottom_row = ctk.CTkFrame(content, fg_color='transparent')
-        bottom_row.grid(row=1, column=0, sticky='nsew', pady=(8, 0))
+        bottom_row.grid(row=1, column=0, sticky='nsew', pady=(6, 0))
         bottom_row.grid_columnconfigure(0, weight=1)
         bottom_row.grid_columnconfigure(1, weight=0)
         bottom_row.grid_rowconfigure(0, weight=1)
@@ -160,20 +160,20 @@ class MainWindow(ctk.CTk):
             self.reset_phase_one_fields,
         )
         self.mod_setup.configure(width=self.MOD_SETUP_WIDTH)
-        self.mod_setup.grid(row=0, column=0, sticky='nsw', padx=(0, 8), pady=(0, 8))
+        self.mod_setup.grid(row=0, column=0, sticky='ns', padx=(0, 6), pady=(0, 6))
 
         self.media_creation = MediaCreationModule(top_row, self.session, self.asset_catalog, self.on_project_change, self.on_select_row)
-        self.media_creation.grid(row=0, column=1, sticky='nsew', padx=8, pady=(0, 8))
+        self.media_creation.grid(row=0, column=1, sticky='nsew', padx=6, pady=(0, 6))
 
         self.appearance = AppearanceModule(top_row, self.session, self.asset_catalog, self.on_project_change)
         self.appearance.configure(width=self.APPEARANCE_RAIL_WIDTH)
-        self.appearance.grid(row=0, column=2, sticky='nsew', padx=(8, 0), pady=(0, 8))
+        self.appearance.grid(row=0, column=2, sticky='ns', padx=(6, 0), pady=(0, 6))
 
         self.build_export = BuildExportModule(bottom_row, self.session, self.run_build_preview, self.reset_transient_state)
-        self.build_export.grid(row=0, column=0, sticky='nsew', padx=(0, 8))
+        self.build_export.grid(row=0, column=0, sticky='nsew', padx=(0, 6))
 
         self.build_summary = BuildSummaryModule(bottom_row, self.session)
-        self.build_summary.grid(row=0, column=1, sticky='nsew', padx=(8, 0))
+        self.build_summary.grid(row=0, column=1, sticky='nsew', padx=(6, 0))
 
     def _schedule_top_dashboard_layout(self, event) -> None:
         if self._top_layout_after_id is not None:
@@ -192,15 +192,15 @@ class MainWindow(ctk.CTk):
         if not hasattr(self, 'top_row') or not self.top_row.winfo_exists():
             return
         total_width = max(width - 24, 0)
-        mod_setup_width = min(self.MOD_SETUP_WIDTH, max(420, int(total_width * 0.27)))
-        appearance_width = min(self.APPEARANCE_RAIL_WIDTH, max(336, int(total_width * 0.23)))
+        mod_setup_width = min(self.MOD_SETUP_WIDTH, max(380, int(total_width * 0.25)))
+        appearance_width = min(self.APPEARANCE_RAIL_WIDTH, max(320, int(total_width * 0.21)))
         state = (mod_setup_width, appearance_width)
         if state == self._top_layout_state:
             return
         self._top_layout_state = state
 
         self.top_row.grid_columnconfigure(0, minsize=mod_setup_width, weight=0)
-        self.top_row.grid_columnconfigure(1, minsize=max(520, total_width - mod_setup_width - appearance_width), weight=1)
+        self.top_row.grid_columnconfigure(1, minsize=max(500, total_width - mod_setup_width - appearance_width), weight=1)
         self.top_row.grid_columnconfigure(2, minsize=appearance_width, weight=0)
 
         if hasattr(self, 'appearance'):
@@ -211,11 +211,11 @@ class MainWindow(ctk.CTk):
         if not hasattr(self, 'bottom_row') or not self.bottom_row.winfo_exists():
             return
         total_width = max(width - 8, 0)
-        summary_width = min(self.SUMMARY_RAIL_WIDTH, max(320, int(total_width * 0.24)))
+        summary_width = min(self.SUMMARY_RAIL_WIDTH, max(300, int(total_width * 0.22)))
         if summary_width == self._bottom_layout_state:
             return
         self._bottom_layout_state = summary_width
-        self.bottom_row.grid_columnconfigure(0, minsize=max(640, total_width - summary_width), weight=1)
+        self.bottom_row.grid_columnconfigure(0, minsize=max(620, total_width - summary_width), weight=1)
         self.bottom_row.grid_columnconfigure(1, minsize=summary_width, weight=0)
 
     def _show_sample_rate_dialog(self) -> None:

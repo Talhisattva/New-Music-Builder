@@ -19,17 +19,17 @@ class ModulePanel(ctk.CTkFrame):
             )
             apply_builder_button_style(self.header, variant='secondary')
             self.header.configure(font=ctk.CTkFont(family='Orbitron', size=15, weight='bold'))
-            self.header.pack(fill='x', padx=8, pady=(8, 4))
+            self.header.pack(fill='x', padx=8, pady=(8, 3))
         else:
             header = ctk.CTkFrame(self, fg_color='transparent')
-            header.pack(fill='x', padx=10, pady=(10, 6))
+            header.pack(fill='x', padx=8, pady=(8, 4))
             chip = ctk.CTkFrame(header, width=28, height=28, fg_color=header_fg, corner_radius=8)
             chip.pack(side='left')
             ctk.CTkLabel(
                 header,
                 text=title,
                 text_color=header_fg,
-                font=ctk.CTkFont(family='Orbitron', size=15, weight='bold'),
+                font=ctk.CTkFont(family='Orbitron', size=14, weight='bold'),
             ).pack(side='left', padx=(8, 0))
         self.body = ctk.CTkFrame(self, fg_color=theme.PANEL_ALT, corner_radius=10)
-        self.body.pack(fill='both', expand=True, padx=10, pady=(0, 10))
+        self.body.pack(fill='both', expand=True, padx=8, pady=(0, 8))

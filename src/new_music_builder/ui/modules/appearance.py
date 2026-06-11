@@ -14,7 +14,7 @@ from new_music_builder.ui.widgets.tooltip import Tooltip
 
 
 class AppearanceModule(ModulePanel):
-    PREFERRED_WIDTH = 408
+    PREFERRED_WIDTH = 360
 
     def __init__(self, master, session, asset_catalog, on_change):
         super().__init__(master, 'CUSTOMIZE APPEARANCE')

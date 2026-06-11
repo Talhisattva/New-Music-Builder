@@ -41,13 +41,13 @@ class ModSetupModule(ModulePanel):
 
     def _build(self) -> None:
         top = ctk.CTkFrame(self.body, fg_color='transparent')
-        top.pack(fill='x', padx=10, pady=10)
+        top.pack(fill='x', padx=8, pady=8)
         top.grid_columnconfigure(0, weight=1)
-        top.grid_columnconfigure(1, minsize=220)
+        top.grid_columnconfigure(1, minsize=196)
         top.grid_rowconfigure(0, weight=1)
 
         form = ctk.CTkFrame(top, fg_color='transparent')
-        form.grid(row=0, column=0, sticky='nsew', padx=(0, 8))
+        form.grid(row=0, column=0, sticky='nsew', padx=(0, 6))
         form.grid_columnconfigure(0, weight=1)
 
         field_specs = [
@@ -79,12 +79,12 @@ class ModSetupModule(ModulePanel):
         make_builder_button(action_row, 'RESET', self.reset_callback, variant='secondary').grid(row=0, column=2, sticky='ew', padx=(4, 0))
 
         preview_col = ctk.CTkFrame(top, fg_color='transparent')
-        preview_col.grid(row=0, column=1, sticky='n', padx=(8, 0))
+        preview_col.grid(row=0, column=1, sticky='n', padx=(6, 0))
         preview_col.grid_columnconfigure(0, weight=1)
         poster_stack = ctk.CTkFrame(preview_col, fg_color='transparent')
         poster_stack.pack(fill='x', anchor='n')
         make_builder_label(poster_stack, 'WORKSHOP POSTER', text_color=theme.ACCENT_LIGHT, size=12, weight='bold').pack(anchor='w', pady=(0, 6))
-        self.poster_frame = ctk.CTkFrame(poster_stack, width=220, height=220, fg_color=theme.PANEL, border_color=theme.BORDER, border_width=1, corner_radius=12)
+        self.poster_frame = ctk.CTkFrame(poster_stack, width=192, height=192, fg_color=theme.PANEL, border_color=theme.BORDER, border_width=1, corner_radius=12)
         self.poster_frame.pack(anchor='center')
         self.poster_frame.pack_propagate(False)
         self.poster_label = make_builder_label(self.poster_frame, 'Click To Pick Poster', size=12, weight='bold')
@@ -176,7 +176,7 @@ class ModSetupModule(ModulePanel):
             self.session.project.workshop_output_folder = str(detected)
         if self.detected_label is not None:
             self.detected_label.configure(text='✓ DETECTED' if detected else '')
-        image = load_ctk_image(self._vars['poster'].get().strip(), (204, 204))
+        image = load_ctk_image(self._vars['poster'].get().strip(), (176, 176))
         if self.poster_label is not None:
             if image is None:
                 self.poster_label.configure(text='Click To Pick Poster', image=None)
