@@ -13,7 +13,7 @@ from new_music_builder.ui.widgets.tooltip import Tooltip
 
 
 class AppearanceModule(ModulePanel):
-    PREFERRED_WIDTH = 480
+    PREFERRED_WIDTH = 408
 
     def __init__(self, master, session, asset_catalog, on_change):
         super().__init__(master, 'CUSTOMIZE APPEARANCE')
@@ -89,7 +89,7 @@ class AppearanceModule(ModulePanel):
 
     def _calculate_asset_columns(self) -> int:
         available_width = max(self.asset_grid.winfo_width(), self.body.winfo_width() - 24, 240)
-        return max(2, min(3, available_width // 116))
+        return max(2, min(3, available_width // 104))
 
     def refresh(self) -> None:
         row = self._active_row()
@@ -121,15 +121,15 @@ class AppearanceModule(ModulePanel):
                 self.asset_grid,
                 '',
                 lambda key=entry.key: self._select_asset(key),
-                width=96,
+                width=84,
                 variant='selected' if selection.selected_asset_key == entry.key else 'subtle',
                 size='compact',
-                image=load_ctk_image(entry.inventory_path, (68, 68)),
-                height=96,
+                image=load_ctk_image(entry.inventory_path, (56, 56)),
+                height=84,
             )
             tile.configure(anchor='center', border_width=2)
             Tooltip(tile, entry.label)
-            tile.grid(row=idx // columns, column=idx % columns, padx=6, pady=6, sticky='n')
+            tile.grid(row=idx // columns, column=idx % columns, padx=3, pady=3, sticky='n')
 
     def _select_asset(self, key: str) -> None:
         row = self._active_row()

@@ -188,7 +188,7 @@ class MainWindow(ctk.CTk):
 
     def _sync_phase_two_split(self, event) -> None:
         total_width = max(event.width - 24, 0)
-        right_width = min(AppearanceModule.PREFERRED_WIDTH, max(360, int(total_width * 0.3)))
+        right_width = min(AppearanceModule.PREFERRED_WIDTH, max(320, int(total_width * 0.26)))
         left_width = max(0, total_width - right_width)
         event.widget.grid_columnconfigure(0, minsize=left_width, weight=1)
         event.widget.grid_columnconfigure(1, minsize=right_width, weight=0)
