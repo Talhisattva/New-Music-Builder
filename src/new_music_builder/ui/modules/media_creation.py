@@ -107,19 +107,24 @@ class MediaCreationModule(ModulePanel):
     def _render_expanded(self, master, row: MediaRow) -> None:
         body = ctk.CTkFrame(master, fg_color=theme.PANEL_ALT)
         body.pack(fill='x', padx=10, pady=(0, 10))
+        body.grid_columnconfigure(0, minsize=176)
+        body.grid_columnconfigure(1, weight=1)
+        body.grid_columnconfigure(2, minsize=252)
+        body.grid_rowconfigure(0, weight=1)
 
         left = ctk.CTkFrame(body, fg_color='transparent')
-        left.pack(side='left', fill='y', padx=10, pady=10)
+        left.grid(row=0, column=0, sticky='ns', padx=(10, 6), pady=10)
+        ctk.CTkLabel(left, text='ARTWORK', text_color=theme.ACCENT_LIGHT, font=ctk.CTkFont(family='Orbitron', size=12, weight='bold')).pack(anchor='w', pady=(0, 8))
         cover_btn = make_builder_button(left, 'Pick Cover', lambda rid=row.row_id: self._pick_cover(rid), width=140)
         cover_btn.configure(height=140, corner_radius=14)
-        cover_btn.pack()
+        cover_btn.pack(anchor='w')
         if row.cover_path:
             cover_image = load_ctk_image(row.cover_path, (132, 132))
             if cover_image is not None:
                 cover_btn.configure(text='', image=cover_image)
                 cover_btn.image = cover_image
         toggle_row = ctk.CTkFrame(left, fg_color='transparent')
-        toggle_row.pack(fill='x', pady=(8, 0))
+        toggle_row.pack(fill='x', pady=(10, 0))
         for kind, label in [('cassette', 'Cas'), ('vinyl', 'Vin'), ('cd', 'CD')]:
             button = make_builder_button(
                 toggle_row,
@@ -132,7 +137,8 @@ class MediaCreationModule(ModulePanel):
             button.pack(side='left', padx=4)
 
         center = ctk.CTkFrame(body, fg_color='transparent')
-        center.pack(side='left', fill='both', expand=True, padx=10, pady=10)
+        center.grid(row=0, column=1, sticky='nsew', padx=6, pady=10)
+        ctk.CTkLabel(center, text='MEDIA DETAILS', text_color=theme.ACCENT_LIGHT, font=ctk.CTkFont(family='Orbitron', size=12, weight='bold')).pack(anchor='w', pady=(0, 8))
         name_var = ctk.StringVar(value=row.media_name)
         name_entry = ctk.CTkEntry(center, textvariable=name_var)
         apply_builder_entry_style(name_entry, font_size=14)
@@ -152,12 +158,16 @@ class MediaCreationModule(ModulePanel):
         self._render_track_list(center, row)
 
         right = ctk.CTkFrame(body, fg_color='transparent', width=240)
-        right.pack(side='left', fill='y', padx=10, pady=10)
-        ctk.CTkLabel(right, text='LIVE PREVIEW', text_color=theme.TEXT).pack(anchor='w')
+        right.grid(row=0, column=2, sticky='nsew', padx=(6, 10), pady=10)
+        right.grid_propagate(False)
+        ctk.CTkLabel(right, text='LIVE PREVIEW', text_color=theme.ACCENT_LIGHT, font=ctk.CTkFont(family='Orbitron', size=12, weight='bold')).pack(anchor='w')
         preview_box = ctk.CTkFrame(right, fg_color=theme.PANEL, width=220, height=180)
-        preview_box.pack(fill='both', expand=True, pady=(8, 0))
+        preview_box.pack(fill='x', pady=(8, 0))
         preview_box.pack_propagate(False)
-        for item in self._preview_assets_for_row(row):
+        preview_items = self._preview_assets_for_row(row)
+        if not preview_items:
+            ctk.CTkLabel(preview_box, text='Enable media types to preview selected art.', text_color=theme.MUTED, wraplength=180, justify='left').pack(anchor='w', padx=12, pady=12)
+        for item in preview_items:
             image = load_ctk_image(item.inventory_path, (48, 48))
             label = ctk.CTkLabel(preview_box, text=item.label, image=image, compound='top')
             label.image = image
@@ -165,6 +175,11 @@ class MediaCreationModule(ModulePanel):
 
     def _render_track_list(self, master, row: MediaRow) -> None:
         tracks = row.tracks_a if self.active_side == 'A' else row.tracks_b
+        count_label = f'{len(tracks)} track' if len(tracks) == 1 else f'{len(tracks)} tracks'
+        header = ctk.CTkFrame(master, fg_color='transparent')
+        header.pack(fill='x', pady=(0, 6))
+        ctk.CTkLabel(header, text=f'SIDE {self.active_side} TRACKS', text_color=theme.TEXT, font=ctk.CTkFont(family='Orbitron', size=12, weight='bold')).pack(side='left')
+        ctk.CTkLabel(header, text=count_label, text_color=theme.MUTED).pack(side='right')
         box = ctk.CTkScrollableFrame(
             master,
             height=180,
