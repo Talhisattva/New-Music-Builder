@@ -130,8 +130,8 @@ class MainWindow(ctk.CTk):
     def _build_layout(self) -> None:
         content = ctk.CTkFrame(self, fg_color='transparent')
         content.pack(fill='both', expand=True, padx=8, pady=8)
-        content.grid_rowconfigure(0, weight=3)
-        content.grid_rowconfigure(1, weight=2)
+        content.grid_rowconfigure(0, weight=7)
+        content.grid_rowconfigure(1, weight=3)
         self.dashboard = content
 
         top_row = ctk.CTkFrame(content, fg_color='transparent')

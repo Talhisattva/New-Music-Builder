@@ -48,17 +48,17 @@ class ModSetupModule(ModulePanel):
         poster_stack = ctk.CTkFrame(top, fg_color='transparent')
         poster_stack.grid(row=0, column=0, sticky='nw', padx=(0, 8), pady=(0, 6))
         make_builder_label(poster_stack, 'WORKSHOP POSTER', text_color=theme.ACCENT_LIGHT, size=11, weight='bold').pack(anchor='w', pady=(0, 4))
-        self.poster_frame = ctk.CTkFrame(poster_stack, width=136, height=136, fg_color=theme.PANEL, border_color=theme.BORDER, border_width=1, corner_radius=12)
+        self.poster_frame = ctk.CTkFrame(poster_stack, width=144, height=144, fg_color=theme.PANEL, border_color=theme.BORDER, border_width=1, corner_radius=12)
         self.poster_frame.pack(anchor='w')
         self.poster_frame.pack_propagate(False)
-        self.poster_label = make_builder_label(self.poster_frame, 'Click To Pick Poster', size=10, weight='bold', justify='center', wraplength=108)
+        self.poster_label = make_builder_label(self.poster_frame, 'Click To Pick Poster', size=10, weight='bold', justify='center', wraplength=114)
         self.poster_label.pack(expand=True, padx=10, pady=10)
         self.poster_frame.bind('<Button-1>', lambda _event: self.pick_poster())
         self.poster_label.bind('<Button-1>', lambda _event: self.pick_poster())
         Tooltip(self.poster_frame, 'Click to choose the Workshop preview/poster image for this project.')
         write_name = make_builder_checkbox(
             poster_stack,
-            'Write Mod Name On Poster',
+            'Write Name\nOn Mod Poster',
             self._vars['write_name'],
             command=self._commit_boolean,
         )
@@ -76,7 +76,7 @@ class ModSetupModule(ModulePanel):
         ]
         for index, (key, label) in enumerate(field_specs):
             row = LabeledEntry(meta_form, label, self._vars[key], label_size=10, entry_font_size=10, entry_height=26, width=220)
-            row.grid(row=index, column=0, sticky='ew', padx=0, pady=(0, 5))
+            row.grid(row=index, column=0, sticky='ew', padx=0, pady=(0, 4))
             row.entry.bind('<FocusOut>', self._commit_text)
 
         lower_form = ctk.CTkFrame(top, fg_color='transparent')
@@ -84,15 +84,15 @@ class ModSetupModule(ModulePanel):
         lower_form.grid_columnconfigure(0, weight=1)
 
         ogg_row = ctk.CTkFrame(lower_form, fg_color='transparent')
-        ogg_row.grid(row=0, column=0, sticky='ew', padx=0, pady=(0, 5))
+        ogg_row.grid(row=0, column=0, sticky='ew', padx=0, pady=(0, 4))
         self._folder_row(ogg_row, 'OGG Output Folder', 'ogg_output_folder', self.pick_ogg_folder)
 
         workshop_row = ctk.CTkFrame(lower_form, fg_color='transparent')
-        workshop_row.grid(row=1, column=0, sticky='ew', padx=0, pady=(0, 5))
+        workshop_row.grid(row=1, column=0, sticky='ew', padx=0, pady=(0, 4))
         self._folder_row(workshop_row, 'Zomboid Workshop Folder', 'workshop_output_folder', self.pick_workshop_folder, detected=True)
 
         action_row = ctk.CTkFrame(lower_form, fg_color='transparent')
-        action_row.grid(row=2, column=0, sticky='ew', padx=0, pady=(5, 0))
+        action_row.grid(row=2, column=0, sticky='ew', padx=0, pady=(4, 0))
         action_row.grid_columnconfigure(0, weight=1)
         action_row.grid_columnconfigure(1, weight=1)
         action_row.grid_columnconfigure(2, weight=1)
@@ -105,12 +105,14 @@ class ModSetupModule(ModulePanel):
         row.pack(fill='x')
         make_builder_label(row, label_text, text_color=theme.TEXT, anchor='w', size=10, weight='bold').pack(fill='x')
         inner = ctk.CTkFrame(row, fg_color='transparent')
-        inner.pack(fill='x', pady=(2, 0))
+        inner.pack(fill='x', pady=(3, 0))
         entry = ctk.CTkEntry(inner, textvariable=self._vars[key])
         apply_builder_entry_style(entry, font_size=10, height=26, corner_radius=8)
         entry.pack(side='left', expand=True, fill='x')
         entry.bind('<FocusOut>', self._commit_text)
-        make_builder_button(inner, 'Browse', command, width=76, size='compact').pack(side='left', padx=(5, 0))
+        browse_button = make_builder_button(inner, 'Browse', command, width=76, size='compact')
+        browse_button.configure(height=26)
+        browse_button.pack(side='left', padx=(5, 0))
         if detected:
             self.detected_label = make_builder_label(row, '', text_color=theme.SUCCESS, anchor='e', size=10, weight='bold')
             self.detected_label.pack(fill='x', pady=(2, 0))
@@ -176,7 +178,7 @@ class ModSetupModule(ModulePanel):
             self.session.project.workshop_output_folder = str(detected)
         if self.detected_label is not None:
             self.detected_label.configure(text='✓ DETECTED' if detected else '')
-        image = load_ctk_image(self._vars['poster'].get().strip(), (124, 124))
+        image = load_ctk_image(self._vars['poster'].get().strip(), (132, 132))
         if self.poster_label is not None:
             if image is None:
                 self.poster_label.configure(text='Click To Pick Poster', image=None)
