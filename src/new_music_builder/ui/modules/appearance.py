@@ -12,6 +12,8 @@ from new_music_builder.ui.widgets.module_panel import ModulePanel
 
 
 class AppearanceModule(ModulePanel):
+    PREFERRED_WIDTH = 480
+
     def __init__(self, master, session, asset_catalog, on_change):
         super().__init__(master, 'CUSTOMIZE APPEARANCE')
         self.session = session
@@ -86,7 +88,7 @@ class AppearanceModule(ModulePanel):
 
     def _calculate_asset_columns(self) -> int:
         available_width = max(self.asset_grid.winfo_width(), self.body.winfo_width() - 24, 240)
-        return max(2, min(4, available_width // 116))
+        return max(2, min(3, available_width // 116))
 
     def refresh(self) -> None:
         row = self._active_row()

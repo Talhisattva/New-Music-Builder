@@ -168,13 +168,15 @@ class MainWindow(ctk.CTk):
         )
         self.mod_setup.pack(fill='both', expand=True, padx=4, pady=4)
 
-        phase_two.grid_columnconfigure(0, weight=7)
-        phase_two.grid_columnconfigure(1, weight=3)
+        phase_two.grid_columnconfigure(0, weight=1)
+        phase_two.grid_columnconfigure(1, weight=0)
         phase_two.grid_rowconfigure(0, weight=1)
+        phase_two.bind('<Configure>', self._sync_phase_two_split)
         self.media_creation = MediaCreationModule(phase_two, self.session, self.asset_catalog, self.on_project_change, self.on_select_row)
         self.media_creation.grid(row=0, column=0, sticky='nsew', padx=(4, 8), pady=4)
         self.appearance = AppearanceModule(phase_two, self.session, self.asset_catalog, self.on_project_change)
-        self.appearance.grid(row=0, column=1, sticky='nsew', padx=(8, 4), pady=4)
+        self.appearance.configure(width=AppearanceModule.PREFERRED_WIDTH)
+        self.appearance.grid(row=0, column=1, sticky='nse', padx=(8, 4), pady=4)
 
         phase_three.grid_columnconfigure(0, weight=2)
         phase_three.grid_columnconfigure(1, weight=1)
@@ -183,6 +185,15 @@ class MainWindow(ctk.CTk):
         self.build_export.grid(row=0, column=0, sticky='nsew', padx=(4, 8), pady=4)
         self.build_summary = BuildSummaryModule(phase_three, self.session)
         self.build_summary.grid(row=0, column=1, sticky='nsew', padx=(8, 4), pady=4)
+
+    def _sync_phase_two_split(self, event) -> None:
+        total_width = max(event.width - 24, 0)
+        right_width = min(AppearanceModule.PREFERRED_WIDTH, max(360, int(total_width * 0.3)))
+        left_width = max(0, total_width - right_width)
+        event.widget.grid_columnconfigure(0, minsize=left_width, weight=1)
+        event.widget.grid_columnconfigure(1, minsize=right_width, weight=0)
+        if hasattr(self, 'appearance'):
+            self.appearance.configure(width=right_width)
 
     def _show_sample_rate_dialog(self) -> None:
         popup = ctk.CTkInputDialog(text='Enter project sample rate', title='Sample Rate')
