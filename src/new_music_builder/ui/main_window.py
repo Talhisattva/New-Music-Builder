@@ -134,8 +134,21 @@ class MainWindow(ctk.CTk):
             text_color=theme.TEXT,
             corner_radius=12,
             border_width=0,
+            height=44,
         )
         self.phase_tabs.pack(fill='both', expand=True)
+        self.phase_tabs._segmented_button.configure(
+            height=40,
+            font=ctk.CTkFont(family='Orbitron', size=16, weight='bold'),
+            corner_radius=10,
+            text_color=theme.TEXT,
+            text_color_disabled=theme.MUTED,
+            fg_color=theme.PANEL,
+            selected_color=theme.ACCENT,
+            selected_hover_color=theme.ACCENT,
+            unselected_color=theme.PANEL_ALT,
+            unselected_hover_color=theme.PANEL,
+        )
         self.phase_tabs.add('PHASE 1')
         self.phase_tabs.add('PHASE 2')
         self.phase_tabs.add('PHASE 3')
