@@ -7,6 +7,7 @@ import customtkinter as ctk
 from new_music_builder.ui import theme
 from new_music_builder.ui.widgets.buttons import apply_builder_button_style, make_builder_button
 from new_music_builder.ui.widgets.checkboxes import make_builder_checkbox
+from new_music_builder.ui.widgets.fields import make_builder_label
 from new_music_builder.ui.widgets.images import load_ctk_image
 from new_music_builder.ui.widgets.module_panel import ModulePanel
 from new_music_builder.ui.widgets.tooltip import Tooltip
@@ -53,18 +54,13 @@ class AppearanceModule(ModulePanel):
         self.body.bind('<Configure>', self._schedule_layout_refresh)
         self.custom = ctk.CTkFrame(self.body, fg_color=theme.PANEL)
         self.custom.pack(fill='x', padx=10, pady=(0, 10))
-        self.custom_label = ctk.CTkLabel(
-            self.custom,
-            text='Add Custom Asset Pair',
-            text_color=theme.TEXT,
-            font=ctk.CTkFont(family='Orbitron', size=13, weight='bold'),
-        )
+        self.custom_label = make_builder_label(self.custom, 'Add Custom Asset Pair', text_color=theme.TEXT, size=13, weight='bold')
         self.custom_label.pack(anchor='w', padx=10, pady=(10, 6))
         self.custom_buttons = ctk.CTkFrame(self.custom, fg_color='transparent')
         self.custom_buttons.pack(fill='x', padx=10, pady=(0, 10))
         make_builder_button(self.custom_buttons, 'Pick Inventory', lambda: self._pick_custom('inventory')).pack(side='left', padx=(0, 6))
         make_builder_button(self.custom_buttons, 'Pick World', lambda: self._pick_custom('world'), variant='secondary').pack(side='left')
-        self.custom_status = ctk.CTkLabel(self.custom, text='', text_color=theme.MUTED)
+        self.custom_status = make_builder_label(self.custom, '', text_color=theme.MUTED, size=11)
         self.custom_status.pack(anchor='w', padx=10, pady=(0, 10))
         self._custom_pending: dict[str, str] = {}
 

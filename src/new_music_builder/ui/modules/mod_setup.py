@@ -9,7 +9,7 @@ from new_music_builder.platform.paths import detect_workshop_dir
 from new_music_builder.ui import theme
 from new_music_builder.ui.widgets.buttons import make_builder_button
 from new_music_builder.ui.widgets.checkboxes import make_builder_checkbox
-from new_music_builder.ui.widgets.fields import LabeledEntry, apply_builder_entry_style
+from new_music_builder.ui.widgets.fields import LabeledEntry, apply_builder_entry_style, make_builder_label
 from new_music_builder.ui.widgets.images import load_ctk_image
 from new_music_builder.ui.widgets.module_panel import ModulePanel
 from new_music_builder.ui.widgets.tooltip import Tooltip
@@ -86,7 +86,7 @@ class ModSetupModule(ModulePanel):
         self.poster_frame = ctk.CTkFrame(poster_stack, width=340, height=340, fg_color=theme.PANEL, border_color=theme.BORDER, border_width=1, corner_radius=12)
         self.poster_frame.pack(anchor='center')
         self.poster_frame.pack_propagate(False)
-        self.poster_label = ctk.CTkLabel(self.poster_frame, text='Click To Pick Poster')
+        self.poster_label = make_builder_label(self.poster_frame, 'Click To Pick Poster', size=12, weight='bold')
         self.poster_label.pack(expand=True)
         self.poster_frame.bind('<Button-1>', lambda _event: self.pick_poster())
         self.poster_label.bind('<Button-1>', lambda _event: self.pick_poster())
@@ -102,13 +102,7 @@ class ModSetupModule(ModulePanel):
     def _folder_row(self, master, label_text: str, key: str, command, detected: bool = False) -> None:
         row = ctk.CTkFrame(master, fg_color='transparent')
         row.pack(fill='x', pady=(0, 8))
-        ctk.CTkLabel(
-            row,
-            text=label_text,
-            text_color=theme.TEXT,
-            anchor='w',
-            font=ctk.CTkFont(family='Orbitron', size=12, weight='bold'),
-        ).pack(fill='x')
+        make_builder_label(row, label_text, text_color=theme.TEXT, anchor='w', size=12, weight='bold').pack(fill='x')
         inner = ctk.CTkFrame(row, fg_color='transparent')
         inner.pack(fill='x', pady=(4, 0))
         entry = ctk.CTkEntry(inner, textvariable=self._vars[key])
@@ -117,7 +111,7 @@ class ModSetupModule(ModulePanel):
         entry.bind('<FocusOut>', self._commit_text)
         make_builder_button(inner, 'Browse', command, width=96).pack(side='left', padx=(8, 0))
         if detected:
-            self.detected_label = ctk.CTkLabel(row, text='', text_color=theme.SUCCESS, anchor='e')
+            self.detected_label = make_builder_label(row, '', text_color=theme.SUCCESS, anchor='e', size=11, weight='bold')
             self.detected_label.pack(fill='x', pady=(4, 0))
 
     def _commit_text(self, _event=None) -> None:

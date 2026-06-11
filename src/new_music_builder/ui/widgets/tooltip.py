@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import customtkinter as ctk
+from new_music_builder.ui import theme
+from new_music_builder.ui.widgets.fields import make_builder_font
 
 
 class Tooltip:
@@ -67,7 +69,16 @@ class Tooltip:
         self.window = ctk.CTkToplevel(self.widget)
         self.window.overrideredirect(True)
         self.window.attributes('-topmost', True)
-        self.label = ctk.CTkLabel(self.window, text=self.text, justify='left', wraplength=280)
+        self.label = ctk.CTkLabel(
+            self.window,
+            text=self.text,
+            justify='left',
+            wraplength=280,
+            text_color=theme.TEXT,
+            fg_color=theme.PANEL,
+            corner_radius=8,
+            font=make_builder_font(size=11, weight='bold'),
+        )
         self.label.pack(padx=8, pady=6)
         self._position_window()
         self._watch_visibility()

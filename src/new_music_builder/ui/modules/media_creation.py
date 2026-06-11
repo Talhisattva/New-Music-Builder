@@ -9,7 +9,7 @@ from new_music_builder.domain.models import MediaRow, TrackEntry
 from new_music_builder.services.asset_catalog import AssetEntry
 from new_music_builder.ui import theme
 from new_music_builder.ui.widgets.buttons import make_builder_button
-from new_music_builder.ui.widgets.fields import apply_builder_entry_style
+from new_music_builder.ui.widgets.fields import apply_builder_entry_style, make_builder_label
 from new_music_builder.ui.widgets.images import load_ctk_image
 from new_music_builder.ui.widgets.module_panel import ModulePanel
 from new_music_builder.ui.widgets.tooltip import Tooltip
@@ -79,16 +79,16 @@ class MediaCreationModule(ModulePanel):
             size='compact',
         )
         number.pack(side='left')
-        cover = ctk.CTkLabel(top, text='Cover', width=56)
+        cover = make_builder_label(top, 'Cover', width=56, size=11, weight='bold')
         cover.pack(side='left', padx=(8, 8))
         cover_image = load_ctk_image(row.cover_path, (48, 48))
         if cover_image is not None:
             cover.configure(text='', image=cover_image)
             cover.image = cover_image
         media_text = ' '.join([label for key, label in [('cassette', 'Cas'), ('vinyl', 'Vin'), ('cd', 'CD')] if row.enabled_media.get(key)])
-        ctk.CTkLabel(top, text=media_text or 'No Media', text_color=theme.MUTED).pack(side='left', padx=(0, 12))
+        make_builder_label(top, media_text or 'No Media', text_color=theme.MUTED, size=11).pack(side='left', padx=(0, 12))
         summary = f"A-Side ({len(row.tracks_a)} Songs)    B-Side ({len(row.tracks_b)} Songs)"
-        ctk.CTkLabel(top, text=summary, text_color=theme.TEXT, anchor='w').pack(side='left', fill='x', expand=True)
+        make_builder_label(top, summary, text_color=theme.TEXT, anchor='w', size=12, weight='bold').pack(side='left', fill='x', expand=True)
 
         if row.expanded:
             self._render_expanded(card, row)
@@ -114,7 +114,7 @@ class MediaCreationModule(ModulePanel):
 
         left = ctk.CTkFrame(body, fg_color='transparent')
         left.grid(row=0, column=0, sticky='ns', padx=(10, 6), pady=10)
-        ctk.CTkLabel(left, text='ARTWORK', text_color=theme.ACCENT_LIGHT, font=ctk.CTkFont(family='Orbitron', size=12, weight='bold')).pack(anchor='w', pady=(0, 8))
+        make_builder_label(left, 'ARTWORK', text_color=theme.ACCENT_LIGHT, size=12, weight='bold').pack(anchor='w', pady=(0, 8))
         cover_btn = make_builder_button(left, 'Pick Cover', lambda rid=row.row_id: self._pick_cover(rid), width=140)
         cover_btn.configure(height=140, corner_radius=14)
         cover_btn.pack(anchor='w')
@@ -138,7 +138,7 @@ class MediaCreationModule(ModulePanel):
 
         center = ctk.CTkFrame(body, fg_color='transparent')
         center.grid(row=0, column=1, sticky='nsew', padx=6, pady=10)
-        ctk.CTkLabel(center, text='MEDIA DETAILS', text_color=theme.ACCENT_LIGHT, font=ctk.CTkFont(family='Orbitron', size=12, weight='bold')).pack(anchor='w', pady=(0, 8))
+        make_builder_label(center, 'MEDIA DETAILS', text_color=theme.ACCENT_LIGHT, size=12, weight='bold').pack(anchor='w', pady=(0, 8))
         name_var = ctk.StringVar(value=row.media_name)
         name_entry = ctk.CTkEntry(center, textvariable=name_var)
         apply_builder_entry_style(name_entry, font_size=14)
@@ -160,16 +160,16 @@ class MediaCreationModule(ModulePanel):
         right = ctk.CTkFrame(body, fg_color='transparent', width=240)
         right.grid(row=0, column=2, sticky='nsew', padx=(6, 10), pady=10)
         right.grid_propagate(False)
-        ctk.CTkLabel(right, text='LIVE PREVIEW', text_color=theme.ACCENT_LIGHT, font=ctk.CTkFont(family='Orbitron', size=12, weight='bold')).pack(anchor='w')
+        make_builder_label(right, 'LIVE PREVIEW', text_color=theme.ACCENT_LIGHT, size=12, weight='bold').pack(anchor='w')
         preview_box = ctk.CTkFrame(right, fg_color=theme.PANEL, width=220, height=180)
         preview_box.pack(fill='x', pady=(8, 0))
         preview_box.pack_propagate(False)
         preview_items = self._preview_assets_for_row(row)
         if not preview_items:
-            ctk.CTkLabel(preview_box, text='Enable media types to preview selected art.', text_color=theme.MUTED, wraplength=180, justify='left').pack(anchor='w', padx=12, pady=12)
+            make_builder_label(preview_box, 'Enable media types to preview selected art.', text_color=theme.MUTED, wraplength=180, justify='left', size=11).pack(anchor='w', padx=12, pady=12)
         for item in preview_items:
             image = load_ctk_image(item.inventory_path, (48, 48))
-            label = ctk.CTkLabel(preview_box, text=item.label, image=image, compound='top')
+            label = make_builder_label(preview_box, item.label, image=image, compound='top', size=11, weight='bold')
             label.image = image
             label.pack(side='left', padx=6, pady=12)
 
@@ -178,8 +178,8 @@ class MediaCreationModule(ModulePanel):
         count_label = f'{len(tracks)} track' if len(tracks) == 1 else f'{len(tracks)} tracks'
         header = ctk.CTkFrame(master, fg_color='transparent')
         header.pack(fill='x', pady=(0, 6))
-        ctk.CTkLabel(header, text=f'SIDE {self.active_side} TRACKS', text_color=theme.TEXT, font=ctk.CTkFont(family='Orbitron', size=12, weight='bold')).pack(side='left')
-        ctk.CTkLabel(header, text=count_label, text_color=theme.MUTED).pack(side='right')
+        make_builder_label(header, f'SIDE {self.active_side} TRACKS', text_color=theme.TEXT, size=12, weight='bold').pack(side='left')
+        make_builder_label(header, count_label, text_color=theme.MUTED, size=11).pack(side='right')
         box = ctk.CTkScrollableFrame(
             master,
             height=180,
@@ -191,9 +191,9 @@ class MediaCreationModule(ModulePanel):
         for index, track in enumerate(tracks, start=1):
             line = ctk.CTkFrame(box, fg_color=theme.PANEL)
             line.pack(fill='x', pady=(0, 4))
-            ctk.CTkLabel(line, text=f'{index:02d}', width=28).pack(side='left', padx=4)
-            ctk.CTkLabel(line, text=track.display_label or Path(track.source_path).name or 'Empty Track', anchor='w').pack(side='left', fill='x', expand=True)
-            ctk.CTkLabel(line, text=track.duration or '--:--').pack(side='left', padx=4)
+            make_builder_label(line, f'{index:02d}', width=28, size=11, weight='bold').pack(side='left', padx=4)
+            make_builder_label(line, track.display_label or Path(track.source_path).name or 'Empty Track', anchor='w', size=11).pack(side='left', fill='x', expand=True)
+            make_builder_label(line, track.duration or '--:--', size=11).pack(side='left', padx=4)
         controls = ctk.CTkFrame(master, fg_color='transparent')
         controls.pack(fill='x', pady=(8, 0))
         make_builder_button(controls, '+ Add Songs', lambda rid=row.row_id: self._add_songs(rid)).pack(side='left', padx=(0, 6))
