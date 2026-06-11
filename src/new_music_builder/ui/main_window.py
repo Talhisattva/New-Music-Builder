@@ -145,7 +145,14 @@ class MainWindow(ctk.CTk):
         phase_two = self.phase_tabs.tab('PHASE 2')
         phase_three = self.phase_tabs.tab('PHASE 3')
 
-        self.mod_setup = ModSetupModule(phase_one, self.session, self.on_project_change, self.save_project, self.load_project)
+        self.mod_setup = ModSetupModule(
+            phase_one,
+            self.session,
+            self.on_project_change,
+            self.save_project,
+            self.load_project,
+            self.reset_phase_one_fields,
+        )
         self.mod_setup.pack(fill='both', expand=True, padx=4, pady=4)
 
         phase_two.grid_columnconfigure(0, weight=2)
@@ -209,6 +216,9 @@ class MainWindow(ctk.CTk):
         self.build_log = []
         self.preview_entries = []
         self.refresh_all()
+
+    def reset_phase_one_fields(self) -> None:
+        self.mod_setup.reset_fields()
 
     def save_project(self) -> None:
         if self.session.current_path:
