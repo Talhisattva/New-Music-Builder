@@ -5,7 +5,7 @@ import tkinter.filedialog as fd
 import customtkinter as ctk
 
 from new_music_builder.ui import theme
-from new_music_builder.ui.widgets.buttons import make_builder_button
+from new_music_builder.ui.widgets.buttons import apply_builder_button_style, make_builder_button
 from new_music_builder.ui.widgets.checkboxes import make_builder_checkbox
 from new_music_builder.ui.widgets.images import load_ctk_image
 from new_music_builder.ui.widgets.module_panel import ModulePanel
@@ -20,25 +20,34 @@ class AppearanceModule(ModulePanel):
         self.active_kind = 'cassette'
         self.active_row_id = session.project.media_rows[0].row_id if session.project.media_rows else None
         self.asset_grid = ctk.CTkScrollableFrame(self.body, fg_color='transparent')
+        self.kind_buttons: dict[str, ctk.CTkButton] = {}
+        self._asset_columns = 0
+        self._layout_refresh_after: str | None = None
         self._build()
         self.refresh()
 
     def _build(self) -> None:
         self.tabs = ctk.CTkFrame(self.body, fg_color='transparent')
         self.tabs.pack(fill='x', padx=10, pady=(10, 4))
-        for kind, label in [('cassette', 'Cassette'), ('vinyl', 'Vinyl'), ('cd', 'CD'), ('case', 'Case'), ('jacket', 'Jacket'), ('cd_cover', 'CD Cover')]:
-            make_builder_button(
+        kinds = [('cassette', 'Cassette'), ('vinyl', 'Vinyl'), ('cd', 'CD'), ('case', 'Case'), ('jacket', 'Jacket'), ('cd_cover', 'CD Cover')]
+        for column in range(3):
+            self.tabs.grid_columnconfigure(column, weight=1)
+        for index, (kind, label) in enumerate(kinds):
+            button = make_builder_button(
                 self.tabs,
                 label,
                 lambda current=kind: self._switch_kind(current),
-                width=80,
-                variant='selected' if self.active_kind == kind else 'subtle',
+                variant='subtle',
                 size='compact',
-            ).pack(side='left', padx=3)
+            )
+            button.grid(row=index // 3, column=index % 3, padx=3, pady=3, sticky='ew')
+            self.kind_buttons[kind] = button
         self.dual_var = ctk.BooleanVar(value=False)
         self.dual_check = make_builder_checkbox(self.body, 'Dual Sprite Full/Empty', self.dual_var)
         self.dual_check.pack(anchor='w', padx=12, pady=(0, 4))
+        self.asset_grid.configure(scrollbar_button_color=theme.ACCENT, scrollbar_button_hover_color=theme.ACCENT_DARK)
         self.asset_grid.pack(fill='both', expand=True, padx=8, pady=(0, 8))
+        self.body.bind('<Configure>', self._schedule_layout_refresh)
         self.custom = ctk.CTkFrame(self.body, fg_color=theme.PANEL)
         self.custom.pack(fill='x', padx=10, pady=(0, 10))
         self.custom_label = ctk.CTkLabel(
@@ -64,10 +73,31 @@ class AppearanceModule(ModulePanel):
         self.active_kind = kind
         self.refresh()
 
+    def _schedule_layout_refresh(self, _event=None) -> None:
+        if self._layout_refresh_after is not None:
+            self.after_cancel(self._layout_refresh_after)
+        self._layout_refresh_after = self.after(80, self._refresh_layout_if_needed)
+
+    def _refresh_layout_if_needed(self) -> None:
+        self._layout_refresh_after = None
+        columns = self._calculate_asset_columns()
+        if columns != self._asset_columns:
+            self.refresh()
+
+    def _calculate_asset_columns(self) -> int:
+        available_width = max(self.asset_grid.winfo_width(), self.body.winfo_width() - 24, 240)
+        return max(2, min(4, available_width // 116))
+
     def refresh(self) -> None:
         row = self._active_row()
         if row is None:
             return
+        for kind, button in self.kind_buttons.items():
+            apply_builder_button_style(
+                button,
+                variant='selected' if self.active_kind == kind else 'subtle',
+                size='compact',
+            )
         selection = row.appearances[self.active_kind]
         self.dual_check.pack_forget()
         if self.active_kind in {'case', 'jacket', 'cd_cover'}:
@@ -79,6 +109,10 @@ class AppearanceModule(ModulePanel):
         if entries and not selection.selected_asset_key:
             selection.selected_asset_key = entries[0].key
         row.appearances[self.active_kind] = selection
+        columns = self._calculate_asset_columns()
+        self._asset_columns = columns
+        for column in range(columns):
+            self.asset_grid.grid_columnconfigure(column, weight=1)
         for idx, entry in enumerate(entries):
             make_builder_button(
                 self.asset_grid,
@@ -90,7 +124,7 @@ class AppearanceModule(ModulePanel):
                 image=load_ctk_image(entry.inventory_path, (48, 48)),
                 compound='top',
                 height=92,
-            ).grid(row=idx // 3, column=idx % 3, padx=6, pady=6, sticky='nsew')
+            ).grid(row=idx // columns, column=idx % columns, padx=6, pady=6, sticky='ew')
 
     def _select_asset(self, key: str) -> None:
         row = self._active_row()
