@@ -27,12 +27,16 @@ from new_music_builder.ui.modules.mod_setup import ModSetupModule
 
 
 class MainWindow(ctk.CTk):
+    MOD_SETUP_WIDTH = 460
+    APPEARANCE_RAIL_WIDTH = 392
+    SUMMARY_RAIL_WIDTH = 356
+
     def __init__(self) -> None:
         super().__init__()
         ctk.set_appearance_mode('dark')
         self.title(f'New Music Builder v{__version__}')
-        self.geometry('1680x980')
-        self.minsize(1320, 820)
+        self.geometry('1780x1060')
+        self.minsize(1460, 900)
         self.configure(fg_color=theme.BG)
 
         self.project_store = ProjectStore()
@@ -43,6 +47,10 @@ class MainWindow(ctk.CTk):
         self.session = ProjectSession(project=self.session, current_path=saved_path)
         self._window_icon_image = None
         self._header_icon_image = None
+        self._top_layout_after_id: str | None = None
+        self._bottom_layout_after_id: str | None = None
+        self._top_layout_state: tuple[int, int] | None = None
+        self._bottom_layout_state: int | None = None
 
         sibling_root = app_root().parent
         base_mod_root = sibling_root / 'Talis New Music'
@@ -121,79 +129,94 @@ class MainWindow(ctk.CTk):
 
     def _build_layout(self) -> None:
         content = ctk.CTkFrame(self, fg_color='transparent')
-        content.pack(fill='both', expand=True, padx=8, pady=8)
+        content.pack(fill='both', expand=True, padx=10, pady=10)
+        content.grid_rowconfigure(0, weight=3)
+        content.grid_rowconfigure(1, weight=2)
+        self.dashboard = content
 
-        self.phase_tabs = ctk.CTkTabview(
-            content,
-            fg_color=theme.BG,
-            segmented_button_fg_color=theme.PANEL,
-            segmented_button_selected_color=theme.ACCENT,
-            segmented_button_selected_hover_color=theme.ACCENT,
-            segmented_button_unselected_color=theme.PANEL_ALT,
-            segmented_button_unselected_hover_color=theme.PANEL,
-            text_color=theme.TEXT,
-            corner_radius=12,
-            border_width=0,
-            height=44,
-        )
-        self.phase_tabs.pack(fill='both', expand=True)
-        self.phase_tabs._segmented_button.configure(
-            height=40,
-            font=ctk.CTkFont(family='Orbitron', size=16, weight='bold'),
-            corner_radius=10,
-            text_color=theme.TEXT,
-            text_color_disabled=theme.MUTED,
-            fg_color=theme.PANEL,
-            selected_color=theme.ACCENT,
-            selected_hover_color=theme.ACCENT,
-            unselected_color=theme.PANEL_ALT,
-            unselected_hover_color=theme.PANEL,
-        )
-        self.phase_tabs.add('PHASE 1')
-        self.phase_tabs.add('PHASE 2')
-        self.phase_tabs.add('PHASE 3')
-        self.phase_tabs.set('PHASE 1')
+        top_row = ctk.CTkFrame(content, fg_color='transparent')
+        top_row.grid(row=0, column=0, sticky='nsew', pady=(0, 8))
+        top_row.grid_columnconfigure(0, weight=0)
+        top_row.grid_columnconfigure(1, weight=1)
+        top_row.grid_columnconfigure(2, weight=0)
+        top_row.grid_rowconfigure(0, weight=1)
+        top_row.bind('<Configure>', self._schedule_top_dashboard_layout)
+        self.top_row = top_row
 
-        phase_one = self.phase_tabs.tab('PHASE 1')
-        phase_two = self.phase_tabs.tab('PHASE 2')
-        phase_three = self.phase_tabs.tab('PHASE 3')
+        bottom_row = ctk.CTkFrame(content, fg_color='transparent')
+        bottom_row.grid(row=1, column=0, sticky='nsew', pady=(8, 0))
+        bottom_row.grid_columnconfigure(0, weight=1)
+        bottom_row.grid_columnconfigure(1, weight=0)
+        bottom_row.grid_rowconfigure(0, weight=1)
+        bottom_row.bind('<Configure>', self._schedule_bottom_dashboard_layout)
+        self.bottom_row = bottom_row
 
         self.mod_setup = ModSetupModule(
-            phase_one,
+            top_row,
             self.session,
             self.on_project_change,
             self.save_project,
             self.load_project,
             self.reset_phase_one_fields,
         )
-        self.mod_setup.pack(fill='both', expand=True, padx=4, pady=4)
+        self.mod_setup.configure(width=self.MOD_SETUP_WIDTH)
+        self.mod_setup.grid(row=0, column=0, sticky='nsw', padx=(0, 8), pady=(0, 8))
 
-        phase_two.grid_columnconfigure(0, weight=1)
-        phase_two.grid_columnconfigure(1, weight=0)
-        phase_two.grid_rowconfigure(0, weight=1)
-        phase_two.bind('<Configure>', self._sync_phase_two_split)
-        self.media_creation = MediaCreationModule(phase_two, self.session, self.asset_catalog, self.on_project_change, self.on_select_row)
-        self.media_creation.grid(row=0, column=0, sticky='nsew', padx=(4, 8), pady=4)
-        self.appearance = AppearanceModule(phase_two, self.session, self.asset_catalog, self.on_project_change)
-        self.appearance.configure(width=AppearanceModule.PREFERRED_WIDTH)
-        self.appearance.grid(row=0, column=1, sticky='nse', padx=(8, 4), pady=4)
+        self.media_creation = MediaCreationModule(top_row, self.session, self.asset_catalog, self.on_project_change, self.on_select_row)
+        self.media_creation.grid(row=0, column=1, sticky='nsew', padx=8, pady=(0, 8))
 
-        phase_three.grid_columnconfigure(0, weight=2)
-        phase_three.grid_columnconfigure(1, weight=1)
-        phase_three.grid_rowconfigure(0, weight=1)
-        self.build_export = BuildExportModule(phase_three, self.session, self.run_build_preview, self.reset_transient_state)
-        self.build_export.grid(row=0, column=0, sticky='nsew', padx=(4, 8), pady=4)
-        self.build_summary = BuildSummaryModule(phase_three, self.session)
-        self.build_summary.grid(row=0, column=1, sticky='nsew', padx=(8, 4), pady=4)
+        self.appearance = AppearanceModule(top_row, self.session, self.asset_catalog, self.on_project_change)
+        self.appearance.configure(width=self.APPEARANCE_RAIL_WIDTH)
+        self.appearance.grid(row=0, column=2, sticky='nsew', padx=(8, 0), pady=(0, 8))
 
-    def _sync_phase_two_split(self, event) -> None:
-        total_width = max(event.width - 24, 0)
-        right_width = min(AppearanceModule.PREFERRED_WIDTH, max(320, int(total_width * 0.26)))
-        left_width = max(0, total_width - right_width)
-        event.widget.grid_columnconfigure(0, minsize=left_width, weight=1)
-        event.widget.grid_columnconfigure(1, minsize=right_width, weight=0)
+        self.build_export = BuildExportModule(bottom_row, self.session, self.run_build_preview, self.reset_transient_state)
+        self.build_export.grid(row=0, column=0, sticky='nsew', padx=(0, 8))
+
+        self.build_summary = BuildSummaryModule(bottom_row, self.session)
+        self.build_summary.grid(row=0, column=1, sticky='nsew', padx=(8, 0))
+
+    def _schedule_top_dashboard_layout(self, event) -> None:
+        if self._top_layout_after_id is not None:
+            self.after_cancel(self._top_layout_after_id)
+        width = event.width
+        self._top_layout_after_id = self.after(60, lambda current=width: self._sync_top_dashboard_layout(current))
+
+    def _schedule_bottom_dashboard_layout(self, event) -> None:
+        if self._bottom_layout_after_id is not None:
+            self.after_cancel(self._bottom_layout_after_id)
+        width = event.width
+        self._bottom_layout_after_id = self.after(60, lambda current=width: self._sync_bottom_dashboard_layout(current))
+
+    def _sync_top_dashboard_layout(self, width: int) -> None:
+        self._top_layout_after_id = None
+        if not hasattr(self, 'top_row') or not self.top_row.winfo_exists():
+            return
+        total_width = max(width - 24, 0)
+        mod_setup_width = min(self.MOD_SETUP_WIDTH, max(420, int(total_width * 0.27)))
+        appearance_width = min(self.APPEARANCE_RAIL_WIDTH, max(336, int(total_width * 0.23)))
+        state = (mod_setup_width, appearance_width)
+        if state == self._top_layout_state:
+            return
+        self._top_layout_state = state
+
+        self.top_row.grid_columnconfigure(0, minsize=mod_setup_width, weight=0)
+        self.top_row.grid_columnconfigure(1, minsize=max(520, total_width - mod_setup_width - appearance_width), weight=1)
+        self.top_row.grid_columnconfigure(2, minsize=appearance_width, weight=0)
+
         if hasattr(self, 'appearance'):
-            self.appearance.configure(width=right_width)
+            self.appearance.configure(width=appearance_width)
+
+    def _sync_bottom_dashboard_layout(self, width: int) -> None:
+        self._bottom_layout_after_id = None
+        if not hasattr(self, 'bottom_row') or not self.bottom_row.winfo_exists():
+            return
+        total_width = max(width - 8, 0)
+        summary_width = min(self.SUMMARY_RAIL_WIDTH, max(320, int(total_width * 0.24)))
+        if summary_width == self._bottom_layout_state:
+            return
+        self._bottom_layout_state = summary_width
+        self.bottom_row.grid_columnconfigure(0, minsize=max(640, total_width - summary_width), weight=1)
+        self.bottom_row.grid_columnconfigure(1, minsize=summary_width, weight=0)
 
     def _show_sample_rate_dialog(self) -> None:
         popup = ctk.CTkInputDialog(text='Enter project sample rate', title='Sample Rate')
