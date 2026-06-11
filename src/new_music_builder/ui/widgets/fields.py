@@ -36,14 +36,20 @@ def make_builder_label(
     return apply_builder_label_style(label, size=size, weight=weight, text_color=text_color)
 
 
-def apply_builder_entry_style(entry: ctk.CTkEntry, *, font_size: int = 13) -> ctk.CTkEntry:
+def apply_builder_entry_style(
+    entry: ctk.CTkEntry,
+    *,
+    font_size: int = 13,
+    height: int = 34,
+    corner_radius: int = 10,
+) -> ctk.CTkEntry:
     entry.configure(
         fg_color=theme.PANEL,
         border_color=theme.BORDER,
         text_color=theme.TEXT,
         placeholder_text_color=theme.MUTED,
-        corner_radius=10,
-        height=34,
+        corner_radius=corner_radius,
+        height=height,
         font=make_builder_font(size=font_size),
     )
     return entry
@@ -76,9 +82,19 @@ def apply_builder_progress_style(progress: ctk.CTkProgressBar) -> ctk.CTkProgres
 
 
 class LabeledEntry(ctk.CTkFrame):
-    def __init__(self, master, label: str, variable, *, width: int = 240):
+    def __init__(
+        self,
+        master,
+        label: str,
+        variable,
+        *,
+        width: int = 240,
+        label_size: int = 12,
+        entry_font_size: int = 13,
+        entry_height: int = 34,
+    ):
         super().__init__(master, fg_color='transparent')
-        make_builder_label(self, label, text_color=theme.TEXT, anchor='w', size=12, weight='bold').pack(fill='x')
+        make_builder_label(self, label, text_color=theme.TEXT, anchor='w', size=label_size, weight='bold').pack(fill='x')
         self.entry = ctk.CTkEntry(self, textvariable=variable, width=width)
-        apply_builder_entry_style(self.entry)
-        self.entry.pack(fill='x', pady=(4, 0))
+        apply_builder_entry_style(self.entry, font_size=entry_font_size, height=entry_height, corner_radius=8 if entry_height <= 30 else 10)
+        self.entry.pack(fill='x', pady=(3, 0))
