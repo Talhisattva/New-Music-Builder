@@ -168,8 +168,8 @@ class MainWindow(ctk.CTk):
         )
         self.mod_setup.pack(fill='both', expand=True, padx=4, pady=4)
 
-        phase_two.grid_columnconfigure(0, weight=2)
-        phase_two.grid_columnconfigure(1, weight=1)
+        phase_two.grid_columnconfigure(0, weight=7)
+        phase_two.grid_columnconfigure(1, weight=3)
         phase_two.grid_rowconfigure(0, weight=1)
         self.media_creation = MediaCreationModule(phase_two, self.session, self.asset_catalog, self.on_project_change, self.on_select_row)
         self.media_creation.grid(row=0, column=0, sticky='nsew', padx=(4, 8), pady=4)
