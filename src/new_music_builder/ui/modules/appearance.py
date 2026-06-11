@@ -9,6 +9,7 @@ from new_music_builder.ui.widgets.buttons import apply_builder_button_style, mak
 from new_music_builder.ui.widgets.checkboxes import make_builder_checkbox
 from new_music_builder.ui.widgets.images import load_ctk_image
 from new_music_builder.ui.widgets.module_panel import ModulePanel
+from new_music_builder.ui.widgets.tooltip import Tooltip
 
 
 class AppearanceModule(ModulePanel):
@@ -116,17 +117,19 @@ class AppearanceModule(ModulePanel):
         for column in range(columns):
             self.asset_grid.grid_columnconfigure(column, weight=1)
         for idx, entry in enumerate(entries):
-            make_builder_button(
+            tile = make_builder_button(
                 self.asset_grid,
-                entry.label,
+                '',
                 lambda key=entry.key: self._select_asset(key),
-                width=92,
+                width=96,
                 variant='selected' if selection.selected_asset_key == entry.key else 'subtle',
                 size='compact',
-                image=load_ctk_image(entry.inventory_path, (48, 48)),
-                compound='top',
-                height=92,
-            ).grid(row=idx // columns, column=idx % columns, padx=6, pady=6, sticky='ew')
+                image=load_ctk_image(entry.inventory_path, (68, 68)),
+                height=96,
+            )
+            tile.configure(anchor='center', border_width=2)
+            Tooltip(tile, entry.label)
+            tile.grid(row=idx // columns, column=idx % columns, padx=6, pady=6, sticky='n')
 
     def _select_asset(self, key: str) -> None:
         row = self._active_row()
