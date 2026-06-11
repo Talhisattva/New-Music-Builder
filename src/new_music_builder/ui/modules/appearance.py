@@ -5,6 +5,8 @@ import tkinter.filedialog as fd
 import customtkinter as ctk
 
 from new_music_builder.ui import theme
+from new_music_builder.ui.widgets.buttons import make_builder_button
+from new_music_builder.ui.widgets.checkboxes import make_builder_checkbox
 from new_music_builder.ui.widgets.images import load_ctk_image
 from new_music_builder.ui.widgets.module_panel import ModulePanel
 
@@ -25,20 +27,32 @@ class AppearanceModule(ModulePanel):
         self.tabs = ctk.CTkFrame(self.body, fg_color='transparent')
         self.tabs.pack(fill='x', padx=10, pady=(10, 4))
         for kind, label in [('cassette', 'Cassette'), ('vinyl', 'Vinyl'), ('cd', 'CD'), ('case', 'Case'), ('jacket', 'Jacket'), ('cd_cover', 'CD Cover')]:
-            ctk.CTkButton(self.tabs, text=label, command=lambda current=kind: self._switch_kind(current), width=80).pack(side='left', padx=3)
+            make_builder_button(
+                self.tabs,
+                label,
+                lambda current=kind: self._switch_kind(current),
+                width=80,
+                variant='selected' if self.active_kind == kind else 'subtle',
+                size='compact',
+            ).pack(side='left', padx=3)
         self.dual_var = ctk.BooleanVar(value=False)
-        self.dual_check = ctk.CTkCheckBox(self.body, text='Dual Sprite Full/Empty', variable=self.dual_var)
+        self.dual_check = make_builder_checkbox(self.body, 'Dual Sprite Full/Empty', self.dual_var)
         self.dual_check.pack(anchor='w', padx=12, pady=(0, 4))
         self.asset_grid.pack(fill='both', expand=True, padx=8, pady=(0, 8))
         self.custom = ctk.CTkFrame(self.body, fg_color=theme.PANEL)
         self.custom.pack(fill='x', padx=10, pady=(0, 10))
-        self.custom_label = ctk.CTkLabel(self.custom, text='Add Custom Asset Pair')
+        self.custom_label = ctk.CTkLabel(
+            self.custom,
+            text='Add Custom Asset Pair',
+            text_color=theme.TEXT,
+            font=ctk.CTkFont(family='Orbitron', size=13, weight='bold'),
+        )
         self.custom_label.pack(anchor='w', padx=10, pady=(10, 6))
         self.custom_buttons = ctk.CTkFrame(self.custom, fg_color='transparent')
         self.custom_buttons.pack(fill='x', padx=10, pady=(0, 10))
-        ctk.CTkButton(self.custom_buttons, text='Pick Inventory', command=lambda: self._pick_custom('inventory')).pack(side='left', padx=(0, 6))
-        ctk.CTkButton(self.custom_buttons, text='Pick World', command=lambda: self._pick_custom('world')).pack(side='left')
-        self.custom_status = ctk.CTkLabel(self.custom, text='')
+        make_builder_button(self.custom_buttons, 'Pick Inventory', lambda: self._pick_custom('inventory')).pack(side='left', padx=(0, 6))
+        make_builder_button(self.custom_buttons, 'Pick World', lambda: self._pick_custom('world'), variant='secondary').pack(side='left')
+        self.custom_status = ctk.CTkLabel(self.custom, text='', text_color=theme.MUTED)
         self.custom_status.pack(anchor='w', padx=10, pady=(0, 10))
         self._custom_pending: dict[str, str] = {}
 
@@ -66,17 +80,17 @@ class AppearanceModule(ModulePanel):
             selection.selected_asset_key = entries[0].key
         row.appearances[self.active_kind] = selection
         for idx, entry in enumerate(entries):
-            tile = ctk.CTkButton(
+            make_builder_button(
                 self.asset_grid,
-                text=entry.label,
+                entry.label,
+                lambda key=entry.key: self._select_asset(key),
+                width=92,
+                variant='selected' if selection.selected_asset_key == entry.key else 'subtle',
+                size='compact',
                 image=load_ctk_image(entry.inventory_path, (48, 48)),
                 compound='top',
-                width=92,
                 height=92,
-                fg_color=theme.ACCENT if selection.selected_asset_key == entry.key else theme.PANEL,
-                command=lambda key=entry.key: self._select_asset(key),
-            )
-            tile.grid(row=idx // 3, column=idx % 3, padx=6, pady=6, sticky='nsew')
+            ).grid(row=idx // 3, column=idx % 3, padx=6, pady=6, sticky='nsew')
 
     def _select_asset(self, key: str) -> None:
         row = self._active_row()

@@ -8,8 +8,8 @@ import customtkinter as ctk
 from new_music_builder.platform.paths import detect_workshop_dir
 from new_music_builder.ui import theme
 from new_music_builder.ui.widgets.buttons import make_builder_button
-from new_music_builder.ui.widgets.checkboxes import apply_builder_checkbox_style
-from new_music_builder.ui.widgets.fields import LabeledEntry
+from new_music_builder.ui.widgets.checkboxes import make_builder_checkbox
+from new_music_builder.ui.widgets.fields import LabeledEntry, apply_builder_entry_style
 from new_music_builder.ui.widgets.images import load_ctk_image
 from new_music_builder.ui.widgets.module_panel import ModulePanel
 from new_music_builder.ui.widgets.tooltip import Tooltip
@@ -91,17 +91,28 @@ class ModSetupModule(ModulePanel):
         self.poster_frame.bind('<Button-1>', lambda _event: self.pick_poster())
         self.poster_label.bind('<Button-1>', lambda _event: self.pick_poster())
         Tooltip(self.poster_frame, 'Click to choose the Workshop preview/poster image for this project.')
-        write_name = ctk.CTkCheckBox(poster_stack, text='Write Mod Name On Poster', variable=self._vars['write_name'], command=self._commit_boolean)
-        apply_builder_checkbox_style(write_name)
+        write_name = make_builder_checkbox(
+            poster_stack,
+            'Write Mod Name On Poster',
+            self._vars['write_name'],
+            command=self._commit_boolean,
+        )
         write_name.pack(anchor='center', pady=(14, 0))
 
     def _folder_row(self, master, label_text: str, key: str, command, detected: bool = False) -> None:
         row = ctk.CTkFrame(master, fg_color='transparent')
         row.pack(fill='x', pady=(0, 8))
-        ctk.CTkLabel(row, text=label_text, text_color=theme.TEXT, anchor='w').pack(fill='x')
+        ctk.CTkLabel(
+            row,
+            text=label_text,
+            text_color=theme.TEXT,
+            anchor='w',
+            font=ctk.CTkFont(family='Orbitron', size=12, weight='bold'),
+        ).pack(fill='x')
         inner = ctk.CTkFrame(row, fg_color='transparent')
         inner.pack(fill='x', pady=(4, 0))
         entry = ctk.CTkEntry(inner, textvariable=self._vars[key])
+        apply_builder_entry_style(entry)
         entry.pack(side='left', expand=True, fill='x')
         entry.bind('<FocusOut>', self._commit_text)
         make_builder_button(inner, 'Browse', command, width=96).pack(side='left', padx=(8, 0))

@@ -19,3 +19,8 @@ def apply_builder_checkbox_style(checkbox: ctk.CTkCheckBox) -> ctk.CTkCheckBox:
         border_width=1,
     )
     return checkbox
+
+
+def make_builder_checkbox(master, text: str, variable, *, command=None) -> ctk.CTkCheckBox:
+    checkbox = ctk.CTkCheckBox(master, text=text, variable=variable, command=command)
+    return apply_builder_checkbox_style(checkbox)

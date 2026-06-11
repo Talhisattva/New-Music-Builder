@@ -3,6 +3,8 @@ from __future__ import annotations
 import customtkinter as ctk
 
 from new_music_builder.ui import theme
+from new_music_builder.ui.widgets.buttons import make_builder_button
+from new_music_builder.ui.widgets.fields import apply_builder_progress_style, apply_builder_textbox_style
 from new_music_builder.ui.widgets.module_panel import ModulePanel
 
 
@@ -15,6 +17,7 @@ class BuildExportModule(ModulePanel):
         self.queue_frame = ctk.CTkScrollableFrame(self.body, fg_color=theme.PANEL)
         self.preview_frame = ctk.CTkScrollableFrame(self.body, fg_color=theme.PANEL)
         self.log_box = ctk.CTkTextbox(self.body, height=120)
+        apply_builder_textbox_style(self.log_box)
         self._build()
 
     def _build(self) -> None:
@@ -36,8 +39,8 @@ class BuildExportModule(ModulePanel):
 
         actions = ctk.CTkFrame(self.body, fg_color='transparent')
         actions.pack(fill='x', padx=10, pady=(0, 10))
-        ctk.CTkButton(actions, text='OPEN OUTPUT FOLDER', command=lambda: None).pack(side='left', padx=(0, 6))
-        ctk.CTkButton(actions, text='CANCEL / RESET', fg_color=theme.PANEL, command=self.on_reset).pack(side='left')
+        make_builder_button(actions, 'OPEN OUTPUT FOLDER', lambda: None).pack(side='left', padx=(0, 6))
+        make_builder_button(actions, 'CANCEL / RESET', self.on_reset, variant='secondary').pack(side='left')
         self.refresh([], [])
 
     def refresh(self, build_log: list[str], preview_entries: list[str]) -> None:
@@ -50,7 +53,10 @@ class BuildExportModule(ModulePanel):
                 outer = ctk.CTkFrame(self.queue_frame, fg_color=theme.PANEL_ALT)
                 outer.pack(fill='x', pady=(0, 4))
                 ctk.CTkLabel(outer, text=f'{row.media_name} (Side {side_name})').pack(anchor='w', padx=8, pady=(6, 2))
-                ctk.CTkProgressBar(outer).pack(fill='x', padx=8, pady=(0, 4))
+                progress = ctk.CTkProgressBar(outer)
+                apply_builder_progress_style(progress)
+                progress.set(0)
+                progress.pack(fill='x', padx=8, pady=(0, 4))
                 ctk.CTkLabel(outer, text=f'{len(tracks)} songs queued').pack(anchor='w', padx=8, pady=(0, 6))
         for entry in preview_entries:
             tile = ctk.CTkFrame(self.preview_frame, fg_color=theme.PANEL_ALT)
