@@ -20,6 +20,7 @@ from new_music_builder.services.project_store import ProjectStore
 from new_music_builder.services.recent_projects import RecentProjectsStore
 from new_music_builder.services.session_store import SessionStore
 from new_music_builder.ui import theme
+from new_music_builder.ui.widgets.module_header import ModuleHeader
 class MainWindow(ctk.CTk):
     HEADER_HEIGHT = 50
     MENU_HEIGHT = 30
@@ -65,7 +66,6 @@ class MainWindow(ctk.CTk):
         self._window_icon_image = None
         self._header_icon_image = None
         self._folder_button_image = None
-        self._phase_one_icon_image = None
         self._menu_widgets: list[tuple[ctk.CTkFrame, ctk.CTkLabel]] = []
 
         sibling_root = app_root().parent
@@ -245,30 +245,15 @@ class MainWindow(ctk.CTk):
         )
         self.module_one_midground.place(x=1, y=1)
 
-        phase_one_icon_path = self._phase_one_icon_path()
-        if phase_one_icon_path.exists():
-            phase_one_image = Image.open(phase_one_icon_path).resize((20, 20), Image.Resampling.LANCZOS)
-            self._phase_one_icon_image = ImageTk.PhotoImage(phase_one_image)
-            self.module_one_phase_icon = tk.Label(
-                self.module_one_background,
-                image=self._phase_one_icon_image,
-                bg=self.MODULE_BG,
-                bd=0,
-                highlightthickness=0,
-            )
-            self.module_one_phase_icon.place(x=10, y=5, width=20, height=20)
-
-        self.module_one_phase_label = tk.Label(
+        self.module_one_header = ModuleHeader(
             self.module_one_background,
             text='PHASE 1 : MOD SETUP',
-            bg=self.MODULE_BG,
-            fg=self.MODULE_TITLE_COLOR,
-            bd=0,
-            highlightthickness=0,
-            font=('Orbitron Medium', 12),
-            anchor='w',
+            icon_path=self._phase_one_icon_path(),
+            bg_color=self.MODULE_BG,
+            text_color=self.MODULE_TITLE_COLOR,
         )
-        self.module_one_phase_label.place(x=40, y=15, anchor='w')
+        self.module_one_phase_icon = self.module_one_header.icon_label
+        self.module_one_phase_label = self.module_one_header.text_label
 
         self.module_one_cover_border = tk.Frame(
             self.module_one_midground,
