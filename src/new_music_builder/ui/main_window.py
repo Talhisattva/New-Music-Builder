@@ -19,18 +19,11 @@ from new_music_builder.services.project_session import ProjectSession
 from new_music_builder.services.project_store import ProjectStore
 from new_music_builder.services.recent_projects import RecentProjectsStore
 from new_music_builder.services.session_store import SessionStore
-from new_music_builder.ui import theme
+from new_music_builder.ui import spec
+from new_music_builder.ui.widgets.app_header import AppHeader
+from new_music_builder.ui.widgets.menu_strip import MenuStrip
 from new_music_builder.ui.widgets.module_header import ModuleHeader
 class MainWindow(ctk.CTk):
-    HEADER_HEIGHT = 50
-    MENU_HEIGHT = 30
-    APP_BG = '#131214'
-    CONTENT_PADDING = 10
-    MENU_BG = '#000000'
-    MENU_HOVER = '#2a2030'
-    HEADER_TEXT = '#c7c6c6'
-    VERSION_TEXT = 'v0.1.0'
-    MENU_ITEMS = ('FILE', 'PREFERENCES', 'HELP')
     MODULE_BG = '#1d1c1e'
     MODULE_BORDER = '#000000'
     MODULE_ONE_SIZE = (370, 450)
@@ -53,9 +46,9 @@ class MainWindow(ctk.CTk):
         super().__init__()
         ctk.set_appearance_mode('dark')
         self.title(f'New Music Builder v{__version__}')
-        self.geometry('1600x900')
-        self.minsize(1366, 820)
-        self.configure(fg_color=self.APP_BG)
+        self.geometry(f'{spec.APP_WIDTH}x{spec.APP_HEIGHT}')
+        self.minsize(spec.APP_MIN_WIDTH, spec.APP_MIN_HEIGHT)
+        self.configure(fg_color=spec.APP_BG)
 
         self.project_store = ProjectStore()
         self.recent_store = RecentProjectsStore()
@@ -64,9 +57,7 @@ class MainWindow(ctk.CTk):
         self.session, saved_path = self.session_store.load()
         self.session = ProjectSession(project=self.session, current_path=saved_path)
         self._window_icon_image = None
-        self._header_icon_image = None
         self._folder_button_image = None
-        self._menu_widgets: list[tuple[ctk.CTkFrame, ctk.CTkLabel]] = []
 
         sibling_root = app_root().parent
         base_mod_root = sibling_root / 'Talis New Music'
@@ -120,61 +111,23 @@ class MainWindow(ctk.CTk):
         self.configure(menu='')
 
     def _build_header(self) -> None:
-        header = ctk.CTkFrame(self, fg_color='#101213', corner_radius=0, height=self.HEADER_HEIGHT)
-        header.pack(fill='x')
-        header.pack_propagate(False)
-        icon_path = self._header_logo_path()
-        title_pad = (15, 10)
-        if icon_path.exists():
-            self._header_icon_image = ctk.CTkImage(light_image=Image.open(icon_path), dark_image=Image.open(icon_path), size=(32, 32))
-            ctk.CTkLabel(header, text='', image=self._header_icon_image).pack(side='left', padx=(15, 10), pady=9)
-            title_pad = (0, 8)
-        ctk.CTkLabel(
-            header,
-            text='NEW MUSIC BUILDER',
-            text_color=self.HEADER_TEXT,
-            font=ctk.CTkFont(family='Orbitron', size=20, weight='bold'),
-        ).pack(side='left', padx=title_pad, pady=10)
-        ctk.CTkLabel(
-            header,
-            text=self.VERSION_TEXT,
-            text_color=self.HEADER_TEXT,
-            font=ctk.CTkFont(family='Orbitron', size=13, weight='normal'),
-        ).pack(side='left', pady=14)
+        self.header = AppHeader(self, logo_path=self._header_logo_path())
+        self.header.pack(fill='x')
 
     def _build_menu_strip(self) -> None:
-        menu_bar = ctk.CTkFrame(self, fg_color=self.MENU_BG, corner_radius=0, height=self.MENU_HEIGHT)
-        menu_bar.pack(fill='x')
-        menu_bar.pack_propagate(False)
-        items = ctk.CTkFrame(menu_bar, fg_color='transparent')
-        items.pack(side='left', padx=(0, 0), pady=0)
-
-        for item in self.MENU_ITEMS:
-            item_frame = ctk.CTkFrame(items, fg_color=self.MENU_BG, corner_radius=0)
-            item_frame.pack(side='left', padx=0, pady=0)
-            label = ctk.CTkLabel(
-                item_frame,
-                text=item,
-                text_color=self.HEADER_TEXT,
-                font=ctk.CTkFont(family='Orbitron', size=12, weight='normal'),
-            )
-            label.pack(padx=10, pady=6)
-            item_frame.bind('<Enter>', lambda _e, frame=item_frame: frame.configure(fg_color=self.MENU_HOVER))
-            item_frame.bind('<Leave>', lambda _e, frame=item_frame: frame.configure(fg_color=self.MENU_BG))
-            label.bind('<Enter>', lambda _e, frame=item_frame: frame.configure(fg_color=self.MENU_HOVER))
-            label.bind('<Leave>', lambda _e, frame=item_frame: frame.configure(fg_color=self.MENU_BG))
-            self._menu_widgets.append((item_frame, label))
+        self.menu_strip = MenuStrip(self)
+        self.menu_strip.pack(fill='x')
 
     def _build_layout(self) -> None:
-        self.stage = ctk.CTkFrame(self, fg_color=self.APP_BG, corner_radius=0)
+        self.stage = ctk.CTkFrame(self, fg_color=spec.APP_BG, corner_radius=0)
         self.stage.pack(fill='both', expand=True)
 
         self.content_frame = ctk.CTkFrame(self.stage, fg_color='transparent', corner_radius=0)
         self.content_frame.pack(
             fill='both',
             expand=True,
-            padx=self.CONTENT_PADDING,
-            pady=self.CONTENT_PADDING,
+            padx=spec.CONTENT_PADDING,
+            pady=spec.CONTENT_PADDING,
         )
 
         self.content_frame.grid_columnconfigure(0, weight=0)
