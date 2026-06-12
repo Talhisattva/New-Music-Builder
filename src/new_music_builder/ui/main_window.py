@@ -40,6 +40,7 @@ class MainWindow(ctk.CTk):
     FOLDER_BUTTON_BG = '#8a57a3'
     FOLDER_BUTTON_STROKE = '#382b47'
     FOLDER_BUTTON_SIZE = (30, 30)
+    FOLDER_BUTTON_STROKE_WIDTH = 4
 
     def __init__(self) -> None:
         super().__init__()
@@ -248,8 +249,8 @@ class MainWindow(ctk.CTk):
             shell,
             fg_color=self.FOLDER_BUTTON_STROKE,
             corner_radius=0,
-            width=self.FOLDER_BUTTON_SIZE[0] - 4,
-            height=self.FOLDER_BUTTON_SIZE[1] - 4,
+            width=self.FOLDER_BUTTON_SIZE[0] - (self.FOLDER_BUTTON_STROKE_WIDTH * 2),
+            height=self.FOLDER_BUTTON_SIZE[1] - (self.FOLDER_BUTTON_STROKE_WIDTH * 2),
         )
         stroke.place(relx=0.5, rely=0.5, anchor='center')
         stroke.pack_propagate(False)
@@ -258,8 +259,8 @@ class MainWindow(ctk.CTk):
             stroke,
             fg_color=self.FOLDER_BUTTON_BG,
             corner_radius=0,
-            width=self.FOLDER_BUTTON_SIZE[0] - 8,
-            height=self.FOLDER_BUTTON_SIZE[1] - 8,
+            width=self.FOLDER_BUTTON_SIZE[0] - (self.FOLDER_BUTTON_STROKE_WIDTH * 4),
+            height=self.FOLDER_BUTTON_SIZE[1] - (self.FOLDER_BUTTON_STROKE_WIDTH * 4),
         )
         face.place(relx=0.5, rely=0.5, anchor='center')
         face.pack_propagate(False)
