@@ -25,6 +25,7 @@ from new_music_builder.ui.widgets.labeled_checkbox import LabeledCheckbox
 from new_music_builder.ui.widgets.labeled_text_field import LabeledTextField
 from new_music_builder.ui.widgets.main_button import MainButton
 from new_music_builder.ui.widgets.media_creation_header import MediaCreationHeader
+from new_music_builder.ui.widgets.media_row_list import MediaRowList
 from new_music_builder.ui.widgets.menu_strip import MenuStrip
 from new_music_builder.ui.widgets.module_header import ModuleHeader
 from new_music_builder.ui.widgets.module_shell import ModuleShell
@@ -194,7 +195,7 @@ class MainWindow(ctk.CTk):
         self.module_two_content_viewport = self.module_two_scroll_area.viewport_canvas
         self.module_two_content_surface = self.module_two_scroll_area.content_frame
         self.module_two_scrollbar = self.module_two_scroll_area.scrollbar
-        self._build_module_two_placeholder_content()
+        self._build_module_two_row_list()
 
         self.module_one_cover_picker = CoverPicker(
             self.module_one_midground,
@@ -312,17 +313,13 @@ class MainWindow(ctk.CTk):
             return
         self.on_project_change()
 
-    def _build_module_two_placeholder_content(self) -> None:
-        self.module_two_placeholder = tk.Frame(
+    def _build_module_two_row_list(self) -> None:
+        self.module_two_row_list = MediaRowList(
             self.module_two_content_surface,
-            bg='#2a272d',
-            bd=0,
-            highlightthickness=0,
-            width=spec.MODULE_TWO_SCROLL_VIEWPORT_SIZE[0],
-            height=640,
+            rows=self.session.project.media_rows,
+            bg_color=spec.MODULE_MIDGROUND_BG,
         )
-        self.module_two_placeholder.pack(fill='x')
-        self.module_two_placeholder.pack_propagate(False)
+        self.module_two_row_list.pack(anchor='nw')
         self.module_two_scroll_area.refresh_scroll_region()
 
     def on_select_row(self, row_id: int | None) -> None:
