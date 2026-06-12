@@ -61,8 +61,8 @@ class MediaRowBadge(tk.Canvas):
             fill=self._bg_color,
         )
         self.create_text(
-            self._size[0] // 2,
-            self._size[1] // 2,
+            (self._size[0] // 2) + spec.MEDIA_ROW_BADGE_TEXT_OFFSET[0],
+            (self._size[1] // 2) + spec.MEDIA_ROW_BADGE_TEXT_OFFSET[1],
             text=str(self._row_number),
             fill=self._text_color,
             font=(spec.MEDIA_ROW_BADGE_FONT_FAMILY, self._font_size_for_number(self._row_number)),
