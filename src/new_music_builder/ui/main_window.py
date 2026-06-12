@@ -179,7 +179,10 @@ class MainWindow(ctk.CTk):
         self.module_two_phase_icon = self.module_two_header.icon_label
         self.module_two_phase_label = self.module_two_header.text_label
 
-        self.module_two_top_header = MediaCreationHeader(self.module_two_midground_border)
+        self.module_two_top_header = MediaCreationHeader(
+            self.module_two_midground_border,
+            add_command=self._add_module_two_media_row,
+        )
         self.module_two_top_header.place(x=0, y=0)
         self.module_two_add_row_button = self.module_two_top_header.add_button
         self.module_two_remove_row_button = self.module_two_top_header.remove_button
@@ -314,6 +317,8 @@ class MainWindow(ctk.CTk):
         self.on_project_change()
 
     def _build_module_two_row_list(self) -> None:
+        if hasattr(self, 'module_two_row_list'):
+            self.module_two_row_list.destroy()
         self.module_two_row_list = MediaRowList(
             self.module_two_content_surface,
             rows=self.session.project.media_rows,
@@ -322,6 +327,20 @@ class MainWindow(ctk.CTk):
         )
         self.module_two_row_list.pack(anchor='nw')
         self.module_two_scroll_area.refresh_scroll_region()
+
+    def _add_module_two_media_row(self) -> None:
+        for row in self.session.project.media_rows:
+            row.expanded = False
+
+        new_row_id = self.session.add_media_row()
+        for row in self.session.project.media_rows:
+            row.expanded = row.row_id == new_row_id
+
+        self._build_module_two_row_list()
+        self.module_two_content_viewport.yview_moveto(1.0)
+        self.module_two_scroll_area.refresh_scroll_region()
+        self.module_two_content_viewport.yview_moveto(1.0)
+        self.on_project_change()
 
     def on_select_row(self, row_id: int | None) -> None:
         if row_id is None or not hasattr(self, 'media_creation') or not hasattr(self, 'appearance'):

@@ -97,24 +97,22 @@ class MediaRowList(tk.Frame):
         self._build_rows()
 
     def _normalized_rows(self, rows: list[MediaRow]) -> list[MediaRow]:
-        if len(rows) >= 3:
-            if not any(row.expanded for row in rows):
-                rows[0].expanded = True
-            for row in rows[1:]:
-                if rows[0].expanded:
-                    row.expanded = False
-            return rows
-
         normalized = list(rows)
-        next_row_id = max((row.row_id for row in normalized), default=0) + 1
-        while len(normalized) < 3:
-            normalized.append(MediaRow(row_id=next_row_id, media_name=f'Media Row {next_row_id}', expanded=False))
-            next_row_id += 1
         if not any(row.expanded for row in normalized):
             normalized[0].expanded = True
-        for row in normalized[1:]:
-            if normalized[0].expanded:
-                row.expanded = False
+
+        if len(normalized) == 1:
+            next_row_id = normalized[0].row_id + 1
+            while len(normalized) < 3:
+                normalized.append(MediaRow(row_id=next_row_id, media_name=f'Media Row {next_row_id}', expanded=False))
+                next_row_id += 1
+
+        expanded_seen = False
+        for row in normalized:
+            if row.expanded and not expanded_seen:
+                expanded_seen = True
+                continue
+            row.expanded = False
         return normalized
 
     def _total_height_for_rows(self, rows: list[MediaRow]) -> int:
