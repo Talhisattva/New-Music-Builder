@@ -18,6 +18,8 @@ class MediaRowShell(tk.Frame):
         expanded: bool,
         folder_icon_path: str | None = None,
         on_select: Callable[[int], None] | None = None,
+        active: bool = False,
+        on_background_selected: Callable[[int], None] | None = None,
     ) -> None:
         size = spec.MEDIA_ROW_EXPANDED_SIZE if expanded else spec.MEDIA_ROW_COLLAPSED_SIZE
         super().__init__(
@@ -29,7 +31,11 @@ class MediaRowShell(tk.Frame):
             height=size[1],
         )
         self.pack_propagate(False)
+        self._row_id = row.row_id
         self._expanded = expanded
+        self._active = active
+        self._hovered = False
+        self._on_background_selected = on_background_selected
 
         inner_width = size[0] - (spec.MEDIA_ROW_OUTLINE_WIDTH * 2)
         inner_height = size[1] - (spec.MEDIA_ROW_OUTLINE_WIDTH * 2)
@@ -43,6 +49,8 @@ class MediaRowShell(tk.Frame):
         )
         self.surface.place(x=spec.MEDIA_ROW_OUTLINE_WIDTH, y=spec.MEDIA_ROW_OUTLINE_WIDTH)
         self.surface.pack_propagate(False)
+        self._bind_background_interactions()
+        self._apply_background_state()
 
         if expanded:
             self.cover = ExpandedMediaCover(
@@ -78,6 +86,34 @@ class MediaRowShell(tk.Frame):
                 y=spec.MEDIA_ROW_COLLAPSED_COVER_POS[1],
             )
 
+    def _bind_background_interactions(self) -> None:
+        for sequence, handler in (
+            ('<Enter>', self._on_background_enter),
+            ('<Leave>', self._on_background_leave),
+            ('<ButtonPress-1>', self._on_background_press),
+        ):
+            self.surface.bind(sequence, handler)
+
+    def _on_background_enter(self, _event: tk.Event) -> None:
+        self._hovered = True
+        self._apply_background_state()
+
+    def _on_background_leave(self, _event: tk.Event) -> None:
+        self._hovered = False
+        self._apply_background_state()
+
+    def _on_background_press(self, _event: tk.Event) -> None:
+        if self._on_background_selected is not None:
+            self._on_background_selected(self._row_id)
+
+    def _apply_background_state(self) -> None:
+        fill_color = spec.MEDIA_ROW_BG
+        if self._active:
+            fill_color = spec.MEDIA_ROW_ACTIVE_BG
+        elif self._hovered:
+            fill_color = spec.MEDIA_ROW_HOVER_BG
+        self.surface.configure(bg=fill_color)
+
 
 class MediaRowList(tk.Frame):
     def __init__(
@@ -88,6 +124,8 @@ class MediaRowList(tk.Frame):
         folder_icon_path: str | None = None,
         bg_color: str | None = None,
         on_row_selected: Callable[[int], None] | None = None,
+        active_row_id: int | None = None,
+        on_background_selected: Callable[[int], None] | None = None,
     ) -> None:
         resolved_bg = bg_color if bg_color is not None else parent.cget('bg')
         normalized_rows = self._normalized_rows(rows)
@@ -104,6 +142,8 @@ class MediaRowList(tk.Frame):
         self.rows = normalized_rows
         self._folder_icon_path = folder_icon_path
         self._on_row_selected = on_row_selected
+        self._active_row_id = active_row_id
+        self._on_background_selected = on_background_selected
         self.row_widgets: list[MediaRowShell] = []
 
         self._build_rows()
@@ -143,6 +183,8 @@ class MediaRowList(tk.Frame):
                 expanded=row.expanded,
                 folder_icon_path=self._folder_icon_path,
                 on_select=self._on_row_selected,
+                active=(row.row_id == self._active_row_id),
+                on_background_selected=self._on_background_selected,
             )
             widget.place(x=spec.MEDIA_ROW_INSET_X, y=current_y)
             self.row_widgets.append(widget)

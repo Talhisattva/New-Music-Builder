@@ -50,6 +50,7 @@ class MainWindow(ctk.CTk):
         self.audio_workspace = AudioWorkspaceService()
         self.session, saved_path = self.session_store.load()
         self.session = ProjectSession(project=self.session, current_path=saved_path)
+        self.module_two_active_row_id: int | None = None
         self._restore_unsaved_phase_two_default()
         self.mod_name_var = tk.StringVar(value=self.session.project.mod_name)
         self.mod_id_var = tk.StringVar(value=self.session.project.mod_id)
@@ -329,6 +330,10 @@ class MainWindow(ctk.CTk):
         self.on_project_change()
 
     def _build_module_two_row_list(self) -> None:
+        if self.module_two_active_row_id is not None and not any(
+            row.row_id == self.module_two_active_row_id for row in self.session.project.media_rows
+        ):
+            self.module_two_active_row_id = None
         if hasattr(self, 'module_two_row_list'):
             self.module_two_row_list.destroy()
         self.module_two_row_list = MediaRowList(
@@ -337,6 +342,8 @@ class MainWindow(ctk.CTk):
             folder_icon_path=str(self._folder_button_icon_path()),
             bg_color=spec.MODULE_MIDGROUND_BG,
             on_row_selected=self._expand_module_two_media_row,
+            active_row_id=self.module_two_active_row_id,
+            on_background_selected=self._select_module_two_media_row,
         )
         self.module_two_row_list.pack(anchor='nw')
         self.module_two_scroll_area.refresh_scroll_region()
@@ -367,6 +374,16 @@ class MainWindow(ctk.CTk):
             for row in self.session.project.media_rows:
                 row.expanded = row.row_id == row_id
 
+        self._build_module_two_row_list()
+        self.module_two_content_viewport.yview_moveto(current_view[0])
+        self.on_project_change()
+
+    def _select_module_two_media_row(self, row_id: int) -> None:
+        if not any(row.row_id == row_id for row in self.session.project.media_rows):
+            return
+
+        current_view = self.module_two_content_viewport.yview()
+        self.module_two_active_row_id = row_id
         self._build_module_two_row_list()
         self.module_two_content_viewport.yview_moveto(current_view[0])
         self.on_project_change()
