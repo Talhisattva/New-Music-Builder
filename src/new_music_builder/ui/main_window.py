@@ -32,6 +32,9 @@ class MainWindow(ctk.CTk):
     MODULE_BG = '#1d1c1e'
     MODULE_BORDER = '#0e1414'
     MODULE_ONE_SIZE = (370, 450)
+    COVER_BG = '#101010'
+    COVER_BORDER = '#575151'
+    COVER_SIZE = (100, 100)
 
     def __init__(self) -> None:
         super().__init__()
@@ -159,30 +162,49 @@ class MainWindow(ctk.CTk):
         self.content_frame.grid_rowconfigure(0, weight=0)
         self.content_frame.grid_rowconfigure(1, weight=1)
 
-        module_one = ctk.CTkFrame(
+        self.module_one_border = ctk.CTkFrame(
             self.content_frame,
             fg_color=self.MODULE_BORDER,
             corner_radius=0,
             width=self.MODULE_ONE_SIZE[0],
             height=self.MODULE_ONE_SIZE[1],
         )
-        module_one.grid(row=0, column=0, sticky='nw')
-        module_one.grid_propagate(False)
-        module_one.configure(width=self.MODULE_ONE_SIZE[0], height=self.MODULE_ONE_SIZE[1])
+        self.module_one_border.grid(row=0, column=0, sticky='nw')
+        self.module_one_border.grid_propagate(False)
+        self.module_one_border.configure(width=self.MODULE_ONE_SIZE[0], height=self.MODULE_ONE_SIZE[1])
 
-        module_one_inner = ctk.CTkFrame(
-            module_one,
+        self.module_one_surface = ctk.CTkFrame(
+            self.module_one_border,
             fg_color=self.MODULE_BG,
             corner_radius=0,
             width=self.MODULE_ONE_SIZE[0] - 2,
             height=self.MODULE_ONE_SIZE[1] - 2,
         )
-        module_one_inner.pack(padx=1, pady=1, anchor='nw')
-        module_one_inner.pack_propagate(False)
-        module_one_inner.configure(
+        self.module_one_surface.pack(padx=1, pady=1, anchor='nw')
+        self.module_one_surface.pack_propagate(False)
+        self.module_one_surface.configure(
             width=self.MODULE_ONE_SIZE[0] - 2,
             height=self.MODULE_ONE_SIZE[1] - 2,
         )
+
+        self.module_one_cover_border = ctk.CTkFrame(
+            self.module_one_border,
+            fg_color=self.COVER_BORDER,
+            corner_radius=0,
+            width=self.COVER_SIZE[0],
+            height=self.COVER_SIZE[1],
+        )
+        self.module_one_cover_border.place(x=15, y=15)
+
+        self.module_one_cover_surface = ctk.CTkFrame(
+            self.module_one_cover_border,
+            fg_color=self.COVER_BG,
+            corner_radius=0,
+            width=self.COVER_SIZE[0] - 2,
+            height=self.COVER_SIZE[1] - 2,
+        )
+        self.module_one_cover_surface.pack(padx=1, pady=1, anchor='nw')
+        self.module_one_cover_surface.pack_propagate(False)
 
     def _show_sample_rate_dialog(self) -> None:
         popup = ctk.CTkInputDialog(text='Enter project sample rate', title='Sample Rate')
