@@ -36,6 +36,7 @@ class MainWindow(ctk.CTk):
     COVER_BG = '#101010'
     COVER_BORDER = '#575151'
     COVER_SIZE = (100, 100)
+    COVER_INSET_BUTTON_CENTER = (5, 5)
     FOLDER_BUTTON_BG = '#8a57a3'
     FOLDER_BUTTON_STROKE = '#382b47'
     FOLDER_BUTTON_SIZE = (30, 30)
@@ -214,8 +215,17 @@ class MainWindow(ctk.CTk):
         self.module_one_cover_surface.pack(padx=1, pady=1, anchor='nw')
         self.module_one_cover_surface.pack_propagate(False)
 
-        cover_button_x = 15 + self.COVER_SIZE[0] + 5
-        cover_button_y = 15
+        cover_button_x = (
+            15
+            + self.COVER_SIZE[0]
+            - self.COVER_INSET_BUTTON_CENTER[0]
+            - (self.FOLDER_BUTTON_SIZE[0] // 2)
+        )
+        cover_button_y = (
+            15
+            + self.COVER_INSET_BUTTON_CENTER[1]
+            - (self.FOLDER_BUTTON_SIZE[1] // 2)
+        )
         self.module_one_cover_button = self._create_folder_icon_button(self.module_one_border)
         self.module_one_cover_button.place(x=cover_button_x, y=cover_button_y)
 
