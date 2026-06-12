@@ -23,6 +23,7 @@ from new_music_builder.ui.widgets.app_header import AppHeader
 from new_music_builder.ui.widgets.cover_picker import CoverPicker
 from new_music_builder.ui.widgets.labeled_checkbox import LabeledCheckbox
 from new_music_builder.ui.widgets.labeled_text_field import LabeledTextField
+from new_music_builder.ui.widgets.main_button import MainButton
 from new_music_builder.ui.widgets.menu_strip import MenuStrip
 from new_music_builder.ui.widgets.module_header import ModuleHeader
 from new_music_builder.ui.widgets.module_shell import ModuleShell
@@ -239,6 +240,21 @@ class MainWindow(ctk.CTk):
             x=spec.PHASE_ONE_TEXT_ROW_X + min(0, spec.OUTPUT_FOLDER_ROW_X_OFFSET),
             y=workshop_output_folder_y,
         )
+
+        action_button_y = workshop_output_folder_y + self.module_one_workshop_output_folder.winfo_reqheight() + spec.PHASE_ONE_ACTION_BUTTON_GAP_BELOW_OUTPUT
+        action_button_x = spec.PHASE_ONE_TEXT_ROW_X + min(0, spec.OUTPUT_FOLDER_ROW_X_OFFSET)
+        self.module_one_save_button = MainButton(
+            self.module_one_midground_border,
+            text='SAVE',
+        )
+        self.module_one_save_button.place(x=action_button_x, y=action_button_y)
+
+        load_button_x = action_button_x + spec.MAIN_BUTTON_SIZE[0] + spec.PHASE_ONE_ACTION_BUTTON_GAP_X
+        self.module_one_load_button = MainButton(
+            self.module_one_midground_border,
+            text='LOAD',
+        )
+        self.module_one_load_button.place(x=load_button_x, y=action_button_y)
 
     def _show_sample_rate_dialog(self) -> None:
         popup = ctk.CTkInputDialog(text='Enter project sample rate', title='Sample Rate')
