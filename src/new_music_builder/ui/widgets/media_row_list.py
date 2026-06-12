@@ -110,8 +110,6 @@ class MediaRowList(tk.Frame):
 
     def _normalized_rows(self, rows: list[MediaRow]) -> list[MediaRow]:
         normalized = list(rows)
-        if not any(row.expanded for row in normalized):
-            normalized[0].expanded = True
 
         if len(normalized) == 1:
             next_row_id = normalized[0].row_id + 1

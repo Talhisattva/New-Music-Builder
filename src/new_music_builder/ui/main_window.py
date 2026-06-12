@@ -356,12 +356,16 @@ class MainWindow(ctk.CTk):
         self.on_project_change()
 
     def _expand_module_two_media_row(self, row_id: int) -> None:
-        if not any(row.row_id == row_id for row in self.session.project.media_rows):
+        target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
+        if target_row is None:
             return
 
         current_view = self.module_two_content_viewport.yview()
-        for row in self.session.project.media_rows:
-            row.expanded = row.row_id == row_id
+        if target_row.expanded:
+            target_row.expanded = False
+        else:
+            for row in self.session.project.media_rows:
+                row.expanded = row.row_id == row_id
 
         self._build_module_two_row_list()
         self.module_two_content_viewport.yview_moveto(current_view[0])
@@ -380,8 +384,6 @@ class MainWindow(ctk.CTk):
 
     def refresh_all(self) -> None:
         self._apply_default_asset_selections()
-        if self.session.project.media_rows and not any(row.expanded for row in self.session.project.media_rows):
-            self.session.project.media_rows[0].expanded = True
         if hasattr(self, 'mod_setup'):
             self.mod_setup.refresh()
         if hasattr(self, 'media_creation'):
