@@ -34,6 +34,10 @@ class MainWindow(ctk.CTk):
     MODULE_BORDER = '#000000'
     MODULE_ONE_SIZE = (370, 450)
     MODULE_BORDER_WIDTH = 1
+    MODULE_MIDGROUND_BG = '#222123'
+    MODULE_MIDGROUND_BORDER = '#141216'
+    MODULE_MIDGROUND_SIZE = (350, 410)
+    MODULE_MIDGROUND_OFFSET = (10, 30)
     COVER_BG = '#101010'
     COVER_BORDER = '#575151'
     COVER_SIZE = (100, 100)
@@ -193,7 +197,7 @@ class MainWindow(ctk.CTk):
             fill=self.MODULE_BORDER,
         )
 
-        self.module_one_surface = tk.Frame(
+        self.module_one_background = tk.Frame(
             self.module_one_border,
             bg=self.MODULE_BG,
             bd=0,
@@ -205,17 +209,39 @@ class MainWindow(ctk.CTk):
             self.MODULE_BORDER_WIDTH,
             self.MODULE_BORDER_WIDTH,
             anchor='nw',
-            window=self.module_one_surface,
-            width=self.MODULE_ONE_SIZE[0] - (self.MODULE_BORDER_WIDTH * 2),
-            height=self.MODULE_ONE_SIZE[1] - (self.MODULE_BORDER_WIDTH * 2),
-        )
-        self.module_one_surface.configure(
+            window=self.module_one_background,
             width=self.MODULE_ONE_SIZE[0] - (self.MODULE_BORDER_WIDTH * 2),
             height=self.MODULE_ONE_SIZE[1] - (self.MODULE_BORDER_WIDTH * 2),
         )
 
-        self.module_one_cover_border = tk.Frame(
+        self.module_one_midground_border = tk.Frame(
             self.module_one_border,
+            bg=self.MODULE_MIDGROUND_BORDER,
+            bd=0,
+            highlightthickness=0,
+            width=self.MODULE_MIDGROUND_SIZE[0],
+            height=self.MODULE_MIDGROUND_SIZE[1],
+        )
+        self.module_one_border.create_window(
+            self.MODULE_MIDGROUND_OFFSET[0],
+            self.MODULE_MIDGROUND_OFFSET[1],
+            anchor='nw',
+            window=self.module_one_midground_border,
+            width=self.MODULE_MIDGROUND_SIZE[0],
+            height=self.MODULE_MIDGROUND_SIZE[1],
+        )
+        self.module_one_midground = tk.Frame(
+            self.module_one_midground_border,
+            bg=self.MODULE_MIDGROUND_BG,
+            bd=0,
+            highlightthickness=0,
+            width=self.MODULE_MIDGROUND_SIZE[0] - 2,
+            height=self.MODULE_MIDGROUND_SIZE[1] - 2,
+        )
+        self.module_one_midground.place(x=1, y=1)
+
+        self.module_one_cover_border = tk.Frame(
+            self.module_one_midground,
             bg=self.COVER_BORDER,
             bd=0,
             highlightthickness=0,
@@ -241,11 +267,9 @@ class MainWindow(ctk.CTk):
             - (self.FOLDER_BUTTON_SIZE[0] // 2)
         )
         cover_button_y = (
-            15
-            + self.COVER_INSET_BUTTON_CENTER[1]
-            - (self.FOLDER_BUTTON_SIZE[1] // 2)
+            5
         )
-        self.module_one_cover_button = self._create_folder_icon_button(self.module_one_border)
+        self.module_one_cover_button = self._create_folder_icon_button(self.module_one_midground)
         self.module_one_cover_button.place(x=cover_button_x, y=cover_button_y)
 
     def _create_folder_icon_button(
