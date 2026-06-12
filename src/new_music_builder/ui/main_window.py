@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 import sys
@@ -35,6 +36,9 @@ class MainWindow(ctk.CTk):
     COVER_BG = '#101010'
     COVER_BORDER = '#575151'
     COVER_SIZE = (100, 100)
+    FOLDER_BUTTON_BG = '#8a57a3'
+    FOLDER_BUTTON_STROKE = '#382b47'
+    FOLDER_BUTTON_SIZE = (30, 30)
 
     def __init__(self) -> None:
         super().__init__()
@@ -52,6 +56,7 @@ class MainWindow(ctk.CTk):
         self.session = ProjectSession(project=self.session, current_path=saved_path)
         self._window_icon_image = None
         self._header_icon_image = None
+        self._folder_button_image = None
         self._menu_widgets: list[tuple[ctk.CTkFrame, ctk.CTkLabel]] = []
 
         sibling_root = app_root().parent
@@ -77,6 +82,9 @@ class MainWindow(ctk.CTk):
 
     def _native_icon_path(self) -> Path:
         return app_root() / 'assets' / 'new_music_builder.ico'
+
+    def _folder_button_icon_path(self) -> Path:
+        return app_root() / 'assets' / 'NMB_Folder2.png'
 
     def _apply_window_icon(self) -> None:
         native_icon = self._native_icon_path()
@@ -205,6 +213,60 @@ class MainWindow(ctk.CTk):
         )
         self.module_one_cover_surface.pack(padx=1, pady=1, anchor='nw')
         self.module_one_cover_surface.pack_propagate(False)
+
+        cover_button_x = 15 + self.COVER_SIZE[0] + 5
+        cover_button_y = 15
+        self.module_one_cover_button = self._create_folder_icon_button(self.module_one_border)
+        self.module_one_cover_button.place(x=cover_button_x, y=cover_button_y)
+
+    def _create_folder_icon_button(
+        self,
+        parent: ctk.CTkBaseClass,
+        *,
+        command: Callable[[], None] | None = None,
+    ) -> ctk.CTkFrame:
+        shell = ctk.CTkFrame(
+            parent,
+            fg_color=self.FOLDER_BUTTON_BG,
+            corner_radius=0,
+            width=self.FOLDER_BUTTON_SIZE[0],
+            height=self.FOLDER_BUTTON_SIZE[1],
+        )
+        shell.pack_propagate(False)
+
+        inset = ctk.CTkFrame(
+            shell,
+            fg_color=self.FOLDER_BUTTON_STROKE,
+            corner_radius=0,
+            width=self.FOLDER_BUTTON_SIZE[0] - 4,
+            height=self.FOLDER_BUTTON_SIZE[1] - 4,
+        )
+        inset.place(relx=0.5, rely=0.5, anchor='center')
+        inset.pack_propagate(False)
+
+        icon_path = self._folder_button_icon_path()
+        button_kwargs = {
+            'master': inset,
+            'text': '',
+            'fg_color': self.FOLDER_BUTTON_BG,
+            'hover_color': self.FOLDER_BUTTON_BG,
+            'corner_radius': 0,
+            'width': self.FOLDER_BUTTON_SIZE[0] - 6,
+            'height': self.FOLDER_BUTTON_SIZE[1] - 6,
+            'border_width': 0,
+            'command': command or (lambda: None),
+        }
+        if icon_path.exists():
+            self._folder_button_image = ctk.CTkImage(
+                light_image=Image.open(icon_path),
+                dark_image=Image.open(icon_path),
+                size=self.FOLDER_BUTTON_SIZE,
+            )
+            button_kwargs['image'] = self._folder_button_image
+
+        button = ctk.CTkButton(**button_kwargs)
+        button.place(relx=0.5, rely=0.5, anchor='center')
+        return shell
 
     def _show_sample_rate_dialog(self) -> None:
         popup = ctk.CTkInputDialog(text='Enter project sample rate', title='Sample Rate')
