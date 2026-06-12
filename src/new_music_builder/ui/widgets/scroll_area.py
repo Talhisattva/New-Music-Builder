@@ -175,6 +175,8 @@ class ScrollViewport(tk.Frame):
         size: tuple[int, int] = spec.MODULE_TWO_SCROLL_AREA_SIZE,
         viewport_size: tuple[int, int] = spec.MODULE_TWO_SCROLL_VIEWPORT_SIZE,
         scrollbar_size: tuple[int, int] = spec.SCROLLBAR_TRACK_SIZE,
+        viewport_edge_color: str = spec.MODULE_TWO_SCROLL_VIEWPORT_EDGE_COLOR,
+        viewport_edge_width: int = spec.MODULE_TWO_SCROLL_VIEWPORT_EDGE_WIDTH,
         bg_color: str | None = None,
     ) -> None:
         resolved_bg = bg_color if bg_color is not None else parent.cget('bg')
@@ -189,6 +191,7 @@ class ScrollViewport(tk.Frame):
         self.pack_propagate(False)
         self._viewport_size = viewport_size
         self._scrollbar_size = scrollbar_size
+        self._viewport_edge_width = viewport_edge_width
         self._wheel_bound = False
 
         self.viewport_canvas = tk.Canvas(
@@ -200,6 +203,26 @@ class ScrollViewport(tk.Frame):
             highlightthickness=0,
         )
         self.viewport_canvas.place(x=0, y=0)
+
+        self.viewport_left_edge = tk.Frame(
+            self,
+            bg=viewport_edge_color,
+            bd=0,
+            highlightthickness=0,
+            width=viewport_edge_width,
+            height=viewport_size[1],
+        )
+        self.viewport_left_edge.place(x=0, y=0)
+
+        self.viewport_bottom_edge = tk.Frame(
+            self,
+            bg=viewport_edge_color,
+            bd=0,
+            highlightthickness=0,
+            width=viewport_size[0],
+            height=viewport_edge_width,
+        )
+        self.viewport_bottom_edge.place(x=0, y=viewport_size[1] - viewport_edge_width)
 
         self.content_frame = tk.Frame(
             self.viewport_canvas,
