@@ -33,6 +33,7 @@ class MainWindow(ctk.CTk):
     MODULE_BG = '#1d1c1e'
     MODULE_BORDER = '#0e1414'
     MODULE_ONE_SIZE = (370, 450)
+    MODULE_BORDER_WIDTH = 1
     COVER_BG = '#101010'
     COVER_BORDER = '#575151'
     COVER_SIZE = (100, 100)
@@ -172,30 +173,45 @@ class MainWindow(ctk.CTk):
         self.content_frame.grid_rowconfigure(0, weight=0)
         self.content_frame.grid_rowconfigure(1, weight=1)
 
-        self.module_one_border = tk.Frame(
+        self.module_one_border = tk.Canvas(
             self.content_frame,
             bg=self.MODULE_BORDER,
-            bd=0,
-            highlightthickness=0,
             width=self.MODULE_ONE_SIZE[0],
             height=self.MODULE_ONE_SIZE[1],
+            bd=0,
+            highlightthickness=0,
         )
         self.module_one_border.grid(row=0, column=0, sticky='nw')
         self.module_one_border.grid_propagate(False)
         self.module_one_border.configure(width=self.MODULE_ONE_SIZE[0], height=self.MODULE_ONE_SIZE[1])
+        self.module_one_border.create_rectangle(
+            0,
+            0,
+            self.MODULE_ONE_SIZE[0],
+            self.MODULE_ONE_SIZE[1],
+            outline='',
+            fill=self.MODULE_BORDER,
+        )
 
         self.module_one_surface = tk.Frame(
             self.module_one_border,
             bg=self.MODULE_BG,
             bd=0,
             highlightthickness=0,
-            width=self.MODULE_ONE_SIZE[0] - 2,
-            height=self.MODULE_ONE_SIZE[1] - 2,
+            width=self.MODULE_ONE_SIZE[0] - (self.MODULE_BORDER_WIDTH * 2),
+            height=self.MODULE_ONE_SIZE[1] - (self.MODULE_BORDER_WIDTH * 2),
         )
-        self.module_one_surface.place(x=1, y=1)
+        self.module_one_border.create_window(
+            self.MODULE_BORDER_WIDTH,
+            self.MODULE_BORDER_WIDTH,
+            anchor='nw',
+            window=self.module_one_surface,
+            width=self.MODULE_ONE_SIZE[0] - (self.MODULE_BORDER_WIDTH * 2),
+            height=self.MODULE_ONE_SIZE[1] - (self.MODULE_BORDER_WIDTH * 2),
+        )
         self.module_one_surface.configure(
-            width=self.MODULE_ONE_SIZE[0] - 2,
-            height=self.MODULE_ONE_SIZE[1] - 2,
+            width=self.MODULE_ONE_SIZE[0] - (self.MODULE_BORDER_WIDTH * 2),
+            height=self.MODULE_ONE_SIZE[1] - (self.MODULE_BORDER_WIDTH * 2),
         )
 
         self.module_one_cover_border = tk.Frame(
