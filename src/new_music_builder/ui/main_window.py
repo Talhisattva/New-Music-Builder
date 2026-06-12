@@ -22,6 +22,7 @@ from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.app_header import AppHeader
 from new_music_builder.ui.widgets.cover_picker import CoverPicker
 from new_music_builder.ui.widgets.labeled_checkbox import LabeledCheckbox
+from new_music_builder.ui.widgets.labeled_text_field import LabeledTextField
 from new_music_builder.ui.widgets.menu_strip import MenuStrip
 from new_music_builder.ui.widgets.module_header import ModuleHeader
 from new_music_builder.ui.widgets.module_shell import ModuleShell
@@ -43,6 +44,7 @@ class MainWindow(ctk.CTk):
         self.audio_workspace = AudioWorkspaceService()
         self.session, saved_path = self.session_store.load()
         self.session = ProjectSession(project=self.session, current_path=saved_path)
+        self.mod_name_var = tk.StringVar(value=self.session.project.mod_name)
         self._window_icon_image = None
 
         sibling_root = app_root().parent
@@ -167,6 +169,15 @@ class MainWindow(ctk.CTk):
             bg_color=spec.MODULE_MIDGROUND_BG,
         )
         self.poster_name_checkbox.place(x=checkbox_x, y=checkbox_y)
+
+        mod_name_row_y = 5 + 10 + spec.COVER_SIZE[1] + spec.PHASE_ONE_TEXT_ROW_GAP_BELOW_COVER
+        self.module_one_mod_name_field = LabeledTextField(
+            self.module_one_midground_border,
+            label_text='Mod Name',
+            bg_color=spec.MODULE_MIDGROUND_BG,
+            textvariable=self.mod_name_var,
+        )
+        self.module_one_mod_name_field.place(x=spec.PHASE_ONE_TEXT_ROW_X, y=mod_name_row_y)
 
     def _show_sample_rate_dialog(self) -> None:
         popup = ctk.CTkInputDialog(text='Enter project sample rate', title='Sample Rate')
