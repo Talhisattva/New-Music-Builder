@@ -192,6 +192,14 @@ class MainWindow(ctk.CTk):
             outline='',
             fill=self.MODULE_BORDER,
         )
+        self.module_one_border.create_rectangle(
+            0,
+            0,
+            self.MODULE_ONE_SIZE[0] - 1,
+            self.MODULE_ONE_SIZE[1] - 1,
+            outline=self.MODULE_BORDER,
+            width=self.MODULE_BORDER_WIDTH,
+        )
 
         self.module_one_surface = tk.Frame(
             self.module_one_border,
