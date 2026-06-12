@@ -19,17 +19,15 @@ from new_music_builder.services.project_store import ProjectStore
 from new_music_builder.services.recent_projects import RecentProjectsStore
 from new_music_builder.services.session_store import SessionStore
 from new_music_builder.ui import theme
-from new_music_builder.ui.modules.appearance import AppearanceModule
-from new_music_builder.ui.modules.build_export import BuildExportModule
-from new_music_builder.ui.modules.build_summary import BuildSummaryModule
-from new_music_builder.ui.modules.media_creation import MediaCreationModule
-from new_music_builder.ui.modules.mod_setup import ModSetupModule
-
-
 class MainWindow(ctk.CTk):
-    MOD_SETUP_WIDTH = 404
-    APPEARANCE_RAIL_WIDTH = 360
-    SUMMARY_RAIL_WIDTH = 320
+    HEADER_HEIGHT = 50
+    MENU_HEIGHT = 30
+    APP_BG = '#131214'
+    MENU_BG = '#000000'
+    MENU_HOVER = '#2a2030'
+    HEADER_TEXT = '#c7c6c6'
+    VERSION_TEXT = 'v0.1.0'
+    MENU_ITEMS = ('FILE', 'PREFERENCES', 'HELP')
 
     def __init__(self) -> None:
         super().__init__()
@@ -37,7 +35,7 @@ class MainWindow(ctk.CTk):
         self.title(f'New Music Builder v{__version__}')
         self.geometry('1600x900')
         self.minsize(1366, 820)
-        self.configure(fg_color=theme.BG)
+        self.configure(fg_color=self.APP_BG)
 
         self.project_store = ProjectStore()
         self.recent_store = RecentProjectsStore()
@@ -47,10 +45,7 @@ class MainWindow(ctk.CTk):
         self.session = ProjectSession(project=self.session, current_path=saved_path)
         self._window_icon_image = None
         self._header_icon_image = None
-        self._top_layout_after_id: str | None = None
-        self._bottom_layout_after_id: str | None = None
-        self._top_layout_state: tuple[int, int] | None = None
-        self._bottom_layout_state: int | None = None
+        self._menu_widgets: list[tuple[ctk.CTkFrame, ctk.CTkLabel]] = []
 
         sibling_root = app_root().parent
         base_mod_root = sibling_root / 'Talis New Music'
@@ -62,12 +57,16 @@ class MainWindow(ctk.CTk):
         self._apply_window_icon()
         self._build_menu()
         self._build_header()
+        self._build_menu_strip()
         self._build_layout()
         self.refresh_all()
         self.protocol('WM_DELETE_WINDOW', self.on_close)
 
     def _main_icon_path(self) -> Path:
         return app_root().parent / 'Talis New Music' / 'Contents' / 'mods' / 'Talis New Music' / 'common' / 'media' / 'textures' / 'Item_NM_Cassette4.png'
+
+    def _header_logo_path(self) -> Path:
+        return app_root().parent / 'Talis New Music' / 'Contents' / 'mods' / 'Talis New Music' / 'common' / 'media' / 'textures' / 'UI' / 'NewMusic40.png'
 
     def _native_icon_path(self) -> Path:
         return app_root() / 'assets' / 'new_music_builder.ico'
@@ -91,132 +90,57 @@ class MainWindow(ctk.CTk):
                 pass
 
     def _build_menu(self) -> None:
-        menu = tk.Menu(self)
-        file_menu = tk.Menu(menu, tearoff=False)
-        file_menu.add_command(label='New', command=self.new_project)
-        file_menu.add_command(label='Save', command=self.save_project)
-        file_menu.add_command(label='Save As', command=self.save_project_as)
-        file_menu.add_command(label='Load', command=self.load_project)
-        recent = tk.Menu(file_menu, tearoff=False)
-        for path in self.recent_store.load():
-            recent.add_command(label=path, command=lambda current=path: self._load_path(Path(current)))
-        file_menu.add_cascade(label='Recent', menu=recent)
-        file_menu.add_separator()
-        file_menu.add_command(label='Exit', command=self.on_close)
-        menu.add_cascade(label='File', menu=file_menu)
-
-        pref_menu = tk.Menu(menu, tearoff=False)
-        pref_menu.add_command(label='Sample Rate: 44100 Hz', command=self._show_sample_rate_dialog)
-        menu.add_cascade(label='Preferences', menu=pref_menu)
-
-        help_menu = tk.Menu(menu, tearoff=False)
-        help_menu.add_command(label='About', command=lambda: messagebox.showinfo('About', 'New Music Builder functional shell'))
-        menu.add_cascade(label='Help', menu=help_menu)
-        self.configure(menu=menu)
+        self.configure(menu='')
 
     def _build_header(self) -> None:
-        header = ctk.CTkFrame(self, fg_color='#101213', corner_radius=0, height=52)
+        header = ctk.CTkFrame(self, fg_color='#101213', corner_radius=0, height=self.HEADER_HEIGHT)
         header.pack(fill='x')
         header.pack_propagate(False)
-        icon_path = self._main_icon_path()
-        title_pad = (16, 8)
+        icon_path = self._header_logo_path()
+        title_pad = (15, 10)
         if icon_path.exists():
-            self._header_icon_image = ctk.CTkImage(light_image=Image.open(icon_path), dark_image=Image.open(icon_path), size=(28, 28))
-            ctk.CTkLabel(header, text='', image=self._header_icon_image).pack(side='left', padx=(14, 8), pady=10)
+            self._header_icon_image = ctk.CTkImage(light_image=Image.open(icon_path), dark_image=Image.open(icon_path), size=(32, 32))
+            ctk.CTkLabel(header, text='', image=self._header_icon_image).pack(side='left', padx=(15, 10), pady=9)
             title_pad = (0, 8)
-        ctk.CTkLabel(header, text='NEW MUSIC BUILDER', text_color='#c7c6c6', font=ctk.CTkFont(family='Orbitron', size=20, weight='bold')).pack(side='left', padx=title_pad, pady=10)
-        ctk.CTkLabel(header, text=f'v{__version__}', text_color='#c7c6c6', font=ctk.CTkFont(family='Orbitron', size=13)).pack(side='left', pady=14)
+        ctk.CTkLabel(
+            header,
+            text='NEW MUSIC BUILDER',
+            text_color=self.HEADER_TEXT,
+            font=ctk.CTkFont(family='Orbitron', size=20, weight='bold'),
+        ).pack(side='left', padx=title_pad, pady=10)
+        ctk.CTkLabel(
+            header,
+            text=self.VERSION_TEXT,
+            text_color=self.HEADER_TEXT,
+            font=ctk.CTkFont(family='Orbitron', size=13, weight='normal'),
+        ).pack(side='left', pady=14)
+
+    def _build_menu_strip(self) -> None:
+        menu_bar = ctk.CTkFrame(self, fg_color=self.MENU_BG, corner_radius=0, height=self.MENU_HEIGHT)
+        menu_bar.pack(fill='x')
+        menu_bar.pack_propagate(False)
+        items = ctk.CTkFrame(menu_bar, fg_color='transparent')
+        items.pack(side='left', padx=(0, 0), pady=0)
+
+        for item in self.MENU_ITEMS:
+            item_frame = ctk.CTkFrame(items, fg_color=self.MENU_BG, corner_radius=0)
+            item_frame.pack(side='left', padx=0, pady=0)
+            label = ctk.CTkLabel(
+                item_frame,
+                text=item,
+                text_color=self.HEADER_TEXT,
+                font=ctk.CTkFont(family='Orbitron', size=12, weight='normal'),
+            )
+            label.pack(padx=10, pady=6)
+            item_frame.bind('<Enter>', lambda _e, frame=item_frame: frame.configure(fg_color=self.MENU_HOVER))
+            item_frame.bind('<Leave>', lambda _e, frame=item_frame: frame.configure(fg_color=self.MENU_BG))
+            label.bind('<Enter>', lambda _e, frame=item_frame: frame.configure(fg_color=self.MENU_HOVER))
+            label.bind('<Leave>', lambda _e, frame=item_frame: frame.configure(fg_color=self.MENU_BG))
+            self._menu_widgets.append((item_frame, label))
 
     def _build_layout(self) -> None:
-        content = ctk.CTkFrame(self, fg_color='transparent')
-        content.pack(fill='both', expand=True, padx=8, pady=8)
-        content.grid_rowconfigure(0, weight=7)
-        content.grid_rowconfigure(1, weight=3)
-        self.dashboard = content
-
-        top_row = ctk.CTkFrame(content, fg_color='transparent')
-        top_row.grid(row=0, column=0, sticky='nsew', pady=(0, 6))
-        top_row.grid_columnconfigure(0, weight=0)
-        top_row.grid_columnconfigure(1, weight=1)
-        top_row.grid_columnconfigure(2, weight=0)
-        top_row.grid_rowconfigure(0, weight=1)
-        top_row.bind('<Configure>', self._schedule_top_dashboard_layout)
-        self.top_row = top_row
-
-        bottom_row = ctk.CTkFrame(content, fg_color='transparent')
-        bottom_row.grid(row=1, column=0, sticky='nsew', pady=(6, 0))
-        bottom_row.grid_columnconfigure(0, weight=1)
-        bottom_row.grid_columnconfigure(1, weight=0)
-        bottom_row.grid_rowconfigure(0, weight=1)
-        bottom_row.bind('<Configure>', self._schedule_bottom_dashboard_layout)
-        self.bottom_row = bottom_row
-
-        self.mod_setup = ModSetupModule(
-            top_row,
-            self.session,
-            self.on_project_change,
-            self.save_project,
-            self.load_project,
-            self.reset_phase_one_fields,
-        )
-        self.mod_setup.configure(width=self.MOD_SETUP_WIDTH)
-        self.mod_setup.grid(row=0, column=0, sticky='ns', padx=(0, 6), pady=(0, 6))
-
-        self.media_creation = MediaCreationModule(top_row, self.session, self.asset_catalog, self.on_project_change, self.on_select_row)
-        self.media_creation.grid(row=0, column=1, sticky='nsew', padx=6, pady=(0, 6))
-
-        self.appearance = AppearanceModule(top_row, self.session, self.asset_catalog, self.on_project_change)
-        self.appearance.configure(width=self.APPEARANCE_RAIL_WIDTH)
-        self.appearance.grid(row=0, column=2, sticky='ns', padx=(6, 0), pady=(0, 6))
-
-        self.build_export = BuildExportModule(bottom_row, self.session, self.run_build_preview, self.reset_transient_state)
-        self.build_export.grid(row=0, column=0, sticky='nsew', padx=(0, 6))
-
-        self.build_summary = BuildSummaryModule(bottom_row, self.session)
-        self.build_summary.grid(row=0, column=1, sticky='nsew', padx=(6, 0))
-
-    def _schedule_top_dashboard_layout(self, event) -> None:
-        if self._top_layout_after_id is not None:
-            self.after_cancel(self._top_layout_after_id)
-        width = event.width
-        self._top_layout_after_id = self.after(60, lambda current=width: self._sync_top_dashboard_layout(current))
-
-    def _schedule_bottom_dashboard_layout(self, event) -> None:
-        if self._bottom_layout_after_id is not None:
-            self.after_cancel(self._bottom_layout_after_id)
-        width = event.width
-        self._bottom_layout_after_id = self.after(60, lambda current=width: self._sync_bottom_dashboard_layout(current))
-
-    def _sync_top_dashboard_layout(self, width: int) -> None:
-        self._top_layout_after_id = None
-        if not hasattr(self, 'top_row') or not self.top_row.winfo_exists():
-            return
-        total_width = max(width - 24, 0)
-        mod_setup_width = min(self.MOD_SETUP_WIDTH, max(380, int(total_width * 0.25)))
-        appearance_width = min(self.APPEARANCE_RAIL_WIDTH, max(320, int(total_width * 0.21)))
-        state = (mod_setup_width, appearance_width)
-        if state == self._top_layout_state:
-            return
-        self._top_layout_state = state
-
-        self.top_row.grid_columnconfigure(0, minsize=mod_setup_width, weight=0)
-        self.top_row.grid_columnconfigure(1, minsize=max(500, total_width - mod_setup_width - appearance_width), weight=1)
-        self.top_row.grid_columnconfigure(2, minsize=appearance_width, weight=0)
-
-        if hasattr(self, 'appearance'):
-            self.appearance.configure(width=appearance_width)
-
-    def _sync_bottom_dashboard_layout(self, width: int) -> None:
-        self._bottom_layout_after_id = None
-        if not hasattr(self, 'bottom_row') or not self.bottom_row.winfo_exists():
-            return
-        total_width = max(width - 8, 0)
-        summary_width = min(self.SUMMARY_RAIL_WIDTH, max(300, int(total_width * 0.22)))
-        if summary_width == self._bottom_layout_state:
-            return
-        self._bottom_layout_state = summary_width
-        self.bottom_row.grid_columnconfigure(0, minsize=max(620, total_width - summary_width), weight=1)
-        self.bottom_row.grid_columnconfigure(1, minsize=summary_width, weight=0)
+        self.stage = ctk.CTkFrame(self, fg_color=self.APP_BG, corner_radius=0)
+        self.stage.pack(fill='both', expand=True)
 
     def _show_sample_rate_dialog(self) -> None:
         popup = ctk.CTkInputDialog(text='Enter project sample rate', title='Sample Rate')
@@ -231,24 +155,30 @@ class MainWindow(ctk.CTk):
         self.on_project_change()
 
     def on_select_row(self, row_id: int | None) -> None:
-        if row_id is None:
+        if row_id is None or not hasattr(self, 'media_creation') or not hasattr(self, 'appearance'):
             return
         self.media_creation.set_active_row(row_id)
         self.appearance.set_active_row(row_id)
 
     def on_project_change(self) -> None:
-        self.build_summary.refresh()
+        if hasattr(self, 'build_summary'):
+            self.build_summary.refresh()
         self.session_store.save(self.session.project, self.session.current_path)
 
     def refresh_all(self) -> None:
         self._apply_default_asset_selections()
         if self.session.project.media_rows and not any(row.expanded for row in self.session.project.media_rows):
             self.session.project.media_rows[0].expanded = True
-        self.mod_setup.refresh()
-        self.media_creation.refresh()
-        self.appearance.refresh()
-        self.build_export.refresh(self.build_log, self.preview_entries)
-        self.build_summary.refresh()
+        if hasattr(self, 'mod_setup'):
+            self.mod_setup.refresh()
+        if hasattr(self, 'media_creation'):
+            self.media_creation.refresh()
+        if hasattr(self, 'appearance'):
+            self.appearance.refresh()
+        if hasattr(self, 'build_export'):
+            self.build_export.refresh(self.build_log, self.preview_entries)
+        if hasattr(self, 'build_summary'):
+            self.build_summary.refresh()
 
     def _apply_default_asset_selections(self) -> None:
         for row in self.session.project.media_rows:
@@ -265,7 +195,8 @@ class MainWindow(ctk.CTk):
         self.refresh_all()
 
     def reset_phase_one_fields(self) -> None:
-        self.mod_setup.reset_fields()
+        if hasattr(self, 'mod_setup'):
+            self.mod_setup.reset_fields()
 
     def save_project(self) -> None:
         if self.session.current_path:
@@ -300,13 +231,16 @@ class MainWindow(ctk.CTk):
             for side_name, tracks in [('A', row.tracks_a), ('B', row.tracks_b)]:
                 self.build_log.append(f"[{datetime.now().strftime('%H:%M:%S')}] Queued: {row.media_name} (Side {side_name}) - {len(tracks)} songs")
                 self.preview_entries.append(f'{row.media_name} (Side {side_name})')
-        self.build_export.refresh(self.build_log, self.preview_entries)
-        self.build_summary.refresh()
+        if hasattr(self, 'build_export'):
+            self.build_export.refresh(self.build_log, self.preview_entries)
+        if hasattr(self, 'build_summary'):
+            self.build_summary.refresh()
 
     def reset_transient_state(self) -> None:
         self.build_log = []
         self.preview_entries = []
-        self.build_export.refresh(self.build_log, self.preview_entries)
+        if hasattr(self, 'build_export'):
+            self.build_export.refresh(self.build_log, self.preview_entries)
 
     def on_close(self) -> None:
         self.session_store.save(self.session.project, self.session.current_path)
