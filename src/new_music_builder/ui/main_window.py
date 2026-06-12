@@ -24,6 +24,7 @@ from new_music_builder.ui.widgets.cover_picker import CoverPicker
 from new_music_builder.ui.widgets.labeled_checkbox import LabeledCheckbox
 from new_music_builder.ui.widgets.labeled_text_field import LabeledTextField
 from new_music_builder.ui.widgets.main_button import MainButton
+from new_music_builder.ui.widgets.media_creation_header import MediaCreationHeader
 from new_music_builder.ui.widgets.menu_strip import MenuStrip
 from new_music_builder.ui.widgets.module_header import ModuleHeader
 from new_music_builder.ui.widgets.module_shell import ModuleShell
@@ -175,6 +176,11 @@ class MainWindow(ctk.CTk):
         )
         self.module_two_phase_icon = self.module_two_header.icon_label
         self.module_two_phase_label = self.module_two_header.text_label
+
+        self.module_two_top_header = MediaCreationHeader(self.module_two_midground_border)
+        self.module_two_top_header.place(x=0, y=0)
+        self.module_two_add_row_button = self.module_two_top_header.add_button
+        self.module_two_remove_row_button = self.module_two_top_header.remove_button
 
         self.module_one_cover_picker = CoverPicker(
             self.module_one_midground,
