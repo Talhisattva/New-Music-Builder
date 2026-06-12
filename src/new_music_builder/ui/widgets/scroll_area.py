@@ -98,6 +98,8 @@ class CustomScrollbar(tk.Canvas):
         self._command = command
 
     def set_metrics(self, *, content_height: int, viewport_height: int) -> None:
+        self._content_height = content_height
+        self._viewport_height = viewport_height
         if content_height <= viewport_height or viewport_height <= 0:
             self._thumb_visible = False
             self.itemconfigure(self._thumb_id, state='hidden')
@@ -169,7 +171,9 @@ class CustomScrollbar(tk.Canvas):
     def _move_thumb_to(self, thumb_top: float) -> None:
         available = max(1.0, self._size[1] - self._thumb_height)
         clamped_top = max(0.0, min(available, thumb_top))
-        fraction = clamped_top / available
+        position_fraction = clamped_top / available
+        max_first = max(0.0, 1.0 - self._visible_fraction)
+        fraction = position_fraction * max_first
         if self._command is not None:
             self._command(fraction)
 
@@ -200,6 +204,8 @@ class ScrollViewport(tk.Frame):
         self._scrollbar_size = scrollbar_size
         self._viewport_edge_width = viewport_edge_width
         self._wheel_bound = False
+        self._content_height = 0
+        self._viewport_height = viewport_size[1]
 
         self.viewport_canvas = tk.Canvas(
             self,
@@ -267,6 +273,8 @@ class ScrollViewport(tk.Frame):
         viewport_height = self._viewport_size[1]
         self.viewport_canvas.itemconfigure(self._content_window_id, width=self._viewport_size[0])
         content_bottom = content_height + spec.SCROLL_CONTENT_BOTTOM_PADDING
+        self._content_height = content_bottom
+        self._viewport_height = viewport_height
         self.viewport_canvas.configure(scrollregion=(0, 0, self._viewport_size[0], content_bottom))
         if content_height <= viewport_height:
             self.viewport_canvas.yview_moveto(0.0)
@@ -316,14 +324,24 @@ class ScrollViewport(tk.Frame):
         if event.delta != 0:
             delta = -1 if event.delta > 0 else 1
         if delta != 0:
-            self.viewport_canvas.yview_scroll(delta, 'units')
+            self._scroll_by_pixels(delta * spec.SCROLL_WHEEL_STEP_PX)
         return 'break'
 
     def _on_mousewheel_linux(self, event: tk.Event) -> str:
         if self.content_frame.winfo_reqheight() <= self._viewport_size[1]:
             return 'break'
         if event.num == 4:
-            self.viewport_canvas.yview_scroll(-1, 'units')
+            self._scroll_by_pixels(-spec.SCROLL_WHEEL_STEP_PX)
         elif event.num == 5:
-            self.viewport_canvas.yview_scroll(1, 'units')
+            self._scroll_by_pixels(spec.SCROLL_WHEEL_STEP_PX)
         return 'break'
+
+    def _scroll_by_pixels(self, delta_pixels: float) -> None:
+        scrollable_pixels = max(0, self._content_height - self._viewport_height)
+        if scrollable_pixels <= 0:
+            return
+        current_first, _current_last = self.viewport_canvas.yview()
+        current_pixels = current_first * self._content_height
+        target_pixels = max(0.0, min(scrollable_pixels, current_pixels + delta_pixels))
+        target_fraction = target_pixels / self._content_height if self._content_height > 0 else 0.0
+        self.viewport_canvas.yview_moveto(target_fraction)
