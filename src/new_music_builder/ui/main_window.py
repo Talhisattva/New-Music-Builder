@@ -29,6 +29,7 @@ from new_music_builder.ui.widgets.menu_strip import MenuStrip
 from new_music_builder.ui.widgets.module_header import ModuleHeader
 from new_music_builder.ui.widgets.module_shell import ModuleShell
 from new_music_builder.ui.widgets.output_folder_field import OutputFolderField
+from new_music_builder.ui.widgets.scroll_area import ScrollViewport
 
 
 class MainWindow(ctk.CTk):
@@ -181,6 +182,18 @@ class MainWindow(ctk.CTk):
         self.module_two_top_header.place(x=0, y=0)
         self.module_two_add_row_button = self.module_two_top_header.add_button
         self.module_two_remove_row_button = self.module_two_top_header.remove_button
+
+        self.module_two_scroll_area = ScrollViewport(
+            self.module_two_midground_border,
+            size=spec.MODULE_TWO_SCROLL_AREA_SIZE,
+            viewport_size=spec.MODULE_TWO_SCROLL_VIEWPORT_SIZE,
+            scrollbar_size=spec.SCROLLBAR_TRACK_SIZE,
+            bg_color=spec.MODULE_MIDGROUND_BG,
+        )
+        self.module_two_scroll_area.place(x=0, y=spec.MODULE_TWO_TOP_HEADER_SIZE[1])
+        self.module_two_content_viewport = self.module_two_scroll_area.viewport_canvas
+        self.module_two_content_surface = self.module_two_scroll_area.content_frame
+        self.module_two_scrollbar = self.module_two_scroll_area.scrollbar
 
         self.module_one_cover_picker = CoverPicker(
             self.module_one_midground,
