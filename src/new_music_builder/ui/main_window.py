@@ -23,11 +23,15 @@ class MainWindow(ctk.CTk):
     HEADER_HEIGHT = 50
     MENU_HEIGHT = 30
     APP_BG = '#131214'
+    CONTENT_PADDING = 10
     MENU_BG = '#000000'
     MENU_HOVER = '#2a2030'
     HEADER_TEXT = '#c7c6c6'
     VERSION_TEXT = 'v0.1.0'
     MENU_ITEMS = ('FILE', 'PREFERENCES', 'HELP')
+    MODULE_BG = '#1d1c1e'
+    MODULE_BORDER = '#0e1414'
+    MODULE_ONE_SIZE = (370, 450)
 
     def __init__(self) -> None:
         super().__init__()
@@ -141,6 +145,36 @@ class MainWindow(ctk.CTk):
     def _build_layout(self) -> None:
         self.stage = ctk.CTkFrame(self, fg_color=self.APP_BG, corner_radius=0)
         self.stage.pack(fill='both', expand=True)
+
+        self.content_frame = ctk.CTkFrame(self.stage, fg_color='transparent', corner_radius=0)
+        self.content_frame.pack(
+            fill='both',
+            expand=True,
+            padx=self.CONTENT_PADDING,
+            pady=self.CONTENT_PADDING,
+        )
+
+        self.content_frame.grid_columnconfigure(0, weight=0)
+        self.content_frame.grid_columnconfigure(1, weight=1)
+        self.content_frame.grid_rowconfigure(0, weight=0)
+        self.content_frame.grid_rowconfigure(1, weight=1)
+
+        module_one = ctk.CTkFrame(
+            self.content_frame,
+            fg_color=self.MODULE_BORDER,
+            corner_radius=0,
+            width=self.MODULE_ONE_SIZE[0],
+            height=self.MODULE_ONE_SIZE[1],
+        )
+        module_one.grid(row=0, column=0, sticky='nw')
+        module_one.grid_propagate(False)
+
+        module_one_inner = ctk.CTkFrame(
+            module_one,
+            fg_color=self.MODULE_BG,
+            corner_radius=0,
+        )
+        module_one_inner.pack(fill='both', expand=True, padx=1, pady=1)
 
     def _show_sample_rate_dialog(self) -> None:
         popup = ctk.CTkInputDialog(text='Enter project sample rate', title='Sample Rate')
