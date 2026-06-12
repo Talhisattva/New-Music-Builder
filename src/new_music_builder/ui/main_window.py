@@ -66,7 +66,7 @@ class MainWindow(ctk.CTk):
         return app_root().parent / 'Talis New Music' / 'Contents' / 'mods' / 'Talis New Music' / 'common' / 'media' / 'textures' / 'Item_NM_Cassette4.png'
 
     def _header_logo_path(self) -> Path:
-        return app_root().parent / 'Talis New Music' / 'Contents' / 'mods' / 'Talis New Music' / 'common' / 'media' / 'textures' / 'UI' / 'NewMusic40.png'
+        return self._native_icon_path()
 
     def _native_icon_path(self) -> Path:
         return app_root() / 'assets' / 'new_music_builder.ico'
