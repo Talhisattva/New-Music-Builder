@@ -268,7 +268,7 @@ class MainWindow(ctk.CTk):
             font=('Orbitron Medium', 12),
             anchor='w',
         )
-        self.module_one_phase_label.place(x=50, y=20, anchor='w')
+        self.module_one_phase_label.place(x=40, y=15, anchor='w')
 
         self.module_one_cover_border = tk.Frame(
             self.module_one_midground,
