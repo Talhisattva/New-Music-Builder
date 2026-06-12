@@ -40,7 +40,7 @@ class MainWindow(ctk.CTk):
     FOLDER_BUTTON_BG = '#8a57a3'
     FOLDER_BUTTON_STROKE = '#382b47'
     FOLDER_BUTTON_SIZE = (30, 30)
-    FOLDER_BUTTON_STROKE_WIDTH = 4
+    FOLDER_BUTTON_STROKE_WIDTH = 2
 
     def __init__(self) -> None:
         super().__init__()
@@ -172,10 +172,11 @@ class MainWindow(ctk.CTk):
         self.content_frame.grid_rowconfigure(0, weight=0)
         self.content_frame.grid_rowconfigure(1, weight=1)
 
-        self.module_one_border = ctk.CTkFrame(
+        self.module_one_border = tk.Frame(
             self.content_frame,
-            fg_color=self.MODULE_BORDER,
-            corner_radius=0,
+            bg=self.MODULE_BORDER,
+            bd=0,
+            highlightthickness=0,
             width=self.MODULE_ONE_SIZE[0],
             height=self.MODULE_ONE_SIZE[1],
         )
@@ -183,38 +184,39 @@ class MainWindow(ctk.CTk):
         self.module_one_border.grid_propagate(False)
         self.module_one_border.configure(width=self.MODULE_ONE_SIZE[0], height=self.MODULE_ONE_SIZE[1])
 
-        self.module_one_surface = ctk.CTkFrame(
+        self.module_one_surface = tk.Frame(
             self.module_one_border,
-            fg_color=self.MODULE_BG,
-            corner_radius=0,
+            bg=self.MODULE_BG,
+            bd=0,
+            highlightthickness=0,
             width=self.MODULE_ONE_SIZE[0] - 2,
             height=self.MODULE_ONE_SIZE[1] - 2,
         )
-        self.module_one_surface.pack(padx=1, pady=1, anchor='nw')
-        self.module_one_surface.pack_propagate(False)
+        self.module_one_surface.place(x=1, y=1)
         self.module_one_surface.configure(
             width=self.MODULE_ONE_SIZE[0] - 2,
             height=self.MODULE_ONE_SIZE[1] - 2,
         )
 
-        self.module_one_cover_border = ctk.CTkFrame(
+        self.module_one_cover_border = tk.Frame(
             self.module_one_border,
-            fg_color=self.COVER_BORDER,
-            corner_radius=0,
+            bg=self.COVER_BORDER,
+            bd=0,
+            highlightthickness=0,
             width=self.COVER_SIZE[0],
             height=self.COVER_SIZE[1],
         )
         self.module_one_cover_border.place(x=15, y=15)
 
-        self.module_one_cover_surface = ctk.CTkFrame(
+        self.module_one_cover_surface = tk.Frame(
             self.module_one_cover_border,
-            fg_color=self.COVER_BG,
-            corner_radius=0,
+            bg=self.COVER_BG,
+            bd=0,
+            highlightthickness=0,
             width=self.COVER_SIZE[0] - 2,
             height=self.COVER_SIZE[1] - 2,
         )
-        self.module_one_cover_surface.pack(padx=1, pady=1, anchor='nw')
-        self.module_one_cover_surface.pack_propagate(False)
+        self.module_one_cover_surface.place(x=1, y=1)
 
         cover_button_x = (
             15
@@ -232,65 +234,48 @@ class MainWindow(ctk.CTk):
 
     def _create_folder_icon_button(
         self,
-        parent: ctk.CTkBaseClass,
+        parent: tk.Misc,
         *,
         command: Callable[[], None] | None = None,
-    ) -> ctk.CTkFrame:
-        shell = ctk.CTkFrame(
+    ) -> tk.Canvas:
+        shell = tk.Canvas(
             parent,
-            fg_color=self.FOLDER_BUTTON_BG,
-            corner_radius=0,
+            bg=self.FOLDER_BUTTON_BG,
             width=self.FOLDER_BUTTON_SIZE[0],
             height=self.FOLDER_BUTTON_SIZE[1],
+            bd=0,
+            highlightthickness=0,
         )
-        shell.pack_propagate(False)
-
-        stroke = ctk.CTkFrame(
-            shell,
-            fg_color=self.FOLDER_BUTTON_STROKE,
-            corner_radius=0,
-            width=self.FOLDER_BUTTON_SIZE[0] - (self.FOLDER_BUTTON_STROKE_WIDTH * 2),
-            height=self.FOLDER_BUTTON_SIZE[1] - (self.FOLDER_BUTTON_STROKE_WIDTH * 2),
-        )
-        stroke.place(relx=0.5, rely=0.5, anchor='center')
-        stroke.pack_propagate(False)
-
-        face = ctk.CTkFrame(
-            stroke,
-            fg_color=self.FOLDER_BUTTON_BG,
-            corner_radius=0,
-            width=self.FOLDER_BUTTON_SIZE[0] - (self.FOLDER_BUTTON_STROKE_WIDTH * 4),
-            height=self.FOLDER_BUTTON_SIZE[1] - (self.FOLDER_BUTTON_STROKE_WIDTH * 4),
-        )
-        face.place(relx=0.5, rely=0.5, anchor='center')
-        face.pack_propagate(False)
 
         icon_path = self._folder_button_icon_path()
         if icon_path.exists():
-            self._folder_button_image = ctk.CTkImage(
-                light_image=Image.open(icon_path),
-                dark_image=Image.open(icon_path),
-                size=self.FOLDER_BUTTON_SIZE,
-            )
+            image = Image.open(icon_path).resize(self.FOLDER_BUTTON_SIZE, Image.Resampling.LANCZOS)
+            self._folder_button_image = ImageTk.PhotoImage(image)
         else:
             self._folder_button_image = None
 
-        button = ctk.CTkLabel(
-            shell,
-            text='',
-            image=self._folder_button_image,
-            fg_color='transparent',
-            width=self.FOLDER_BUTTON_SIZE[0],
-            height=self.FOLDER_BUTTON_SIZE[1],
+        if self._folder_button_image is not None:
+            shell.create_image(
+                self.FOLDER_BUTTON_SIZE[0] // 2,
+                self.FOLDER_BUTTON_SIZE[1] // 2,
+                image=self._folder_button_image,
+            )
+
+        inset = self.FOLDER_BUTTON_STROKE_WIDTH
+        shell.create_rectangle(
+            inset,
+            inset,
+            self.FOLDER_BUTTON_SIZE[0] - inset,
+            self.FOLDER_BUTTON_SIZE[1] - inset,
+            outline=self.FOLDER_BUTTON_STROKE,
+            width=self.FOLDER_BUTTON_STROKE_WIDTH,
         )
-        button.place(x=0, y=0)
 
         def _run_command(_event: tk.Event | None = None) -> None:
             if command is not None:
                 command()
 
-        for widget in (shell, button):
-            widget.bind('<Button-1>', _run_command)
+        shell.bind('<Button-1>', _run_command)
         return shell
 
     def _show_sample_rate_dialog(self) -> None:
