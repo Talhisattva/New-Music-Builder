@@ -217,7 +217,10 @@ class MainWindow(ctk.CTk):
             textvariable=self.ogg_output_folder_var,
             bg_color=spec.MODULE_MIDGROUND_BG,
         )
-        self.module_one_ogg_output_folder.place(x=spec.PHASE_ONE_TEXT_ROW_X, y=output_folder_y)
+        self.module_one_ogg_output_folder.place(
+            x=spec.PHASE_ONE_TEXT_ROW_X + min(0, spec.OUTPUT_FOLDER_ROW_X_OFFSET),
+            y=output_folder_y,
+        )
 
     def _show_sample_rate_dialog(self) -> None:
         popup = ctk.CTkInputDialog(text='Enter project sample rate', title='Sample Rate')

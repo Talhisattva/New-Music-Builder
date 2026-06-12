@@ -72,12 +72,17 @@ class OutputFolderField(tk.Frame):
         bg_color: str | None = None,
     ) -> None:
         resolved_bg = bg_color if bg_color is not None else parent.cget('bg')
-        total_width = max(
-            spec.OUTPUT_FOLDER_LABEL_SIZE[0],
-            spec.OUTPUT_FOLDER_ROW_X_OFFSET
+        self._left_inset = max(0, -spec.OUTPUT_FOLDER_ROW_X_OFFSET)
+        label_x = self._left_inset
+        display_x = self._left_inset + spec.OUTPUT_FOLDER_ROW_X_OFFSET
+        button_x = (
+            display_x
             + spec.OUTPUT_FOLDER_DISPLAY_SIZE[0]
             + spec.OUTPUT_FOLDER_BUTTON_GAP
-            + spec.OUTPUT_FOLDER_BUTTON_SIZE[0],
+        )
+        total_width = max(
+            label_x + spec.OUTPUT_FOLDER_LABEL_SIZE[0],
+            button_x + spec.OUTPUT_FOLDER_BUTTON_SIZE[0],
         )
         total_height = (
             spec.OUTPUT_FOLDER_LABEL_SIZE[1]
@@ -95,7 +100,7 @@ class OutputFolderField(tk.Frame):
             width=spec.OUTPUT_FOLDER_LABEL_SIZE[0],
             height=spec.OUTPUT_FOLDER_LABEL_SIZE[1],
         )
-        self.label_frame.place(x=0, y=0)
+        self.label_frame.place(x=label_x, y=0)
 
         self.label = tk.Label(
             self.label_frame,
@@ -112,13 +117,8 @@ class OutputFolderField(tk.Frame):
 
         row_y = spec.OUTPUT_FOLDER_LABEL_SIZE[1] + spec.OUTPUT_FOLDER_ROW_GAP
         self.path_display = FolderPathDisplay(self, textvariable=textvariable)
-        self.path_display.place(x=spec.OUTPUT_FOLDER_ROW_X_OFFSET, y=row_y)
+        self.path_display.place(x=display_x, y=row_y)
 
-        button_x = (
-            spec.OUTPUT_FOLDER_ROW_X_OFFSET
-            + spec.OUTPUT_FOLDER_DISPLAY_SIZE[0]
-            + spec.OUTPUT_FOLDER_BUTTON_GAP
-        )
         self.folder_button = FolderIconButton(
             self,
             icon_path=folder_icon_path,
