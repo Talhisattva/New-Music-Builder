@@ -244,38 +244,52 @@ class MainWindow(ctk.CTk):
         )
         shell.pack_propagate(False)
 
-        inset = ctk.CTkFrame(
+        stroke = ctk.CTkFrame(
             shell,
             fg_color=self.FOLDER_BUTTON_STROKE,
             corner_radius=0,
             width=self.FOLDER_BUTTON_SIZE[0] - 4,
             height=self.FOLDER_BUTTON_SIZE[1] - 4,
         )
-        inset.place(relx=0.5, rely=0.5, anchor='center')
-        inset.pack_propagate(False)
+        stroke.place(relx=0.5, rely=0.5, anchor='center')
+        stroke.pack_propagate(False)
+
+        face = ctk.CTkFrame(
+            stroke,
+            fg_color=self.FOLDER_BUTTON_BG,
+            corner_radius=0,
+            width=self.FOLDER_BUTTON_SIZE[0] - 8,
+            height=self.FOLDER_BUTTON_SIZE[1] - 8,
+        )
+        face.place(relx=0.5, rely=0.5, anchor='center')
+        face.pack_propagate(False)
 
         icon_path = self._folder_button_icon_path()
-        button_kwargs = {
-            'master': inset,
-            'text': '',
-            'fg_color': self.FOLDER_BUTTON_BG,
-            'hover_color': self.FOLDER_BUTTON_BG,
-            'corner_radius': 0,
-            'width': self.FOLDER_BUTTON_SIZE[0] - 6,
-            'height': self.FOLDER_BUTTON_SIZE[1] - 6,
-            'border_width': 0,
-            'command': command or (lambda: None),
-        }
         if icon_path.exists():
             self._folder_button_image = ctk.CTkImage(
                 light_image=Image.open(icon_path),
                 dark_image=Image.open(icon_path),
                 size=self.FOLDER_BUTTON_SIZE,
             )
-            button_kwargs['image'] = self._folder_button_image
+        else:
+            self._folder_button_image = None
 
-        button = ctk.CTkButton(**button_kwargs)
-        button.place(relx=0.5, rely=0.5, anchor='center')
+        button = ctk.CTkLabel(
+            shell,
+            text='',
+            image=self._folder_button_image,
+            fg_color='transparent',
+            width=self.FOLDER_BUTTON_SIZE[0],
+            height=self.FOLDER_BUTTON_SIZE[1],
+        )
+        button.place(x=0, y=0)
+
+        def _run_command(_event: tk.Event | None = None) -> None:
+            if command is not None:
+                command()
+
+        for widget in (shell, button):
+            widget.bind('<Button-1>', _run_command)
         return shell
 
     def _show_sample_rate_dialog(self) -> None:
