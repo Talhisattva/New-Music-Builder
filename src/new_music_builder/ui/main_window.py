@@ -33,7 +33,7 @@ class MainWindow(ctk.CTk):
     MODULE_BG = '#1d1c1e'
     MODULE_BORDER = '#0e1414'
     MODULE_ONE_SIZE = (370, 450)
-    MODULE_BORDER_WIDTH = 1
+    MODULE_BORDER_WIDTH = 2
     COVER_BG = '#101010'
     COVER_BORDER = '#575151'
     COVER_SIZE = (100, 100)
