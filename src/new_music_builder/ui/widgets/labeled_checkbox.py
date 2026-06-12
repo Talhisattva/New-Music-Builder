@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 import tkinter as tk
 
@@ -17,6 +18,8 @@ class ImageCheckbox(tk.Canvas):
         outline_color: str = spec.POSTER_NAME_CHECKBOX_OUTLINE,
         size: tuple[int, int] = spec.POSTER_NAME_CHECKBOX_SIZE,
         outline_width: int = spec.POSTER_NAME_CHECKBOX_OUTLINE_WIDTH,
+        checked: bool = True,
+        command: Callable[[bool], None] | None = None,
     ) -> None:
         super().__init__(
             parent,
@@ -31,6 +34,9 @@ class ImageCheckbox(tk.Canvas):
         self._bg_color = bg_color
         self._outline_color = outline_color
         self._image = load_tk_photoimage(icon_path, size)
+        self._checked = checked
+        self._command = command
+        self._check_image_id: int | None = None
 
         self._draw()
 
@@ -53,7 +59,25 @@ class ImageCheckbox(tk.Canvas):
             fill=self._bg_color,
         )
         if self._image is not None:
-            self.create_image(self._size[0] // 2, self._size[1] // 2, image=self._image)
+            self._check_image_id = self.create_image(self._size[0] // 2, self._size[1] // 2, image=self._image)
+            self._sync_check_visibility()
+
+    def _sync_check_visibility(self) -> None:
+        if self._check_image_id is None:
+            return
+        self.itemconfigure(self._check_image_id, state='normal' if self._checked else 'hidden')
+
+    def set_checked(self, checked: bool) -> None:
+        self._checked = checked
+        self._sync_check_visibility()
+
+    def is_checked(self) -> bool:
+        return self._checked
+
+    def toggle(self) -> None:
+        self.set_checked(not self._checked)
+        if self._command is not None:
+            self._command(self._checked)
 
 
 class LabeledCheckbox(tk.Frame):
@@ -67,11 +91,13 @@ class LabeledCheckbox(tk.Frame):
         text_color: str = spec.POSTER_NAME_LABEL_COLOR,
         font_size: int = spec.POSTER_NAME_LABEL_FONT_SIZE,
         bg_color: str | None = None,
+        checked: bool = True,
+        command: Callable[[bool], None] | None = None,
     ) -> None:
         resolved_bg = bg_color if bg_color is not None else parent.cget('bg')
         super().__init__(parent, bg=resolved_bg, bd=0, highlightthickness=0)
 
-        self.checkbox = ImageCheckbox(self, icon_path=icon_path)
+        self.checkbox = ImageCheckbox(self, icon_path=icon_path, checked=checked, command=command)
         self.checkbox.pack(side='left')
 
         self.text_label = tk.Label(
@@ -86,3 +112,19 @@ class LabeledCheckbox(tk.Frame):
             justify='left',
         )
         self.text_label.pack(side='left', padx=(checkbox_gap, 0), fill='y')
+        self._bind_toggle_target(self)
+        self._bind_toggle_target(self.checkbox)
+        self._bind_toggle_target(self.text_label)
+
+    def _bind_toggle_target(self, widget: tk.Misc) -> None:
+        widget.bind('<Button-1>', self._toggle, add='+')
+
+    def _toggle(self, _event: tk.Event | None = None) -> str:
+        self.checkbox.toggle()
+        return 'break'
+
+    def set_checked(self, checked: bool) -> None:
+        self.checkbox.set_checked(checked)
+
+    def is_checked(self) -> bool:
+        return self.checkbox.is_checked()
