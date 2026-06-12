@@ -317,6 +317,7 @@ class MainWindow(ctk.CTk):
         self.module_two_row_list = MediaRowList(
             self.module_two_content_surface,
             rows=self.session.project.media_rows,
+            folder_icon_path=str(self._folder_button_icon_path()),
             bg_color=spec.MODULE_MIDGROUND_BG,
         )
         self.module_two_row_list.pack(anchor='nw')

@@ -5,6 +5,7 @@ import tkinter as tk
 from new_music_builder.domain.models import MediaRow
 from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.media_row_badge import MediaRowBadge
+from new_music_builder.ui.widgets.media_row_cover import CollapsedMediaCover, ExpandedMediaCover
 
 
 class MediaRowShell(tk.Frame):
@@ -14,6 +15,7 @@ class MediaRowShell(tk.Frame):
         *,
         row: MediaRow,
         expanded: bool,
+        folder_icon_path: str | None = None,
     ) -> None:
         size = spec.MEDIA_ROW_EXPANDED_SIZE if expanded else spec.MEDIA_ROW_COLLAPSED_SIZE
         super().__init__(
@@ -46,6 +48,26 @@ class MediaRowShell(tk.Frame):
         self.badge = MediaRowBadge(self.surface, row_number=row.row_id)
         self.badge.place(x=badge_x, y=badge_y)
 
+        if expanded:
+            self.cover = ExpandedMediaCover(
+                self.surface,
+                folder_icon_path=folder_icon_path,
+                cover_path=row.cover_path,
+            )
+            self.cover.place(
+                x=spec.MEDIA_ROW_EXPANDED_COVER_POS[0],
+                y=spec.MEDIA_ROW_EXPANDED_COVER_POS[1],
+            )
+        else:
+            self.cover = CollapsedMediaCover(
+                self.surface,
+                cover_path=row.cover_path,
+            )
+            self.cover.place(
+                x=spec.MEDIA_ROW_COLLAPSED_COVER_POS[0],
+                y=spec.MEDIA_ROW_COLLAPSED_COVER_POS[1],
+            )
+
 
 class MediaRowList(tk.Frame):
     def __init__(
@@ -53,6 +75,7 @@ class MediaRowList(tk.Frame):
         parent: tk.Misc,
         *,
         rows: list[MediaRow],
+        folder_icon_path: str | None = None,
         bg_color: str | None = None,
     ) -> None:
         resolved_bg = bg_color if bg_color is not None else parent.cget('bg')
@@ -68,6 +91,7 @@ class MediaRowList(tk.Frame):
         )
         self.pack_propagate(False)
         self.rows = normalized_rows
+        self._folder_icon_path = folder_icon_path
         self.row_widgets: list[MediaRowShell] = []
 
         self._build_rows()
@@ -105,7 +129,12 @@ class MediaRowList(tk.Frame):
     def _build_rows(self) -> None:
         current_y = spec.MEDIA_ROW_INSET_Y
         for row in self.rows:
-            widget = MediaRowShell(self, row=row, expanded=row.expanded)
+            widget = MediaRowShell(
+                self,
+                row=row,
+                expanded=row.expanded,
+                folder_icon_path=self._folder_icon_path,
+            )
             widget.place(x=spec.MEDIA_ROW_INSET_X, y=current_y)
             self.row_widgets.append(widget)
             current_y += widget.winfo_reqheight() + spec.MEDIA_ROW_GAP_Y
