@@ -168,13 +168,21 @@ class MainWindow(ctk.CTk):
         )
         module_one.grid(row=0, column=0, sticky='nw')
         module_one.grid_propagate(False)
+        module_one.configure(width=self.MODULE_ONE_SIZE[0], height=self.MODULE_ONE_SIZE[1])
 
         module_one_inner = ctk.CTkFrame(
             module_one,
             fg_color=self.MODULE_BG,
             corner_radius=0,
+            width=self.MODULE_ONE_SIZE[0] - 2,
+            height=self.MODULE_ONE_SIZE[1] - 2,
         )
-        module_one_inner.pack(fill='both', expand=True, padx=1, pady=1)
+        module_one_inner.pack(padx=1, pady=1, anchor='nw')
+        module_one_inner.pack_propagate(False)
+        module_one_inner.configure(
+            width=self.MODULE_ONE_SIZE[0] - 2,
+            height=self.MODULE_ONE_SIZE[1] - 2,
+        )
 
     def _show_sample_rate_dialog(self) -> None:
         popup = ctk.CTkInputDialog(text='Enter project sample rate', title='Sample Rate')
