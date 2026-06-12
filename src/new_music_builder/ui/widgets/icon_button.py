@@ -40,6 +40,7 @@ class FolderIconButton(tk.Canvas):
         self._pressed_bg_color = pressed_bg_color
         self._outline_color = outline_color
         self._is_pressed = False
+        self._icon_id: int | None = None
 
         self._draw()
         self._bind_interactions()
@@ -63,7 +64,7 @@ class FolderIconButton(tk.Canvas):
             fill=self._bg_color,
         )
         if self._image is not None:
-            self.create_image(self._size[0] // 2, self._size[1] // 2, image=self._image)
+            self._icon_id = self.create_image(self._size[0] // 2, self._size[1] // 2, image=self._image)
 
     def _bind_interactions(self) -> None:
         self.bind('<Enter>', self._on_enter, add='+')
@@ -75,6 +76,12 @@ class FolderIconButton(tk.Canvas):
         self.itemconfigure(self._fill_id, fill=color)
         self.configure(bg=color)
 
+    def _set_icon_pressed(self, pressed: bool) -> None:
+        if self._icon_id is None:
+            return
+        offset = 1 if pressed else 0
+        self.coords(self._icon_id, (self._size[0] // 2) + offset, (self._size[1] // 2) + offset)
+
     def _on_enter(self, _event: tk.Event | None = None) -> None:
         if not self._is_pressed:
             self._set_fill(self._hover_bg_color)
@@ -82,15 +89,18 @@ class FolderIconButton(tk.Canvas):
     def _on_leave(self, _event: tk.Event | None = None) -> None:
         self._is_pressed = False
         self._set_fill(self._bg_color)
+        self._set_icon_pressed(False)
 
     def _on_press(self, _event: tk.Event | None = None) -> str:
         self._is_pressed = True
         self._set_fill(self._pressed_bg_color)
+        self._set_icon_pressed(True)
         return 'break'
 
     def _on_release(self, event: tk.Event | None = None) -> str:
         if self._is_pressed:
             self._is_pressed = False
+            self._set_icon_pressed(False)
             inside = False
             if event is not None:
                 inside = 0 <= event.x <= self._size[0] and 0 <= event.y <= self._size[1]
