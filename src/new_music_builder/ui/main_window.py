@@ -194,6 +194,7 @@ class MainWindow(ctk.CTk):
         self.module_two_content_viewport = self.module_two_scroll_area.viewport_canvas
         self.module_two_content_surface = self.module_two_scroll_area.content_frame
         self.module_two_scrollbar = self.module_two_scroll_area.scrollbar
+        self._build_module_two_placeholder_content()
 
         self.module_one_cover_picker = CoverPicker(
             self.module_one_midground,
@@ -310,6 +311,19 @@ class MainWindow(ctk.CTk):
             messagebox.showerror('Invalid sample rate', 'Sample rate must be a number.')
             return
         self.on_project_change()
+
+    def _build_module_two_placeholder_content(self) -> None:
+        self.module_two_placeholder = tk.Frame(
+            self.module_two_content_surface,
+            bg='#2a272d',
+            bd=0,
+            highlightthickness=0,
+            width=spec.MODULE_TWO_SCROLL_VIEWPORT_SIZE[0],
+            height=640,
+        )
+        self.module_two_placeholder.pack(fill='x')
+        self.module_two_placeholder.pack_propagate(False)
+        self.module_two_scroll_area.refresh_scroll_region()
 
     def on_select_row(self, row_id: int | None) -> None:
         if row_id is None or not hasattr(self, 'media_creation') or not hasattr(self, 'appearance'):
