@@ -223,7 +223,11 @@ class MainWindow(ctk.CTk):
             y=output_folder_y,
         )
 
-        workshop_output_folder_y = output_folder_y + self.module_one_ogg_output_folder.winfo_reqheight()
+        workshop_output_folder_y = (
+            output_folder_y
+            + self.module_one_ogg_output_folder.winfo_reqheight()
+            + spec.PHASE_ONE_OUTPUT_FOLDER_STACK_GAP
+        )
         self.module_one_workshop_output_folder = OutputFolderField(
             self.module_one_midground_border,
             label_text='Zomboid Workshop Folder',
