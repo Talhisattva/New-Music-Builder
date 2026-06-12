@@ -18,7 +18,7 @@ class ImageCheckbox(tk.Canvas):
         outline_color: str = spec.POSTER_NAME_CHECKBOX_OUTLINE,
         size: tuple[int, int] = spec.POSTER_NAME_CHECKBOX_SIZE,
         outline_width: int = spec.POSTER_NAME_CHECKBOX_OUTLINE_WIDTH,
-        checked: bool = True,
+        checked: bool = False,
         command: Callable[[bool], None] | None = None,
     ) -> None:
         super().__init__(
@@ -91,7 +91,7 @@ class LabeledCheckbox(tk.Frame):
         text_color: str = spec.POSTER_NAME_LABEL_COLOR,
         font_size: int = spec.POSTER_NAME_LABEL_FONT_SIZE,
         bg_color: str | None = None,
-        checked: bool = True,
+        checked: bool = False,
         command: Callable[[bool], None] | None = None,
     ) -> None:
         resolved_bg = bg_color if bg_color is not None else parent.cget('bg')
