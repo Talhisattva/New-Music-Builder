@@ -26,6 +26,7 @@ from new_music_builder.ui.widgets.labeled_text_field import LabeledTextField
 from new_music_builder.ui.widgets.menu_strip import MenuStrip
 from new_music_builder.ui.widgets.module_header import ModuleHeader
 from new_music_builder.ui.widgets.module_shell import ModuleShell
+from new_music_builder.ui.widgets.output_folder_field import OutputFolderField
 
 
 class MainWindow(ctk.CTk):
@@ -48,6 +49,7 @@ class MainWindow(ctk.CTk):
         self.mod_id_var = tk.StringVar(value=self.session.project.mod_id)
         self.parent_mod_id_var = tk.StringVar(value=self.session.project.parent_mod_id)
         self.author_var = tk.StringVar(value=self.session.project.author)
+        self.ogg_output_folder_var = tk.StringVar(value=self.session.project.ogg_output_folder)
         self._window_icon_image = None
 
         sibling_root = app_root().parent
@@ -206,6 +208,16 @@ class MainWindow(ctk.CTk):
             textvariable=self.author_var,
         )
         self.module_one_author_field.place(x=spec.PHASE_ONE_TEXT_ROW_X, y=mod_name_row_y + (row_step * 3))
+
+        output_folder_y = mod_name_row_y + (row_step * 3) + spec.TYPEABLE_FIELD_SIZE[1] + spec.PHASE_ONE_OUTPUT_FOLDER_GAP
+        self.module_one_ogg_output_folder = OutputFolderField(
+            self.module_one_midground_border,
+            label_text='.ogg Output Folder',
+            folder_icon_path=self._folder_button_icon_path(),
+            textvariable=self.ogg_output_folder_var,
+            bg_color=spec.MODULE_MIDGROUND_BG,
+        )
+        self.module_one_ogg_output_folder.place(x=spec.PHASE_ONE_TEXT_ROW_X, y=output_folder_y)
 
     def _show_sample_rate_dialog(self) -> None:
         popup = ctk.CTkInputDialog(text='Enter project sample rate', title='Sample Rate')
