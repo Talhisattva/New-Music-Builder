@@ -45,6 +45,9 @@ class MainWindow(ctk.CTk):
         self.session, saved_path = self.session_store.load()
         self.session = ProjectSession(project=self.session, current_path=saved_path)
         self.mod_name_var = tk.StringVar(value=self.session.project.mod_name)
+        self.mod_id_var = tk.StringVar(value=self.session.project.mod_id)
+        self.parent_mod_id_var = tk.StringVar(value=self.session.project.parent_mod_id)
+        self.author_var = tk.StringVar(value=self.session.project.author)
         self._window_icon_image = None
 
         sibling_root = app_root().parent
@@ -171,6 +174,7 @@ class MainWindow(ctk.CTk):
         self.poster_name_checkbox.place(x=checkbox_x, y=checkbox_y)
 
         mod_name_row_y = 5 + 10 + spec.COVER_SIZE[1] + spec.PHASE_ONE_TEXT_ROW_GAP_BELOW_COVER
+        row_step = spec.TYPEABLE_FIELD_SIZE[1] + spec.PHASE_ONE_TEXT_ROW_SPACING
         self.module_one_mod_name_field = LabeledTextField(
             self.module_one_midground_border,
             label_text='Mod Name',
@@ -178,6 +182,30 @@ class MainWindow(ctk.CTk):
             textvariable=self.mod_name_var,
         )
         self.module_one_mod_name_field.place(x=spec.PHASE_ONE_TEXT_ROW_X, y=mod_name_row_y)
+
+        self.module_one_mod_id_field = LabeledTextField(
+            self.module_one_midground_border,
+            label_text='Mod ID',
+            bg_color=spec.MODULE_MIDGROUND_BG,
+            textvariable=self.mod_id_var,
+        )
+        self.module_one_mod_id_field.place(x=spec.PHASE_ONE_TEXT_ROW_X, y=mod_name_row_y + row_step)
+
+        self.module_one_parent_id_field = LabeledTextField(
+            self.module_one_midground_border,
+            label_text='Parent ID',
+            bg_color=spec.MODULE_MIDGROUND_BG,
+            textvariable=self.parent_mod_id_var,
+        )
+        self.module_one_parent_id_field.place(x=spec.PHASE_ONE_TEXT_ROW_X, y=mod_name_row_y + (row_step * 2))
+
+        self.module_one_author_field = LabeledTextField(
+            self.module_one_midground_border,
+            label_text='Author',
+            bg_color=spec.MODULE_MIDGROUND_BG,
+            textvariable=self.author_var,
+        )
+        self.module_one_author_field.place(x=spec.PHASE_ONE_TEXT_ROW_X, y=mod_name_row_y + (row_step * 3))
 
     def _show_sample_rate_dialog(self) -> None:
         popup = ctk.CTkInputDialog(text='Enter project sample rate', title='Sample Rate')
