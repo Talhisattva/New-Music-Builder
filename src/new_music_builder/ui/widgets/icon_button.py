@@ -19,6 +19,7 @@ class FolderIconButton(tk.Canvas):
         outline_color: str = spec.FOLDER_BUTTON_OUTLINE,
         size: tuple[int, int] = spec.FOLDER_BUTTON_SIZE,
         outline_width: int = spec.FOLDER_BUTTON_OUTLINE_WIDTH,
+        icon_size: tuple[int, int] | None = None,
     ) -> None:
         super().__init__(
             parent,
@@ -29,7 +30,7 @@ class FolderIconButton(tk.Canvas):
             highlightthickness=0,
         )
         self._command = command
-        self._image = load_tk_photoimage(icon_path, size)
+        self._image = load_tk_photoimage(icon_path, icon_size)
         self._size = size
         self._outline_width = outline_width
         self._bg_color = bg_color

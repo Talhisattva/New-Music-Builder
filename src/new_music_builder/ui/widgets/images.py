@@ -16,11 +16,13 @@ def load_ctk_image(path: str | Path | None, size: tuple[int, int]) -> ctk.CTkIma
     return ctk.CTkImage(light_image=image, dark_image=image, size=size)
 
 
-def load_tk_photoimage(path: str | Path | None, size: tuple[int, int]) -> ImageTk.PhotoImage | None:
+def load_tk_photoimage(path: str | Path | None, size: tuple[int, int] | None = None) -> ImageTk.PhotoImage | None:
     if not path:
         return None
     img_path = Path(path)
     if not img_path.exists():
         return None
-    image = Image.open(img_path).resize(size, Image.Resampling.LANCZOS)
+    image = Image.open(img_path)
+    if size is not None:
+        image = image.resize(size, Image.Resampling.LANCZOS)
     return ImageTk.PhotoImage(image)
