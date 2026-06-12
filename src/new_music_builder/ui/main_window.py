@@ -84,6 +84,9 @@ class MainWindow(ctk.CTk):
     def _phase_one_icon_path(self) -> Path:
         return app_root() / 'assets' / 'PhaseOneIcon.png'
 
+    def _phase_two_icon_path(self) -> Path:
+        return app_root() / 'assets' / 'PhaseTwoIcon.png'
+
     def _check_icon_path(self) -> Path:
         return app_root() / 'assets' / 'Check.png'
 
@@ -151,6 +154,27 @@ class MainWindow(ctk.CTk):
         )
         self.module_one_phase_icon = self.module_one_header.icon_label
         self.module_one_phase_label = self.module_one_header.text_label
+
+        self.module_two_shell = ModuleShell(
+            self.content_frame,
+            size=spec.MODULE_TWO_SIZE,
+            midground_size=spec.MODULE_TWO_MIDGROUND_SIZE,
+        )
+        self.module_two_shell.grid(row=0, column=1, sticky='nw', padx=(spec.MODULE_GAP_X, 0))
+        self.module_two_shell.grid_propagate(False)
+        self.module_two_background = self.module_two_shell.background_surface
+        self.module_two_midground_border = self.module_two_shell.midground_border
+        self.module_two_midground = self.module_two_shell.midground_surface
+
+        self.module_two_header = ModuleHeader(
+            self.module_two_background,
+            text='PHASE 2 : MEDIA CREATION',
+            icon_path=self._phase_two_icon_path(),
+            bg_color=spec.MODULE_BACKGROUND_BG,
+            text_color=spec.MODULE_HEADER_TEXT_COLOR,
+        )
+        self.module_two_phase_icon = self.module_two_header.icon_label
+        self.module_two_phase_label = self.module_two_header.text_label
 
         self.module_one_cover_picker = CoverPicker(
             self.module_one_midground,
