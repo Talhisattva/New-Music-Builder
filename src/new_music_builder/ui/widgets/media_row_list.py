@@ -42,12 +42,6 @@ class MediaRowShell(tk.Frame):
         self.surface.place(x=spec.MEDIA_ROW_OUTLINE_WIDTH, y=spec.MEDIA_ROW_OUTLINE_WIDTH)
         self.surface.pack_propagate(False)
 
-        badge_x, badge_y = (
-            spec.MEDIA_ROW_BADGE_EXPANDED_POS if expanded else spec.MEDIA_ROW_BADGE_COLLAPSED_POS
-        )
-        self.badge = MediaRowBadge(self.surface, row_number=row.row_id)
-        self.badge.place(x=badge_x, y=badge_y)
-
         if expanded:
             self.cover = ExpandedMediaCover(
                 self.surface,
@@ -58,7 +52,13 @@ class MediaRowShell(tk.Frame):
                 x=spec.MEDIA_ROW_EXPANDED_COVER_POS[0],
                 y=spec.MEDIA_ROW_EXPANDED_COVER_POS[1],
             )
+            badge_x, badge_y = spec.MEDIA_ROW_BADGE_EXPANDED_POS
+            self.badge = MediaRowBadge(self.surface, row_number=row.row_id)
+            self.badge.place(x=badge_x, y=badge_y)
         else:
+            badge_x, badge_y = spec.MEDIA_ROW_BADGE_COLLAPSED_POS
+            self.badge = MediaRowBadge(self.surface, row_number=row.row_id)
+            self.badge.place(x=badge_x, y=badge_y)
             self.cover = CollapsedMediaCover(
                 self.surface,
                 cover_path=row.cover_path,
