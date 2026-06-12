@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 import tkinter as tk
 
 from new_music_builder.domain.models import MediaRow
@@ -16,6 +17,7 @@ class MediaRowShell(tk.Frame):
         row: MediaRow,
         expanded: bool,
         folder_icon_path: str | None = None,
+        on_select: Callable[[int], None] | None = None,
     ) -> None:
         size = spec.MEDIA_ROW_EXPANDED_SIZE if expanded else spec.MEDIA_ROW_COLLAPSED_SIZE
         super().__init__(
@@ -53,11 +55,19 @@ class MediaRowShell(tk.Frame):
                 y=spec.MEDIA_ROW_EXPANDED_COVER_POS[1],
             )
             badge_x, badge_y = spec.MEDIA_ROW_BADGE_EXPANDED_POS
-            self.badge = MediaRowBadge(self.surface, row_number=row.row_id)
+            self.badge = MediaRowBadge(
+                self.surface,
+                row_number=row.row_id,
+                command=(lambda: on_select(row.row_id)) if on_select is not None else None,
+            )
             self.badge.place(x=badge_x, y=badge_y)
         else:
             badge_x, badge_y = spec.MEDIA_ROW_BADGE_COLLAPSED_POS
-            self.badge = MediaRowBadge(self.surface, row_number=row.row_id)
+            self.badge = MediaRowBadge(
+                self.surface,
+                row_number=row.row_id,
+                command=(lambda: on_select(row.row_id)) if on_select is not None else None,
+            )
             self.badge.place(x=badge_x, y=badge_y)
             self.cover = CollapsedMediaCover(
                 self.surface,
@@ -77,6 +87,7 @@ class MediaRowList(tk.Frame):
         rows: list[MediaRow],
         folder_icon_path: str | None = None,
         bg_color: str | None = None,
+        on_row_selected: Callable[[int], None] | None = None,
     ) -> None:
         resolved_bg = bg_color if bg_color is not None else parent.cget('bg')
         normalized_rows = self._normalized_rows(rows)
@@ -92,6 +103,7 @@ class MediaRowList(tk.Frame):
         self.pack_propagate(False)
         self.rows = normalized_rows
         self._folder_icon_path = folder_icon_path
+        self._on_row_selected = on_row_selected
         self.row_widgets: list[MediaRowShell] = []
 
         self._build_rows()
@@ -132,6 +144,7 @@ class MediaRowList(tk.Frame):
                 row=row,
                 expanded=row.expanded,
                 folder_icon_path=self._folder_icon_path,
+                on_select=self._on_row_selected,
             )
             widget.place(x=spec.MEDIA_ROW_INSET_X, y=current_y)
             self.row_widgets.append(widget)

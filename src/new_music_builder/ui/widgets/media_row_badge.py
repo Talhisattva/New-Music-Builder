@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 import tkinter as tk
 
 from new_music_builder.ui import spec
@@ -16,6 +17,7 @@ class MediaRowBadge(tk.Canvas):
         outline_color: str = spec.MEDIA_ROW_BADGE_OUTLINE,
         outline_width: int = spec.MEDIA_ROW_BADGE_OUTLINE_WIDTH,
         text_color: str = spec.MEDIA_ROW_BADGE_TEXT_COLOR,
+        command: Callable[[], None] | None = None,
     ) -> None:
         super().__init__(
             parent,
@@ -33,6 +35,7 @@ class MediaRowBadge(tk.Canvas):
         self._outline_width = outline_width
         self._text_color = text_color
         self._row_number = row_number
+        self._command = command
         self._hovered = False
         self._pressed = False
         self._inner_id: int | None = None
@@ -98,11 +101,14 @@ class MediaRowBadge(tk.Canvas):
         self._apply_visual_state()
 
     def _on_release(self, _event: tk.Event) -> None:
+        should_invoke = self._pressed and self._event_within_bounds(_event)
         self._pressed = False
         self._hovered = (0 <= self.winfo_pointerx() - self.winfo_rootx() < self._size[0]) and (
             0 <= self.winfo_pointery() - self.winfo_rooty() < self._size[1]
         )
         self._apply_visual_state()
+        if should_invoke and self._command is not None:
+            self._command()
 
     def _apply_visual_state(self) -> None:
         if self._inner_id is None:
@@ -113,3 +119,6 @@ class MediaRowBadge(tk.Canvas):
         elif self._hovered:
             fill_color = self._hover_bg_color
         self.itemconfigure(self._inner_id, fill=fill_color)
+
+    def _event_within_bounds(self, event: tk.Event) -> bool:
+        return 0 <= event.x < self._size[0] and 0 <= event.y < self._size[1]

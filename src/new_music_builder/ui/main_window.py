@@ -336,6 +336,7 @@ class MainWindow(ctk.CTk):
             rows=self.session.project.media_rows,
             folder_icon_path=str(self._folder_button_icon_path()),
             bg_color=spec.MODULE_MIDGROUND_BG,
+            on_row_selected=self._expand_module_two_media_row,
         )
         self.module_two_row_list.pack(anchor='nw')
         self.module_two_scroll_area.refresh_scroll_region()
@@ -352,6 +353,18 @@ class MainWindow(ctk.CTk):
         self.module_two_content_viewport.yview_moveto(1.0)
         self.module_two_scroll_area.refresh_scroll_region()
         self.module_two_content_viewport.yview_moveto(1.0)
+        self.on_project_change()
+
+    def _expand_module_two_media_row(self, row_id: int) -> None:
+        if not any(row.row_id == row_id for row in self.session.project.media_rows):
+            return
+
+        current_view = self.module_two_content_viewport.yview()
+        for row in self.session.project.media_rows:
+            row.expanded = row.row_id == row_id
+
+        self._build_module_two_row_list()
+        self.module_two_content_viewport.yview_moveto(current_view[0])
         self.on_project_change()
 
     def on_select_row(self, row_id: int | None) -> None:
