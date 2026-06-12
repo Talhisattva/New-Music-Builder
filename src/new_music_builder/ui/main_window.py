@@ -26,7 +26,7 @@ from new_music_builder.ui.widgets.labeled_checkbox import LabeledCheckbox
 from new_music_builder.ui.widgets.labeled_text_field import LabeledTextField
 from new_music_builder.ui.widgets.main_button import MainButton
 from new_music_builder.ui.widgets.media_creation_header import MediaCreationHeader
-from new_music_builder.ui.widgets.media_row_list import MediaRowList
+from new_music_builder.ui.widgets.media_row_list import MediaRowList, RowSelectionModifiers
 from new_music_builder.ui.widgets.menu_strip import MenuStrip
 from new_music_builder.ui.widgets.module_header import ModuleHeader
 from new_music_builder.ui.widgets.module_shell import ModuleShell
@@ -50,7 +50,8 @@ class MainWindow(ctk.CTk):
         self.audio_workspace = AudioWorkspaceService()
         self.session, saved_path = self.session_store.load()
         self.session = ProjectSession(project=self.session, current_path=saved_path)
-        self.module_two_active_row_id: int | None = None
+        self.module_two_selected_row_ids: set[int] = set()
+        self.module_two_selection_anchor_row_id: int | None = None
         self._restore_unsaved_phase_two_default()
         self.mod_name_var = tk.StringVar(value=self.session.project.mod_name)
         self.mod_id_var = tk.StringVar(value=self.session.project.mod_id)
@@ -330,10 +331,10 @@ class MainWindow(ctk.CTk):
         self.on_project_change()
 
     def _build_module_two_row_list(self) -> None:
-        if self.module_two_active_row_id is not None and not any(
-            row.row_id == self.module_two_active_row_id for row in self.session.project.media_rows
-        ):
-            self.module_two_active_row_id = None
+        current_row_ids = {row.row_id for row in self.session.project.media_rows}
+        self.module_two_selected_row_ids &= current_row_ids
+        if self.module_two_selection_anchor_row_id not in current_row_ids:
+            self.module_two_selection_anchor_row_id = None
         if hasattr(self, 'module_two_row_list'):
             self.module_two_row_list.destroy()
         self.module_two_row_list = MediaRowList(
@@ -342,7 +343,7 @@ class MainWindow(ctk.CTk):
             folder_icon_path=str(self._folder_button_icon_path()),
             bg_color=spec.MODULE_MIDGROUND_BG,
             on_row_selected=self._expand_module_two_media_row,
-            active_row_id=self.module_two_active_row_id,
+            selected_row_ids=self.module_two_selected_row_ids,
             on_background_selected=self._select_module_two_media_row,
         )
         self.module_two_row_list.pack(anchor='nw')
@@ -368,7 +369,8 @@ class MainWindow(ctk.CTk):
             return
 
         current_view = self.module_two_content_viewport.yview()
-        self.module_two_active_row_id = None
+        self.module_two_selected_row_ids.clear()
+        self.module_two_selection_anchor_row_id = None
         if target_row.expanded:
             target_row.expanded = False
         else:
@@ -379,15 +381,44 @@ class MainWindow(ctk.CTk):
         self.module_two_content_viewport.yview_moveto(current_view[0])
         self.on_project_change()
 
-    def _select_module_two_media_row(self, row_id: int) -> None:
+    def _select_module_two_media_row(self, row_id: int, modifiers: RowSelectionModifiers) -> None:
         if not any(row.row_id == row_id for row in self.session.project.media_rows):
             return
 
         current_view = self.module_two_content_viewport.yview()
-        self.module_two_active_row_id = row_id
+        if modifiers.shift:
+            self._select_module_two_row_range(row_id)
+        elif modifiers.additive:
+            if row_id in self.module_two_selected_row_ids:
+                self.module_two_selected_row_ids.remove(row_id)
+            else:
+                self.module_two_selected_row_ids.add(row_id)
+            self.module_two_selection_anchor_row_id = row_id
+        else:
+            self.module_two_selected_row_ids = {row_id}
+            self.module_two_selection_anchor_row_id = row_id
         self._build_module_two_row_list()
         self.module_two_content_viewport.yview_moveto(current_view[0])
         self.on_project_change()
+
+    def _select_module_two_row_range(self, row_id: int) -> None:
+        if self.module_two_selection_anchor_row_id is None:
+            self.module_two_selected_row_ids = {row_id}
+            self.module_two_selection_anchor_row_id = row_id
+            return
+
+        row_ids = [row.row_id for row in self.session.project.media_rows]
+        try:
+            anchor_index = row_ids.index(self.module_two_selection_anchor_row_id)
+            target_index = row_ids.index(row_id)
+        except ValueError:
+            self.module_two_selected_row_ids = {row_id}
+            self.module_two_selection_anchor_row_id = row_id
+            return
+
+        start = min(anchor_index, target_index)
+        end = max(anchor_index, target_index)
+        self.module_two_selected_row_ids = set(row_ids[start:end + 1])
 
     def on_select_row(self, row_id: int | None) -> None:
         if row_id is None or not hasattr(self, 'media_creation') or not hasattr(self, 'appearance'):

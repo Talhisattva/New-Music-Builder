@@ -1,12 +1,19 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import dataclass
 import tkinter as tk
 
 from new_music_builder.domain.models import MediaRow
 from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.media_row_badge import MediaRowBadge
 from new_music_builder.ui.widgets.media_row_cover import CollapsedMediaCover, ExpandedMediaCover
+
+
+@dataclass(frozen=True, slots=True)
+class RowSelectionModifiers:
+    shift: bool = False
+    additive: bool = False
 
 
 class MediaRowShell(tk.Frame):
@@ -18,8 +25,8 @@ class MediaRowShell(tk.Frame):
         expanded: bool,
         folder_icon_path: str | None = None,
         on_select: Callable[[int], None] | None = None,
-        active: bool = False,
-        on_background_selected: Callable[[int], None] | None = None,
+        selected: bool = False,
+        on_background_selected: Callable[[int, RowSelectionModifiers], None] | None = None,
     ) -> None:
         size = spec.MEDIA_ROW_EXPANDED_SIZE if expanded else spec.MEDIA_ROW_COLLAPSED_SIZE
         super().__init__(
@@ -33,7 +40,7 @@ class MediaRowShell(tk.Frame):
         self.pack_propagate(False)
         self._row_id = row.row_id
         self._expanded = expanded
-        self._active = active
+        self._selected = selected
         self._hovered = False
         self._on_background_selected = on_background_selected
 
@@ -102,17 +109,23 @@ class MediaRowShell(tk.Frame):
         self._hovered = False
         self._apply_background_state()
 
-    def _on_background_press(self, _event: tk.Event) -> None:
+    def _on_background_press(self, event: tk.Event) -> None:
         if self._on_background_selected is not None:
-            self._on_background_selected(self._row_id)
+            self._on_background_selected(self._row_id, self._decode_selection_modifiers(event))
 
     def _apply_background_state(self) -> None:
         fill_color = spec.MEDIA_ROW_BG
-        if self._active:
+        if self._selected:
             fill_color = spec.MEDIA_ROW_ACTIVE_BG
         elif self._hovered:
             fill_color = spec.MEDIA_ROW_HOVER_BG
         self.surface.configure(bg=fill_color)
+
+    def _decode_selection_modifiers(self, event: tk.Event) -> RowSelectionModifiers:
+        state = int(getattr(event, 'state', 0))
+        shift = bool(state & 0x0001)
+        additive = bool(state & 0x0004)
+        return RowSelectionModifiers(shift=shift, additive=additive)
 
 
 class MediaRowList(tk.Frame):
@@ -124,8 +137,8 @@ class MediaRowList(tk.Frame):
         folder_icon_path: str | None = None,
         bg_color: str | None = None,
         on_row_selected: Callable[[int], None] | None = None,
-        active_row_id: int | None = None,
-        on_background_selected: Callable[[int], None] | None = None,
+        selected_row_ids: set[int] | None = None,
+        on_background_selected: Callable[[int, RowSelectionModifiers], None] | None = None,
     ) -> None:
         resolved_bg = bg_color if bg_color is not None else parent.cget('bg')
         normalized_rows = self._normalized_rows(rows)
@@ -142,7 +155,7 @@ class MediaRowList(tk.Frame):
         self.rows = normalized_rows
         self._folder_icon_path = folder_icon_path
         self._on_row_selected = on_row_selected
-        self._active_row_id = active_row_id
+        self._selected_row_ids = set(selected_row_ids or set())
         self._on_background_selected = on_background_selected
         self.row_widgets: list[MediaRowShell] = []
 
@@ -183,7 +196,7 @@ class MediaRowList(tk.Frame):
                 expanded=row.expanded,
                 folder_icon_path=self._folder_icon_path,
                 on_select=self._on_row_selected,
-                active=(row.row_id == self._active_row_id),
+                selected=(row.row_id in self._selected_row_ids),
                 on_background_selected=self._on_background_selected,
             )
             widget.place(x=spec.MEDIA_ROW_INSET_X, y=current_y)
