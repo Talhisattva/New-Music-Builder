@@ -21,9 +21,12 @@ from new_music_builder.services.session_store import SessionStore
 from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.app_header import AppHeader
 from new_music_builder.ui.widgets.cover_picker import CoverPicker
+from new_music_builder.ui.widgets.labeled_checkbox import LabeledCheckbox
 from new_music_builder.ui.widgets.menu_strip import MenuStrip
 from new_music_builder.ui.widgets.module_header import ModuleHeader
 from new_music_builder.ui.widgets.module_shell import ModuleShell
+
+
 class MainWindow(ctk.CTk):
 
     def __init__(self) -> None:
@@ -71,6 +74,9 @@ class MainWindow(ctk.CTk):
 
     def _phase_one_icon_path(self) -> Path:
         return app_root() / 'assets' / 'PhaseOneIcon.png'
+
+    def _check_icon_path(self) -> Path:
+        return app_root() / 'assets' / 'Check.png'
 
     def _apply_window_icon(self) -> None:
         native_icon = self._native_icon_path()
@@ -145,6 +151,22 @@ class MainWindow(ctk.CTk):
         self.module_one_cover_border = self.module_one_cover_picker.cover_border
         self.module_one_cover_surface = self.module_one_cover_picker.cover_surface
         self.module_one_cover_button = self.module_one_cover_picker.folder_button
+
+        checkbox_x = (
+            spec.COVER_OFFSET[0]
+            + spec.COVER_SIZE[0]
+            - spec.FOLDER_BUTTON_CENTER_INSET[0]
+            - (spec.FOLDER_BUTTON_SIZE[0] // 2)
+            + spec.FOLDER_BUTTON_SIZE[0]
+            + spec.POSTER_NAME_CHECKBOX_GAP
+        )
+        checkbox_y = 5 + spec.FOLDER_BUTTON_SIZE[1] - spec.POSTER_NAME_CHECKBOX_SIZE[1]
+        self.poster_name_checkbox = LabeledCheckbox(
+            self.module_one_midground,
+            icon_path=self._check_icon_path(),
+            bg_color=spec.MODULE_MIDGROUND_BG,
+        )
+        self.poster_name_checkbox.place(x=checkbox_x, y=checkbox_y)
 
     def _show_sample_rate_dialog(self) -> None:
         popup = ctk.CTkInputDialog(text='Enter project sample rate', title='Sample Rate')
