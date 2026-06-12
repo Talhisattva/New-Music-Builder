@@ -50,6 +50,7 @@ class MainWindow(ctk.CTk):
         self.parent_mod_id_var = tk.StringVar(value=self.session.project.parent_mod_id)
         self.author_var = tk.StringVar(value=self.session.project.author)
         self.ogg_output_folder_var = tk.StringVar(value=self.session.project.ogg_output_folder)
+        self.workshop_output_folder_var = tk.StringVar(value=self.session.project.workshop_output_folder)
         self._window_icon_image = None
 
         sibling_root = app_root().parent
@@ -220,6 +221,19 @@ class MainWindow(ctk.CTk):
         self.module_one_ogg_output_folder.place(
             x=spec.PHASE_ONE_TEXT_ROW_X + min(0, spec.OUTPUT_FOLDER_ROW_X_OFFSET),
             y=output_folder_y,
+        )
+
+        workshop_output_folder_y = output_folder_y + self.module_one_ogg_output_folder.winfo_reqheight()
+        self.module_one_workshop_output_folder = OutputFolderField(
+            self.module_one_midground_border,
+            label_text='Zomboid Workshop Folder',
+            folder_icon_path=self._folder_button_icon_path(),
+            textvariable=self.workshop_output_folder_var,
+            bg_color=spec.MODULE_MIDGROUND_BG,
+        )
+        self.module_one_workshop_output_folder.place(
+            x=spec.PHASE_ONE_TEXT_ROW_X + min(0, spec.OUTPUT_FOLDER_ROW_X_OFFSET),
+            y=workshop_output_folder_y,
         )
 
     def _show_sample_rate_dialog(self) -> None:
