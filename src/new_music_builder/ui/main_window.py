@@ -247,7 +247,7 @@ class MainWindow(ctk.CTk):
 
         phase_one_icon_path = self._phase_one_icon_path()
         if phase_one_icon_path.exists():
-            phase_one_image = Image.open(phase_one_icon_path).resize((30, 30), Image.Resampling.LANCZOS)
+            phase_one_image = Image.open(phase_one_icon_path).resize((20, 20), Image.Resampling.LANCZOS)
             self._phase_one_icon_image = ImageTk.PhotoImage(phase_one_image)
             self.module_one_phase_icon = tk.Label(
                 self.module_one_background,
@@ -256,7 +256,7 @@ class MainWindow(ctk.CTk):
                 bd=0,
                 highlightthickness=0,
             )
-            self.module_one_phase_icon.place(x=10, y=5, width=30, height=30)
+            self.module_one_phase_icon.place(x=10, y=5, width=20, height=20)
 
         self.module_one_phase_label = tk.Label(
             self.module_one_background,
