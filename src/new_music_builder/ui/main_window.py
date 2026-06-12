@@ -11,6 +11,7 @@ import customtkinter as ctk
 from PIL import Image, ImageTk
 
 from new_music_builder import __version__
+from new_music_builder.domain.models import default_media_row
 from new_music_builder.platform.paths import app_root
 from new_music_builder.services.asset_catalog import AssetCatalog
 from new_music_builder.services.audio_workspace import AudioWorkspaceService
@@ -49,6 +50,7 @@ class MainWindow(ctk.CTk):
         self.audio_workspace = AudioWorkspaceService()
         self.session, saved_path = self.session_store.load()
         self.session = ProjectSession(project=self.session, current_path=saved_path)
+        self._restore_unsaved_phase_two_default()
         self.mod_name_var = tk.StringVar(value=self.session.project.mod_name)
         self.mod_id_var = tk.StringVar(value=self.session.project.mod_id)
         self.parent_mod_id_var = tk.StringVar(value=self.session.project.parent_mod_id)
@@ -113,6 +115,16 @@ class MainWindow(ctk.CTk):
 
     def _build_menu(self) -> None:
         self.configure(menu='')
+
+    def _restore_unsaved_phase_two_default(self) -> None:
+        if self.session.current_path:
+            return
+        first_row = default_media_row(1)
+        second_row = default_media_row(2)
+        second_row.expanded = False
+        third_row = default_media_row(3)
+        third_row.expanded = False
+        self.session.project.media_rows = [first_row, second_row, third_row]
 
     def _build_header(self) -> None:
         self.header = AppHeader(self, logo_path=self._header_logo_path())
