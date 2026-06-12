@@ -45,6 +45,7 @@ class CustomScrollbar(tk.Canvas):
         self._drag_offset_y = 0.0
         self._first_fraction = 0.0
         self._last_fraction = 1.0
+        self._visible_fraction = 1.0
         self._thumb_height = 0.0
 
         self._draw_track()
@@ -103,17 +104,18 @@ class CustomScrollbar(tk.Canvas):
             self.itemconfigure(self._thumb_fill_id, state='hidden')
             self._first_fraction = 0.0
             self._last_fraction = 1.0
+            self._visible_fraction = 1.0
             self._thumb_height = 0.0
             return
 
-        ratio = viewport_height / content_height
-        thumb_height = viewport_height * ratio
+        self._visible_fraction = viewport_height / content_height
+        thumb_height = self._size[1] * self._visible_fraction
         thumb_height = max(self._thumb_min_height, min(self._thumb_max_height, thumb_height))
         self._thumb_height = thumb_height
         self._thumb_visible = True
         self.itemconfigure(self._thumb_id, state='normal')
         self.itemconfigure(self._thumb_fill_id, state='normal')
-        self.set_view(0.0, ratio)
+        self.set_view(0.0, self._visible_fraction)
 
     def set_view(self, first: float, last: float) -> None:
         self._first_fraction = max(0.0, min(1.0, first))
@@ -122,7 +124,12 @@ class CustomScrollbar(tk.Canvas):
             return
 
         available = max(0.0, self._size[1] - self._thumb_height)
-        thumb_top = available * self._first_fraction
+        max_first = max(0.0, 1.0 - self._visible_fraction)
+        if max_first <= 0.0:
+            position_fraction = 0.0
+        else:
+            position_fraction = min(1.0, self._first_fraction / max_first)
+        thumb_top = available * position_fraction
         thumb_bottom = thumb_top + self._thumb_height
         self.coords(self._thumb_id, 0, thumb_top, self._size[0], thumb_bottom)
         inset = self._thumb_outline_width
@@ -259,10 +266,11 @@ class ScrollViewport(tk.Frame):
         content_height = self.content_frame.winfo_reqheight()
         viewport_height = self._viewport_size[1]
         self.viewport_canvas.itemconfigure(self._content_window_id, width=self._viewport_size[0])
-        self.viewport_canvas.configure(scrollregion=(0, 0, self._viewport_size[0], content_height))
+        content_bottom = content_height + spec.SCROLL_CONTENT_BOTTOM_PADDING
+        self.viewport_canvas.configure(scrollregion=(0, 0, self._viewport_size[0], content_bottom))
         if content_height <= viewport_height:
             self.viewport_canvas.yview_moveto(0.0)
-        self.scrollbar.set_metrics(content_height=content_height, viewport_height=viewport_height)
+        self.scrollbar.set_metrics(content_height=content_bottom, viewport_height=viewport_height)
         first, last = self.viewport_canvas.yview()
         self.scrollbar.set_view(first, last)
 
