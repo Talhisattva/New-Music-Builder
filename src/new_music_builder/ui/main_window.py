@@ -254,22 +254,29 @@ class MainWindow(ctk.CTk):
         else:
             self._folder_button_image = None
 
+        inset = self.FOLDER_BUTTON_STROKE_WIDTH
+        shell.create_rectangle(
+            0,
+            0,
+            self.FOLDER_BUTTON_SIZE[0],
+            self.FOLDER_BUTTON_SIZE[1],
+            outline='',
+            fill=self.FOLDER_BUTTON_STROKE,
+        )
+        shell.create_rectangle(
+            inset,
+            inset,
+            self.FOLDER_BUTTON_SIZE[0] - inset,
+            self.FOLDER_BUTTON_SIZE[1] - inset,
+            outline='',
+            fill=self.FOLDER_BUTTON_BG,
+        )
         if self._folder_button_image is not None:
             shell.create_image(
                 self.FOLDER_BUTTON_SIZE[0] // 2,
                 self.FOLDER_BUTTON_SIZE[1] // 2,
                 image=self._folder_button_image,
             )
-
-        inset = self.FOLDER_BUTTON_STROKE_WIDTH
-        shell.create_rectangle(
-            inset,
-            inset,
-            self.FOLDER_BUTTON_SIZE[0] - inset,
-            self.FOLDER_BUTTON_SIZE[1] - inset,
-            outline=self.FOLDER_BUTTON_STROKE,
-            width=self.FOLDER_BUTTON_STROKE_WIDTH,
-        )
 
         def _run_command(_event: tk.Event | None = None) -> None:
             if command is not None:
