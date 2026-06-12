@@ -38,6 +38,7 @@ class MainWindow(ctk.CTk):
     MODULE_MIDGROUND_BORDER = '#141216'
     MODULE_MIDGROUND_SIZE = (350, 410)
     MODULE_MIDGROUND_OFFSET = (10, 30)
+    MODULE_TITLE_COLOR = '#8253a2'
     COVER_BG = '#101010'
     COVER_BORDER = '#575151'
     COVER_SIZE = (100, 100)
@@ -64,6 +65,7 @@ class MainWindow(ctk.CTk):
         self._window_icon_image = None
         self._header_icon_image = None
         self._folder_button_image = None
+        self._phase_one_icon_image = None
         self._menu_widgets: list[tuple[ctk.CTkFrame, ctk.CTkLabel]] = []
 
         sibling_root = app_root().parent
@@ -92,6 +94,9 @@ class MainWindow(ctk.CTk):
 
     def _folder_button_icon_path(self) -> Path:
         return app_root() / 'assets' / 'NMB_Folder2.png'
+
+    def _phase_one_icon_path(self) -> Path:
+        return app_root() / 'assets' / 'PhaseOneIcon.png'
 
     def _apply_window_icon(self) -> None:
         native_icon = self._native_icon_path()
@@ -239,6 +244,31 @@ class MainWindow(ctk.CTk):
             height=self.MODULE_MIDGROUND_SIZE[1] - 2,
         )
         self.module_one_midground.place(x=1, y=1)
+
+        phase_one_icon_path = self._phase_one_icon_path()
+        if phase_one_icon_path.exists():
+            phase_one_image = Image.open(phase_one_icon_path).resize((30, 30), Image.Resampling.LANCZOS)
+            self._phase_one_icon_image = ImageTk.PhotoImage(phase_one_image)
+            self.module_one_phase_icon = tk.Label(
+                self.module_one_background,
+                image=self._phase_one_icon_image,
+                bg=self.MODULE_BG,
+                bd=0,
+                highlightthickness=0,
+            )
+            self.module_one_phase_icon.place(x=10, y=5, width=30, height=30)
+
+        self.module_one_phase_label = tk.Label(
+            self.module_one_background,
+            text='PHASE 1 : MOD SETUP',
+            bg=self.MODULE_BG,
+            fg=self.MODULE_TITLE_COLOR,
+            bd=0,
+            highlightthickness=0,
+            font=('Orbitron Medium', 12),
+            anchor='w',
+        )
+        self.module_one_phase_label.place(x=50, y=20, anchor='w')
 
         self.module_one_cover_border = tk.Frame(
             self.module_one_midground,
