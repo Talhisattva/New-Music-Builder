@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 import sys
@@ -21,26 +20,11 @@ from new_music_builder.services.recent_projects import RecentProjectsStore
 from new_music_builder.services.session_store import SessionStore
 from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.app_header import AppHeader
+from new_music_builder.ui.widgets.cover_picker import CoverPicker
 from new_music_builder.ui.widgets.menu_strip import MenuStrip
 from new_music_builder.ui.widgets.module_header import ModuleHeader
+from new_music_builder.ui.widgets.module_shell import ModuleShell
 class MainWindow(ctk.CTk):
-    MODULE_BG = '#1d1c1e'
-    MODULE_BORDER = '#000000'
-    MODULE_ONE_SIZE = (370, 450)
-    MODULE_BORDER_WIDTH = 1
-    MODULE_MIDGROUND_BG = '#222123'
-    MODULE_MIDGROUND_BORDER = '#141216'
-    MODULE_MIDGROUND_SIZE = (350, 410)
-    MODULE_MIDGROUND_OFFSET = (10, 30)
-    MODULE_TITLE_COLOR = '#8253a2'
-    COVER_BG = '#101010'
-    COVER_BORDER = '#575151'
-    COVER_SIZE = (100, 100)
-    COVER_INSET_BUTTON_CENTER = (5, 5)
-    FOLDER_BUTTON_BG = '#8a57a3'
-    FOLDER_BUTTON_STROKE = '#382b47'
-    FOLDER_BUTTON_SIZE = (30, 30)
-    FOLDER_BUTTON_STROKE_WIDTH = 2
 
     def __init__(self) -> None:
         super().__init__()
@@ -57,7 +41,6 @@ class MainWindow(ctk.CTk):
         self.session, saved_path = self.session_store.load()
         self.session = ProjectSession(project=self.session, current_path=saved_path)
         self._window_icon_image = None
-        self._folder_button_image = None
 
         sibling_root = app_root().parent
         base_mod_root = sibling_root / 'Talis New Music'
@@ -135,163 +118,33 @@ class MainWindow(ctk.CTk):
         self.content_frame.grid_rowconfigure(0, weight=0)
         self.content_frame.grid_rowconfigure(1, weight=1)
 
-        self.module_one_border = tk.Canvas(
+        self.module_one_shell = ModuleShell(
             self.content_frame,
-            bg=self.MODULE_BORDER,
-            width=self.MODULE_ONE_SIZE[0],
-            height=self.MODULE_ONE_SIZE[1],
-            bd=0,
-            highlightthickness=0,
         )
-        self.module_one_border.grid(row=0, column=0, sticky='nw')
-        self.module_one_border.grid_propagate(False)
-        self.module_one_border.configure(width=self.MODULE_ONE_SIZE[0], height=self.MODULE_ONE_SIZE[1])
-        self.module_one_border.create_rectangle(
-            0,
-            0,
-            self.MODULE_ONE_SIZE[0],
-            self.MODULE_ONE_SIZE[1],
-            outline='',
-            fill=self.MODULE_BORDER,
-        )
-
-        self.module_one_background = tk.Frame(
-            self.module_one_border,
-            bg=self.MODULE_BG,
-            bd=0,
-            highlightthickness=0,
-            width=self.MODULE_ONE_SIZE[0] - (self.MODULE_BORDER_WIDTH * 2),
-            height=self.MODULE_ONE_SIZE[1] - (self.MODULE_BORDER_WIDTH * 2),
-        )
-        self.module_one_border.create_window(
-            self.MODULE_BORDER_WIDTH,
-            self.MODULE_BORDER_WIDTH,
-            anchor='nw',
-            window=self.module_one_background,
-            width=self.MODULE_ONE_SIZE[0] - (self.MODULE_BORDER_WIDTH * 2),
-            height=self.MODULE_ONE_SIZE[1] - (self.MODULE_BORDER_WIDTH * 2),
-        )
-
-        self.module_one_midground_border = tk.Frame(
-            self.module_one_border,
-            bg=self.MODULE_MIDGROUND_BORDER,
-            bd=0,
-            highlightthickness=0,
-            width=self.MODULE_MIDGROUND_SIZE[0],
-            height=self.MODULE_MIDGROUND_SIZE[1],
-        )
-        self.module_one_border.create_window(
-            self.MODULE_MIDGROUND_OFFSET[0],
-            self.MODULE_MIDGROUND_OFFSET[1],
-            anchor='nw',
-            window=self.module_one_midground_border,
-            width=self.MODULE_MIDGROUND_SIZE[0],
-            height=self.MODULE_MIDGROUND_SIZE[1],
-        )
-        self.module_one_midground = tk.Frame(
-            self.module_one_midground_border,
-            bg=self.MODULE_MIDGROUND_BG,
-            bd=0,
-            highlightthickness=0,
-            width=self.MODULE_MIDGROUND_SIZE[0] - 2,
-            height=self.MODULE_MIDGROUND_SIZE[1] - 2,
-        )
-        self.module_one_midground.place(x=1, y=1)
+        self.module_one_shell.grid(row=0, column=0, sticky='nw')
+        self.module_one_shell.grid_propagate(False)
+        self.module_one_background = self.module_one_shell.background_surface
+        self.module_one_midground_border = self.module_one_shell.midground_border
+        self.module_one_midground = self.module_one_shell.midground_surface
 
         self.module_one_header = ModuleHeader(
             self.module_one_background,
             text='PHASE 1 : MOD SETUP',
             icon_path=self._phase_one_icon_path(),
-            bg_color=self.MODULE_BG,
-            text_color=self.MODULE_TITLE_COLOR,
+            bg_color=spec.MODULE_BACKGROUND_BG,
+            text_color=spec.MODULE_HEADER_TEXT_COLOR,
         )
         self.module_one_phase_icon = self.module_one_header.icon_label
         self.module_one_phase_label = self.module_one_header.text_label
 
-        self.module_one_cover_border = tk.Frame(
+        self.module_one_cover_picker = CoverPicker(
             self.module_one_midground,
-            bg=self.COVER_BORDER,
-            bd=0,
-            highlightthickness=0,
-            width=self.COVER_SIZE[0],
-            height=self.COVER_SIZE[1],
+            folder_icon_path=self._folder_button_icon_path(),
         )
-        self.module_one_cover_border.place(x=15, y=15)
-
-        self.module_one_cover_surface = tk.Frame(
-            self.module_one_cover_border,
-            bg=self.COVER_BG,
-            bd=0,
-            highlightthickness=0,
-            width=self.COVER_SIZE[0] - 2,
-            height=self.COVER_SIZE[1] - 2,
-        )
-        self.module_one_cover_surface.place(x=1, y=1)
-
-        cover_button_x = (
-            15
-            + self.COVER_SIZE[0]
-            - self.COVER_INSET_BUTTON_CENTER[0]
-            - (self.FOLDER_BUTTON_SIZE[0] // 2)
-        )
-        cover_button_y = (
-            5
-        )
-        self.module_one_cover_button = self._create_folder_icon_button(self.module_one_midground)
-        self.module_one_cover_button.place(x=cover_button_x, y=cover_button_y)
-
-    def _create_folder_icon_button(
-        self,
-        parent: tk.Misc,
-        *,
-        command: Callable[[], None] | None = None,
-    ) -> tk.Canvas:
-        shell = tk.Canvas(
-            parent,
-            bg=self.FOLDER_BUTTON_BG,
-            width=self.FOLDER_BUTTON_SIZE[0],
-            height=self.FOLDER_BUTTON_SIZE[1],
-            bd=0,
-            highlightthickness=0,
-        )
-
-        icon_path = self._folder_button_icon_path()
-        if icon_path.exists():
-            image = Image.open(icon_path).resize(self.FOLDER_BUTTON_SIZE, Image.Resampling.LANCZOS)
-            self._folder_button_image = ImageTk.PhotoImage(image)
-        else:
-            self._folder_button_image = None
-
-        inset = self.FOLDER_BUTTON_STROKE_WIDTH
-        shell.create_rectangle(
-            0,
-            0,
-            self.FOLDER_BUTTON_SIZE[0],
-            self.FOLDER_BUTTON_SIZE[1],
-            outline='',
-            fill=self.FOLDER_BUTTON_STROKE,
-        )
-        shell.create_rectangle(
-            inset,
-            inset,
-            self.FOLDER_BUTTON_SIZE[0] - inset,
-            self.FOLDER_BUTTON_SIZE[1] - inset,
-            outline='',
-            fill=self.FOLDER_BUTTON_BG,
-        )
-        if self._folder_button_image is not None:
-            shell.create_image(
-                self.FOLDER_BUTTON_SIZE[0] // 2,
-                self.FOLDER_BUTTON_SIZE[1] // 2,
-                image=self._folder_button_image,
-            )
-
-        def _run_command(_event: tk.Event | None = None) -> None:
-            if command is not None:
-                command()
-
-        shell.bind('<Button-1>', _run_command)
-        return shell
+        self.module_one_cover_picker.place(x=spec.COVER_OFFSET[0], y=5)
+        self.module_one_cover_border = self.module_one_cover_picker.cover_border
+        self.module_one_cover_surface = self.module_one_cover_picker.cover_surface
+        self.module_one_cover_button = self.module_one_cover_picker.folder_button
 
     def _show_sample_rate_dialog(self) -> None:
         popup = ctk.CTkInputDialog(text='Enter project sample rate', title='Sample Rate')

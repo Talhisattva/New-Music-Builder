@@ -3,6 +3,7 @@ from __future__ import annotations
 import tkinter as tk
 from pathlib import Path
 
+from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.images import load_tk_photoimage
 
 
@@ -17,10 +18,10 @@ class ModuleHeader(tk.Frame):
         icon_path: str | Path | None,
         bg_color: str,
         text_color: str,
-        x: int = 10,
-        y: int = 5,
-        icon_size: tuple[int, int] = (20, 20),
-        icon_gap: int = 10,
+        x: int = spec.MODULE_HEADER_X,
+        y: int = spec.MODULE_HEADER_Y,
+        icon_size: tuple[int, int] = spec.MODULE_HEADER_ICON_SIZE,
+        icon_gap: int = spec.MODULE_HEADER_ICON_GAP,
     ) -> None:
         super().__init__(parent, bg=bg_color, bd=0, highlightthickness=0)
         self._image = load_tk_photoimage(icon_path, icon_size)
@@ -47,7 +48,7 @@ class ModuleHeader(tk.Frame):
             fg=text_color,
             bd=0,
             highlightthickness=0,
-            font=('Orbitron Medium', 12),
+            font=('Orbitron Medium', spec.MODULE_HEADER_FONT_SIZE),
             anchor='w',
         )
         self.text_label.place(x=label_x, y=center_y, anchor='w')
