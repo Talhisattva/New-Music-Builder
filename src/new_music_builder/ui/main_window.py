@@ -368,6 +368,7 @@ class MainWindow(ctk.CTk):
             return
 
         current_view = self.module_two_content_viewport.yview()
+        self.module_two_active_row_id = None
         if target_row.expanded:
             target_row.expanded = False
         else:
