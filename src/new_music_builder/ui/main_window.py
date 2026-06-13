@@ -54,6 +54,7 @@ class MainWindow(ctk.CTk):
         self.module_two_selected_row_ids: set[int] = set()
         self.module_two_selection_anchor_row_id: int | None = None
         self._module_two_selection_suppressed_until = 0.0
+        self._module_two_consume_next_plain_selection = False
         self._restore_unsaved_phase_two_default()
         self.mod_name_var = tk.StringVar(value=self.session.project.mod_name)
         self.mod_id_var = tk.StringVar(value=self.session.project.mod_id)
@@ -394,6 +395,7 @@ class MainWindow(ctk.CTk):
         self._module_two_selection_suppressed_until = (
             time.monotonic() + (spec.MEDIA_ROW_SELECTION_SUPPRESS_AFTER_TOGGLE_MS / 1000.0)
         )
+        self._module_two_consume_next_plain_selection = True
         if target_row.expanded:
             target_row.expanded = False
         else:
@@ -407,8 +409,16 @@ class MainWindow(ctk.CTk):
     def _select_module_two_media_row(self, row_id: int, modifiers: RowSelectionModifiers) -> None:
         if not any(row.row_id == row_id for row in self.session.project.media_rows):
             return
+        if (
+            self._module_two_consume_next_plain_selection
+            and not modifiers.shift
+            and not modifiers.additive
+        ):
+            self._module_two_consume_next_plain_selection = False
+            return
         if time.monotonic() < self._module_two_selection_suppressed_until:
             return
+        self._module_two_consume_next_plain_selection = False
 
         current_view = self.module_two_content_viewport.yview()
         if modifiers.shift:
