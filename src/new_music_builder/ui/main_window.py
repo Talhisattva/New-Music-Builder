@@ -418,6 +418,10 @@ class MainWindow(ctk.CTk):
         target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
         if target_row is None:
             return
+        self._module_two_selection_suppressed_until = (
+            time.monotonic() + (spec.MEDIA_ROW_SELECTION_SUPPRESS_AFTER_TOGGLE_MS / 1000.0)
+        )
+        self._module_two_consume_next_plain_selection = True
         target_row.media_name = value
         self.on_project_change()
 
@@ -446,14 +450,17 @@ class MainWindow(ctk.CTk):
     def _select_module_two_media_row(self, row_id: int, modifiers: RowSelectionModifiers) -> None:
         if not any(row.row_id == row_id for row in self.session.project.media_rows):
             return
+        suppressed = time.monotonic() < self._module_two_selection_suppressed_until
         if (
             self._module_two_consume_next_plain_selection
             and not modifiers.shift
             and not modifiers.additive
         ):
+            if suppressed:
+                self._module_two_consume_next_plain_selection = False
+                return
             self._module_two_consume_next_plain_selection = False
-            return
-        if time.monotonic() < self._module_two_selection_suppressed_until:
+        if suppressed:
             return
         self._module_two_consume_next_plain_selection = False
 

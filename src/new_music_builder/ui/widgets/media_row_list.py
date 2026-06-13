@@ -34,6 +34,7 @@ class MediaRowShell(tk.Frame):
         edit_icon_path: str | None = None,
         on_select: Callable[[int], None] | None = None,
         selected: bool = False,
+        selected_count: int = 0,
         on_background_selected: Callable[[int, RowSelectionModifiers], None] | None = None,
         on_background_toggle: Callable[[int], None] | None = None,
         on_enabled_media_changed: Callable[[int, MediaKind, bool], None] | None = None,
@@ -51,7 +52,9 @@ class MediaRowShell(tk.Frame):
         self.pack_propagate(False)
         self._row_id = row.row_id
         self._expanded = expanded
+        self._row_expanded = row.expanded
         self._selected = selected
+        self._selected_count = selected_count
         self._hovered = False
         self._on_background_selected = on_background_selected
         self._on_background_toggle = on_background_toggle
@@ -195,7 +198,7 @@ class MediaRowShell(tk.Frame):
 
     def _apply_background_state(self) -> None:
         fill_color = spec.MEDIA_ROW_BG
-        if self._selected:
+        if self._selected and (self._selected_count > 1 or not self._row_expanded):
             fill_color = spec.MEDIA_ROW_ACTIVE_BG
         elif self._hovered:
             fill_color = spec.MEDIA_ROW_HOVER_BG
@@ -264,6 +267,7 @@ class MediaRowList(tk.Frame):
         self._edit_icon_path = edit_icon_path
         self._on_row_selected = on_row_selected
         self._selected_row_ids = set(selected_row_ids or set())
+        self._selected_count = len(self._selected_row_ids)
         self._on_background_selected = on_background_selected
         self._on_background_toggle = on_background_toggle
         self._on_enabled_media_changed = on_enabled_media_changed
@@ -307,6 +311,7 @@ class MediaRowList(tk.Frame):
                 edit_icon_path=self._edit_icon_path,
                 on_select=self._on_row_selected,
                 selected=(row.row_id in self._selected_row_ids),
+                selected_count=self._selected_count,
                 on_background_selected=self._on_background_selected,
                 on_background_toggle=self._on_background_toggle,
                 on_enabled_media_changed=self._on_enabled_media_changed,
