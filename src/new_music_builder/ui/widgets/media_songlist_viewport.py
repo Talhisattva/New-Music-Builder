@@ -3,6 +3,7 @@ from __future__ import annotations
 import tkinter as tk
 
 from new_music_builder.ui import spec
+from new_music_builder.ui.widgets.media_songlist_table import MediaSonglistTable
 from new_music_builder.ui.widgets.scroll_area import ScrollViewport
 
 
@@ -29,6 +30,7 @@ class MediaSonglistViewport(tk.Frame):
             viewport_size=spec.MEDIA_ROW_SONGLIST_VIEWPORT_MASK_SIZE,
             scrollbar_size=spec.MEDIA_ROW_SONGLIST_SCROLLBAR_SIZE,
             show_top_edge=True,
+            content_bottom_padding=0,
             bg_color=bg_color,
         )
         self.scroll_viewport.place(x=0, y=0)
@@ -36,6 +38,13 @@ class MediaSonglistViewport(tk.Frame):
         self.viewport_canvas = self.scroll_viewport.viewport_canvas
         self.content_frame = self.scroll_viewport.content_frame
         self.scrollbar = self.scroll_viewport.scrollbar
+
+        self.table = MediaSonglistTable(
+            self.content_frame,
+            bg_color=bg_color,
+        )
+        self.table.pack(anchor='nw')
+        self.refresh_scroll_region()
 
     def refresh_scroll_region(self) -> None:
         self.scroll_viewport.refresh_scroll_region()

@@ -189,6 +189,7 @@ class ScrollViewport(tk.Frame):
         viewport_edge_color: str = spec.MODULE_TWO_SCROLL_VIEWPORT_EDGE_COLOR,
         viewport_edge_width: int = spec.MODULE_TWO_SCROLL_VIEWPORT_EDGE_WIDTH,
         show_top_edge: bool = False,
+        content_bottom_padding: int = spec.SCROLL_CONTENT_BOTTOM_PADDING,
         bg_color: str | None = None,
     ) -> None:
         resolved_bg = bg_color if bg_color is not None else parent.cget('bg')
@@ -205,6 +206,7 @@ class ScrollViewport(tk.Frame):
         self._scrollbar_size = scrollbar_size
         self._viewport_edge_width = viewport_edge_width
         self._show_top_edge = show_top_edge
+        self._content_bottom_padding = content_bottom_padding
         self._wheel_bound = False
         self._content_height = 0
         self._viewport_height = viewport_size[1]
@@ -285,7 +287,7 @@ class ScrollViewport(tk.Frame):
         content_height = self.content_frame.winfo_reqheight()
         viewport_height = self._viewport_size[1]
         self.viewport_canvas.itemconfigure(self._content_window_id, width=self._viewport_size[0])
-        content_bottom = content_height + spec.SCROLL_CONTENT_BOTTOM_PADDING
+        content_bottom = content_height + self._content_bottom_padding
         self._content_height = content_bottom
         self._viewport_height = viewport_height
         self.viewport_canvas.configure(scrollregion=(0, 0, self._viewport_size[0], content_bottom))
