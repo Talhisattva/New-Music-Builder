@@ -7,6 +7,7 @@ import tkinter as tk
 from new_music_builder.domain.models import MediaKind, MediaRow
 from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.collapsed_row_chevron import CollapsedRowChevron
+from new_music_builder.ui.widgets.collapsed_row_details import CollapsedRowDetails
 from new_music_builder.ui.widgets.media_rename_field import MediaRenameField
 from new_music_builder.ui.widgets.media_row_badge import MediaRowBadge
 from new_music_builder.ui.widgets.media_row_cover import CollapsedMediaCover, ExpandedMediaCover
@@ -158,6 +159,15 @@ class MediaRowShell(tk.Frame):
                 x=spec.MEDIA_ROW_COLLAPSED_CHEVRON_POS[0],
                 y=spec.MEDIA_ROW_COLLAPSED_CHEVRON_POS[1],
             )
+            self.collapsed_details = CollapsedRowDetails(
+                self.surface,
+                row=row,
+                bg_color=spec.MEDIA_ROW_BG,
+            )
+            self.collapsed_details.place(
+                x=spec.MEDIA_ROW_COLLAPSED_DETAILS_POS[0],
+                y=spec.MEDIA_ROW_COLLAPSED_DETAILS_POS[1],
+            )
         self._apply_background_state()
 
     def _bind_background_interactions(self) -> None:
@@ -207,6 +217,8 @@ class MediaRowShell(tk.Frame):
             self.media_type_strip.set_bg_color(fill_color)
         if hasattr(self, 'collapsed_chevron'):
             self.collapsed_chevron.set_bg_color(fill_color)
+        if hasattr(self, 'collapsed_details'):
+            self.collapsed_details.set_bg_color(fill_color)
 
     def _decode_selection_modifiers(self, event: tk.Event) -> RowSelectionModifiers:
         state = int(getattr(event, 'state', 0))
