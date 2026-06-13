@@ -462,7 +462,8 @@ class MainWindow(ctk.CTk):
         self.on_project_change()
 
     def _select_module_two_media_row(self, row_id: int, modifiers: RowSelectionModifiers) -> None:
-        if not any(row.row_id == row_id for row in self.session.project.media_rows):
+        target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
+        if target_row is None:
             return
         suppressed = time.monotonic() < self._module_two_selection_suppressed_until
         if (
@@ -477,6 +478,14 @@ class MainWindow(ctk.CTk):
         if suppressed:
             return
         self._module_two_consume_next_plain_selection = False
+
+        if (
+            not modifiers.shift
+            and not modifiers.additive
+            and target_row.expanded
+            and self.module_two_selected_row_ids == {row_id}
+        ):
+            return
 
         current_view = self.module_two_content_viewport.yview()
         if modifiers.shift:
