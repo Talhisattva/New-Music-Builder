@@ -114,6 +114,7 @@ class MediaRenameField(tk.Frame):
         self._display_name = canonical_media_name(row.row_id, row.media_name)
         self._pre_edit_name = self._display_name
         self._editing = False
+        self._outside_click_binding_id: str | None = None
         self._text_area_width = spec.MEDIA_ROW_RENAME_SIZE[0] - (spec.MEDIA_ROW_RENAME_OUTLINE_WIDTH * 2) - spec.MEDIA_ROW_RENAME_EDIT_BUTTON_SIZE[0]
         self._text_width_limit = (
             spec.MEDIA_ROW_RENAME_SIZE[0]
@@ -220,6 +221,7 @@ class MediaRenameField(tk.Frame):
         if self._editing:
             return
         self._editing = True
+        self._install_outside_click_binding()
         self._pre_edit_name = self._display_name
         self._entry_var.set(self._display_name)
         self._last_valid_entry_value = self._display_name
@@ -237,6 +239,7 @@ class MediaRenameField(tk.Frame):
         if not self._editing:
             return
         self._editing = False
+        self._remove_outside_click_binding()
         self.entry.place_forget()
         self.display_label.configure(text=self._display_name)
         self.display_label.place(
@@ -287,17 +290,49 @@ class MediaRenameField(tk.Frame):
             return
         self._entry_var.set(self._last_valid_entry_value)
 
-    def _on_focus_out(self, _event: tk.Event | None = None) -> str:
+    def _on_focus_out(self, _event: tk.Event | None = None) -> None:
         self.after_idle(self._commit_if_focus_left_widget)
-        return 'break'
 
     def _commit_if_focus_left_widget(self) -> None:
         if not self._editing:
             return
         focused_widget = self.focus_get()
-        if focused_widget in {self.entry, self.edit_button}:
+        if self._is_widget_within_self(focused_widget):
             return
         self._commit_name()
+
+    def _install_outside_click_binding(self) -> None:
+        if self._outside_click_binding_id is not None:
+            return
+        toplevel = self.winfo_toplevel()
+        self._outside_click_binding_id = toplevel.bind('<ButtonPress-1>', self._on_toplevel_button_press, add='+')
+
+    def _remove_outside_click_binding(self) -> None:
+        if self._outside_click_binding_id is None:
+            return
+        toplevel = self.winfo_toplevel()
+        toplevel.unbind('<ButtonPress-1>', self._outside_click_binding_id)
+        self._outside_click_binding_id = None
+
+    def _on_toplevel_button_press(self, event: tk.Event) -> None:
+        if not self._editing:
+            return
+        clicked_widget = getattr(event, 'widget', None)
+        if self._is_widget_within_self(clicked_widget):
+            return
+        self._commit_name()
+
+    def _is_widget_within_self(self, widget: tk.Misc | None) -> bool:
+        current = widget
+        while current is not None:
+            if current is self:
+                return True
+            current = current.master
+        return False
+
+    def destroy(self) -> None:
+        self._remove_outside_click_binding()
+        super().destroy()
 
     def _break_event(self, _event: tk.Event | None = None) -> str:
         return 'break'
