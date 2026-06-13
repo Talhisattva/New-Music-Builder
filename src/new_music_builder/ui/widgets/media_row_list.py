@@ -36,6 +36,7 @@ class MediaRowShell(tk.Frame):
         cd_icon_path: str | None = None,
         check_icon_path: str | None = None,
         edit_icon_path: str | None = None,
+        ear_icon_path: str | None = None,
         on_select: Callable[[int], None] | None = None,
         selected: bool = False,
         selected_count: int = 0,
@@ -118,6 +119,7 @@ class MediaRowShell(tk.Frame):
             self.songlist_viewport = MediaSonglistViewport(
                 self.surface,
                 bg_color=spec.MEDIA_ROW_BG,
+                ear_icon_path=ear_icon_path,
             )
             self.songlist_viewport.place(
                 x=spec.MEDIA_ROW_SONGLIST_VIEWPORT_POS[0],
@@ -279,6 +281,7 @@ class MediaRowList(tk.Frame):
         cd_icon_path: str | None = None,
         check_icon_path: str | None = None,
         edit_icon_path: str | None = None,
+        ear_icon_path: str | None = None,
         bg_color: str | None = None,
         on_row_selected: Callable[[int], None] | None = None,
         selected_row_ids: set[int] | None = None,
@@ -306,6 +309,7 @@ class MediaRowList(tk.Frame):
         self._cd_icon_path = cd_icon_path
         self._check_icon_path = check_icon_path
         self._edit_icon_path = edit_icon_path
+        self._ear_icon_path = ear_icon_path
         self._on_row_selected = on_row_selected
         self._selected_row_ids = set(selected_row_ids or set())
         self._selected_count = len(self._selected_row_ids)
@@ -350,6 +354,7 @@ class MediaRowList(tk.Frame):
                 cd_icon_path=self._cd_icon_path,
                 check_icon_path=self._check_icon_path,
                 edit_icon_path=self._edit_icon_path,
+                ear_icon_path=self._ear_icon_path,
                 on_select=self._on_row_selected,
                 selected=(row.row_id in self._selected_row_ids),
                 selected_count=self._selected_count,

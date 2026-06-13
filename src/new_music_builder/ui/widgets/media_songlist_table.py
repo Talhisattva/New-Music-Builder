@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import tkinter as tk
 
+from PIL import Image, ImageTk
+
 from new_music_builder.ui import spec
 
 
@@ -11,6 +13,7 @@ class MediaSonglistTable(tk.Canvas):
         parent: tk.Misc,
         *,
         bg_color: str,
+        ear_icon_path: str | None = None,
     ) -> None:
         super().__init__(
             parent,
@@ -29,6 +32,8 @@ class MediaSonglistTable(tk.Canvas):
         self._column_widths = spec.MEDIA_ROW_SONGLIST_TABLE_COLUMN_WIDTHS
         self._divider_color = spec.MEDIA_ROW_SONGLIST_TABLE_DIVIDER_COLOR
         self._divider_width = spec.MEDIA_ROW_SONGLIST_TABLE_DIVIDER_WIDTH
+        self._ear_icon_path = ear_icon_path
+        self._ear_icon_image: ImageTk.PhotoImage | None = None
         self._draw()
 
     def _draw(self) -> None:
@@ -91,3 +96,37 @@ class MediaSonglistTable(tk.Canvas):
                 outline='',
                 fill=self._divider_color,
             )
+
+        self._draw_header_content()
+
+    def _draw_header_content(self) -> None:
+        current_x = 0
+        labels = spec.MEDIA_ROW_SONGLIST_TABLE_HEADER_LABELS
+        for index, column_width in enumerate(self._column_widths):
+            center_x = current_x + (column_width / 2)
+            center_y = self._header_height / 2
+            if index == 3:
+                self._draw_ear_icon(center_x, center_y)
+            elif labels[index]:
+                self.create_text(
+                    center_x,
+                    center_y,
+                    text=labels[index],
+                    fill=spec.MEDIA_ROW_SONGLIST_TABLE_HEADER_TEXT_COLOR,
+                    font=(
+                        spec.MEDIA_ROW_SONGLIST_TABLE_HEADER_FONT_FAMILY,
+                        spec.MEDIA_ROW_SONGLIST_TABLE_HEADER_FONT_SIZE,
+                    ),
+                    anchor='c',
+                )
+            current_x += column_width
+
+    def _draw_ear_icon(self, center_x: float, center_y: float) -> None:
+        if not self._ear_icon_path:
+            return
+        try:
+            image = Image.open(self._ear_icon_path)
+        except OSError:
+            return
+        self._ear_icon_image = ImageTk.PhotoImage(image)
+        self.create_image(center_x, center_y, image=self._ear_icon_image, anchor='c')

@@ -13,6 +13,7 @@ class MediaSonglistViewport(tk.Frame):
         parent: tk.Misc,
         *,
         bg_color: str,
+        ear_icon_path: str | None = None,
     ) -> None:
         super().__init__(
             parent,
@@ -42,6 +43,7 @@ class MediaSonglistViewport(tk.Frame):
         self.table = MediaSonglistTable(
             self.content_frame,
             bg_color=bg_color,
+            ear_icon_path=ear_icon_path,
         )
         self.table.pack(anchor='nw')
         self.refresh_scroll_region()

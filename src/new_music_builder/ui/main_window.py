@@ -112,6 +112,9 @@ class MainWindow(ctk.CTk):
     def _edit_icon_path(self) -> Path:
         return app_root() / 'assets' / 'EditIcon.png'
 
+    def _ear_icon_path(self) -> Path:
+        return app_root() / 'assets' / 'EarIcon.png'
+
     def _apply_window_icon(self) -> None:
         native_icon = self._native_icon_path()
         if native_icon.exists() and sys.platform.startswith('win'):
@@ -362,6 +365,7 @@ class MainWindow(ctk.CTk):
             cd_icon_path=str(self._cd_item_icon_path()),
             check_icon_path=str(self._check_icon_path()),
             edit_icon_path=str(self._edit_icon_path()),
+            ear_icon_path=str(self._ear_icon_path()),
             bg_color=spec.MODULE_MIDGROUND_BG,
             on_row_selected=self._expand_module_two_media_row,
             selected_row_ids=self.module_two_selected_row_ids,
