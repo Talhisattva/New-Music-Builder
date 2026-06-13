@@ -11,6 +11,7 @@ from new_music_builder.ui.widgets.collapsed_row_details import CollapsedRowDetai
 from new_music_builder.ui.widgets.media_rename_field import MediaRenameField
 from new_music_builder.ui.widgets.media_row_badge import MediaRowBadge
 from new_music_builder.ui.widgets.media_row_cover import CollapsedMediaCover, ExpandedMediaCover
+from new_music_builder.ui.widgets.media_side_toggle import MediaSideToggle
 from new_music_builder.ui.widgets.media_type_strip import MediaTypeStrip
 
 
@@ -40,6 +41,7 @@ class MediaRowShell(tk.Frame):
         on_background_toggle: Callable[[int], None] | None = None,
         on_enabled_media_changed: Callable[[int, MediaKind, bool], None] | None = None,
         on_name_committed: Callable[[int, str], None] | None = None,
+        on_side_selected: Callable[[int, str], None] | None = None,
     ) -> None:
         size = spec.MEDIA_ROW_EXPANDED_SIZE if expanded else spec.MEDIA_ROW_COLLAPSED_SIZE
         super().__init__(
@@ -104,6 +106,15 @@ class MediaRowShell(tk.Frame):
             self.rename_field.place(
                 x=spec.MEDIA_ROW_RENAME_POS[0],
                 y=spec.MEDIA_ROW_RENAME_POS[1],
+            )
+            self.side_toggle = MediaSideToggle(
+                self.surface,
+                row=row,
+                on_side_selected=on_side_selected,
+            )
+            self.side_toggle.place(
+                x=spec.MEDIA_ROW_SIDE_TOGGLE_POS[0],
+                y=spec.MEDIA_ROW_SIDE_TOGGLE_POS[1],
             )
             self.media_type_strip = MediaTypeStrip(
                 self.surface,
@@ -257,6 +268,7 @@ class MediaRowList(tk.Frame):
         on_background_toggle: Callable[[int], None] | None = None,
         on_enabled_media_changed: Callable[[int, MediaKind, bool], None] | None = None,
         on_name_committed: Callable[[int, str], None] | None = None,
+        on_side_selected: Callable[[int, str], None] | None = None,
     ) -> None:
         resolved_bg = bg_color if bg_color is not None else parent.cget('bg')
         normalized_rows = self._normalized_rows(rows)
@@ -284,6 +296,7 @@ class MediaRowList(tk.Frame):
         self._on_background_toggle = on_background_toggle
         self._on_enabled_media_changed = on_enabled_media_changed
         self._on_name_committed = on_name_committed
+        self._on_side_selected = on_side_selected
         self.row_widgets: list[MediaRowShell] = []
 
         self._build_rows()
@@ -328,6 +341,7 @@ class MediaRowList(tk.Frame):
                 on_background_toggle=self._on_background_toggle,
                 on_enabled_media_changed=self._on_enabled_media_changed,
                 on_name_committed=self._on_name_committed,
+                on_side_selected=self._on_side_selected,
             )
             widget.place(x=spec.MEDIA_ROW_INSET_X, y=current_y)
             self.row_widgets.append(widget)

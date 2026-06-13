@@ -31,6 +31,7 @@ class MainButton(tk.Canvas):
         self._outline_width = outline_width
         self._colors = palette
         self._is_pressed = False
+        self._is_active = False
 
         self._draw(text)
         self._bind_interactions()
@@ -91,12 +92,12 @@ class MainButton(tk.Canvas):
         self.configure(bg=color)
 
     def _on_enter(self, _event: tk.Event | None = None) -> None:
-        if not self._is_pressed:
+        if not self._is_pressed and not self._is_active:
             self._set_fill(self._colors['hover'])
 
     def _on_leave(self, _event: tk.Event | None = None) -> None:
         self._is_pressed = False
-        self._set_fill(self._colors['bg'])
+        self._set_fill(self._colors['pressed'] if self._is_active else self._colors['bg'])
 
     def _on_press(self, _event: tk.Event | None = None) -> str:
         self._is_pressed = True
@@ -110,9 +111,16 @@ class MainButton(tk.Canvas):
             if event is not None:
                 inside = 0 <= event.x <= self._size[0] and 0 <= event.y <= self._size[1]
             if inside:
-                self._set_fill(self._colors['hover'])
+                self._set_fill(self._colors['pressed'] if self._is_active else self._colors['hover'])
                 if self._command is not None:
                     self._command()
             else:
-                self._set_fill(self._colors['bg'])
+                self._set_fill(self._colors['pressed'] if self._is_active else self._colors['bg'])
         return 'break'
+
+    def set_active(self, active: bool) -> None:
+        self._is_active = active
+        if self._is_pressed:
+            self._set_fill(self._colors['pressed'])
+            return
+        self._set_fill(self._colors['pressed'] if active else self._colors['bg'])

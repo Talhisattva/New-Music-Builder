@@ -369,6 +369,7 @@ class MainWindow(ctk.CTk):
             on_background_toggle=self._expand_module_two_media_row,
             on_enabled_media_changed=self._set_module_two_media_enabled,
             on_name_committed=self._commit_module_two_media_name,
+            on_side_selected=self._set_module_two_media_side,
         )
         self.module_two_row_list.pack(anchor='nw')
         self.module_two_scroll_area.refresh_scroll_region()
@@ -423,6 +424,19 @@ class MainWindow(ctk.CTk):
         )
         self._module_two_consume_next_plain_selection = True
         target_row.media_name = value
+        self.on_project_change()
+
+    def _set_module_two_media_side(self, row_id: int, side: str) -> None:
+        target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
+        if target_row is None or side not in {'A', 'B'}:
+            return
+        if target_row.selected_side == side:
+            return
+
+        current_view = self.module_two_content_viewport.yview()
+        target_row.selected_side = side
+        self._build_module_two_row_list()
+        self.module_two_content_viewport.yview_moveto(current_view[0])
         self.on_project_change()
 
     def _expand_module_two_media_row(self, row_id: int) -> None:
