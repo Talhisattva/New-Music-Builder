@@ -366,7 +366,6 @@ class MainWindow(ctk.CTk):
             on_row_selected=self._expand_module_two_media_row,
             selected_row_ids=self.module_two_selected_row_ids,
             on_background_selected=self._select_module_two_media_row,
-            on_background_toggle=self._expand_module_two_media_row,
             on_enabled_media_changed=self._set_module_two_media_enabled,
             on_name_committed=self._commit_module_two_media_name,
             on_side_selected=self._set_module_two_media_side,
@@ -442,10 +441,6 @@ class MainWindow(ctk.CTk):
         current_view = self.module_two_content_viewport.yview()
         self.module_two_selected_row_ids.clear()
         self.module_two_selection_anchor_row_id = None
-        self._module_two_selection_suppressed_until = (
-            time.monotonic() + (spec.MEDIA_ROW_SELECTION_SUPPRESS_AFTER_TOGGLE_MS / 1000.0)
-        )
-        self._module_two_consume_next_plain_selection = True
         if target_row.expanded:
             target_row.expanded = False
         else:

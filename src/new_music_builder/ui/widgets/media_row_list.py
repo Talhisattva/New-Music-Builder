@@ -39,7 +39,6 @@ class MediaRowShell(tk.Frame):
         selected: bool = False,
         selected_count: int = 0,
         on_background_selected: Callable[[int, RowSelectionModifiers], None] | None = None,
-        on_background_toggle: Callable[[int], None] | None = None,
         on_enabled_media_changed: Callable[[int, MediaKind, bool], None] | None = None,
         on_name_committed: Callable[[int, str], None] | None = None,
         on_side_selected: Callable[[int, str], None] | None = None,
@@ -61,9 +60,6 @@ class MediaRowShell(tk.Frame):
         self._selected_count = selected_count
         self._hovered = False
         self._on_background_selected = on_background_selected
-        self._on_background_toggle = on_background_toggle
-        self._pending_single_click_after_id: str | None = None
-        self._suppress_next_release = False
 
         inner_width = size[0] - (spec.MEDIA_ROW_OUTLINE_WIDTH * 2)
         inner_height = size[1] - (spec.MEDIA_ROW_OUTLINE_WIDTH * 2)
@@ -203,7 +199,6 @@ class MediaRowShell(tk.Frame):
             ('<Enter>', self._on_background_enter),
             ('<Leave>', self._on_background_leave),
             ('<ButtonRelease-1>', self._on_background_release),
-            ('<Double-Button-1>', self._on_background_double_press),
         ):
             self.surface.bind(sequence, handler)
 
@@ -212,7 +207,6 @@ class MediaRowShell(tk.Frame):
             ('<Enter>', self._on_background_enter),
             ('<Leave>', self._on_background_leave),
             ('<ButtonRelease-1>', self._on_background_release),
-            ('<Double-Button-1>', self._on_background_double_press),
         ):
             widget.bind(sequence, handler, add='+')
         for child in widget.winfo_children():
@@ -227,23 +221,8 @@ class MediaRowShell(tk.Frame):
         self._apply_background_state()
 
     def _on_background_release(self, event: tk.Event) -> None:
-        if self._suppress_next_release:
-            self._suppress_next_release = False
-            return
-        self._cancel_pending_single_click()
         modifiers = self._decode_selection_modifiers(event)
-        self._pending_single_click_after_id = self.after(
-            spec.MEDIA_ROW_DOUBLE_CLICK_DELAY_MS,
-            lambda: self._emit_background_selection(modifiers),
-        )
-
-    def _on_background_double_press(self, event: tk.Event) -> None:
-        self._cancel_pending_single_click()
-        self._suppress_next_release = True
-        modifiers = self._decode_selection_modifiers(event)
-        if (modifiers.shift or modifiers.additive) or self._on_background_toggle is None:
-            return
-        self._on_background_toggle(self._row_id)
+        self._emit_background_selection(modifiers)
 
     def _apply_background_state(self) -> None:
         fill_color = spec.MEDIA_ROW_BG
@@ -268,15 +247,8 @@ class MediaRowShell(tk.Frame):
         return RowSelectionModifiers(shift=shift, additive=additive)
 
     def _emit_background_selection(self, modifiers: RowSelectionModifiers) -> None:
-        self._pending_single_click_after_id = None
         if self._on_background_selected is not None:
             self._on_background_selected(self._row_id, modifiers)
-
-    def _cancel_pending_single_click(self) -> None:
-        if self._pending_single_click_after_id is None:
-            return
-        self.after_cancel(self._pending_single_click_after_id)
-        self._pending_single_click_after_id = None
 
 
 class MediaRowList(tk.Frame):
@@ -295,7 +267,6 @@ class MediaRowList(tk.Frame):
         on_row_selected: Callable[[int], None] | None = None,
         selected_row_ids: set[int] | None = None,
         on_background_selected: Callable[[int, RowSelectionModifiers], None] | None = None,
-        on_background_toggle: Callable[[int], None] | None = None,
         on_enabled_media_changed: Callable[[int, MediaKind, bool], None] | None = None,
         on_name_committed: Callable[[int, str], None] | None = None,
         on_side_selected: Callable[[int, str], None] | None = None,
@@ -323,7 +294,6 @@ class MediaRowList(tk.Frame):
         self._selected_row_ids = set(selected_row_ids or set())
         self._selected_count = len(self._selected_row_ids)
         self._on_background_selected = on_background_selected
-        self._on_background_toggle = on_background_toggle
         self._on_enabled_media_changed = on_enabled_media_changed
         self._on_name_committed = on_name_committed
         self._on_side_selected = on_side_selected
@@ -368,7 +338,6 @@ class MediaRowList(tk.Frame):
                 selected=(row.row_id in self._selected_row_ids),
                 selected_count=self._selected_count,
                 on_background_selected=self._on_background_selected,
-                on_background_toggle=self._on_background_toggle,
                 on_enabled_media_changed=self._on_enabled_media_changed,
                 on_name_committed=self._on_name_committed,
                 on_side_selected=self._on_side_selected,
