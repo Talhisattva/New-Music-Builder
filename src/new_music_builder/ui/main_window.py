@@ -346,6 +346,7 @@ class MainWindow(ctk.CTk):
             on_row_selected=self._expand_module_two_media_row,
             selected_row_ids=self.module_two_selected_row_ids,
             on_background_selected=self._select_module_two_media_row,
+            on_background_toggle=self._expand_module_two_media_row,
         )
         self.module_two_row_list.pack(anchor='nw')
         self.module_two_scroll_area.refresh_scroll_region()

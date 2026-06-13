@@ -27,6 +27,7 @@ class MediaRowShell(tk.Frame):
         on_select: Callable[[int], None] | None = None,
         selected: bool = False,
         on_background_selected: Callable[[int, RowSelectionModifiers], None] | None = None,
+        on_background_toggle: Callable[[int], None] | None = None,
     ) -> None:
         size = spec.MEDIA_ROW_EXPANDED_SIZE if expanded else spec.MEDIA_ROW_COLLAPSED_SIZE
         super().__init__(
@@ -43,6 +44,7 @@ class MediaRowShell(tk.Frame):
         self._selected = selected
         self._hovered = False
         self._on_background_selected = on_background_selected
+        self._on_background_toggle = on_background_toggle
 
         inner_width = size[0] - (spec.MEDIA_ROW_OUTLINE_WIDTH * 2)
         inner_height = size[1] - (spec.MEDIA_ROW_OUTLINE_WIDTH * 2)
@@ -98,6 +100,7 @@ class MediaRowShell(tk.Frame):
             ('<Enter>', self._on_background_enter),
             ('<Leave>', self._on_background_leave),
             ('<ButtonPress-1>', self._on_background_press),
+            ('<Double-Button-1>', self._on_background_double_press),
         ):
             self.surface.bind(sequence, handler)
 
@@ -112,6 +115,12 @@ class MediaRowShell(tk.Frame):
     def _on_background_press(self, event: tk.Event) -> None:
         if self._on_background_selected is not None:
             self._on_background_selected(self._row_id, self._decode_selection_modifiers(event))
+
+    def _on_background_double_press(self, event: tk.Event) -> None:
+        modifiers = self._decode_selection_modifiers(event)
+        if (modifiers.shift or modifiers.additive) or self._on_background_toggle is None:
+            return
+        self._on_background_toggle(self._row_id)
 
     def _apply_background_state(self) -> None:
         fill_color = spec.MEDIA_ROW_BG
@@ -139,6 +148,7 @@ class MediaRowList(tk.Frame):
         on_row_selected: Callable[[int], None] | None = None,
         selected_row_ids: set[int] | None = None,
         on_background_selected: Callable[[int, RowSelectionModifiers], None] | None = None,
+        on_background_toggle: Callable[[int], None] | None = None,
     ) -> None:
         resolved_bg = bg_color if bg_color is not None else parent.cget('bg')
         normalized_rows = self._normalized_rows(rows)
@@ -157,6 +167,7 @@ class MediaRowList(tk.Frame):
         self._on_row_selected = on_row_selected
         self._selected_row_ids = set(selected_row_ids or set())
         self._on_background_selected = on_background_selected
+        self._on_background_toggle = on_background_toggle
         self.row_widgets: list[MediaRowShell] = []
 
         self._build_rows()
@@ -192,6 +203,7 @@ class MediaRowList(tk.Frame):
                 on_select=self._on_row_selected,
                 selected=(row.row_id in self._selected_row_ids),
                 on_background_selected=self._on_background_selected,
+                on_background_toggle=self._on_background_toggle,
             )
             widget.place(x=spec.MEDIA_ROW_INSET_X, y=current_y)
             self.row_widgets.append(widget)
