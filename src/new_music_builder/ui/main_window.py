@@ -196,6 +196,7 @@ class MainWindow(ctk.CTk):
         self.module_two_top_header = MediaCreationHeader(
             self.module_two_midground_border,
             add_command=self._add_module_two_media_row,
+            remove_command=self._remove_module_two_media_rows,
         )
         self.module_two_top_header.place(x=0, y=0)
         self.module_two_add_row_button = self.module_two_top_header.add_button
@@ -363,6 +364,22 @@ class MainWindow(ctk.CTk):
         self.module_two_content_viewport.yview_moveto(1.0)
         self.on_project_change()
 
+    def _remove_module_two_media_rows(self) -> None:
+        if self.module_two_selected_row_ids:
+            row_ids_to_remove = set(self.module_two_selected_row_ids)
+        elif self.session.project.media_rows:
+            row_ids_to_remove = {self.session.project.media_rows[-1].row_id}
+        else:
+            return
+
+        current_view = self.module_two_content_viewport.yview()
+        self.session.remove_media_rows(row_ids_to_remove)
+        self.module_two_selected_row_ids.clear()
+        self.module_two_selection_anchor_row_id = None
+        self._build_module_two_row_list()
+        self.module_two_content_viewport.yview_moveto(current_view[0])
+        self.on_project_change()
+
     def _expand_module_two_media_row(self, row_id: int) -> None:
         target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
         if target_row is None:
@@ -454,6 +471,9 @@ class MainWindow(ctk.CTk):
 
     def new_project(self) -> None:
         self.session.reset()
+        self._restore_unsaved_phase_two_default()
+        self.module_two_selected_row_ids.clear()
+        self.module_two_selection_anchor_row_id = None
         self.build_log = []
         self.preview_entries = []
         self.refresh_all()

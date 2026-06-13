@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from new_music_builder.domain.models import ProjectConfig, default_media_row, next_row_id
+from new_music_builder.domain.models import MediaRow, ProjectConfig, default_media_row, next_row_id
 
 
 @dataclass(slots=True)
@@ -28,3 +28,20 @@ class ProjectSession:
         self.project.media_rows = [row for row in self.project.media_rows if row.row_id != row_id]
         if not self.project.media_rows:
             self.project.media_rows = [default_media_row(1)]
+
+    def remove_media_rows(self, row_ids: set[int]) -> None:
+        self.project.media_rows = [row for row in self.project.media_rows if row.row_id not in row_ids]
+        self._renumber_media_rows()
+
+    def _renumber_media_rows(self) -> None:
+        for index, row in enumerate(self.project.media_rows, start=1):
+            self.project.media_rows[index - 1] = MediaRow(
+                row_id=index,
+                media_name=row.media_name,
+                enabled_media=dict(row.enabled_media),
+                cover_path=row.cover_path,
+                tracks_a=list(row.tracks_a),
+                tracks_b=list(row.tracks_b),
+                appearances=dict(row.appearances),
+                expanded=row.expanded,
+            )
