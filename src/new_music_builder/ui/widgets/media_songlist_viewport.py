@@ -28,6 +28,7 @@ class MediaSonglistViewport(tk.Frame):
             size=spec.MEDIA_ROW_SONGLIST_VIEWPORT_SIZE,
             viewport_size=spec.MEDIA_ROW_SONGLIST_VIEWPORT_MASK_SIZE,
             scrollbar_size=spec.MEDIA_ROW_SONGLIST_SCROLLBAR_SIZE,
+            show_top_edge=True,
             bg_color=bg_color,
         )
         self.scroll_viewport.place(x=0, y=0)
