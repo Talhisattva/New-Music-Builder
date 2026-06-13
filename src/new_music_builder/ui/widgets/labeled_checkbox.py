@@ -39,6 +39,7 @@ class ImageCheckbox(tk.Canvas):
         self._check_image_id: int | None = None
 
         self._draw()
+        self.bind('<Button-1>', self._on_click, add='+')
 
     def _draw(self) -> None:
         inset = self._outline_width
@@ -79,6 +80,10 @@ class ImageCheckbox(tk.Canvas):
         if self._command is not None:
             self._command(self._checked)
 
+    def _on_click(self, _event: tk.Event | None = None) -> str:
+        self.toggle()
+        return 'break'
+
 
 class LabeledCheckbox(tk.Frame):
     def __init__(
@@ -113,7 +118,6 @@ class LabeledCheckbox(tk.Frame):
         )
         self.text_label.pack(side='left', padx=(checkbox_gap, 0), fill='y')
         self._bind_toggle_target(self)
-        self._bind_toggle_target(self.checkbox)
         self._bind_toggle_target(self.text_label)
 
     def _bind_toggle_target(self, widget: tk.Misc) -> None:
