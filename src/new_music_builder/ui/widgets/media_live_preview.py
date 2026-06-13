@@ -161,6 +161,16 @@ class MediaLivePreview(tk.Frame):
         )
         self.inventory_button.place(x=0, y=0)
 
+        self.mode_left_border = tk.Frame(
+            self.mode_strip,
+            bg=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_OUTLINE,
+            bd=0,
+            highlightthickness=0,
+            width=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_OUTLINE_WIDTH,
+            height=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_STRIP_HEIGHT,
+        )
+        self.mode_left_border.place(x=0, y=0)
+
         self.world_button = _PreviewModeButton(
             self.mode_strip,
             text='World',
@@ -168,6 +178,19 @@ class MediaLivePreview(tk.Frame):
             size=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_BUTTON_SIZE,
         )
         self.world_button.place(x=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_BUTTON_SIZE[0], y=0)
+
+        self.mode_right_border = tk.Frame(
+            self.mode_strip,
+            bg=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_OUTLINE,
+            bd=0,
+            highlightthickness=0,
+            width=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_OUTLINE_WIDTH,
+            height=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_STRIP_HEIGHT,
+        )
+        self.mode_right_border.place(
+            x=spec.MEDIA_ROW_LIVE_PREVIEW_SIZE[0] - spec.MEDIA_ROW_LIVE_PREVIEW_MODE_OUTLINE_WIDTH,
+            y=0,
+        )
 
         content_y = strip_y + spec.MEDIA_ROW_LIVE_PREVIEW_MODE_STRIP_HEIGHT
         self.content_border = tk.Frame(
