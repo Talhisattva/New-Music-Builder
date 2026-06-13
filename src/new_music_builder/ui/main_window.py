@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 import sys
+import time
 import tkinter as tk
 import tkinter.filedialog as fd
 import tkinter.messagebox as messagebox
@@ -52,6 +53,7 @@ class MainWindow(ctk.CTk):
         self.session = ProjectSession(project=self.session, current_path=saved_path)
         self.module_two_selected_row_ids: set[int] = set()
         self.module_two_selection_anchor_row_id: int | None = None
+        self._module_two_selection_suppressed_until = 0.0
         self._restore_unsaved_phase_two_default()
         self.mod_name_var = tk.StringVar(value=self.session.project.mod_name)
         self.mod_id_var = tk.StringVar(value=self.session.project.mod_id)
@@ -389,6 +391,9 @@ class MainWindow(ctk.CTk):
         current_view = self.module_two_content_viewport.yview()
         self.module_two_selected_row_ids.clear()
         self.module_two_selection_anchor_row_id = None
+        self._module_two_selection_suppressed_until = (
+            time.monotonic() + (spec.MEDIA_ROW_SELECTION_SUPPRESS_AFTER_TOGGLE_MS / 1000.0)
+        )
         if target_row.expanded:
             target_row.expanded = False
         else:
@@ -401,6 +406,8 @@ class MainWindow(ctk.CTk):
 
     def _select_module_two_media_row(self, row_id: int, modifiers: RowSelectionModifiers) -> None:
         if not any(row.row_id == row_id for row in self.session.project.media_rows):
+            return
+        if time.monotonic() < self._module_two_selection_suppressed_until:
             return
 
         current_view = self.module_two_content_viewport.yview()
