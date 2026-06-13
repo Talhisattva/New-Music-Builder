@@ -90,7 +90,7 @@ class BuildEvent:
 
 
 def default_media_row(row_id: int) -> MediaRow:
-    row = MediaRow(row_id=row_id, media_name=f"Media Row {row_id}", expanded=(row_id == 1))
+    row = MediaRow(row_id=row_id, media_name=f"Media Mix {row_id}", expanded=(row_id == 1))
     row.ensure_appearances()
     return row
 

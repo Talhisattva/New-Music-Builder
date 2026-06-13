@@ -109,6 +109,9 @@ class MainWindow(ctk.CTk):
     def _cd_item_icon_path(self) -> Path:
         return app_root() / 'assets' / 'Item_NM_CD.png'
 
+    def _edit_icon_path(self) -> Path:
+        return app_root() / 'assets' / 'EditIcon.png'
+
     def _apply_window_icon(self) -> None:
         native_icon = self._native_icon_path()
         if native_icon.exists() and sys.platform.startswith('win'):
@@ -358,12 +361,14 @@ class MainWindow(ctk.CTk):
             vinyl_icon_path=str(self._vinyl_item_icon_path()),
             cd_icon_path=str(self._cd_item_icon_path()),
             check_icon_path=str(self._check_icon_path()),
+            edit_icon_path=str(self._edit_icon_path()),
             bg_color=spec.MODULE_MIDGROUND_BG,
             on_row_selected=self._expand_module_two_media_row,
             selected_row_ids=self.module_two_selected_row_ids,
             on_background_selected=self._select_module_two_media_row,
             on_background_toggle=self._expand_module_two_media_row,
             on_enabled_media_changed=self._set_module_two_media_enabled,
+            on_name_committed=self._commit_module_two_media_name,
         )
         self.module_two_row_list.pack(anchor='nw')
         self.module_two_scroll_area.refresh_scroll_region()
@@ -407,6 +412,13 @@ class MainWindow(ctk.CTk):
         target_row.enabled_media[kind] = enabled
         self._build_module_two_row_list()
         self.module_two_content_viewport.yview_moveto(current_view[0])
+        self.on_project_change()
+
+    def _commit_module_two_media_name(self, row_id: int, value: str) -> None:
+        target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
+        if target_row is None:
+            return
+        target_row.media_name = value
         self.on_project_change()
 
     def _expand_module_two_media_row(self, row_id: int) -> None:

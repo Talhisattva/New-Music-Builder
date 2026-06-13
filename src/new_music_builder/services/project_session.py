@@ -35,9 +35,14 @@ class ProjectSession:
 
     def _renumber_media_rows(self) -> None:
         for index, row in enumerate(self.project.media_rows, start=1):
+            generated_names = {
+                f'Media Row {row.row_id}',
+                f'Media Mix {row.row_id}',
+            }
+            media_name = f'Media Mix {index}' if row.media_name in generated_names else row.media_name
             self.project.media_rows[index - 1] = MediaRow(
                 row_id=index,
-                media_name=row.media_name,
+                media_name=media_name,
                 enabled_media=dict(row.enabled_media),
                 cover_path=row.cover_path,
                 tracks_a=list(row.tracks_a),
