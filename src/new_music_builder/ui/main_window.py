@@ -408,11 +408,9 @@ class MainWindow(ctk.CTk):
         target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
         if target_row is None:
             return
-
-        current_view = self.module_two_content_viewport.yview()
+        if target_row.enabled_media[kind] == enabled:
+            return
         target_row.enabled_media[kind] = enabled
-        self._build_module_two_row_list()
-        self.module_two_content_viewport.yview_moveto(current_view[0])
         self.on_project_change()
 
     def _commit_module_two_media_name(self, row_id: int, value: str) -> None:
@@ -433,10 +431,7 @@ class MainWindow(ctk.CTk):
         if target_row.selected_side == side:
             return
 
-        current_view = self.module_two_content_viewport.yview()
         target_row.selected_side = side
-        self._build_module_two_row_list()
-        self.module_two_content_viewport.yview_moveto(current_view[0])
         self.on_project_change()
 
     def _expand_module_two_media_row(self, row_id: int) -> None:
