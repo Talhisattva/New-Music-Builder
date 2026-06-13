@@ -169,62 +169,6 @@ class MediaLivePreview(tk.Frame):
         )
         self.world_button.place(x=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_BUTTON_SIZE[0], y=0)
 
-        self.mode_border_top = tk.Frame(
-            self.mode_strip,
-            bg=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_OUTLINE,
-            bd=0,
-            highlightthickness=0,
-            width=spec.MEDIA_ROW_LIVE_PREVIEW_SIZE[0],
-            height=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_OUTLINE_WIDTH,
-        )
-        self.mode_border_top.place(x=0, y=0)
-
-        self.mode_border_bottom = tk.Frame(
-            self.mode_strip,
-            bg=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_OUTLINE,
-            bd=0,
-            highlightthickness=0,
-            width=spec.MEDIA_ROW_LIVE_PREVIEW_SIZE[0],
-            height=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_OUTLINE_WIDTH,
-        )
-        self.mode_border_bottom.place(
-            x=0,
-            y=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_STRIP_HEIGHT - spec.MEDIA_ROW_LIVE_PREVIEW_MODE_OUTLINE_WIDTH,
-        )
-
-        self.mode_border_left = tk.Frame(
-            self.mode_strip,
-            bg=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_OUTLINE,
-            bd=0,
-            highlightthickness=0,
-            width=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_OUTLINE_WIDTH,
-            height=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_STRIP_HEIGHT,
-        )
-        self.mode_border_left.place(x=0, y=0)
-
-        self.mode_border_right = tk.Frame(
-            self.mode_strip,
-            bg=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_OUTLINE,
-            bd=0,
-            highlightthickness=0,
-            width=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_OUTLINE_WIDTH,
-            height=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_STRIP_HEIGHT,
-        )
-        self.mode_border_right.place(
-            x=spec.MEDIA_ROW_LIVE_PREVIEW_SIZE[0] - spec.MEDIA_ROW_LIVE_PREVIEW_MODE_OUTLINE_WIDTH,
-            y=0,
-        )
-
-        self.mode_divider = tk.Frame(
-            self.mode_strip,
-            bg=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_OUTLINE,
-            bd=0,
-            highlightthickness=0,
-            width=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_OUTLINE_WIDTH,
-            height=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_STRIP_HEIGHT,
-        )
-        self.mode_divider.place(x=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_BUTTON_SIZE[0], y=0)
-
         content_y = strip_y + spec.MEDIA_ROW_LIVE_PREVIEW_MODE_STRIP_HEIGHT
         self.content_border = tk.Frame(
             self,
