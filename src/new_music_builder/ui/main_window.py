@@ -12,7 +12,7 @@ import customtkinter as ctk
 from PIL import Image, ImageTk
 
 from new_music_builder import __version__
-from new_music_builder.domain.models import default_media_row
+from new_music_builder.domain.models import MediaKind, default_media_row
 from new_music_builder.platform.paths import app_root
 from new_music_builder.services.asset_catalog import AssetCatalog
 from new_music_builder.services.audio_workspace import AudioWorkspaceService
@@ -99,6 +99,15 @@ class MainWindow(ctk.CTk):
 
     def _check_icon_path(self) -> Path:
         return app_root() / 'assets' / 'Check.png'
+
+    def _cassette_item_icon_path(self) -> Path:
+        return app_root() / 'assets' / 'Item_NM_Cassette1.png'
+
+    def _vinyl_item_icon_path(self) -> Path:
+        return app_root() / 'assets' / 'Item_NM_Vinyl1.png'
+
+    def _cd_item_icon_path(self) -> Path:
+        return app_root() / 'assets' / 'Item_NM_CD.png'
 
     def _apply_window_icon(self) -> None:
         native_icon = self._native_icon_path()
@@ -345,11 +354,16 @@ class MainWindow(ctk.CTk):
             self.module_two_content_surface,
             rows=self.session.project.media_rows,
             folder_icon_path=str(self._folder_button_icon_path()),
+            cassette_icon_path=str(self._cassette_item_icon_path()),
+            vinyl_icon_path=str(self._vinyl_item_icon_path()),
+            cd_icon_path=str(self._cd_item_icon_path()),
+            check_icon_path=str(self._check_icon_path()),
             bg_color=spec.MODULE_MIDGROUND_BG,
             on_row_selected=self._expand_module_two_media_row,
             selected_row_ids=self.module_two_selected_row_ids,
             on_background_selected=self._select_module_two_media_row,
             on_background_toggle=self._expand_module_two_media_row,
+            on_enabled_media_changed=self._set_module_two_media_enabled,
         )
         self.module_two_row_list.pack(anchor='nw')
         self.module_two_scroll_area.refresh_scroll_region()
@@ -380,6 +394,17 @@ class MainWindow(ctk.CTk):
         self.session.remove_media_rows(row_ids_to_remove)
         self.module_two_selected_row_ids.clear()
         self.module_two_selection_anchor_row_id = None
+        self._build_module_two_row_list()
+        self.module_two_content_viewport.yview_moveto(current_view[0])
+        self.on_project_change()
+
+    def _set_module_two_media_enabled(self, row_id: int, kind: MediaKind, enabled: bool) -> None:
+        target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
+        if target_row is None:
+            return
+
+        current_view = self.module_two_content_viewport.yview()
+        target_row.enabled_media[kind] = enabled
         self._build_module_two_row_list()
         self.module_two_content_viewport.yview_moveto(current_view[0])
         self.on_project_change()

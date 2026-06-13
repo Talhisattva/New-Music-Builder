@@ -4,10 +4,11 @@ from collections.abc import Callable
 from dataclasses import dataclass
 import tkinter as tk
 
-from new_music_builder.domain.models import MediaRow
+from new_music_builder.domain.models import MediaKind, MediaRow
 from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.media_row_badge import MediaRowBadge
 from new_music_builder.ui.widgets.media_row_cover import CollapsedMediaCover, ExpandedMediaCover
+from new_music_builder.ui.widgets.media_type_strip import MediaTypeStrip
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,10 +25,15 @@ class MediaRowShell(tk.Frame):
         row: MediaRow,
         expanded: bool,
         folder_icon_path: str | None = None,
+        cassette_icon_path: str | None = None,
+        vinyl_icon_path: str | None = None,
+        cd_icon_path: str | None = None,
+        check_icon_path: str | None = None,
         on_select: Callable[[int], None] | None = None,
         selected: bool = False,
         on_background_selected: Callable[[int, RowSelectionModifiers], None] | None = None,
         on_background_toggle: Callable[[int], None] | None = None,
+        on_enabled_media_changed: Callable[[int, MediaKind, bool], None] | None = None,
     ) -> None:
         size = spec.MEDIA_ROW_EXPANDED_SIZE if expanded else spec.MEDIA_ROW_COLLAPSED_SIZE
         super().__init__(
@@ -80,6 +86,21 @@ class MediaRowShell(tk.Frame):
                 command=(lambda: on_select(row.row_id)) if on_select is not None else None,
             )
             self.badge.place(x=badge_x, y=badge_y)
+            self.media_type_strip = MediaTypeStrip(
+                self.surface,
+                row=row,
+                expanded=True,
+                cassette_icon_path=cassette_icon_path,
+                vinyl_icon_path=vinyl_icon_path,
+                cd_icon_path=cd_icon_path,
+                check_icon_path=check_icon_path,
+                bg_color=spec.MEDIA_ROW_BG,
+                on_enabled_media_changed=on_enabled_media_changed,
+            )
+            self.media_type_strip.place(
+                x=spec.MEDIA_ROW_MEDIA_STRIP_EXPANDED_POS[0],
+                y=spec.MEDIA_ROW_MEDIA_STRIP_EXPANDED_POS[1],
+            )
         else:
             badge_x, badge_y = spec.MEDIA_ROW_BADGE_COLLAPSED_POS
             self.badge = MediaRowBadge(
@@ -95,6 +116,21 @@ class MediaRowShell(tk.Frame):
             self.cover.place(
                 x=spec.MEDIA_ROW_COLLAPSED_COVER_POS[0],
                 y=spec.MEDIA_ROW_COLLAPSED_COVER_POS[1],
+            )
+            self.media_type_strip = MediaTypeStrip(
+                self.surface,
+                row=row,
+                expanded=False,
+                cassette_icon_path=cassette_icon_path,
+                vinyl_icon_path=vinyl_icon_path,
+                cd_icon_path=cd_icon_path,
+                check_icon_path=check_icon_path,
+                bg_color=spec.MEDIA_ROW_BG,
+                on_enabled_media_changed=on_enabled_media_changed,
+            )
+            self.media_type_strip.place(
+                x=spec.MEDIA_ROW_MEDIA_STRIP_COLLAPSED_POS[0],
+                y=spec.MEDIA_ROW_MEDIA_STRIP_COLLAPSED_POS[1],
             )
 
     def _bind_background_interactions(self) -> None:
@@ -166,11 +202,16 @@ class MediaRowList(tk.Frame):
         *,
         rows: list[MediaRow],
         folder_icon_path: str | None = None,
+        cassette_icon_path: str | None = None,
+        vinyl_icon_path: str | None = None,
+        cd_icon_path: str | None = None,
+        check_icon_path: str | None = None,
         bg_color: str | None = None,
         on_row_selected: Callable[[int], None] | None = None,
         selected_row_ids: set[int] | None = None,
         on_background_selected: Callable[[int, RowSelectionModifiers], None] | None = None,
         on_background_toggle: Callable[[int], None] | None = None,
+        on_enabled_media_changed: Callable[[int, MediaKind, bool], None] | None = None,
     ) -> None:
         resolved_bg = bg_color if bg_color is not None else parent.cget('bg')
         normalized_rows = self._normalized_rows(rows)
@@ -186,10 +227,15 @@ class MediaRowList(tk.Frame):
         self.pack_propagate(False)
         self.rows = normalized_rows
         self._folder_icon_path = folder_icon_path
+        self._cassette_icon_path = cassette_icon_path
+        self._vinyl_icon_path = vinyl_icon_path
+        self._cd_icon_path = cd_icon_path
+        self._check_icon_path = check_icon_path
         self._on_row_selected = on_row_selected
         self._selected_row_ids = set(selected_row_ids or set())
         self._on_background_selected = on_background_selected
         self._on_background_toggle = on_background_toggle
+        self._on_enabled_media_changed = on_enabled_media_changed
         self.row_widgets: list[MediaRowShell] = []
 
         self._build_rows()
@@ -222,10 +268,15 @@ class MediaRowList(tk.Frame):
                 row=row,
                 expanded=row.expanded,
                 folder_icon_path=self._folder_icon_path,
+                cassette_icon_path=self._cassette_icon_path,
+                vinyl_icon_path=self._vinyl_icon_path,
+                cd_icon_path=self._cd_icon_path,
+                check_icon_path=self._check_icon_path,
                 on_select=self._on_row_selected,
                 selected=(row.row_id in self._selected_row_ids),
                 on_background_selected=self._on_background_selected,
                 on_background_toggle=self._on_background_toggle,
+                on_enabled_media_changed=self._on_enabled_media_changed,
             )
             widget.place(x=spec.MEDIA_ROW_INSET_X, y=current_y)
             self.row_widgets.append(widget)
