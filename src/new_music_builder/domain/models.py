@@ -35,6 +35,7 @@ class MediaRow:
     row_id: int
     media_name: str = "New Album"
     selected_side: Literal["A", "B"] = "A"
+    preview_mode: Literal["inventory", "world"] = "inventory"
     enabled_media: dict[MediaKind, bool] = field(
         default_factory=lambda: {"cassette": True, "vinyl": True, "cd": True}
     )
@@ -131,6 +132,11 @@ def project_from_dict(data: dict[str, Any]) -> ProjectConfig:
             row_id=int(raw_row.get("row_id", len(rows) + 1)),
             media_name=str(raw_row.get("media_name", f"Media Row {len(rows) + 1}")),
             selected_side=str(raw_row.get("selected_side", "A")) if str(raw_row.get("selected_side", "A")) in {"A", "B"} else "A",
+            preview_mode=(
+                str(raw_row.get("preview_mode", "inventory"))
+                if str(raw_row.get("preview_mode", "inventory")) in {"inventory", "world"}
+                else "inventory"
+            ),
             enabled_media={
                 "cassette": bool(raw_row.get("enabled_media", {}).get("cassette", True)),
                 "vinyl": bool(raw_row.get("enabled_media", {}).get("vinyl", True)),

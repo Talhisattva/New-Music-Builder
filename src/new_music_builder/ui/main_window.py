@@ -373,6 +373,7 @@ class MainWindow(ctk.CTk):
             on_enabled_media_changed=self._set_module_two_media_enabled,
             on_name_committed=self._commit_module_two_media_name,
             on_side_selected=self._set_module_two_media_side,
+            on_preview_mode_selected=self._set_module_two_preview_mode,
         )
         self.module_two_row_list.pack(anchor='nw')
         self.module_two_scroll_area.refresh_scroll_region()
@@ -435,6 +436,15 @@ class MainWindow(ctk.CTk):
             return
 
         target_row.selected_side = side
+        self.on_project_change()
+
+    def _set_module_two_preview_mode(self, row_id: int, mode: str) -> None:
+        target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
+        if target_row is None or mode not in {'inventory', 'world'}:
+            return
+        if target_row.preview_mode == mode:
+            return
+        target_row.preview_mode = mode
         self.on_project_change()
 
     def _expand_module_two_media_row(self, row_id: int) -> None:

@@ -8,6 +8,7 @@ from new_music_builder.domain.models import MediaKind, MediaRow
 from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.collapsed_row_chevron import CollapsedRowChevron
 from new_music_builder.ui.widgets.collapsed_row_details import CollapsedRowDetails
+from new_music_builder.ui.widgets.media_live_preview import MediaLivePreview
 from new_music_builder.ui.widgets.media_rename_field import MediaRenameField
 from new_music_builder.ui.widgets.media_row_badge import MediaRowBadge
 from new_music_builder.ui.widgets.media_row_cover import CollapsedMediaCover, ExpandedMediaCover
@@ -44,6 +45,7 @@ class MediaRowShell(tk.Frame):
         on_enabled_media_changed: Callable[[int, MediaKind, bool], None] | None = None,
         on_name_committed: Callable[[int, str], None] | None = None,
         on_side_selected: Callable[[int, str], None] | None = None,
+        on_preview_mode_selected: Callable[[int, str], None] | None = None,
     ) -> None:
         size = spec.MEDIA_ROW_EXPANDED_SIZE if expanded else spec.MEDIA_ROW_COLLAPSED_SIZE
         super().__init__(
@@ -132,6 +134,16 @@ class MediaRowShell(tk.Frame):
             self.song_actions.place(
                 x=spec.MEDIA_ROW_SONG_ACTIONS_POS[0],
                 y=spec.MEDIA_ROW_SONG_ACTIONS_POS[1],
+            )
+            self.live_preview = MediaLivePreview(
+                self.surface,
+                row=row,
+                bg_color=spec.MEDIA_ROW_BG,
+                on_mode_selected=on_preview_mode_selected,
+            )
+            self.live_preview.place(
+                x=spec.MEDIA_ROW_LIVE_PREVIEW_POS[0],
+                y=spec.MEDIA_ROW_LIVE_PREVIEW_POS[1],
             )
             self.media_type_strip = MediaTypeStrip(
                 self.surface,
@@ -248,6 +260,8 @@ class MediaRowShell(tk.Frame):
             self.side_toggle.set_bg_color(fill_color)
         if hasattr(self, 'song_actions'):
             self.song_actions.set_bg_color(fill_color)
+        if hasattr(self, 'live_preview'):
+            self.live_preview.set_bg_color(fill_color)
         if hasattr(self, 'collapsed_chevron'):
             self.collapsed_chevron.set_bg_color(fill_color)
         if hasattr(self, 'collapsed_details'):
@@ -289,6 +303,7 @@ class MediaRowList(tk.Frame):
         on_enabled_media_changed: Callable[[int, MediaKind, bool], None] | None = None,
         on_name_committed: Callable[[int, str], None] | None = None,
         on_side_selected: Callable[[int, str], None] | None = None,
+        on_preview_mode_selected: Callable[[int, str], None] | None = None,
     ) -> None:
         resolved_bg = bg_color if bg_color is not None else parent.cget('bg')
         normalized_rows = self._normalized_rows(rows)
@@ -317,6 +332,7 @@ class MediaRowList(tk.Frame):
         self._on_enabled_media_changed = on_enabled_media_changed
         self._on_name_committed = on_name_committed
         self._on_side_selected = on_side_selected
+        self._on_preview_mode_selected = on_preview_mode_selected
         self.row_widgets: list[MediaRowShell] = []
 
         self._build_rows()
@@ -362,6 +378,7 @@ class MediaRowList(tk.Frame):
                 on_enabled_media_changed=self._on_enabled_media_changed,
                 on_name_committed=self._on_name_committed,
                 on_side_selected=self._on_side_selected,
+                on_preview_mode_selected=self._on_preview_mode_selected,
             )
             widget.place(x=spec.MEDIA_ROW_INSET_X, y=current_y)
             self.row_widgets.append(widget)
