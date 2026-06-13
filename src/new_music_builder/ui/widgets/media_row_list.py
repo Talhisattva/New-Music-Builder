@@ -45,6 +45,8 @@ class MediaRowShell(tk.Frame):
         self._hovered = False
         self._on_background_selected = on_background_selected
         self._on_background_toggle = on_background_toggle
+        self._pending_single_click_after_id: str | None = None
+        self._suppress_next_release = False
 
         inner_width = size[0] - (spec.MEDIA_ROW_OUTLINE_WIDTH * 2)
         inner_height = size[1] - (spec.MEDIA_ROW_OUTLINE_WIDTH * 2)
@@ -99,7 +101,7 @@ class MediaRowShell(tk.Frame):
         for sequence, handler in (
             ('<Enter>', self._on_background_enter),
             ('<Leave>', self._on_background_leave),
-            ('<ButtonPress-1>', self._on_background_press),
+            ('<ButtonRelease-1>', self._on_background_release),
             ('<Double-Button-1>', self._on_background_double_press),
         ):
             self.surface.bind(sequence, handler)
@@ -112,11 +114,20 @@ class MediaRowShell(tk.Frame):
         self._hovered = False
         self._apply_background_state()
 
-    def _on_background_press(self, event: tk.Event) -> None:
-        if self._on_background_selected is not None:
-            self._on_background_selected(self._row_id, self._decode_selection_modifiers(event))
+    def _on_background_release(self, event: tk.Event) -> None:
+        if self._suppress_next_release:
+            self._suppress_next_release = False
+            return
+        self._cancel_pending_single_click()
+        modifiers = self._decode_selection_modifiers(event)
+        self._pending_single_click_after_id = self.after(
+            spec.MEDIA_ROW_DOUBLE_CLICK_DELAY_MS,
+            lambda: self._emit_background_selection(modifiers),
+        )
 
     def _on_background_double_press(self, event: tk.Event) -> None:
+        self._cancel_pending_single_click()
+        self._suppress_next_release = True
         modifiers = self._decode_selection_modifiers(event)
         if (modifiers.shift or modifiers.additive) or self._on_background_toggle is None:
             return
@@ -135,6 +146,17 @@ class MediaRowShell(tk.Frame):
         shift = bool(state & 0x0001)
         additive = bool(state & 0x0004)
         return RowSelectionModifiers(shift=shift, additive=additive)
+
+    def _emit_background_selection(self, modifiers: RowSelectionModifiers) -> None:
+        self._pending_single_click_after_id = None
+        if self._on_background_selected is not None:
+            self._on_background_selected(self._row_id, modifiers)
+
+    def _cancel_pending_single_click(self) -> None:
+        if self._pending_single_click_after_id is None:
+            return
+        self.after_cancel(self._pending_single_click_after_id)
+        self._pending_single_click_after_id = None
 
 
 class MediaRowList(tk.Frame):
