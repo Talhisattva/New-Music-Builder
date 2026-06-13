@@ -180,6 +180,13 @@ class MediaRowShell(tk.Frame):
                 x=spec.MEDIA_ROW_COLLAPSED_DETAILS_POS[0],
                 y=spec.MEDIA_ROW_COLLAPSED_DETAILS_POS[1],
             )
+            for background_widget in (
+                self.cover,
+                self.media_type_strip,
+                self.collapsed_chevron,
+                self.collapsed_details,
+            ):
+                self._bind_widget_to_background_interactions(background_widget)
         self._apply_background_state()
 
     def _bind_background_interactions(self) -> None:
@@ -190,6 +197,17 @@ class MediaRowShell(tk.Frame):
             ('<Double-Button-1>', self._on_background_double_press),
         ):
             self.surface.bind(sequence, handler)
+
+    def _bind_widget_to_background_interactions(self, widget: tk.Misc) -> None:
+        for sequence, handler in (
+            ('<Enter>', self._on_background_enter),
+            ('<Leave>', self._on_background_leave),
+            ('<ButtonRelease-1>', self._on_background_release),
+            ('<Double-Button-1>', self._on_background_double_press),
+        ):
+            widget.bind(sequence, handler, add='+')
+        for child in widget.winfo_children():
+            self._bind_widget_to_background_interactions(child)
 
     def _on_background_enter(self, _event: tk.Event) -> None:
         self._hovered = True
