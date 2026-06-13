@@ -12,6 +12,7 @@ from new_music_builder.ui.widgets.media_rename_field import MediaRenameField
 from new_music_builder.ui.widgets.media_row_badge import MediaRowBadge
 from new_music_builder.ui.widgets.media_row_cover import CollapsedMediaCover, ExpandedMediaCover
 from new_music_builder.ui.widgets.media_side_toggle import MediaSideToggle
+from new_music_builder.ui.widgets.media_songlist_viewport import MediaSonglistViewport
 from new_music_builder.ui.widgets.media_type_strip import MediaTypeStrip
 
 
@@ -116,6 +117,14 @@ class MediaRowShell(tk.Frame):
             self.side_toggle.place(
                 x=spec.MEDIA_ROW_SIDE_TOGGLE_POS[0],
                 y=spec.MEDIA_ROW_SIDE_TOGGLE_POS[1],
+            )
+            self.songlist_viewport = MediaSonglistViewport(
+                self.surface,
+                bg_color=spec.MEDIA_ROW_BG,
+            )
+            self.songlist_viewport.place(
+                x=spec.MEDIA_ROW_SONGLIST_VIEWPORT_POS[0],
+                y=spec.MEDIA_ROW_SONGLIST_VIEWPORT_POS[1],
             )
             self.media_type_strip = MediaTypeStrip(
                 self.surface,
