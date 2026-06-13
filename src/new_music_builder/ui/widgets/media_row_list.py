@@ -132,6 +132,7 @@ class MediaRowShell(tk.Frame):
                 x=spec.MEDIA_ROW_MEDIA_STRIP_COLLAPSED_POS[0],
                 y=spec.MEDIA_ROW_MEDIA_STRIP_COLLAPSED_POS[1],
             )
+        self._apply_background_state()
 
     def _bind_background_interactions(self) -> None:
         for sequence, handler in (
@@ -176,6 +177,8 @@ class MediaRowShell(tk.Frame):
         elif self._hovered:
             fill_color = spec.MEDIA_ROW_HOVER_BG
         self.surface.configure(bg=fill_color)
+        if hasattr(self, 'media_type_strip'):
+            self.media_type_strip.set_bg_color(fill_color)
 
     def _decode_selection_modifiers(self, event: tk.Event) -> RowSelectionModifiers:
         state = int(getattr(event, 'state', 0))

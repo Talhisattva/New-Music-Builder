@@ -103,3 +103,11 @@ class MediaTypeStrip(tk.Frame):
     def _on_checkbox_toggled(self, kind: MediaKind, checked: bool) -> None:
         if self._on_enabled_media_changed is not None:
             self._on_enabled_media_changed(self._row.row_id, kind, checked)
+
+    def set_bg_color(self, bg_color: str) -> None:
+        self._bg_color = bg_color
+        self.configure(bg=bg_color)
+        for frame in self.icon_frames.values():
+            frame.configure(bg=bg_color)
+        for label in self.icon_labels.values():
+            label.configure(bg=bg_color)
