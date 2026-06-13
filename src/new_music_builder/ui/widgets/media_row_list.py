@@ -240,6 +240,11 @@ class MediaRowShell(tk.Frame):
         if hasattr(self, 'collapsed_details'):
             self.collapsed_details.set_bg_color(fill_color)
 
+    def set_selection_state(self, *, selected: bool, selected_count: int) -> None:
+        self._selected = selected
+        self._selected_count = selected_count
+        self._apply_background_state()
+
     def _decode_selection_modifiers(self, event: tk.Event) -> RowSelectionModifiers:
         state = int(getattr(event, 'state', 0))
         shift = bool(state & 0x0001)
@@ -345,3 +350,12 @@ class MediaRowList(tk.Frame):
             widget.place(x=spec.MEDIA_ROW_INSET_X, y=current_y)
             self.row_widgets.append(widget)
             current_y += widget.winfo_reqheight() + spec.MEDIA_ROW_GAP_Y
+
+    def set_selection_state(self, selected_row_ids: set[int]) -> None:
+        self._selected_row_ids = set(selected_row_ids)
+        self._selected_count = len(self._selected_row_ids)
+        for row_widget in self.row_widgets:
+            row_widget.set_selection_state(
+                selected=(row_widget._row_id in self._selected_row_ids),
+                selected_count=self._selected_count,
+            )

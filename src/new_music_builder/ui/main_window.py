@@ -477,7 +477,6 @@ class MainWindow(ctk.CTk):
         ):
             return
 
-        current_view = self.module_two_content_viewport.yview()
         if modifiers.shift:
             self._select_module_two_row_range(row_id)
         elif modifiers.additive:
@@ -489,9 +488,7 @@ class MainWindow(ctk.CTk):
         else:
             self.module_two_selected_row_ids = {row_id}
             self.module_two_selection_anchor_row_id = row_id
-        self._build_module_two_row_list()
-        self.module_two_content_viewport.yview_moveto(current_view[0])
-        self.on_project_change()
+        self.module_two_row_list.set_selection_state(self.module_two_selected_row_ids)
 
     def _select_module_two_row_range(self, row_id: int) -> None:
         if self.module_two_selection_anchor_row_id is None:
