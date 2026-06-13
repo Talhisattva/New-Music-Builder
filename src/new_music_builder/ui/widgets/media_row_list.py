@@ -110,6 +110,7 @@ class MediaRowShell(tk.Frame):
             self.side_toggle = MediaSideToggle(
                 self.surface,
                 row=row,
+                bg_color=spec.MEDIA_ROW_BG,
                 on_side_selected=on_side_selected,
             )
             self.side_toggle.place(
@@ -226,6 +227,8 @@ class MediaRowShell(tk.Frame):
         self.surface.configure(bg=fill_color)
         if hasattr(self, 'media_type_strip'):
             self.media_type_strip.set_bg_color(fill_color)
+        if hasattr(self, 'side_toggle'):
+            self.side_toggle.set_bg_color(fill_color)
         if hasattr(self, 'collapsed_chevron'):
             self.collapsed_chevron.set_bg_color(fill_color)
         if hasattr(self, 'collapsed_details'):
