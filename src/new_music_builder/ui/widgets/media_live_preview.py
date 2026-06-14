@@ -5,6 +5,7 @@ import tkinter as tk
 
 from new_music_builder.domain.models import MediaRow
 from new_music_builder.ui import spec
+from new_music_builder.ui.widgets.images import load_tk_photoimage
 
 
 class _PreviewModeButton(tk.Canvas):
@@ -89,6 +90,7 @@ class MediaLivePreview(tk.Frame):
         *,
         row: MediaRow,
         bg_color: str,
+        asset_paths: dict[str, dict[str, str]] | None = None,
         on_mode_selected: Callable[[int, str], None] | None = None,
     ) -> None:
         super().__init__(
@@ -102,7 +104,23 @@ class MediaLivePreview(tk.Frame):
         self.pack_propagate(False)
         self._row_id = row.row_id
         self._selected_mode = row.preview_mode
+        self._asset_paths = asset_paths or {}
         self._on_mode_selected = on_mode_selected
+        self._content_bg = spec.MEDIA_ROW_LIVE_PREVIEW_CONTENT_BG
+        self._slot_keys = (
+            ('cassette', 'cassette_case'),
+            ('vinyl', 'vinyl_jacket'),
+            ('cd', 'cd_cover'),
+        )
+        self._slot_frames: list[tk.Frame] = []
+        self._slot_labels: list[tk.Label] = []
+        self._images: dict[str, dict[str, tk.PhotoImage | None]] = {
+            mode: {
+                key: load_tk_photoimage(path)
+                for key, path in mode_paths.items()
+            }
+            for mode, mode_paths in self._asset_paths.items()
+        }
 
         self.header = tk.Frame(
             self,
@@ -218,7 +236,38 @@ class MediaLivePreview(tk.Frame):
         )
         self.content_area.pack_propagate(False)
 
+        self._build_content_slots()
+
         self._apply_state()
+
+    def _build_content_slots(self) -> None:
+        left_x = spec.MEDIA_ROW_LIVE_PREVIEW_SLOT_LEFT_X
+        top_y = spec.MEDIA_ROW_LIVE_PREVIEW_SLOT_TOP_Y
+        slot_width, slot_height = spec.MEDIA_ROW_LIVE_PREVIEW_SLOT_SIZE
+        right_x = left_x + slot_width + spec.MEDIA_ROW_LIVE_PREVIEW_SLOT_GAP_X
+
+        for row_index, _pair in enumerate(self._slot_keys):
+            slot_y = top_y + (row_index * slot_height)
+            for slot_x in (left_x, right_x):
+                slot = tk.Frame(
+                    self.content_area,
+                    bg=self._content_bg,
+                    bd=0,
+                    highlightthickness=0,
+                    width=slot_width,
+                    height=slot_height,
+                )
+                slot.place(x=slot_x, y=slot_y)
+                slot.pack_propagate(False)
+                label = tk.Label(
+                    slot,
+                    bg=self._content_bg,
+                    bd=0,
+                    highlightthickness=0,
+                )
+                label.place(relx=0.5, rely=0.5, anchor='center')
+                self._slot_frames.append(slot)
+                self._slot_labels.append(label)
 
     def _select_mode(self, mode: str) -> None:
         if mode == self._selected_mode:
@@ -231,6 +280,15 @@ class MediaLivePreview(tk.Frame):
     def _apply_state(self) -> None:
         self.inventory_button.set_active(self._selected_mode == 'inventory')
         self.world_button.set_active(self._selected_mode == 'world')
+        self._apply_preview_images()
+
+    def _apply_preview_images(self) -> None:
+        mode_images = self._images.get(self._selected_mode, {})
+        for row_index, (media_key, container_key) in enumerate(self._slot_keys):
+            left_label = self._slot_labels[row_index * 2]
+            right_label = self._slot_labels[(row_index * 2) + 1]
+            left_label.configure(image=mode_images.get(media_key), bg=self._content_bg)
+            right_label.configure(image=mode_images.get(container_key), bg=self._content_bg)
 
     def set_bg_color(self, color: str) -> None:
         self.configure(bg=color)

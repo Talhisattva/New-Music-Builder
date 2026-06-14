@@ -38,6 +38,7 @@ class MediaRowShell(tk.Frame):
         check_icon_path: str | None = None,
         edit_icon_path: str | None = None,
         ear_icon_path: str | None = None,
+        live_preview_paths: dict[str, dict[str, str]] | None = None,
         on_select: Callable[[int], None] | None = None,
         selected: bool = False,
         selected_count: int = 0,
@@ -139,6 +140,7 @@ class MediaRowShell(tk.Frame):
                 self.surface,
                 row=row,
                 bg_color=spec.MEDIA_ROW_BG,
+                asset_paths=live_preview_paths,
                 on_mode_selected=on_preview_mode_selected,
             )
             self.live_preview.place(
@@ -296,6 +298,7 @@ class MediaRowList(tk.Frame):
         check_icon_path: str | None = None,
         edit_icon_path: str | None = None,
         ear_icon_path: str | None = None,
+        live_preview_paths: dict[str, dict[str, str]] | None = None,
         bg_color: str | None = None,
         on_row_selected: Callable[[int], None] | None = None,
         selected_row_ids: set[int] | None = None,
@@ -325,6 +328,7 @@ class MediaRowList(tk.Frame):
         self._check_icon_path = check_icon_path
         self._edit_icon_path = edit_icon_path
         self._ear_icon_path = ear_icon_path
+        self._live_preview_paths = live_preview_paths
         self._on_row_selected = on_row_selected
         self._selected_row_ids = set(selected_row_ids or set())
         self._selected_count = len(self._selected_row_ids)
@@ -371,6 +375,7 @@ class MediaRowList(tk.Frame):
                 check_icon_path=self._check_icon_path,
                 edit_icon_path=self._edit_icon_path,
                 ear_icon_path=self._ear_icon_path,
+                live_preview_paths=self._live_preview_paths,
                 on_select=self._on_row_selected,
                 selected=(row.row_id in self._selected_row_ids),
                 selected_count=self._selected_count,

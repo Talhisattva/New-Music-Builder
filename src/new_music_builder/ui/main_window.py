@@ -101,19 +101,41 @@ class MainWindow(ctk.CTk):
         return app_root() / 'assets' / 'Check.png'
 
     def _cassette_item_icon_path(self) -> Path:
-        return app_root() / 'assets' / 'Item_NM_Cassette1.png'
+        return app_root() / 'assets' / 'Inventory' / 'Cassette' / 'Item_NM_Cassette4.png'
 
     def _vinyl_item_icon_path(self) -> Path:
-        return app_root() / 'assets' / 'Item_NM_Vinyl1.png'
+        return app_root() / 'assets' / 'Inventory' / 'Vinyl' / 'Item_NM_Vinyl7.png'
 
     def _cd_item_icon_path(self) -> Path:
-        return app_root() / 'assets' / 'Item_NM_CD.png'
+        return app_root() / 'assets' / 'Inventory' / 'CD' / 'Item_NM_CD.png'
 
     def _edit_icon_path(self) -> Path:
         return app_root() / 'assets' / 'EditIcon.png'
 
     def _ear_icon_path(self) -> Path:
         return app_root() / 'assets' / 'EarIcon.png'
+
+    def _module_two_live_preview_paths(self) -> dict[str, dict[str, str]]:
+        inventory_root = app_root() / 'assets' / 'Inventory'
+        world_root = app_root() / 'assets' / 'World'
+        return {
+            'inventory': {
+                'cassette': str(inventory_root / 'Cassette' / 'Item_NM_Cassette4.png'),
+                'cassette_case': str(inventory_root / 'CassetteCase' / 'Item_NM_Case9.png'),
+                'vinyl': str(inventory_root / 'Vinyl' / 'Item_NM_Vinyl7.png'),
+                'vinyl_jacket': str(inventory_root / 'VinylJacket' / 'Item_NM_Jacket9.png'),
+                'cd': str(inventory_root / 'CD' / 'Item_NM_CD.png'),
+                'cd_cover': str(inventory_root / 'CDCover' / 'Item_NM_CDCover9.png'),
+            },
+            'world': {
+                'cassette': str(world_root / 'Cassette' / 'World_NM_Cassette04.png'),
+                'cassette_case': str(world_root / 'CassetteCase' / 'World_NM_CassetteCover9.png'),
+                'vinyl': str(world_root / 'Vinyl' / 'World_NM_Vinyl8.png'),
+                'vinyl_jacket': str(world_root / 'VinylJacket' / 'World_NM_Cover9.png'),
+                'cd': str(world_root / 'CD' / 'World_NM_CD.png'),
+                'cd_cover': str(world_root / 'CDCover' / 'World_NM_CDCover9.png'),
+            },
+        }
 
     def _apply_window_icon(self) -> None:
         native_icon = self._native_icon_path()
@@ -366,6 +388,7 @@ class MainWindow(ctk.CTk):
             check_icon_path=str(self._check_icon_path()),
             edit_icon_path=str(self._edit_icon_path()),
             ear_icon_path=str(self._ear_icon_path()),
+            live_preview_paths=self._module_two_live_preview_paths(),
             bg_color=spec.MODULE_MIDGROUND_BG,
             on_row_selected=self._expand_module_two_media_row,
             selected_row_ids=self.module_two_selected_row_ids,
