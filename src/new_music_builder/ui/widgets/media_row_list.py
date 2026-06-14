@@ -47,6 +47,7 @@ class MediaRowShell(tk.Frame):
         on_name_committed: Callable[[int, str], None] | None = None,
         on_side_selected: Callable[[int, str], None] | None = None,
         on_preview_mode_selected: Callable[[int, str], None] | None = None,
+        on_cover_selected: Callable[[int], None] | None = None,
     ) -> None:
         size = spec.MEDIA_ROW_EXPANDED_SIZE if expanded else spec.MEDIA_ROW_COLLAPSED_SIZE
         super().__init__(
@@ -86,6 +87,7 @@ class MediaRowShell(tk.Frame):
                 self.surface,
                 folder_icon_path=folder_icon_path,
                 cover_path=row.cover_path,
+                command=(lambda: on_cover_selected(row.row_id)) if on_cover_selected is not None else None,
             )
             self.cover.place(
                 x=spec.MEDIA_ROW_EXPANDED_COVER_POS[0],
@@ -278,6 +280,10 @@ class MediaRowShell(tk.Frame):
         if hasattr(self, 'live_preview'):
             self.live_preview.refresh_content()
 
+    def refresh_cover(self, cover_path: str) -> None:
+        if hasattr(self, 'cover'):
+            self.cover.set_cover_path(cover_path)
+
     def _decode_selection_modifiers(self, event: tk.Event) -> RowSelectionModifiers:
         state = int(getattr(event, 'state', 0))
         shift = bool(state & 0x0001)
@@ -311,6 +317,7 @@ class MediaRowList(tk.Frame):
         on_name_committed: Callable[[int, str], None] | None = None,
         on_side_selected: Callable[[int, str], None] | None = None,
         on_preview_mode_selected: Callable[[int, str], None] | None = None,
+        on_cover_selected: Callable[[int], None] | None = None,
     ) -> None:
         resolved_bg = bg_color if bg_color is not None else parent.cget('bg')
         normalized_rows = self._normalized_rows(rows)
@@ -341,6 +348,7 @@ class MediaRowList(tk.Frame):
         self._on_name_committed = on_name_committed
         self._on_side_selected = on_side_selected
         self._on_preview_mode_selected = on_preview_mode_selected
+        self._on_cover_selected = on_cover_selected
         self.row_widgets: list[MediaRowShell] = []
 
         self._build_rows()
@@ -388,6 +396,7 @@ class MediaRowList(tk.Frame):
                 on_name_committed=self._on_name_committed,
                 on_side_selected=self._on_side_selected,
                 on_preview_mode_selected=self._on_preview_mode_selected,
+                on_cover_selected=self._on_cover_selected,
             )
             widget.place(x=spec.MEDIA_ROW_INSET_X, y=current_y)
             self.row_widgets.append(widget)

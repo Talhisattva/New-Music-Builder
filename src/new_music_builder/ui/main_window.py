@@ -258,6 +258,7 @@ class MainWindow(ctk.CTk):
         self.module_one_cover_picker = CoverPicker(
             self.module_one_midground,
             folder_icon_path=self._folder_button_icon_path(),
+            command=self._select_workshop_poster_image,
         )
         self.module_one_cover_picker.place(x=spec.COVER_OFFSET[0], y=5)
         self.module_one_cover_border = self.module_one_cover_picker.cover_border
@@ -397,9 +398,63 @@ class MainWindow(ctk.CTk):
             on_name_committed=self._commit_module_two_media_name,
             on_side_selected=self._set_module_two_media_side,
             on_preview_mode_selected=self._set_module_two_preview_mode,
+            on_cover_selected=self._select_module_two_media_cover,
         )
         self.module_two_row_list.pack(anchor='nw')
         self.module_two_scroll_area.refresh_scroll_region()
+
+    def _image_filetypes(self) -> list[tuple[str, str]]:
+        return [
+            ('Image Files', '*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff'),
+            ('PNG Files', '*.png'),
+            ('JPEG Files', '*.jpg *.jpeg'),
+            ('All Files', '*.*'),
+        ]
+
+    def _initial_image_dir(self, current_path: str | None) -> str:
+        if current_path:
+            resolved = Path(current_path)
+            if resolved.exists():
+                return str(resolved.parent if resolved.is_file() else resolved)
+        return str(Path.home())
+
+    def _select_workshop_poster_image(self) -> None:
+        selected = fd.askopenfilename(
+            title='Select Workshop Poster Image',
+            filetypes=self._image_filetypes(),
+            initialdir=self._initial_image_dir(self.session.project.workshop_poster_path),
+            parent=self,
+        )
+        if not selected:
+            return
+        self.session.project.workshop_poster_path = selected
+        self.module_one_cover_picker.set_cover_path(selected)
+        self.on_project_change()
+
+    def _select_module_two_media_cover(self, row_id: int) -> None:
+        target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
+        if target_row is None:
+            return
+        selected = fd.askopenfilename(
+            title=f'Select Cover Image For Media Row {row_id}',
+            filetypes=self._image_filetypes(),
+            initialdir=self._initial_image_dir(target_row.cover_path),
+            parent=self,
+        )
+        if not selected:
+            return
+        target_row.cover_path = selected
+        expanded_widget = next(
+            (
+                widget
+                for widget in self.module_two_row_list.row_widgets
+                if getattr(widget, '_row_expanded', False) and getattr(widget, '_row_id', None) == row_id
+            ),
+            None,
+        )
+        if expanded_widget is not None:
+            expanded_widget.refresh_cover(selected)
+        self.on_project_change()
 
     def _add_module_two_media_row(self) -> None:
         for row in self.session.project.media_rows:
@@ -573,6 +628,8 @@ class MainWindow(ctk.CTk):
 
     def refresh_all(self) -> None:
         self._apply_default_asset_selections()
+        if hasattr(self, 'module_one_cover_picker'):
+            self.module_one_cover_picker.set_cover_path(self.session.project.workshop_poster_path)
         if hasattr(self, 'mod_setup'):
             self.mod_setup.refresh()
         if hasattr(self, 'media_creation'):
