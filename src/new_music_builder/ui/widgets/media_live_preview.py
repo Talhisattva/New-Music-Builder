@@ -116,7 +116,10 @@ class MediaLivePreview(tk.Frame):
         self._slot_labels: list[tk.Label] = []
         self._images: dict[str, dict[str, tk.PhotoImage | None]] = {
             mode: {
-                key: load_tk_photoimage(path)
+                key: load_tk_photoimage(
+                    path,
+                    size=spec.MEDIA_ROW_LIVE_PREVIEW_SLOT_SIZE if mode == 'world' else None,
+                )
                 for key, path in mode_paths.items()
             }
             for mode, mode_paths in self._asset_paths.items()
