@@ -3,4 +3,5 @@ Pillow>=10.4.0
 miniaudio>=1.61
 soundfile>=0.13.1
 numpy>=2.1.0
+tkinterdnd2>=0.4.3
 pytest>=8.3.2

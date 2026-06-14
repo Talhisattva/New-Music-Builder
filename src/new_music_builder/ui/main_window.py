@@ -20,6 +20,7 @@ from new_music_builder.services.project_session import ProjectSession
 from new_music_builder.services.project_store import ProjectStore
 from new_music_builder.services.recent_projects import RecentProjectsStore
 from new_music_builder.services.session_store import SessionStore
+from new_music_builder.services.track_import import filter_supported_audio_paths
 from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.app_header import AppHeader
 from new_music_builder.ui.widgets.cover_picker import CoverPicker
@@ -34,8 +35,19 @@ from new_music_builder.ui.widgets.module_shell import ModuleShell
 from new_music_builder.ui.widgets.output_folder_field import OutputFolderField
 from new_music_builder.ui.widgets.scroll_area import ScrollViewport
 
+try:
+    from tkinterdnd2 import DND_FILES, TkinterDnD  # type: ignore[import-not-found]
+except ImportError:
+    DND_FILES = None
 
-class MainWindow(ctk.CTk):
+    class _DnDCompat:
+        pass
+else:
+    class _DnDCompat(TkinterDnD.DnDWrapper):
+        pass
+
+
+class MainWindow(_DnDCompat, ctk.CTk):
 
     def __init__(self) -> None:
         super().__init__()
@@ -44,6 +56,7 @@ class MainWindow(ctk.CTk):
         self.geometry(f'{spec.APP_WIDTH}x{spec.APP_HEIGHT}')
         self.minsize(spec.APP_MIN_WIDTH, spec.APP_MIN_HEIGHT)
         self.configure(fg_color=spec.APP_BG)
+        self._initialize_drag_and_drop()
 
         self.project_store = ProjectStore()
         self.recent_store = RecentProjectsStore()
@@ -78,6 +91,14 @@ class MainWindow(ctk.CTk):
         self._build_layout()
         self.refresh_all()
         self.protocol('WM_DELETE_WINDOW', self.on_close)
+
+    def _initialize_drag_and_drop(self) -> None:
+        if DND_FILES is None:
+            return
+        try:
+            TkinterDnD._require(self)
+        except (RuntimeError, tk.TclError):
+            pass
 
     def _main_icon_path(self) -> Path:
         return app_root().parent / 'Talis New Music' / 'Contents' / 'mods' / 'Talis New Music' / 'common' / 'media' / 'textures' / 'Item_NM_Cassette4.png'
@@ -114,6 +135,15 @@ class MainWindow(ctk.CTk):
 
     def _ear_icon_path(self) -> Path:
         return app_root() / 'assets' / 'EarIcon.png'
+
+    def _grab_icon_path(self) -> Path:
+        return app_root() / 'assets' / 'GrabIcon.png'
+
+    def _table_check_icon_path(self) -> Path:
+        return app_root() / 'assets' / 'TableCheckIcon.png'
+
+    def _preview_audio_icon_path(self) -> Path:
+        return app_root() / 'assets' / 'PreviewAudioIcon.png'
 
     def _module_two_live_preview_paths(self) -> dict[str, dict[str, str]]:
         inventory_root = app_root() / 'assets' / 'Inventory'
@@ -389,6 +419,9 @@ class MainWindow(ctk.CTk):
             check_icon_path=str(self._check_icon_path()),
             edit_icon_path=str(self._edit_icon_path()),
             ear_icon_path=str(self._ear_icon_path()),
+            grab_icon_path=str(self._grab_icon_path()),
+            table_check_icon_path=str(self._table_check_icon_path()),
+            preview_audio_icon_path=str(self._preview_audio_icon_path()),
             live_preview_paths=self._module_two_live_preview_paths(),
             bg_color=spec.MODULE_MIDGROUND_BG,
             on_row_selected=self._expand_module_two_media_row,
@@ -399,6 +432,10 @@ class MainWindow(ctk.CTk):
             on_side_selected=self._set_module_two_media_side,
             on_preview_mode_selected=self._set_module_two_preview_mode,
             on_cover_selected=self._select_module_two_media_cover,
+            on_add_song=self._add_module_two_songs,
+            dnd_type=DND_FILES,
+            can_accept_song_drop=self._can_accept_song_drop,
+            on_song_drop=self._on_module_two_song_drop,
         )
         self.module_two_row_list.pack(anchor='nw')
         self.module_two_scroll_area.refresh_scroll_region()
@@ -411,12 +448,41 @@ class MainWindow(ctk.CTk):
             ('All Files', '*.*'),
         ]
 
+    def _audio_filetypes(self) -> list[tuple[str, str]]:
+        return [
+            ('Audio Files', '*.ogg *.mp3 *.wav *.flac *.m4a *.aac *.wma'),
+            ('All Files', '*.*'),
+        ]
+
     def _initial_image_dir(self, current_path: str | None) -> str:
         if current_path:
             resolved = Path(current_path)
             if resolved.exists():
                 return str(resolved.parent if resolved.is_file() else resolved)
         return str(Path.home())
+
+    def _initial_audio_dir(self, row_id: int | None = None) -> str:
+        if row_id is not None:
+            target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
+            if target_row is not None:
+                active_tracks = target_row.tracks_a if target_row.selected_side == 'A' else target_row.tracks_b
+                if active_tracks:
+                    first_path = Path(active_tracks[-1].source_path)
+                    if first_path.exists():
+                        return str(first_path.parent)
+        return str(Path.home())
+
+    def _expanded_row_widget(self, row_id: int) -> object | None:
+        if not hasattr(self, 'module_two_row_list'):
+            return None
+        return next(
+            (
+                widget
+                for widget in self.module_two_row_list.row_widgets
+                if getattr(widget, '_row_expanded', False) and getattr(widget, '_row_id', None) == row_id
+            ),
+            None,
+        )
 
     def _select_workshop_poster_image(self) -> None:
         selected = fd.askopenfilename(
@@ -454,6 +520,35 @@ class MainWindow(ctk.CTk):
         )
         if expanded_widget is not None:
             expanded_widget.refresh_cover(selected)
+        self.on_project_change()
+
+    def _can_accept_song_drop(self, paths: list[str]) -> bool:
+        return bool(filter_supported_audio_paths(paths))
+
+    def _add_module_two_songs(self, row_id: int) -> None:
+        selected = fd.askopenfilenames(
+            title='Add Song(s)',
+            filetypes=self._audio_filetypes(),
+            initialdir=self._initial_audio_dir(row_id),
+            parent=self,
+        )
+        if not selected:
+            return
+        self._add_module_two_songs_from_paths(row_id, list(selected))
+
+    def _on_module_two_song_drop(self, row_id: int, paths: list[str]) -> None:
+        self._add_module_two_songs_from_paths(row_id, paths)
+
+    def _add_module_two_songs_from_paths(self, row_id: int, paths: list[str]) -> None:
+        target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
+        if target_row is None:
+            return
+        inserted = self.session.add_tracks_to_media_row(row_id, target_row.selected_side, paths)
+        if not inserted:
+            return
+        expanded_widget = self._expanded_row_widget(row_id)
+        if expanded_widget is not None:
+            expanded_widget.refresh_song_table()
         self.on_project_change()
 
     def _add_module_two_media_row(self) -> None:
@@ -497,14 +592,7 @@ class MainWindow(ctk.CTk):
             hasattr(self, 'module_two_row_list')
             and self.module_two_row_list.row_widgets
         ):
-            expanded_widget = next(
-                (
-                    widget
-                    for widget in self.module_two_row_list.row_widgets
-                    if getattr(widget, '_row_expanded', False) and getattr(widget, '_row_id', None) == row_id
-                ),
-                None,
-            )
+            expanded_widget = self._expanded_row_widget(row_id)
             if expanded_widget is not None:
                 expanded_widget.refresh_live_preview()
         self.on_project_change()
@@ -528,6 +616,9 @@ class MainWindow(ctk.CTk):
             return
 
         target_row.selected_side = side
+        expanded_widget = self._expanded_row_widget(row_id)
+        if expanded_widget is not None:
+            expanded_widget.refresh_song_table()
         self.on_project_change()
 
     def _set_module_two_preview_mode(self, row_id: int, mode: str) -> None:

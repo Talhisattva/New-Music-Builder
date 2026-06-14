@@ -38,6 +38,9 @@ class MediaRowShell(tk.Frame):
         check_icon_path: str | None = None,
         edit_icon_path: str | None = None,
         ear_icon_path: str | None = None,
+        grab_icon_path: str | None = None,
+        table_check_icon_path: str | None = None,
+        preview_audio_icon_path: str | None = None,
         live_preview_paths: dict[str, dict[str, str]] | None = None,
         on_select: Callable[[int], None] | None = None,
         selected: bool = False,
@@ -48,6 +51,10 @@ class MediaRowShell(tk.Frame):
         on_side_selected: Callable[[int, str], None] | None = None,
         on_preview_mode_selected: Callable[[int, str], None] | None = None,
         on_cover_selected: Callable[[int], None] | None = None,
+        on_add_song: Callable[[int], None] | None = None,
+        dnd_type: str | None = None,
+        can_accept_song_drop: Callable[[list[str]], bool] | None = None,
+        on_song_drop: Callable[[int, list[str]], None] | None = None,
     ) -> None:
         size = spec.MEDIA_ROW_EXPANDED_SIZE if expanded else spec.MEDIA_ROW_COLLAPSED_SIZE
         super().__init__(
@@ -123,8 +130,15 @@ class MediaRowShell(tk.Frame):
             )
             self.songlist_viewport = MediaSonglistViewport(
                 self.surface,
+                row=row,
                 bg_color=spec.MEDIA_ROW_BG,
                 ear_icon_path=ear_icon_path,
+                grab_icon_path=grab_icon_path,
+                table_check_icon_path=table_check_icon_path,
+                preview_audio_icon_path=preview_audio_icon_path,
+                dnd_type=dnd_type,
+                can_accept_drop=can_accept_song_drop,
+                on_drop_files=(lambda paths: on_song_drop(row.row_id, paths)) if on_song_drop is not None else None,
             )
             self.songlist_viewport.place(
                 x=spec.MEDIA_ROW_SONGLIST_VIEWPORT_POS[0],
@@ -133,6 +147,7 @@ class MediaRowShell(tk.Frame):
             self.song_actions = MediaSongActions(
                 self.surface,
                 bg_color=spec.MEDIA_ROW_BG,
+                on_add_song=(lambda: on_add_song(row.row_id)) if on_add_song is not None else None,
             )
             self.song_actions.place(
                 x=spec.MEDIA_ROW_SONG_ACTIONS_POS[0],
@@ -284,6 +299,10 @@ class MediaRowShell(tk.Frame):
         if hasattr(self, 'cover'):
             self.cover.set_cover_path(cover_path)
 
+    def refresh_song_table(self) -> None:
+        if hasattr(self, 'songlist_viewport'):
+            self.songlist_viewport.refresh_content()
+
     def _decode_selection_modifiers(self, event: tk.Event) -> RowSelectionModifiers:
         state = int(getattr(event, 'state', 0))
         shift = bool(state & 0x0001)
@@ -308,6 +327,9 @@ class MediaRowList(tk.Frame):
         check_icon_path: str | None = None,
         edit_icon_path: str | None = None,
         ear_icon_path: str | None = None,
+        grab_icon_path: str | None = None,
+        table_check_icon_path: str | None = None,
+        preview_audio_icon_path: str | None = None,
         live_preview_paths: dict[str, dict[str, str]] | None = None,
         bg_color: str | None = None,
         on_row_selected: Callable[[int], None] | None = None,
@@ -318,6 +340,10 @@ class MediaRowList(tk.Frame):
         on_side_selected: Callable[[int, str], None] | None = None,
         on_preview_mode_selected: Callable[[int, str], None] | None = None,
         on_cover_selected: Callable[[int], None] | None = None,
+        on_add_song: Callable[[int], None] | None = None,
+        dnd_type: str | None = None,
+        can_accept_song_drop: Callable[[list[str]], bool] | None = None,
+        on_song_drop: Callable[[int, list[str]], None] | None = None,
     ) -> None:
         resolved_bg = bg_color if bg_color is not None else parent.cget('bg')
         normalized_rows = self._normalized_rows(rows)
@@ -339,6 +365,9 @@ class MediaRowList(tk.Frame):
         self._check_icon_path = check_icon_path
         self._edit_icon_path = edit_icon_path
         self._ear_icon_path = ear_icon_path
+        self._grab_icon_path = grab_icon_path
+        self._table_check_icon_path = table_check_icon_path
+        self._preview_audio_icon_path = preview_audio_icon_path
         self._live_preview_paths = live_preview_paths
         self._on_row_selected = on_row_selected
         self._selected_row_ids = set(selected_row_ids or set())
@@ -349,6 +378,10 @@ class MediaRowList(tk.Frame):
         self._on_side_selected = on_side_selected
         self._on_preview_mode_selected = on_preview_mode_selected
         self._on_cover_selected = on_cover_selected
+        self._on_add_song = on_add_song
+        self._dnd_type = dnd_type
+        self._can_accept_song_drop = can_accept_song_drop
+        self._on_song_drop = on_song_drop
         self.row_widgets: list[MediaRowShell] = []
 
         self._build_rows()
@@ -387,6 +420,9 @@ class MediaRowList(tk.Frame):
                 check_icon_path=self._check_icon_path,
                 edit_icon_path=self._edit_icon_path,
                 ear_icon_path=self._ear_icon_path,
+                grab_icon_path=self._grab_icon_path,
+                table_check_icon_path=self._table_check_icon_path,
+                preview_audio_icon_path=self._preview_audio_icon_path,
                 live_preview_paths=self._live_preview_paths,
                 on_select=self._on_row_selected,
                 selected=(row.row_id in self._selected_row_ids),
@@ -397,6 +433,10 @@ class MediaRowList(tk.Frame):
                 on_side_selected=self._on_side_selected,
                 on_preview_mode_selected=self._on_preview_mode_selected,
                 on_cover_selected=self._on_cover_selected,
+                on_add_song=self._on_add_song,
+                dnd_type=self._dnd_type,
+                can_accept_song_drop=self._can_accept_song_drop,
+                on_song_drop=self._on_song_drop,
             )
             widget.place(x=spec.MEDIA_ROW_INSET_X, y=current_y)
             self.row_widgets.append(widget)

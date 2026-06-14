@@ -30,7 +30,7 @@ class MediaSongActions(tk.Frame):
 
         self.add_button = MainButton(
             self,
-            text='+ Add Song',
+            text='+ Add Songs',
             command=on_add_song,
             size=spec.MEDIA_ROW_SONG_ACTION_BUTTON_SIZE,
         )
@@ -38,7 +38,7 @@ class MediaSongActions(tk.Frame):
 
         self.remove_button = MainButton(
             self,
-            text='- Remove Song',
+            text='- Remove Songs',
             command=on_remove_song,
             size=spec.MEDIA_ROW_SONG_ACTION_BUTTON_SIZE,
             variant='negative',

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from new_music_builder.domain.models import MediaRow, ProjectConfig, default_media_row, next_row_id
+from new_music_builder.services.track_import import build_track_entry, filter_supported_audio_paths
 
 
 @dataclass(slots=True)
@@ -33,6 +35,19 @@ class ProjectSession:
         self.project.media_rows = [row for row in self.project.media_rows if row.row_id not in row_ids]
         self._renumber_media_rows()
 
+    def add_tracks_to_media_row(self, row_id: int, side: str, source_paths: list[str | Path]) -> list[int]:
+        target_row = next((row for row in self.project.media_rows if row.row_id == row_id), None)
+        if target_row is None or side not in {'A', 'B'}:
+            return []
+
+        supported_paths = filter_supported_audio_paths(source_paths)
+        tracks = target_row.tracks_a if side == 'A' else target_row.tracks_b
+        inserted_indices: list[int] = []
+        for path in supported_paths:
+            tracks.append(build_track_entry(path))
+            inserted_indices.append(len(tracks) - 1)
+        return inserted_indices
+
     def _renumber_media_rows(self) -> None:
         for index, row in enumerate(self.project.media_rows, start=1):
             generated_names = {
@@ -43,6 +58,8 @@ class ProjectSession:
             self.project.media_rows[index - 1] = MediaRow(
                 row_id=index,
                 media_name=media_name,
+                selected_side=row.selected_side,
+                preview_mode=row.preview_mode,
                 enabled_media=dict(row.enabled_media),
                 cover_path=row.cover_path,
                 tracks_a=list(row.tracks_a),

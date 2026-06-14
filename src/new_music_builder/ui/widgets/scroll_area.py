@@ -51,6 +51,10 @@ class CustomScrollbar(tk.Canvas):
         self._draw_track()
         self._bind_events()
 
+    def set_track_outline_color(self, color: str) -> None:
+        self._track_outline = color
+        self.itemconfigure(self._track_id, fill=color)
+
     def _draw_track(self) -> None:
         self._track_id = self.create_rectangle(
             0,
@@ -205,6 +209,7 @@ class ScrollViewport(tk.Frame):
         self._viewport_size = viewport_size
         self._scrollbar_size = scrollbar_size
         self._viewport_edge_width = viewport_edge_width
+        self._viewport_edge_color = viewport_edge_color
         self._show_top_edge = show_top_edge
         self._content_bottom_padding = content_bottom_padding
         self._wheel_bound = False
@@ -317,6 +322,13 @@ class ScrollViewport(tk.Frame):
         self.viewport_canvas.bind_all('<Button-4>', self._on_mousewheel_linux, add='+')
         self.viewport_canvas.bind_all('<Button-5>', self._on_mousewheel_linux, add='+')
         self._wheel_bound = True
+
+    def set_viewport_border_color(self, color: str) -> None:
+        self._viewport_edge_color = color
+        self.viewport_left_edge.configure(bg=color)
+        self.viewport_top_edge.configure(bg=color)
+        self.viewport_bottom_edge.configure(bg=color)
+        self.scrollbar.set_track_outline_color(color)
 
     def _unbind_mousewheel(self, _event: tk.Event | None = None) -> None:
         pointer_widget = self.winfo_containing(self.winfo_pointerx(), self.winfo_pointery())
