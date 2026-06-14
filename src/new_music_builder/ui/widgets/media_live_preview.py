@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from pathlib import Path
 import tkinter as tk
+
+from PIL import Image, ImageTk
 
 from new_music_builder.domain.models import MediaRow
 from new_music_builder.ui import spec
@@ -116,10 +119,7 @@ class MediaLivePreview(tk.Frame):
         self._slot_labels: list[tk.Label] = []
         self._images: dict[str, dict[str, tk.PhotoImage | None]] = {
             mode: {
-                key: load_tk_photoimage(
-                    path,
-                    size=spec.MEDIA_ROW_LIVE_PREVIEW_SLOT_SIZE if mode == 'world' else None,
-                )
+                key: self._load_preview_image(mode, key, path)
                 for key, path in mode_paths.items()
             }
             for mode, mode_paths in self._asset_paths.items()
@@ -242,6 +242,37 @@ class MediaLivePreview(tk.Frame):
         self._build_content_slots()
 
         self._apply_state()
+
+    def _load_preview_image(
+        self,
+        mode: str,
+        key: str,
+        path: str | None,
+    ) -> tk.PhotoImage | None:
+        if mode != 'world':
+            return load_tk_photoimage(path)
+        if key == 'cassette':
+            return self._load_aspect_fit_image(path, spec.MEDIA_ROW_LIVE_PREVIEW_SLOT_SIZE)
+        return load_tk_photoimage(path, size=spec.MEDIA_ROW_LIVE_PREVIEW_SLOT_SIZE)
+
+    def _load_aspect_fit_image(
+        self,
+        path: str | None,
+        box_size: tuple[int, int],
+    ) -> tk.PhotoImage | None:
+        if not path:
+            return None
+        img_path = Path(path)
+        if not img_path.exists():
+            return None
+        image = Image.open(img_path)
+        fitted = Image.new('RGBA', box_size, (0, 0, 0, 0))
+        contained = image.copy()
+        contained.thumbnail(box_size, Image.Resampling.LANCZOS)
+        paste_x = (box_size[0] - contained.width) // 2
+        paste_y = (box_size[1] - contained.height) // 2
+        fitted.paste(contained, (paste_x, paste_y), contained if contained.mode == 'RGBA' else None)
+        return ImageTk.PhotoImage(fitted)
 
     def _build_content_slots(self) -> None:
         left_x = spec.MEDIA_ROW_LIVE_PREVIEW_SLOT_LEFT_X
