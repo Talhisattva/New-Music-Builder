@@ -48,6 +48,19 @@ class ProjectSession:
             inserted_indices.append(len(tracks) - 1)
         return inserted_indices
 
+    def remove_tracks_from_media_row(self, row_id: int, side: str, indices: set[int]) -> list[int]:
+        target_row = next((row for row in self.project.media_rows if row.row_id == row_id), None)
+        if target_row is None or side not in {'A', 'B'}:
+            return []
+
+        tracks = target_row.tracks_a if side == 'A' else target_row.tracks_b
+        removable = sorted({index for index in indices if 0 <= index < len(tracks)}, reverse=True)
+        if not removable:
+            return []
+        for index in removable:
+            del tracks[index]
+        return sorted(removable)
+
     def _renumber_media_rows(self) -> None:
         for index, row in enumerate(self.project.media_rows, start=1):
             generated_names = {

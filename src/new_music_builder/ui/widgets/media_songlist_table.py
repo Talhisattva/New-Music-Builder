@@ -30,6 +30,7 @@ class MediaSonglistTable(tk.Canvas):
         table_check_icon_path: str | None = None,
         preview_audio_icon_path: str | None = None,
         on_track_selected: Callable[[int, TrackSelectionModifiers], None] | None = None,
+        on_track_remove_requested: Callable[[int], None] | None = None,
     ) -> None:
         super().__init__(
             parent,
@@ -51,6 +52,7 @@ class MediaSonglistTable(tk.Canvas):
         self._selected_indices: set[int] = set()
         self._hover_index: int | None = None
         self._on_track_selected = on_track_selected
+        self._on_track_remove_requested = on_track_remove_requested
         self._row_font = tkfont.Font(
             family=spec.MEDIA_ROW_SONGLIST_TABLE_ROW_FONT_FAMILY,
             size=spec.MEDIA_ROW_SONGLIST_TABLE_ROW_FONT_SIZE,
@@ -291,6 +293,10 @@ class MediaSonglistTable(tk.Canvas):
         row_index = self._row_index_at(int(getattr(event, 'y', -1)))
         if row_index is None or row_index >= len(self._tracks):
             return 'break'
+        column_index = self._column_index_at(int(getattr(event, 'x', -1)))
+        if column_index == 5 and self._on_track_remove_requested is not None:
+            self._on_track_remove_requested(row_index)
+            return 'break'
         if self._on_track_selected is not None:
             self._on_track_selected(row_index, self._decode_selection_modifiers(event))
         return 'break'
@@ -302,6 +308,16 @@ class MediaSonglistTable(tk.Canvas):
         if row_index < 0 or row_index >= self._visible_row_count():
             return None
         return int(row_index)
+
+    def _column_index_at(self, x: int) -> int | None:
+        if x < 0 or x >= self._width:
+            return None
+        current_x = 0
+        for index, width in enumerate(self._column_widths):
+            if current_x <= x < current_x + width:
+                return index
+            current_x += width
+        return None
 
     def _decode_selection_modifiers(self, event: tk.Event) -> TrackSelectionModifiers:
         state = int(getattr(event, 'state', 0))

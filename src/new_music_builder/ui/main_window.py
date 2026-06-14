@@ -93,6 +93,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._build_header()
         self._build_menu_strip()
         self._build_layout()
+        self.bind('<Delete>', self._on_delete_selected_songs, add='+')
         self.refresh_all()
         self.protocol('WM_DELETE_WINDOW', self.on_close)
 
@@ -437,8 +438,10 @@ class MainWindow(_DnDCompat, ctk.CTk):
             on_preview_mode_selected=self._set_module_two_preview_mode,
             on_cover_selected=self._select_module_two_media_cover,
             on_add_song=self._add_module_two_songs,
+            on_remove_song=self._remove_module_two_selected_songs,
             selected_song_indices_by_key=self.module_two_song_selected_indices,
             on_song_selected=self._select_module_two_song,
+            on_song_remove_requested=self._remove_module_two_song_via_row_click,
             dnd_type=DND_FILES,
             can_accept_song_drop=self._can_accept_song_drop,
             on_song_drop=self._on_module_two_song_drop,
@@ -579,6 +582,57 @@ class MainWindow(_DnDCompat, ctk.CTk):
         if expanded_widget is not None:
             expanded_widget.refresh_song_table()
             expanded_widget.set_song_selection_state(self._module_two_song_selection_for_row(row_id))
+        self.on_project_change()
+
+    def _on_delete_selected_songs(self, _event: tk.Event | None = None) -> str:
+        focused_widget = self.focus_get()
+        if isinstance(focused_widget, tk.Entry):
+            return ''
+        expanded_row = next((row for row in self.session.project.media_rows if row.expanded), None)
+        if expanded_row is None:
+            return 'break'
+        self._remove_module_two_selected_songs(expanded_row.row_id)
+        return 'break'
+
+    def _remove_module_two_selected_songs(self, row_id: int) -> None:
+        target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
+        if target_row is None:
+            return
+        key = (row_id, target_row.selected_side)
+        selected_indices = self._module_two_song_selection_for_row(row_id, target_row.selected_side)
+        if not selected_indices:
+            return
+        removed = self.session.remove_tracks_from_media_row(row_id, target_row.selected_side, selected_indices)
+        if not removed:
+            return
+        self.module_two_song_selected_indices[key] = set()
+        self.module_two_song_selection_anchor_indices[key] = None
+        expanded_widget = self._expanded_row_widget(row_id)
+        if expanded_widget is not None:
+            expanded_widget.refresh_song_table()
+            expanded_widget.set_song_selection_state(set())
+        self.on_project_change()
+
+    def _remove_module_two_song_via_row_click(self, row_id: int, track_index: int) -> None:
+        target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
+        if target_row is None:
+            return
+        key = (row_id, target_row.selected_side)
+        current_selected = self._module_two_song_selection_for_row(row_id, target_row.selected_side)
+        if len(current_selected) > 1:
+            removal_indices = set(current_selected)
+            removal_indices.add(track_index)
+        else:
+            removal_indices = {track_index}
+        removed = self.session.remove_tracks_from_media_row(row_id, target_row.selected_side, removal_indices)
+        if not removed:
+            return
+        self.module_two_song_selected_indices[key] = set()
+        self.module_two_song_selection_anchor_indices[key] = None
+        expanded_widget = self._expanded_row_widget(row_id)
+        if expanded_widget is not None:
+            expanded_widget.refresh_song_table()
+            expanded_widget.set_song_selection_state(set())
         self.on_project_change()
 
     def _add_module_two_media_row(self) -> None:

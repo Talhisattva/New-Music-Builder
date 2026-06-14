@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 import tkinter as tk
+import weakref
 
 from new_music_builder.ui import spec
 
@@ -183,6 +184,8 @@ class CustomScrollbar(tk.Canvas):
 
 
 class ScrollViewport(tk.Frame):
+    _instances: weakref.WeakSet['ScrollViewport'] = weakref.WeakSet()
+
     def __init__(
         self,
         parent: tk.Misc,
@@ -215,6 +218,7 @@ class ScrollViewport(tk.Frame):
         self._wheel_bound = False
         self._content_height = 0
         self._viewport_height = viewport_size[1]
+        ScrollViewport._instances.add(self)
 
         self.viewport_canvas = tk.Canvas(
             self,
@@ -302,6 +306,9 @@ class ScrollViewport(tk.Frame):
         first, last = self.viewport_canvas.yview()
         self.scrollbar.set_view(first, last)
 
+    def is_scroll_active(self) -> bool:
+        return self._content_height > self._viewport_height
+
     def _on_content_configure(self, _event: tk.Event | None = None) -> None:
         self.refresh_scroll_region()
 
@@ -345,8 +352,8 @@ class ScrollViewport(tk.Frame):
         self._wheel_bound = False
 
     def _on_mousewheel(self, event: tk.Event) -> str:
-        if self.content_frame.winfo_reqheight() <= self._viewport_size[1]:
-            return 'break'
+        if not self._should_handle_pointer_wheel():
+            return ''
         delta = 0
         if event.delta != 0:
             delta = -1 if event.delta > 0 else 1
@@ -355,13 +362,32 @@ class ScrollViewport(tk.Frame):
         return 'break'
 
     def _on_mousewheel_linux(self, event: tk.Event) -> str:
-        if self.content_frame.winfo_reqheight() <= self._viewport_size[1]:
-            return 'break'
+        if not self._should_handle_pointer_wheel():
+            return ''
         if event.num == 4:
             self._scroll_by_pixels(-spec.SCROLL_WHEEL_STEP_PX)
         elif event.num == 5:
             self._scroll_by_pixels(spec.SCROLL_WHEEL_STEP_PX)
         return 'break'
+
+    def _should_handle_pointer_wheel(self) -> bool:
+        if not self.is_scroll_active():
+            return False
+        pointer_widget = self.winfo_containing(self.winfo_pointerx(), self.winfo_pointery())
+        if pointer_widget is None:
+            return False
+        active_viewport = self._deepest_scrollable_viewport_for_widget(pointer_widget)
+        return active_viewport == self
+
+    @classmethod
+    def _deepest_scrollable_viewport_for_widget(cls, widget: tk.Misc | None) -> 'ScrollViewport | None':
+        current = widget
+        while current is not None:
+            for viewport in tuple(cls._instances):
+                if current == viewport and viewport.is_scroll_active():
+                    return viewport
+            current = current.master
+        return None
 
     def _scroll_by_pixels(self, delta_pixels: float) -> None:
         scrollable_pixels = max(0, self._content_height - self._viewport_height)

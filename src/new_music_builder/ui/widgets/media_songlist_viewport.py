@@ -22,6 +22,7 @@ class MediaSonglistViewport(tk.Frame):
         preview_audio_icon_path: str | None = None,
         selected_track_indices: set[int] | None = None,
         on_track_selected: Callable[[int, TrackSelectionModifiers], None] | None = None,
+        on_track_remove_requested: Callable[[int], None] | None = None,
         dnd_type: str | None = None,
         can_accept_drop: Callable[[list[str]], bool] | None = None,
         on_drop_files: Callable[[list[str]], None] | None = None,
@@ -42,6 +43,7 @@ class MediaSonglistViewport(tk.Frame):
         self._on_drop_files = on_drop_files
         self._selected_track_indices = set(selected_track_indices or set())
         self._on_track_selected = on_track_selected
+        self._on_track_remove_requested = on_track_remove_requested
 
         self.scroll_viewport = ScrollViewport(
             self,
@@ -66,6 +68,7 @@ class MediaSonglistViewport(tk.Frame):
             table_check_icon_path=table_check_icon_path,
             preview_audio_icon_path=preview_audio_icon_path,
             on_track_selected=self._emit_track_selection,
+            on_track_remove_requested=self._emit_track_remove,
         )
         self.table.pack(anchor='nw')
         self._bind_drop_target()
@@ -135,3 +138,7 @@ class MediaSonglistViewport(tk.Frame):
     def _emit_track_selection(self, track_index: int, modifiers: TrackSelectionModifiers) -> None:
         if self._on_track_selected is not None:
             self._on_track_selected(track_index, modifiers)
+
+    def _emit_track_remove(self, track_index: int) -> None:
+        if self._on_track_remove_requested is not None:
+            self._on_track_remove_requested(track_index)

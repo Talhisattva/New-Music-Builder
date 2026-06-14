@@ -53,8 +53,10 @@ class MediaRowShell(tk.Frame):
         on_preview_mode_selected: Callable[[int, str], None] | None = None,
         on_cover_selected: Callable[[int], None] | None = None,
         on_add_song: Callable[[int], None] | None = None,
+        on_remove_song: Callable[[int], None] | None = None,
         selected_song_indices: set[int] | None = None,
         on_song_selected: Callable[[int, int, TrackSelectionModifiers], None] | None = None,
+        on_song_remove_requested: Callable[[int, int], None] | None = None,
         dnd_type: str | None = None,
         can_accept_song_drop: Callable[[list[str]], bool] | None = None,
         on_song_drop: Callable[[int, list[str]], None] | None = None,
@@ -141,6 +143,7 @@ class MediaRowShell(tk.Frame):
                 preview_audio_icon_path=preview_audio_icon_path,
                 selected_track_indices=selected_song_indices,
                 on_track_selected=(lambda track_index, modifiers: on_song_selected(row.row_id, track_index, modifiers)) if on_song_selected is not None else None,
+                on_track_remove_requested=(lambda track_index: on_song_remove_requested(row.row_id, track_index)) if on_song_remove_requested is not None else None,
                 dnd_type=dnd_type,
                 can_accept_drop=can_accept_song_drop,
                 on_drop_files=(lambda paths: on_song_drop(row.row_id, paths)) if on_song_drop is not None else None,
@@ -153,6 +156,7 @@ class MediaRowShell(tk.Frame):
                 self.surface,
                 bg_color=spec.MEDIA_ROW_BG,
                 on_add_song=(lambda: on_add_song(row.row_id)) if on_add_song is not None else None,
+                on_remove_song=(lambda: on_remove_song(row.row_id)) if on_remove_song is not None else None,
             )
             self.song_actions.place(
                 x=spec.MEDIA_ROW_SONG_ACTIONS_POS[0],
@@ -350,8 +354,10 @@ class MediaRowList(tk.Frame):
         on_preview_mode_selected: Callable[[int, str], None] | None = None,
         on_cover_selected: Callable[[int], None] | None = None,
         on_add_song: Callable[[int], None] | None = None,
+        on_remove_song: Callable[[int], None] | None = None,
         selected_song_indices_by_key: dict[tuple[int, str], set[int]] | None = None,
         on_song_selected: Callable[[int, int, TrackSelectionModifiers], None] | None = None,
+        on_song_remove_requested: Callable[[int, int], None] | None = None,
         dnd_type: str | None = None,
         can_accept_song_drop: Callable[[list[str]], bool] | None = None,
         on_song_drop: Callable[[int, list[str]], None] | None = None,
@@ -390,11 +396,13 @@ class MediaRowList(tk.Frame):
         self._on_preview_mode_selected = on_preview_mode_selected
         self._on_cover_selected = on_cover_selected
         self._on_add_song = on_add_song
+        self._on_remove_song = on_remove_song
         self._selected_song_indices_by_key = {
             (row_id, side): set(indices)
             for (row_id, side), indices in (selected_song_indices_by_key or {}).items()
         }
         self._on_song_selected = on_song_selected
+        self._on_song_remove_requested = on_song_remove_requested
         self._dnd_type = dnd_type
         self._can_accept_song_drop = can_accept_song_drop
         self._on_song_drop = on_song_drop
@@ -450,8 +458,10 @@ class MediaRowList(tk.Frame):
                 on_preview_mode_selected=self._on_preview_mode_selected,
                 on_cover_selected=self._on_cover_selected,
                 on_add_song=self._on_add_song,
+                on_remove_song=self._on_remove_song,
                 selected_song_indices=self._selected_song_indices_by_key.get((row.row_id, row.selected_side), set()),
                 on_song_selected=self._on_song_selected,
+                on_song_remove_requested=self._on_song_remove_requested,
                 dnd_type=self._dnd_type,
                 can_accept_song_drop=self._can_accept_song_drop,
                 on_song_drop=self._on_song_drop,
