@@ -288,8 +288,7 @@ class ScrollViewport(tk.Frame):
         self.viewport_canvas.bind('<Configure>', self._on_canvas_configure, add='+')
 
         for widget in (self, self.viewport_canvas, self.content_frame, self.scrollbar):
-            widget.bind('<Enter>', self._bind_mousewheel, add='+')
-            widget.bind('<Leave>', self._unbind_mousewheel, add='+')
+            self._bind_wheel_activation(widget)
 
     def refresh_scroll_region(self) -> None:
         self.update_idletasks()
@@ -305,6 +304,7 @@ class ScrollViewport(tk.Frame):
         self.scrollbar.set_metrics(content_height=content_bottom, viewport_height=viewport_height)
         first, last = self.viewport_canvas.yview()
         self.scrollbar.set_view(first, last)
+        self._bind_wheel_activation_recursive(self.content_frame)
 
     def is_scroll_active(self) -> bool:
         return self._content_height > self._viewport_height
@@ -321,6 +321,18 @@ class ScrollViewport(tk.Frame):
 
     def _scroll_to_fraction(self, fraction: float) -> None:
         self.viewport_canvas.yview_moveto(fraction)
+
+    def _bind_wheel_activation(self, widget: tk.Misc) -> None:
+        if getattr(widget, '_nmb_wheel_activation_bound', False):
+            return
+        widget.bind('<Enter>', self._bind_mousewheel, add='+')
+        widget.bind('<Leave>', self._unbind_mousewheel, add='+')
+        setattr(widget, '_nmb_wheel_activation_bound', True)
+
+    def _bind_wheel_activation_recursive(self, widget: tk.Misc) -> None:
+        self._bind_wheel_activation(widget)
+        for child in widget.winfo_children():
+            self._bind_wheel_activation_recursive(child)
 
     def _bind_mousewheel(self, _event: tk.Event | None = None) -> None:
         if self._wheel_bound:
