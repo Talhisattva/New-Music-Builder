@@ -185,6 +185,7 @@ class CustomScrollbar(tk.Canvas):
 
 class ScrollViewport(tk.Frame):
     _instances: weakref.WeakSet['ScrollViewport'] = weakref.WeakSet()
+    _global_wheel_bound = False
 
     def __init__(
         self,
@@ -215,10 +216,10 @@ class ScrollViewport(tk.Frame):
         self._viewport_edge_color = viewport_edge_color
         self._show_top_edge = show_top_edge
         self._content_bottom_padding = content_bottom_padding
-        self._wheel_bound = False
         self._content_height = 0
         self._viewport_height = viewport_size[1]
         ScrollViewport._instances.add(self)
+        self._ensure_global_wheel_binding()
 
         self.viewport_canvas = tk.Canvas(
             self,
@@ -287,9 +288,6 @@ class ScrollViewport(tk.Frame):
         self.content_frame.bind('<Configure>', self._on_content_configure, add='+')
         self.viewport_canvas.bind('<Configure>', self._on_canvas_configure, add='+')
 
-        for widget in (self, self.viewport_canvas, self.content_frame, self.scrollbar):
-            self._bind_wheel_activation(widget)
-
     def refresh_scroll_region(self) -> None:
         self.update_idletasks()
         content_height = self.content_frame.winfo_reqheight()
@@ -304,7 +302,6 @@ class ScrollViewport(tk.Frame):
         self.scrollbar.set_metrics(content_height=content_bottom, viewport_height=viewport_height)
         first, last = self.viewport_canvas.yview()
         self.scrollbar.set_view(first, last)
-        self._bind_wheel_activation_recursive(self.content_frame)
 
     def is_scroll_active(self) -> bool:
         return self._content_height > self._viewport_height
@@ -322,25 +319,13 @@ class ScrollViewport(tk.Frame):
     def _scroll_to_fraction(self, fraction: float) -> None:
         self.viewport_canvas.yview_moveto(fraction)
 
-    def _bind_wheel_activation(self, widget: tk.Misc) -> None:
-        if getattr(widget, '_nmb_wheel_activation_bound', False):
+    def _ensure_global_wheel_binding(self) -> None:
+        if ScrollViewport._global_wheel_bound:
             return
-        widget.bind('<Enter>', self._bind_mousewheel, add='+')
-        widget.bind('<Leave>', self._unbind_mousewheel, add='+')
-        setattr(widget, '_nmb_wheel_activation_bound', True)
-
-    def _bind_wheel_activation_recursive(self, widget: tk.Misc) -> None:
-        self._bind_wheel_activation(widget)
-        for child in widget.winfo_children():
-            self._bind_wheel_activation_recursive(child)
-
-    def _bind_mousewheel(self, _event: tk.Event | None = None) -> None:
-        if self._wheel_bound:
-            return
-        self.viewport_canvas.bind_all('<MouseWheel>', self._on_mousewheel, add='+')
-        self.viewport_canvas.bind_all('<Button-4>', self._on_mousewheel_linux, add='+')
-        self.viewport_canvas.bind_all('<Button-5>', self._on_mousewheel_linux, add='+')
-        self._wheel_bound = True
+        self.bind_all('<MouseWheel>', self._dispatch_mousewheel, add='+')
+        self.bind_all('<Button-4>', self._dispatch_mousewheel_linux, add='+')
+        self.bind_all('<Button-5>', self._dispatch_mousewheel_linux, add='+')
+        ScrollViewport._global_wheel_bound = True
 
     def set_viewport_border_color(self, color: str) -> None:
         self._viewport_edge_color = color
@@ -349,47 +334,38 @@ class ScrollViewport(tk.Frame):
         self.viewport_bottom_edge.configure(bg=color)
         self.scrollbar.set_track_outline_color(color)
 
-    def _unbind_mousewheel(self, _event: tk.Event | None = None) -> None:
-        pointer_widget = self.winfo_containing(self.winfo_pointerx(), self.winfo_pointery())
-        current = pointer_widget
-        while current is not None:
-            if current == self or current == self.viewport_canvas or current == self.content_frame or current == self.scrollbar:
-                return
-            current = current.master
-        if not self._wheel_bound:
-            return
-        self.viewport_canvas.unbind_all('<MouseWheel>')
-        self.viewport_canvas.unbind_all('<Button-4>')
-        self.viewport_canvas.unbind_all('<Button-5>')
-        self._wheel_bound = False
-
-    def _on_mousewheel(self, event: tk.Event) -> str:
-        if not self._should_handle_pointer_wheel():
+    @classmethod
+    def _dispatch_mousewheel(cls, event: tk.Event) -> str:
+        active_viewport = cls._active_scrollable_viewport_from_event(event)
+        if active_viewport is None:
             return ''
         delta = 0
         if event.delta != 0:
             delta = -1 if event.delta > 0 else 1
         if delta != 0:
-            self._scroll_by_pixels(delta * spec.SCROLL_WHEEL_STEP_PX)
+            active_viewport._scroll_by_pixels(delta * spec.SCROLL_WHEEL_STEP_PX)
         return 'break'
 
-    def _on_mousewheel_linux(self, event: tk.Event) -> str:
-        if not self._should_handle_pointer_wheel():
+    @classmethod
+    def _dispatch_mousewheel_linux(cls, event: tk.Event) -> str:
+        active_viewport = cls._active_scrollable_viewport_from_event(event)
+        if active_viewport is None:
             return ''
         if event.num == 4:
-            self._scroll_by_pixels(-spec.SCROLL_WHEEL_STEP_PX)
+            active_viewport._scroll_by_pixels(-spec.SCROLL_WHEEL_STEP_PX)
         elif event.num == 5:
-            self._scroll_by_pixels(spec.SCROLL_WHEEL_STEP_PX)
+            active_viewport._scroll_by_pixels(spec.SCROLL_WHEEL_STEP_PX)
         return 'break'
 
-    def _should_handle_pointer_wheel(self) -> bool:
-        if not self.is_scroll_active():
-            return False
-        pointer_widget = self.winfo_containing(self.winfo_pointerx(), self.winfo_pointery())
+    @classmethod
+    def _active_scrollable_viewport_from_event(cls, event: tk.Event) -> 'ScrollViewport | None':
+        widget = getattr(event, 'widget', None)
+        if widget is None:
+            return None
+        pointer_widget = widget.winfo_containing(widget.winfo_pointerx(), widget.winfo_pointery())
         if pointer_widget is None:
-            return False
-        active_viewport = self._deepest_scrollable_viewport_for_widget(pointer_widget)
-        return active_viewport == self
+            return None
+        return cls._deepest_scrollable_viewport_for_widget(pointer_widget)
 
     @classmethod
     def _deepest_scrollable_viewport_for_widget(cls, widget: tk.Misc | None) -> 'ScrollViewport | None':
