@@ -167,8 +167,9 @@ class MediaSonglistTable(tk.Canvas):
             row_center_y = row_top + (self._row_height / 2)
             self._draw_grab_icon(row_center_y)
             self._draw_ogg_status(track, row_center_y)
-            self._draw_song_name(track, row_top, row_center_y)
+            self._draw_song_name(track, row_center_y)
             self._draw_preview_icon(row_center_y)
+            self._draw_duration(track, row_center_y)
             self._draw_remove_marker(row_center_y)
 
     def _column_center_x(self, column_index: int) -> float:
@@ -189,7 +190,7 @@ class MediaSonglistTable(tk.Canvas):
             return
         self.create_image(self._column_center_x(1), row_center_y, image=self._table_check_icon_image, anchor='c')
 
-    def _draw_song_name(self, track: TrackEntry, row_top: int, row_center_y: float) -> None:
+    def _draw_song_name(self, track: TrackEntry, row_center_y: float) -> None:
         column_left = self._column_left_x(2)
         available_width = self._column_widths[2] - 12
         text = self._truncate_text(track.display_label or Path(track.source_path).stem, available_width)
@@ -210,6 +211,18 @@ class MediaSonglistTable(tk.Canvas):
         while truncated and self._row_font.measure(f'{truncated}{ellipsis}') > max_width:
             truncated = truncated[:-1]
         return f'{truncated}{ellipsis}' if truncated else ellipsis
+
+    def _draw_duration(self, track: TrackEntry, row_center_y: float) -> None:
+        if not track.duration:
+            return
+        self.create_text(
+            self._column_center_x(4),
+            row_center_y,
+            text=track.duration,
+            fill=spec.MEDIA_ROW_SONGLIST_TABLE_ROW_TEXT_COLOR,
+            font=self._row_font,
+            anchor='c',
+        )
 
     def _draw_preview_icon(self, row_center_y: float) -> None:
         if self._preview_audio_icon_image is None:

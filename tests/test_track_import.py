@@ -1,7 +1,9 @@
 from pathlib import Path
+import struct
+import wave
 
 from new_music_builder.services.project_session import ProjectSession
-from new_music_builder.services.track_import import build_track_entry, filter_supported_audio_paths
+from new_music_builder.services.track_import import build_track_entry, filter_supported_audio_paths, read_track_duration
 
 
 def test_filter_supported_audio_paths_keeps_supported_existing_files_in_order(tmp_path: Path) -> None:
@@ -26,6 +28,18 @@ def test_build_track_entry_uses_file_stem_and_ogg_status(tmp_path: Path) -> None
     assert entry.source_path == str(ogg.resolve())
     assert entry.display_label == 'Tall Mix 2'
     assert entry.conversion_status == 'source_ogg'
+
+
+def test_read_track_duration_formats_hms(tmp_path: Path) -> None:
+    wav_path = tmp_path / 'one_second.wav'
+    with wave.open(str(wav_path), 'w') as writer:
+        writer.setnchannels(1)
+        writer.setsampwidth(2)
+        writer.setframerate(44100)
+        frames = [0] * 44100
+        writer.writeframes(b''.join(struct.pack('<h', frame) for frame in frames))
+
+    assert read_track_duration(wav_path) == '00:00:01'
 
 
 def test_project_session_add_tracks_to_media_row_preserves_order(tmp_path: Path) -> None:
