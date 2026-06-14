@@ -5,7 +5,7 @@ import tkinter as tk
 
 from new_music_builder.domain.models import MediaRow
 from new_music_builder.ui import spec
-from new_music_builder.ui.widgets.media_songlist_table import MediaSonglistTable
+from new_music_builder.ui.widgets.media_songlist_table import MediaSonglistTable, TrackSelectionModifiers
 from new_music_builder.ui.widgets.scroll_area import ScrollViewport
 
 
@@ -20,6 +20,8 @@ class MediaSonglistViewport(tk.Frame):
         grab_icon_path: str | None = None,
         table_check_icon_path: str | None = None,
         preview_audio_icon_path: str | None = None,
+        selected_track_indices: set[int] | None = None,
+        on_track_selected: Callable[[int, TrackSelectionModifiers], None] | None = None,
         dnd_type: str | None = None,
         can_accept_drop: Callable[[list[str]], bool] | None = None,
         on_drop_files: Callable[[list[str]], None] | None = None,
@@ -38,6 +40,8 @@ class MediaSonglistViewport(tk.Frame):
         self._dnd_type = dnd_type
         self._can_accept_drop = can_accept_drop
         self._on_drop_files = on_drop_files
+        self._selected_track_indices = set(selected_track_indices or set())
+        self._on_track_selected = on_track_selected
 
         self.scroll_viewport = ScrollViewport(
             self,
@@ -61,6 +65,7 @@ class MediaSonglistViewport(tk.Frame):
             grab_icon_path=grab_icon_path,
             table_check_icon_path=table_check_icon_path,
             preview_audio_icon_path=preview_audio_icon_path,
+            on_track_selected=self._emit_track_selection,
         )
         self.table.pack(anchor='nw')
         self._bind_drop_target()
@@ -73,7 +78,12 @@ class MediaSonglistViewport(tk.Frame):
     def refresh_content(self) -> None:
         tracks = self._row.tracks_a if self._row.selected_side == 'A' else self._row.tracks_b
         self.table.set_tracks(tracks)
+        self.table.set_selection_state(self._selected_track_indices)
         self.refresh_scroll_region()
+
+    def set_selection_state(self, selected_track_indices: set[int]) -> None:
+        self._selected_track_indices = set(selected_track_indices)
+        self.table.set_selection_state(self._selected_track_indices)
 
     def set_drop_highlight(self, active: bool) -> None:
         color = spec.MEDIA_ROW_SONGLIST_DROP_HIGHLIGHT_BORDER if active else self._default_border_color
@@ -121,3 +131,7 @@ class MediaSonglistViewport(tk.Frame):
             self._on_drop_files(paths)
         self.set_drop_highlight(False)
         return getattr(event, 'action', 'copy')
+
+    def _emit_track_selection(self, track_index: int, modifiers: TrackSelectionModifiers) -> None:
+        if self._on_track_selected is not None:
+            self._on_track_selected(track_index, modifiers)

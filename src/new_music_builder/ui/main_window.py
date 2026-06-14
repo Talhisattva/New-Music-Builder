@@ -16,6 +16,7 @@ from new_music_builder.domain.models import MediaKind, default_media_row
 from new_music_builder.platform.paths import app_root
 from new_music_builder.services.asset_catalog import AssetCatalog
 from new_music_builder.services.audio_workspace import AudioWorkspaceService
+from new_music_builder.services.index_selection import apply_index_selection
 from new_music_builder.services.project_session import ProjectSession
 from new_music_builder.services.project_store import ProjectStore
 from new_music_builder.services.recent_projects import RecentProjectsStore
@@ -29,6 +30,7 @@ from new_music_builder.ui.widgets.labeled_text_field import LabeledTextField
 from new_music_builder.ui.widgets.main_button import MainButton
 from new_music_builder.ui.widgets.media_creation_header import MediaCreationHeader
 from new_music_builder.ui.widgets.media_row_list import MediaRowList, RowSelectionModifiers
+from new_music_builder.ui.widgets.media_songlist_table import TrackSelectionModifiers
 from new_music_builder.ui.widgets.menu_strip import MenuStrip
 from new_music_builder.ui.widgets.module_header import ModuleHeader
 from new_music_builder.ui.widgets.module_shell import ModuleShell
@@ -66,6 +68,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.session = ProjectSession(project=self.session, current_path=saved_path)
         self.module_two_selected_row_ids: set[int] = set()
         self.module_two_selection_anchor_row_id: int | None = None
+        self.module_two_song_selected_indices: dict[tuple[int, str], set[int]] = {}
+        self.module_two_song_selection_anchor_indices: dict[tuple[int, str], int | None] = {}
         self._module_two_selection_suppressed_until = 0.0
         self._module_two_consume_next_plain_selection = False
         self._restore_unsaved_phase_two_default()
@@ -433,6 +437,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
             on_preview_mode_selected=self._set_module_two_preview_mode,
             on_cover_selected=self._select_module_two_media_cover,
             on_add_song=self._add_module_two_songs,
+            selected_song_indices_by_key=self.module_two_song_selected_indices,
+            on_song_selected=self._select_module_two_song,
             dnd_type=DND_FILES,
             can_accept_song_drop=self._can_accept_song_drop,
             on_song_drop=self._on_module_two_song_drop,
@@ -483,6 +489,29 @@ class MainWindow(_DnDCompat, ctk.CTk):
             ),
             None,
         )
+
+    def _module_two_song_selection_key(self, row_id: int, side: str | None = None) -> tuple[int, str] | None:
+        target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
+        if target_row is None:
+            return None
+        resolved_side = side if side in {'A', 'B'} else target_row.selected_side
+        return (row_id, resolved_side)
+
+    def _module_two_song_selection_for_row(self, row_id: int, side: str | None = None) -> set[int]:
+        key = self._module_two_song_selection_key(row_id, side)
+        if key is None:
+            return set()
+        target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
+        if target_row is None:
+            return set()
+        tracks = target_row.tracks_a if key[1] == 'A' else target_row.tracks_b
+        selected = self.module_two_song_selected_indices.get(key, set())
+        filtered = {index for index in selected if 0 <= index < len(tracks)}
+        self.module_two_song_selected_indices[key] = filtered
+        anchor = self.module_two_song_selection_anchor_indices.get(key)
+        if anchor is not None and not (0 <= anchor < len(tracks)):
+            self.module_two_song_selection_anchor_indices[key] = None
+        return filtered
 
     def _select_workshop_poster_image(self) -> None:
         selected = fd.askopenfilename(
@@ -549,6 +578,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         expanded_widget = self._expanded_row_widget(row_id)
         if expanded_widget is not None:
             expanded_widget.refresh_song_table()
+            expanded_widget.set_song_selection_state(self._module_two_song_selection_for_row(row_id))
         self.on_project_change()
 
     def _add_module_two_media_row(self) -> None:
@@ -577,6 +607,16 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.session.remove_media_rows(row_ids_to_remove)
         self.module_two_selected_row_ids.clear()
         self.module_two_selection_anchor_row_id = None
+        self.module_two_song_selected_indices = {
+            key: value
+            for key, value in self.module_two_song_selected_indices.items()
+            if key[0] not in row_ids_to_remove
+        }
+        self.module_two_song_selection_anchor_indices = {
+            key: value
+            for key, value in self.module_two_song_selection_anchor_indices.items()
+            if key[0] not in row_ids_to_remove
+        }
         self._build_module_two_row_list()
         self.module_two_content_viewport.yview_moveto(current_view[0])
         self.on_project_change()
@@ -619,6 +659,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         expanded_widget = self._expanded_row_widget(row_id)
         if expanded_widget is not None:
             expanded_widget.refresh_song_table()
+            expanded_widget.set_song_selection_state(self._module_two_song_selection_for_row(row_id, side))
         self.on_project_change()
 
     def _set_module_two_preview_mode(self, row_id: int, mode: str) -> None:
@@ -706,6 +747,30 @@ class MainWindow(_DnDCompat, ctk.CTk):
         end = max(anchor_index, target_index)
         self.module_two_selected_row_ids = set(row_ids[start:end + 1])
 
+    def _select_module_two_song(self, row_id: int, track_index: int, modifiers: TrackSelectionModifiers) -> None:
+        target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
+        if target_row is None:
+            return
+        key = (row_id, target_row.selected_side)
+        tracks = target_row.tracks_a if target_row.selected_side == 'A' else target_row.tracks_b
+        current_selected = self._module_two_song_selection_for_row(row_id, target_row.selected_side)
+        current_anchor = self.module_two_song_selection_anchor_indices.get(key)
+        next_selected, next_anchor = apply_index_selection(
+            current_selected,
+            current_anchor,
+            track_index,
+            len(tracks),
+            shift=modifiers.shift,
+            additive=modifiers.additive,
+        )
+        if next_selected == current_selected and next_anchor == current_anchor:
+            return
+        self.module_two_song_selected_indices[key] = next_selected
+        self.module_two_song_selection_anchor_indices[key] = next_anchor
+        expanded_widget = self._expanded_row_widget(row_id)
+        if expanded_widget is not None:
+            expanded_widget.set_song_selection_state(next_selected)
+
     def on_select_row(self, row_id: int | None) -> None:
         if row_id is None or not hasattr(self, 'media_creation') or not hasattr(self, 'appearance'):
             return
@@ -745,6 +810,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._restore_unsaved_phase_two_default()
         self.module_two_selected_row_ids.clear()
         self.module_two_selection_anchor_row_id = None
+        self.module_two_song_selected_indices.clear()
+        self.module_two_song_selection_anchor_indices.clear()
         self.build_log = []
         self.preview_entries = []
         self.refresh_all()
@@ -777,6 +844,10 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.session.project = self.project_store.load(path)
         self.session.current_path = str(path)
         self.recent_store.push(path)
+        self.module_two_selected_row_ids.clear()
+        self.module_two_selection_anchor_row_id = None
+        self.module_two_song_selected_indices.clear()
+        self.module_two_song_selection_anchor_indices.clear()
         self.refresh_all()
 
     def run_build_preview(self) -> None:

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 import tkinter as tk
 import tkinter.font as tkfont
@@ -9,6 +11,12 @@ from PIL import Image, ImageTk
 from new_music_builder.domain.models import TrackEntry
 from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.images import load_tk_photoimage
+
+
+@dataclass(frozen=True, slots=True)
+class TrackSelectionModifiers:
+    shift: bool = False
+    additive: bool = False
 
 
 class MediaSonglistTable(tk.Canvas):
@@ -21,6 +29,7 @@ class MediaSonglistTable(tk.Canvas):
         grab_icon_path: str | None = None,
         table_check_icon_path: str | None = None,
         preview_audio_icon_path: str | None = None,
+        on_track_selected: Callable[[int, TrackSelectionModifiers], None] | None = None,
     ) -> None:
         super().__init__(
             parent,
@@ -39,6 +48,9 @@ class MediaSonglistTable(tk.Canvas):
         self._divider_color = spec.MEDIA_ROW_SONGLIST_TABLE_DIVIDER_COLOR
         self._divider_width = spec.MEDIA_ROW_SONGLIST_TABLE_DIVIDER_WIDTH
         self._tracks: list[TrackEntry] = []
+        self._selected_indices: set[int] = set()
+        self._hover_index: int | None = None
+        self._on_track_selected = on_track_selected
         self._row_font = tkfont.Font(
             family=spec.MEDIA_ROW_SONGLIST_TABLE_ROW_FONT_FAMILY,
             size=spec.MEDIA_ROW_SONGLIST_TABLE_ROW_FONT_SIZE,
@@ -51,6 +63,7 @@ class MediaSonglistTable(tk.Canvas):
         self._grab_icon_image = self._load_icon(grab_icon_path)
         self._table_check_icon_image = self._load_icon(table_check_icon_path)
         self._preview_audio_icon_image = self._load_icon(preview_audio_icon_path)
+        self._bind_interactions()
         self.redraw()
 
     def _load_icon(self, path: str | None) -> ImageTk.PhotoImage | None:
@@ -64,6 +77,16 @@ class MediaSonglistTable(tk.Canvas):
 
     def set_tracks(self, tracks: list[TrackEntry]) -> None:
         self._tracks = list(tracks)
+        self._selected_indices = {index for index in self._selected_indices if index < len(self._tracks)}
+        if self._hover_index is not None and self._hover_index >= self._visible_row_count():
+            self._hover_index = None
+        self.redraw()
+
+    def set_selection_state(self, selected_indices: set[int]) -> None:
+        filtered = {index for index in selected_indices if index < len(self._tracks)}
+        if filtered == self._selected_indices:
+            return
+        self._selected_indices = filtered
         self.redraw()
 
     def redraw(self) -> None:
@@ -88,11 +111,7 @@ class MediaSonglistTable(tk.Canvas):
         for row_index in range(self._visible_row_count()):
             row_top = body_y + (row_index * self._row_height)
             row_bottom = row_top + self._row_height
-            fill = (
-                spec.MEDIA_ROW_SONGLIST_TABLE_ROW_BG_ODD
-                if row_index % 2 == 0
-                else spec.MEDIA_ROW_SONGLIST_TABLE_ROW_BG_EVEN
-            )
+            fill = self._row_fill(row_index)
             self.create_rectangle(
                 0,
                 row_top,
@@ -175,6 +194,17 @@ class MediaSonglistTable(tk.Canvas):
     def _column_center_x(self, column_index: int) -> float:
         return sum(self._column_widths[:column_index]) + (self._column_widths[column_index] / 2)
 
+    def _row_fill(self, row_index: int) -> str:
+        if row_index in self._selected_indices:
+            return spec.MEDIA_ROW_SONGLIST_TABLE_ROW_SELECTED_BG
+        if self._hover_index == row_index:
+            return spec.MEDIA_ROW_SONGLIST_TABLE_ROW_HOVER_BG
+        return (
+            spec.MEDIA_ROW_SONGLIST_TABLE_ROW_BG_ODD
+            if row_index % 2 == 0
+            else spec.MEDIA_ROW_SONGLIST_TABLE_ROW_BG_EVEN
+        )
+
     def _column_left_x(self, column_index: int) -> int:
         return sum(self._column_widths[:column_index])
 
@@ -237,4 +267,45 @@ class MediaSonglistTable(tk.Canvas):
             fill=spec.MEDIA_ROW_SONGLIST_TABLE_ROW_TEXT_COLOR,
             font=self._remove_font,
             anchor='c',
+        )
+
+    def _bind_interactions(self) -> None:
+        self.bind('<Motion>', self._on_motion)
+        self.bind('<Leave>', self._on_leave)
+        self.bind('<ButtonRelease-1>', self._on_click)
+
+    def _on_motion(self, event: tk.Event) -> None:
+        hover_index = self._row_index_at(int(getattr(event, 'y', -1)))
+        if hover_index == self._hover_index:
+            return
+        self._hover_index = hover_index
+        self.redraw()
+
+    def _on_leave(self, _event: tk.Event) -> None:
+        if self._hover_index is None:
+            return
+        self._hover_index = None
+        self.redraw()
+
+    def _on_click(self, event: tk.Event) -> str:
+        row_index = self._row_index_at(int(getattr(event, 'y', -1)))
+        if row_index is None or row_index >= len(self._tracks):
+            return 'break'
+        if self._on_track_selected is not None:
+            self._on_track_selected(row_index, self._decode_selection_modifiers(event))
+        return 'break'
+
+    def _row_index_at(self, y: int) -> int | None:
+        if y < self._header_height:
+            return None
+        row_index = (y - self._header_height) // self._row_height
+        if row_index < 0 or row_index >= self._visible_row_count():
+            return None
+        return int(row_index)
+
+    def _decode_selection_modifiers(self, event: tk.Event) -> TrackSelectionModifiers:
+        state = int(getattr(event, 'state', 0))
+        return TrackSelectionModifiers(
+            shift=bool(state & 0x0001),
+            additive=bool(state & 0x0004),
         )

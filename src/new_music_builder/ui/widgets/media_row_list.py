@@ -15,6 +15,7 @@ from new_music_builder.ui.widgets.media_row_cover import CollapsedMediaCover, Ex
 from new_music_builder.ui.widgets.media_song_actions import MediaSongActions
 from new_music_builder.ui.widgets.media_side_toggle import MediaSideToggle
 from new_music_builder.ui.widgets.media_songlist_viewport import MediaSonglistViewport
+from new_music_builder.ui.widgets.media_songlist_table import TrackSelectionModifiers
 from new_music_builder.ui.widgets.media_type_strip import MediaTypeStrip
 
 
@@ -52,6 +53,8 @@ class MediaRowShell(tk.Frame):
         on_preview_mode_selected: Callable[[int, str], None] | None = None,
         on_cover_selected: Callable[[int], None] | None = None,
         on_add_song: Callable[[int], None] | None = None,
+        selected_song_indices: set[int] | None = None,
+        on_song_selected: Callable[[int, int, TrackSelectionModifiers], None] | None = None,
         dnd_type: str | None = None,
         can_accept_song_drop: Callable[[list[str]], bool] | None = None,
         on_song_drop: Callable[[int, list[str]], None] | None = None,
@@ -136,6 +139,8 @@ class MediaRowShell(tk.Frame):
                 grab_icon_path=grab_icon_path,
                 table_check_icon_path=table_check_icon_path,
                 preview_audio_icon_path=preview_audio_icon_path,
+                selected_track_indices=selected_song_indices,
+                on_track_selected=(lambda track_index, modifiers: on_song_selected(row.row_id, track_index, modifiers)) if on_song_selected is not None else None,
                 dnd_type=dnd_type,
                 can_accept_drop=can_accept_song_drop,
                 on_drop_files=(lambda paths: on_song_drop(row.row_id, paths)) if on_song_drop is not None else None,
@@ -303,6 +308,10 @@ class MediaRowShell(tk.Frame):
         if hasattr(self, 'songlist_viewport'):
             self.songlist_viewport.refresh_content()
 
+    def set_song_selection_state(self, selected_song_indices: set[int]) -> None:
+        if hasattr(self, 'songlist_viewport'):
+            self.songlist_viewport.set_selection_state(selected_song_indices)
+
     def _decode_selection_modifiers(self, event: tk.Event) -> RowSelectionModifiers:
         state = int(getattr(event, 'state', 0))
         shift = bool(state & 0x0001)
@@ -341,6 +350,8 @@ class MediaRowList(tk.Frame):
         on_preview_mode_selected: Callable[[int, str], None] | None = None,
         on_cover_selected: Callable[[int], None] | None = None,
         on_add_song: Callable[[int], None] | None = None,
+        selected_song_indices_by_key: dict[tuple[int, str], set[int]] | None = None,
+        on_song_selected: Callable[[int, int, TrackSelectionModifiers], None] | None = None,
         dnd_type: str | None = None,
         can_accept_song_drop: Callable[[list[str]], bool] | None = None,
         on_song_drop: Callable[[int, list[str]], None] | None = None,
@@ -379,6 +390,11 @@ class MediaRowList(tk.Frame):
         self._on_preview_mode_selected = on_preview_mode_selected
         self._on_cover_selected = on_cover_selected
         self._on_add_song = on_add_song
+        self._selected_song_indices_by_key = {
+            (row_id, side): set(indices)
+            for (row_id, side), indices in (selected_song_indices_by_key or {}).items()
+        }
+        self._on_song_selected = on_song_selected
         self._dnd_type = dnd_type
         self._can_accept_song_drop = can_accept_song_drop
         self._on_song_drop = on_song_drop
@@ -434,6 +450,8 @@ class MediaRowList(tk.Frame):
                 on_preview_mode_selected=self._on_preview_mode_selected,
                 on_cover_selected=self._on_cover_selected,
                 on_add_song=self._on_add_song,
+                selected_song_indices=self._selected_song_indices_by_key.get((row.row_id, row.selected_side), set()),
+                on_song_selected=self._on_song_selected,
                 dnd_type=self._dnd_type,
                 can_accept_song_drop=self._can_accept_song_drop,
                 on_song_drop=self._on_song_drop,
