@@ -105,6 +105,7 @@ class MediaLivePreview(tk.Frame):
             height=spec.MEDIA_ROW_LIVE_PREVIEW_SIZE[1],
         )
         self.pack_propagate(False)
+        self._row = row
         self._row_id = row.row_id
         self._selected_mode = row.preview_mode
         self._asset_paths = asset_paths or {}
@@ -321,8 +322,18 @@ class MediaLivePreview(tk.Frame):
         for row_index, (media_key, container_key) in enumerate(self._slot_keys):
             left_label = self._slot_labels[row_index * 2]
             right_label = self._slot_labels[(row_index * 2) + 1]
-            left_label.configure(image=mode_images.get(media_key), bg=self._content_bg)
-            right_label.configure(image=mode_images.get(container_key), bg=self._content_bg)
+            enabled = self._row.enabled_media[media_key]
+            left_label.configure(
+                image=mode_images.get(media_key) if enabled else '',
+                bg=self._content_bg,
+            )
+            right_label.configure(
+                image=mode_images.get(container_key) if enabled else '',
+                bg=self._content_bg,
+            )
+
+    def refresh_content(self) -> None:
+        self._apply_preview_images()
 
     def set_bg_color(self, color: str) -> None:
         self.configure(bg=color)

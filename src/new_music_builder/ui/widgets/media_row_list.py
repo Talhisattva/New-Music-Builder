@@ -274,6 +274,10 @@ class MediaRowShell(tk.Frame):
         self._selected_count = selected_count
         self._apply_background_state()
 
+    def refresh_live_preview(self) -> None:
+        if hasattr(self, 'live_preview'):
+            self.live_preview.refresh_content()
+
     def _decode_selection_modifiers(self, event: tk.Event) -> RowSelectionModifiers:
         state = int(getattr(event, 'state', 0))
         shift = bool(state & 0x0001)

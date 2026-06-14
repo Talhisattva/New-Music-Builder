@@ -438,6 +438,20 @@ class MainWindow(ctk.CTk):
         if target_row.enabled_media[kind] == enabled:
             return
         target_row.enabled_media[kind] = enabled
+        if (
+            hasattr(self, 'module_two_row_list')
+            and self.module_two_row_list.row_widgets
+        ):
+            expanded_widget = next(
+                (
+                    widget
+                    for widget in self.module_two_row_list.row_widgets
+                    if getattr(widget, '_row_expanded', False) and getattr(widget, '_row_id', None) == row_id
+                ),
+                None,
+            )
+            if expanded_widget is not None:
+                expanded_widget.refresh_live_preview()
         self.on_project_change()
 
     def _commit_module_two_media_name(self, row_id: int, value: str) -> None:
