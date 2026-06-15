@@ -57,6 +57,9 @@ class MediaRowShell(tk.Frame):
         selected_song_indices: set[int] | None = None,
         on_song_selected: Callable[[int, int, TrackSelectionModifiers], None] | None = None,
         on_song_remove_requested: Callable[[int, int], None] | None = None,
+        on_song_drag_started: Callable[[int, int, int, int], None] | None = None,
+        on_song_drag_moved: Callable[[int, int, int], None] | None = None,
+        on_song_drag_finished: Callable[[int, int, int], None] | None = None,
         dnd_type: str | None = None,
         can_accept_song_drop: Callable[[list[str]], bool] | None = None,
         on_song_drop: Callable[[int, list[str]], None] | None = None,
@@ -144,6 +147,9 @@ class MediaRowShell(tk.Frame):
                 selected_track_indices=selected_song_indices,
                 on_track_selected=(lambda track_index, modifiers: on_song_selected(row.row_id, track_index, modifiers)) if on_song_selected is not None else None,
                 on_track_remove_requested=(lambda track_index: on_song_remove_requested(row.row_id, track_index)) if on_song_remove_requested is not None else None,
+                on_track_drag_started=(lambda track_index, x_root, y_root: on_song_drag_started(row.row_id, track_index, x_root, y_root)) if on_song_drag_started is not None else None,
+                on_track_drag_moved=(lambda x_root, y_root: on_song_drag_moved(row.row_id, x_root, y_root)) if on_song_drag_moved is not None else None,
+                on_track_drag_finished=(lambda x_root, y_root: on_song_drag_finished(row.row_id, x_root, y_root)) if on_song_drag_finished is not None else None,
                 dnd_type=dnd_type,
                 can_accept_drop=can_accept_song_drop,
                 on_drop_files=(lambda paths: on_song_drop(row.row_id, paths)) if on_song_drop is not None else None,
@@ -316,6 +322,23 @@ class MediaRowShell(tk.Frame):
         if hasattr(self, 'songlist_viewport'):
             self.songlist_viewport.set_selection_state(selected_song_indices)
 
+    def begin_song_drag(self, dragged_indices: set[int], x_root: int, y_root: int) -> None:
+        if hasattr(self, 'songlist_viewport'):
+            self.songlist_viewport.begin_drag(dragged_indices, x_root, y_root)
+
+    def update_song_drag(self, x_root: int, y_root: int) -> None:
+        if hasattr(self, 'songlist_viewport'):
+            self.songlist_viewport.update_drag(x_root, y_root)
+
+    def finish_song_drag(self, x_root: int, y_root: int) -> int | None:
+        if hasattr(self, 'songlist_viewport'):
+            return self.songlist_viewport.finish_drag(x_root, y_root)
+        return None
+
+    def cancel_song_drag(self) -> None:
+        if hasattr(self, 'songlist_viewport'):
+            self.songlist_viewport.cancel_drag()
+
     def _decode_selection_modifiers(self, event: tk.Event) -> RowSelectionModifiers:
         state = int(getattr(event, 'state', 0))
         shift = bool(state & 0x0001)
@@ -358,6 +381,9 @@ class MediaRowList(tk.Frame):
         selected_song_indices_by_key: dict[tuple[int, str], set[int]] | None = None,
         on_song_selected: Callable[[int, int, TrackSelectionModifiers], None] | None = None,
         on_song_remove_requested: Callable[[int, int], None] | None = None,
+        on_song_drag_started: Callable[[int, int, int, int], None] | None = None,
+        on_song_drag_moved: Callable[[int, int, int], None] | None = None,
+        on_song_drag_finished: Callable[[int, int, int], None] | None = None,
         dnd_type: str | None = None,
         can_accept_song_drop: Callable[[list[str]], bool] | None = None,
         on_song_drop: Callable[[int, list[str]], None] | None = None,
@@ -403,6 +429,9 @@ class MediaRowList(tk.Frame):
         }
         self._on_song_selected = on_song_selected
         self._on_song_remove_requested = on_song_remove_requested
+        self._on_song_drag_started = on_song_drag_started
+        self._on_song_drag_moved = on_song_drag_moved
+        self._on_song_drag_finished = on_song_drag_finished
         self._dnd_type = dnd_type
         self._can_accept_song_drop = can_accept_song_drop
         self._on_song_drop = on_song_drop
@@ -462,6 +491,9 @@ class MediaRowList(tk.Frame):
                 selected_song_indices=self._selected_song_indices_by_key.get((row.row_id, row.selected_side), set()),
                 on_song_selected=self._on_song_selected,
                 on_song_remove_requested=self._on_song_remove_requested,
+                on_song_drag_started=self._on_song_drag_started,
+                on_song_drag_moved=self._on_song_drag_moved,
+                on_song_drag_finished=self._on_song_drag_finished,
                 dnd_type=self._dnd_type,
                 can_accept_song_drop=self._can_accept_song_drop,
                 on_song_drop=self._on_song_drop,

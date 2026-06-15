@@ -61,6 +61,43 @@ class ProjectSession:
             del tracks[index]
         return sorted(removable)
 
+    def move_tracks_within_media_row(
+        self,
+        row_id: int,
+        side: str,
+        selected_indices: set[int],
+        target_index: int,
+    ) -> list[int]:
+        target_row = next((row for row in self.project.media_rows if row.row_id == row_id), None)
+        if target_row is None or side not in {'A', 'B'}:
+            return []
+
+        tracks = target_row.tracks_a if side == 'A' else target_row.tracks_b
+        selected = sorted({index for index in selected_indices if 0 <= index < len(tracks)})
+        if not selected:
+            return []
+
+        moving_tracks = [tracks[index] for index in selected]
+        moving_set = set(selected)
+        remaining_tracks = [track for index, track in enumerate(tracks) if index not in moving_set]
+        adjusted_target = target_index - sum(1 for index in selected if index < target_index)
+        adjusted_target = max(0, min(len(remaining_tracks), adjusted_target))
+
+        reordered = (
+            remaining_tracks[:adjusted_target]
+            + moving_tracks
+            + remaining_tracks[adjusted_target:]
+        )
+        if reordered == tracks:
+            return []
+
+        if side == 'A':
+            target_row.tracks_a = reordered
+        else:
+            target_row.tracks_b = reordered
+
+        return list(range(adjusted_target, adjusted_target + len(moving_tracks)))
+
     def _renumber_media_rows(self) -> None:
         for index, row in enumerate(self.project.media_rows, start=1):
             generated_names = {

@@ -319,6 +319,9 @@ class ScrollViewport(tk.Frame):
     def _scroll_to_fraction(self, fraction: float) -> None:
         self.viewport_canvas.yview_moveto(fraction)
 
+    def scroll_by_pixels(self, delta_pixels: float) -> None:
+        self._scroll_by_pixels(delta_pixels)
+
     def _ensure_global_wheel_binding(self) -> None:
         if ScrollViewport._global_wheel_bound:
             return
