@@ -54,6 +54,7 @@ class MediaSonglistViewport(tk.Frame):
         self._on_track_drag_finished = on_track_drag_finished
         self._drag_active = False
         self._drag_indices: list[int] = []
+        self._drag_last_insertion_index: int | None = None
         self._drag_ghost: tk.Toplevel | None = None
         self._drag_ghost_canvas: tk.Canvas | None = None
         self._drag_poll_after_id: str | None = None
@@ -115,6 +116,7 @@ class MediaSonglistViewport(tk.Frame):
         self.cancel_drag()
         self._drag_active = True
         self._drag_indices = sorted_indices
+        self._drag_last_insertion_index = None
         self._create_drag_ghost()
         self._render_drag_ghost()
         self.update_drag(x_root, y_root)
@@ -126,6 +128,8 @@ class MediaSonglistViewport(tk.Frame):
         self._position_drag_ghost(x_root, y_root)
         self._auto_scroll_if_needed(y_root)
         insertion_index = self._insertion_index_for_pointer(x_root, y_root)
+        if insertion_index is not None:
+            self._drag_last_insertion_index = insertion_index
         self.table.set_insertion_index(insertion_index)
 
     def finish_drag(self, x_root: int, y_root: int) -> int | None:
@@ -133,12 +137,15 @@ class MediaSonglistViewport(tk.Frame):
             return None
         self.update_drag(x_root, y_root)
         insertion_index = self._insertion_index_for_pointer(x_root, y_root)
+        if insertion_index is None:
+            insertion_index = self._drag_last_insertion_index
         self.cancel_drag()
         return insertion_index
 
     def cancel_drag(self) -> None:
         self._drag_active = False
         self._drag_indices = []
+        self._drag_last_insertion_index = None
         self._cancel_drag_poll()
         self.table.clear_drag_state()
         self._destroy_drag_ghost()

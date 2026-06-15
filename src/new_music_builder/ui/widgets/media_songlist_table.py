@@ -118,6 +118,11 @@ class MediaSonglistTable(tk.Canvas):
         self.redraw()
 
     def clear_drag_state(self) -> None:
+        try:
+            if self.grab_current() == self:
+                self.grab_release()
+        except tk.TclError:
+            pass
         self._unbind_global_drag_events()
         self._pending_grab_row_index = None
         self._drag_active = False
@@ -374,6 +379,10 @@ class MediaSonglistTable(tk.Canvas):
             if not self._drag_threshold_exceeded(x_root, y_root):
                 return 'break'
             self._drag_active = True
+            try:
+                self.grab_set()
+            except tk.TclError:
+                pass
             self._bind_global_drag_events()
             if self._on_track_drag_started is not None:
                 self._on_track_drag_started(self._pending_grab_row_index, x_root, y_root)
