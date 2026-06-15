@@ -56,6 +56,7 @@ class MediaSonglistViewport(tk.Frame):
         self._drag_indices: list[int] = []
         self._drag_ghost: tk.Toplevel | None = None
         self._drag_ghost_canvas: tk.Canvas | None = None
+        self._drag_poll_after_id: str | None = None
 
         self.scroll_viewport = ScrollViewport(
             self,
@@ -117,6 +118,7 @@ class MediaSonglistViewport(tk.Frame):
         self._create_drag_ghost()
         self._render_drag_ghost()
         self.update_drag(x_root, y_root)
+        self._schedule_drag_poll()
 
     def update_drag(self, x_root: int, y_root: int) -> None:
         if not self._drag_active:
@@ -137,6 +139,7 @@ class MediaSonglistViewport(tk.Frame):
     def cancel_drag(self) -> None:
         self._drag_active = False
         self._drag_indices = []
+        self._cancel_drag_poll()
         self.table.clear_drag_state()
         self._destroy_drag_ghost()
 
@@ -354,3 +357,29 @@ class MediaSonglistViewport(tk.Frame):
 
     def _on_destroy(self, _event: tk.Event) -> None:
         self.cancel_drag()
+
+    def _schedule_drag_poll(self) -> None:
+        self._cancel_drag_poll()
+        if not self._drag_active:
+            return
+        self._drag_poll_after_id = self.after(16, self._poll_drag_pointer)
+
+    def _cancel_drag_poll(self) -> None:
+        if self._drag_poll_after_id is None:
+            return
+        try:
+            self.after_cancel(self._drag_poll_after_id)
+        except tk.TclError:
+            pass
+        self._drag_poll_after_id = None
+
+    def _poll_drag_pointer(self) -> None:
+        self._drag_poll_after_id = None
+        if not self._drag_active:
+            return
+        try:
+            x_root, y_root = self.winfo_pointerxy()
+        except tk.TclError:
+            return
+        self.update_drag(int(x_root), int(y_root))
+        self._schedule_drag_poll()
