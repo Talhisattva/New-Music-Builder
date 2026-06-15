@@ -59,6 +59,9 @@ class MediaSonglistTable(tk.Canvas):
         self._grab_press_x_root = 0
         self._grab_press_y_root = 0
         self._drag_active = False
+        self._drag_motion_bind_id: str | None = None
+        self._drag_release_bind_id: str | None = None
+        self._drag_bind_root: tk.Misc | None = None
         self._on_track_selected = on_track_selected
         self._on_track_remove_requested = on_track_remove_requested
         self._on_track_drag_started = on_track_drag_started
@@ -115,6 +118,7 @@ class MediaSonglistTable(tk.Canvas):
         self.redraw()
 
     def clear_drag_state(self) -> None:
+        self._unbind_global_drag_events()
         self._pending_grab_row_index = None
         self._drag_active = False
         self.set_insertion_index(None)
@@ -370,6 +374,7 @@ class MediaSonglistTable(tk.Canvas):
             if not self._drag_threshold_exceeded(x_root, y_root):
                 return 'break'
             self._drag_active = True
+            self._bind_global_drag_events()
             if self._on_track_drag_started is not None:
                 self._on_track_drag_started(self._pending_grab_row_index, x_root, y_root)
         if self._on_track_drag_moved is not None:
@@ -385,9 +390,6 @@ class MediaSonglistTable(tk.Canvas):
         column_index = self._column_index_at(x)
 
         if self._drag_active:
-            if self._on_track_drag_finished is not None:
-                self._on_track_drag_finished(x_root, y_root)
-            self.clear_drag_state()
             return 'break'
 
         if self._pending_grab_row_index is not None:
@@ -407,6 +409,42 @@ class MediaSonglistTable(tk.Canvas):
         dx = abs(x_root - self._grab_press_x_root)
         dy = abs(y_root - self._grab_press_y_root)
         return max(dx, dy) >= spec.MEDIA_ROW_SONGLIST_DRAG_THRESHOLD_PX
+
+    def _bind_global_drag_events(self) -> None:
+        if self._drag_motion_bind_id is not None or self._drag_release_bind_id is not None:
+            return
+        root = self.winfo_toplevel()
+        self._drag_bind_root = root
+        self._drag_motion_bind_id = root.bind_all('<B1-Motion>', self._on_global_drag_motion, add='+')
+        self._drag_release_bind_id = root.bind_all('<ButtonRelease-1>', self._on_global_drag_release, add='+')
+
+    def _unbind_global_drag_events(self) -> None:
+        root = self._drag_bind_root
+        try:
+            if root is not None and self._drag_motion_bind_id is not None:
+                root.unbind_all('<B1-Motion>')
+            if root is not None and self._drag_release_bind_id is not None:
+                root.unbind_all('<ButtonRelease-1>')
+        except tk.TclError:
+            pass
+        self._drag_motion_bind_id = None
+        self._drag_release_bind_id = None
+        self._drag_bind_root = None
+
+    def _on_global_drag_motion(self, event: tk.Event) -> str:
+        if not self._drag_active:
+            return ''
+        if self._on_track_drag_moved is not None:
+            self._on_track_drag_moved(int(getattr(event, 'x_root', 0)), int(getattr(event, 'y_root', 0)))
+        return 'break'
+
+    def _on_global_drag_release(self, event: tk.Event) -> str:
+        if not self._drag_active:
+            return ''
+        if self._on_track_drag_finished is not None:
+            self._on_track_drag_finished(int(getattr(event, 'x_root', 0)), int(getattr(event, 'y_root', 0)))
+        self.clear_drag_state()
+        return 'break'
 
     def _row_index_at(self, y: int) -> int | None:
         if y < self._header_height:
