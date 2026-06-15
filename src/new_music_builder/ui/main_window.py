@@ -49,6 +49,9 @@ else:
         pass
 
 
+_MODULE_TWO_SONG_DRAG_DEBUG = False
+
+
 class MainWindow(_DnDCompat, ctk.CTk):
 
     def __init__(self) -> None:
@@ -506,6 +509,10 @@ class MainWindow(_DnDCompat, ctk.CTk):
             expanded_widget.cancel_song_drag()
         self._module_two_song_drag_session = None
 
+    def _debug_module_two_song_drag(self, message: str) -> None:
+        if _MODULE_TWO_SONG_DRAG_DEBUG:
+            print(f'[song-drag] {message}')
+
     def _module_two_song_selection_key(self, row_id: int, side: str | None = None) -> tuple[int, str] | None:
         target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
         if target_row is None:
@@ -866,7 +873,12 @@ class MainWindow(_DnDCompat, ctk.CTk):
             'row_id': row_id,
             'side': side,
             'dragged_indices': dragged_indices,
+            'last_logged_insertion_index': None,
         }
+        self._debug_module_two_song_drag(
+            f'begin row={row_id} side={side} dragged={sorted(dragged_indices)} '
+            f'order={[track.display_label or Path(track.source_path).stem for track in (target_row.tracks_a if side == "A" else target_row.tracks_b)]}'
+        )
         expanded_widget.begin_song_drag(dragged_indices, x_root, y_root)
 
     def _update_module_two_song_drag(self, row_id: int, x_root: int, y_root: int) -> None:
@@ -877,6 +889,14 @@ class MainWindow(_DnDCompat, ctk.CTk):
         expanded_widget = self._expanded_row_widget(row_id)
         if expanded_widget is not None:
             expanded_widget.update_song_drag(x_root, y_root)
+            insertion_index = expanded_widget.current_song_insertion_index()
+            if insertion_index != self._module_two_song_drag_session.get('last_logged_insertion_index'):
+                self._module_two_song_drag_session['last_logged_insertion_index'] = insertion_index
+                self._debug_module_two_song_drag(
+                    f'update row={row_id} side={self._module_two_song_drag_session.get("side", "")} '
+                    f'dragged={sorted(set(self._module_two_song_drag_session.get("dragged_indices", set())))} '
+                    f'insertion={insertion_index}'
+                )
 
     def _finish_module_two_song_drag(self, row_id: int, x_root: int, y_root: int) -> None:
         if self._module_two_song_drag_session is None:
@@ -891,11 +911,28 @@ class MainWindow(_DnDCompat, ctk.CTk):
         drag_session = self._module_two_song_drag_session
         self._module_two_song_drag_session = None
         if insertion_index is None:
+            self._debug_module_two_song_drag(
+                f'finish row={row_id} side={drag_session.get("side", "")} '
+                f'dragged={sorted(set(drag_session.get("dragged_indices", set())))} insertion=None'
+            )
             return
         side = str(drag_session.get('side', ''))
         dragged_indices = set(drag_session.get('dragged_indices', set()))
+        target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
+        if target_row is None:
+            return
+        tracks = target_row.tracks_a if side == 'A' else target_row.tracks_b
+        before_order = [track.display_label or Path(track.source_path).stem for track in tracks]
+        self._debug_module_two_song_drag(
+            f'finish row={row_id} side={side} dragged={sorted(dragged_indices)} '
+            f'visible_insertion={drag_session.get("last_logged_insertion_index")} commit_insertion={insertion_index} '
+            f'before={before_order}'
+        )
         moved_indices = self.session.move_tracks_within_media_row(row_id, side, dragged_indices, insertion_index)
         if not moved_indices:
+            self._debug_module_two_song_drag(
+                f'no-op row={row_id} side={side} dragged={sorted(dragged_indices)} commit_insertion={insertion_index}'
+            )
             return
         key = (row_id, side)
         moved_selection = set(moved_indices)
@@ -903,6 +940,11 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.module_two_song_selection_anchor_indices[key] = moved_indices[0] if moved_indices else None
         expanded_widget.refresh_song_table()
         expanded_widget.set_song_selection_state(moved_selection)
+        after_tracks = target_row.tracks_a if side == 'A' else target_row.tracks_b
+        self._debug_module_two_song_drag(
+            f'commit row={row_id} side={side} moved={moved_indices} '
+            f'after={[track.display_label or Path(track.source_path).stem for track in after_tracks]}'
+        )
         self.on_project_change()
 
     def on_select_row(self, row_id: int | None) -> None:

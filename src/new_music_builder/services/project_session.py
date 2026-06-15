@@ -82,6 +82,10 @@ class ProjectSession:
         remaining_tracks = [track for index, track in enumerate(tracks) if index not in moving_set]
         adjusted_target = target_index - sum(1 for index in selected if index < target_index)
         adjusted_target = max(0, min(len(remaining_tracks), adjusted_target))
+        original_block_start = min(selected)
+        equivalent_block_start = adjusted_target
+        if equivalent_block_start == original_block_start:
+            return []
 
         reordered = (
             remaining_tracks[:adjusted_target]

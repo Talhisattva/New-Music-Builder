@@ -77,3 +77,17 @@ def test_project_session_move_tracks_within_media_row_adjusts_target_from_remove
     moved = session.move_tracks_within_media_row(row.row_id, 'A', {1, 2}, 4)
     assert moved == [2, 3]
     assert [track.display_label for track in row.tracks_a] == ['A', 'D', 'B', 'C', 'E']
+
+
+def test_project_session_move_tracks_within_media_row_noops_when_dropped_into_equivalent_position() -> None:
+    session = ProjectSession()
+    row = session.project.media_rows[0]
+    row.tracks_a = [
+        TrackEntry(display_label='A'),
+        TrackEntry(display_label='B'),
+        TrackEntry(display_label='C'),
+        TrackEntry(display_label='D'),
+    ]
+    moved = session.move_tracks_within_media_row(row.row_id, 'A', {1, 2}, 3)
+    assert moved == []
+    assert [track.display_label for track in row.tracks_a] == ['A', 'B', 'C', 'D']

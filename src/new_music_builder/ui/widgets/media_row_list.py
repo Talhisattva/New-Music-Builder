@@ -335,6 +335,11 @@ class MediaRowShell(tk.Frame):
             return self.songlist_viewport.finish_drag(x_root, y_root)
         return None
 
+    def current_song_insertion_index(self) -> int | None:
+        if hasattr(self, 'songlist_viewport'):
+            return self.songlist_viewport.table.current_insertion_index()
+        return None
+
     def cancel_song_drag(self) -> None:
         if hasattr(self, 'songlist_viewport'):
             self.songlist_viewport.cancel_drag()
