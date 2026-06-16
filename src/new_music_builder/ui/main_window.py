@@ -13,7 +13,7 @@ from PIL import Image, ImageTk
 
 from new_music_builder import __version__
 from new_music_builder.domain.models import MediaKind, default_media_row
-from new_music_builder.platform.paths import app_root
+from new_music_builder.platform.paths import app_root, logs_root
 from new_music_builder.services.asset_catalog import AssetCatalog
 from new_music_builder.services.audio_workspace import AudioWorkspaceService
 from new_music_builder.services.index_selection import apply_index_selection
@@ -50,6 +50,7 @@ else:
 
 
 _MODULE_TWO_SONG_DRAG_DEBUG = True
+_MODULE_TWO_SONG_DRAG_LOG_NAME = 'song_drag_debug.log'
 
 
 class MainWindow(_DnDCompat, ctk.CTk):
@@ -93,6 +94,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.preview_entries: list[str] = []
 
         self._apply_window_icon()
+        self._initialize_song_drag_debug_log()
         self._build_menu()
         self._build_header()
         self._build_menu_strip()
@@ -510,8 +512,26 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._module_two_song_drag_session = None
 
     def _debug_module_two_song_drag(self, message: str) -> None:
-        if _MODULE_TWO_SONG_DRAG_DEBUG:
-            print(f'[song-drag] {message}')
+        if not _MODULE_TWO_SONG_DRAG_DEBUG:
+            return
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+        line = f'[{timestamp}] [song-drag] {message}\n'
+        try:
+            log_path = logs_root() / _MODULE_TWO_SONG_DRAG_LOG_NAME
+            with log_path.open('a', encoding='utf-8') as handle:
+                handle.write(line)
+        except OSError:
+            pass
+
+    def _initialize_song_drag_debug_log(self) -> None:
+        if not _MODULE_TWO_SONG_DRAG_DEBUG:
+            return
+        try:
+            log_path = logs_root() / _MODULE_TWO_SONG_DRAG_LOG_NAME
+            with log_path.open('a', encoding='utf-8') as handle:
+                handle.write(f'\n--- song drag session {datetime.now().isoformat(timespec="seconds")} ---\n')
+        except OSError:
+            pass
 
     def _module_two_song_selection_key(self, row_id: int, side: str | None = None) -> tuple[int, str] | None:
         target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
