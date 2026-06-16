@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from pathlib import Path
 import tkinter as tk
 
 from new_music_builder.domain.models import MediaRow, TrackEntry
@@ -54,8 +53,6 @@ class MediaSonglistViewport(tk.Frame):
         self._on_track_drag_finished = on_track_drag_finished
         self._drag_active = False
         self._drag_indices: list[int] = []
-        self._drag_ghost: tk.Toplevel | None = None
-        self._drag_ghost_canvas: tk.Canvas | None = None
 
         self.scroll_viewport = ScrollViewport(
             self,
@@ -114,17 +111,14 @@ class MediaSonglistViewport(tk.Frame):
         self.cancel_drag()
         self._drag_active = True
         self._drag_indices = sorted_indices
-        self._create_drag_ghost()
-        self._render_drag_ghost()
+        self.table.begin_drag_overlay(set(sorted_indices), x_root, y_root)
         self.update_drag(x_root, y_root)
 
     def update_drag(self, x_root: int, y_root: int) -> None:
         if not self._drag_active:
             return
-        self._position_drag_ghost(x_root, y_root)
         self._auto_scroll_if_needed(y_root)
-        insertion_index = self._insertion_index_for_pointer(x_root, y_root)
-        self.table.set_insertion_index(insertion_index)
+        self.table.update_drag_overlay(x_root, y_root)
 
     def finish_drag(self, x_root: int, y_root: int) -> int | None:
         if not self._drag_active:
@@ -137,8 +131,10 @@ class MediaSonglistViewport(tk.Frame):
     def cancel_drag(self) -> None:
         self._drag_active = False
         self._drag_indices = []
-        self.table.clear_drag_state()
-        self._destroy_drag_ghost()
+        if self.table.winfo_exists():
+            self.table.clear_drag_state()
+        if self.winfo_exists():
+            self.refresh_scroll_region()
 
     def _active_tracks(self) -> list[TrackEntry]:
         return self._row.tracks_a if self._row.selected_side == 'A' else self._row.tracks_b
@@ -206,134 +202,6 @@ class MediaSonglistViewport(tk.Frame):
         if self._on_track_drag_finished is not None:
             self._on_track_drag_finished(x_root, y_root)
 
-    def _create_drag_ghost(self) -> None:
-        ghost = tk.Toplevel(self.winfo_toplevel())
-        ghost.overrideredirect(True)
-        ghost.configure(bg=spec.MEDIA_ROW_OUTLINE)
-        try:
-            ghost.wm_attributes('-alpha', spec.MEDIA_ROW_SONGLIST_DRAG_GHOST_ALPHA)
-        except tk.TclError:
-            pass
-        try:
-            ghost.wm_attributes('-topmost', True)
-        except tk.TclError:
-            pass
-        self._drag_ghost = ghost
-        self._drag_ghost_canvas = tk.Canvas(
-            ghost,
-            width=spec.MEDIA_ROW_SONGLIST_TABLE_SIZE[0],
-            height=spec.MEDIA_ROW_SONGLIST_TABLE_ROW_HEIGHT,
-            bg=spec.MEDIA_ROW_OUTLINE,
-            bd=0,
-            highlightthickness=0,
-        )
-        self._drag_ghost_canvas.pack()
-
-    def _render_drag_ghost(self) -> None:
-        if self._drag_ghost_canvas is None:
-            return
-        tracks = self._active_tracks()
-        visible_indices = self._drag_indices[:spec.MEDIA_ROW_SONGLIST_DRAG_GHOST_MAX_ROWS]
-        hidden_count = max(0, len(self._drag_indices) - len(visible_indices))
-        row_height = spec.MEDIA_ROW_SONGLIST_TABLE_ROW_HEIGHT
-        footer_height = row_height if hidden_count else 0
-        total_height = (len(visible_indices) * row_height) + footer_height
-        self._drag_ghost_canvas.configure(height=total_height)
-        self._drag_ghost_canvas.delete('all')
-        for preview_row, track_index in enumerate(visible_indices):
-            row_top = preview_row * row_height
-            row_bottom = row_top + row_height
-            track = tracks[track_index]
-            fill = spec.MEDIA_ROW_SONGLIST_TABLE_ROW_SELECTED_BG
-            self._drag_ghost_canvas.create_rectangle(
-                0,
-                row_top,
-                spec.MEDIA_ROW_SONGLIST_TABLE_SIZE[0],
-                row_bottom,
-                outline='',
-                fill=fill,
-            )
-            self._draw_drag_ghost_grid(row_top, row_bottom)
-            self._drag_ghost_canvas.create_text(
-                sum(spec.MEDIA_ROW_SONGLIST_TABLE_COLUMN_WIDTHS[:2]) + 6,
-                row_top + (row_height / 2),
-                text=track.display_label or Path(track.source_path).stem,
-                fill=spec.MEDIA_ROW_SONGLIST_TABLE_ROW_TEXT_COLOR,
-                font=(
-                    spec.MEDIA_ROW_SONGLIST_TABLE_ROW_FONT_FAMILY,
-                    spec.MEDIA_ROW_SONGLIST_TABLE_ROW_FONT_SIZE,
-                ),
-                anchor='w',
-            )
-            if track.duration:
-                self._drag_ghost_canvas.create_text(
-                    sum(spec.MEDIA_ROW_SONGLIST_TABLE_COLUMN_WIDTHS[:4]) + (spec.MEDIA_ROW_SONGLIST_TABLE_COLUMN_WIDTHS[4] / 2),
-                    row_top + (row_height / 2),
-                    text=track.duration,
-                    fill=spec.MEDIA_ROW_SONGLIST_TABLE_ROW_TEXT_COLOR,
-                    font=(
-                        spec.MEDIA_ROW_SONGLIST_TABLE_ROW_FONT_FAMILY,
-                        spec.MEDIA_ROW_SONGLIST_TABLE_ROW_FONT_SIZE,
-                    ),
-                    anchor='c',
-                )
-        if hidden_count:
-            footer_top = len(visible_indices) * row_height
-            footer_bottom = footer_top + row_height
-            self._drag_ghost_canvas.create_rectangle(
-                0,
-                footer_top,
-                spec.MEDIA_ROW_SONGLIST_TABLE_SIZE[0],
-                footer_bottom,
-                outline='',
-                fill=spec.MEDIA_ROW_SONGLIST_TABLE_ROW_BG_EVEN,
-            )
-            self._drag_ghost_canvas.create_text(
-                spec.MEDIA_ROW_SONGLIST_TABLE_SIZE[0] / 2,
-                footer_top + (row_height / 2),
-                text=f'+{hidden_count} more',
-                fill=spec.MEDIA_ROW_SONGLIST_TABLE_ROW_TEXT_COLOR,
-                font=(
-                    spec.MEDIA_ROW_SONGLIST_TABLE_ROW_FONT_FAMILY,
-                    spec.MEDIA_ROW_SONGLIST_TABLE_ROW_FONT_SIZE,
-                ),
-                anchor='c',
-            )
-        self._drag_ghost_canvas.configure(scrollregion=(0, 0, spec.MEDIA_ROW_SONGLIST_TABLE_SIZE[0], total_height))
-
-    def _draw_drag_ghost_grid(self, row_top: int, row_bottom: int) -> None:
-        if self._drag_ghost_canvas is None:
-            return
-        column_x = 0
-        for width in spec.MEDIA_ROW_SONGLIST_TABLE_COLUMN_WIDTHS[:-1]:
-            column_x += width
-            self._drag_ghost_canvas.create_rectangle(
-                column_x,
-                row_top,
-                column_x + spec.MEDIA_ROW_SONGLIST_TABLE_DIVIDER_WIDTH,
-                row_bottom,
-                outline='',
-                fill=spec.MEDIA_ROW_SONGLIST_TABLE_DIVIDER_COLOR,
-            )
-
-    def _position_drag_ghost(self, x_root: int, y_root: int) -> None:
-        if self._drag_ghost is None:
-            return
-        self._drag_ghost.geometry(f'+{x_root + 16}+{y_root + 16}')
-
-    def _pointer_inside_viewport(self, x_root: int, y_root: int) -> bool:
-        left = self.viewport_canvas.winfo_rootx()
-        top = self.viewport_canvas.winfo_rooty()
-        right = left + spec.MEDIA_ROW_SONGLIST_VIEWPORT_MASK_SIZE[0]
-        bottom = top + spec.MEDIA_ROW_SONGLIST_VIEWPORT_MASK_SIZE[1]
-        return left <= x_root <= right and top <= y_root <= bottom
-
-    def _insertion_index_for_pointer(self, x_root: int, y_root: int) -> int | None:
-        if not self._pointer_inside_viewport(x_root, y_root):
-            return None
-        local_y = int(y_root - self.table.winfo_rooty())
-        return self.table.insertion_index_at_canvas_y(local_y)
-
     def _auto_scroll_if_needed(self, y_root: int) -> None:
         if not self.scroll_viewport.is_scroll_active():
             return
@@ -345,12 +213,6 @@ class MediaSonglistViewport(tk.Frame):
         elif y_root > bottom - spec.MEDIA_ROW_SONGLIST_DRAG_AUTOSCROLL_EDGE_PX:
             self.scroll_viewport.scroll_by_pixels(spec.MEDIA_ROW_SONGLIST_DRAG_AUTOSCROLL_STEP_PX)
             self.update_idletasks()
-
-    def _destroy_drag_ghost(self) -> None:
-        if self._drag_ghost is not None:
-            self._drag_ghost.destroy()
-        self._drag_ghost = None
-        self._drag_ghost_canvas = None
 
     def _on_destroy(self, _event: tk.Event) -> None:
         self.cancel_drag()
