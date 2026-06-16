@@ -123,6 +123,9 @@ class MainWindow(_DnDCompat, ctk.CTk):
     def _phase_two_icon_path(self) -> Path:
         return app_root() / 'assets' / 'PhaseTwoIcon.png'
 
+    def _phase_three_icon_path(self) -> Path:
+        return app_root() / 'assets' / 'PhaseThreeIcon.png'
+
     def _check_icon_path(self) -> Path:
         return app_root() / 'assets' / 'Check.png'
 
@@ -279,6 +282,16 @@ class MainWindow(_DnDCompat, ctk.CTk):
         )
         self.module_two_phase_icon = self.module_two_header.icon_label
         self.module_two_phase_label = self.module_two_header.text_label
+
+        self.module_three_header = ModuleHeader(
+            self.module_three_background,
+            text='PHASE 2 : CUSTOMIZE APPERANCE',
+            icon_path=self._phase_three_icon_path(),
+            bg_color=spec.MODULE_BACKGROUND_BG,
+            text_color=spec.MODULE_HEADER_TEXT_COLOR,
+        )
+        self.module_three_phase_icon = self.module_three_header.icon_label
+        self.module_three_phase_label = self.module_three_header.text_label
 
         self.module_two_top_header = MediaCreationHeader(
             self.module_two_midground_border,
