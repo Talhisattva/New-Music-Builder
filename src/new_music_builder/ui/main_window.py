@@ -49,7 +49,7 @@ else:
         pass
 
 
-_MODULE_TWO_SONG_DRAG_DEBUG = False
+_MODULE_TWO_SONG_DRAG_DEBUG = True
 
 
 class MainWindow(_DnDCompat, ctk.CTk):
