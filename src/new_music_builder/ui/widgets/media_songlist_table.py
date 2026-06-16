@@ -59,6 +59,9 @@ class MediaSonglistTable(tk.Canvas):
         self._grab_press_x_root = 0
         self._grab_press_y_root = 0
         self._drag_active = False
+        self._drag_owner: tk.Misc | None = None
+        self._drag_motion_bind_id: str | None = None
+        self._drag_release_bind_id: str | None = None
         self._on_track_selected = on_track_selected
         self._on_track_remove_requested = on_track_remove_requested
         self._on_track_drag_started = on_track_drag_started
@@ -118,6 +121,7 @@ class MediaSonglistTable(tk.Canvas):
         return self._insertion_index
 
     def clear_drag_state(self) -> None:
+        self._unbind_drag_capture()
         self._pending_grab_row_index = None
         self._drag_active = False
         self.set_insertion_index(None)
@@ -373,6 +377,7 @@ class MediaSonglistTable(tk.Canvas):
             if not self._drag_threshold_exceeded(x_root, y_root):
                 return 'break'
             self._drag_active = True
+            self._bind_drag_capture()
             if self._on_track_drag_started is not None:
                 self._on_track_drag_started(self._pending_grab_row_index, x_root, y_root)
         if self._on_track_drag_moved is not None:
@@ -410,6 +415,45 @@ class MediaSonglistTable(tk.Canvas):
         dx = abs(x_root - self._grab_press_x_root)
         dy = abs(y_root - self._grab_press_y_root)
         return max(dx, dy) >= spec.MEDIA_ROW_SONGLIST_DRAG_THRESHOLD_PX
+
+    def _bind_drag_capture(self) -> None:
+        self._unbind_drag_capture()
+        try:
+            owner = self.winfo_toplevel()
+        except tk.TclError:
+            return
+        self._drag_owner = owner
+        self._drag_motion_bind_id = owner.bind('<B1-Motion>', self._on_captured_drag_motion, add='+')
+        self._drag_release_bind_id = owner.bind('<ButtonRelease-1>', self._on_captured_drag_release, add='+')
+
+    def _unbind_drag_capture(self) -> None:
+        owner = self._drag_owner
+        if owner is not None:
+            try:
+                if self._drag_motion_bind_id is not None:
+                    owner.unbind('<B1-Motion>', self._drag_motion_bind_id)
+                if self._drag_release_bind_id is not None:
+                    owner.unbind('<ButtonRelease-1>', self._drag_release_bind_id)
+            except tk.TclError:
+                pass
+        self._drag_owner = None
+        self._drag_motion_bind_id = None
+        self._drag_release_bind_id = None
+
+    def _on_captured_drag_motion(self, event: tk.Event) -> str:
+        if not self._drag_active:
+            return ''
+        if self._on_track_drag_moved is not None:
+            self._on_track_drag_moved(int(getattr(event, 'x_root', 0)), int(getattr(event, 'y_root', 0)))
+        return 'break'
+
+    def _on_captured_drag_release(self, event: tk.Event) -> str:
+        if not self._drag_active:
+            return ''
+        if self._on_track_drag_finished is not None:
+            self._on_track_drag_finished(int(getattr(event, 'x_root', 0)), int(getattr(event, 'y_root', 0)))
+        self.clear_drag_state()
+        return 'break'
 
     def _row_index_at(self, y: int) -> int | None:
         if y < self._header_height:
