@@ -225,6 +225,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
         self.content_frame.grid_columnconfigure(0, weight=0)
         self.content_frame.grid_columnconfigure(1, weight=1)
+        self.content_frame.grid_columnconfigure(2, weight=0)
         self.content_frame.grid_rowconfigure(0, weight=0)
         self.content_frame.grid_rowconfigure(1, weight=1)
 
@@ -257,6 +258,17 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.module_two_background = self.module_two_shell.background_surface
         self.module_two_midground_border = self.module_two_shell.midground_border
         self.module_two_midground = self.module_two_shell.midground_surface
+
+        self.module_three_shell = ModuleShell(
+            self.content_frame,
+            size=spec.MODULE_THREE_SIZE,
+            midground_size=spec.MODULE_THREE_MIDGROUND_SIZE,
+        )
+        self.module_three_shell.grid(row=0, column=2, sticky='nw', padx=(spec.MODULE_GAP_X, 0))
+        self.module_three_shell.grid_propagate(False)
+        self.module_three_background = self.module_three_shell.background_surface
+        self.module_three_midground_border = self.module_three_shell.midground_border
+        self.module_three_midground = self.module_three_shell.midground_surface
 
         self.module_two_header = ModuleHeader(
             self.module_two_background,
