@@ -58,6 +58,8 @@ class MediaSonglistTable(tk.Canvas):
         self._grab_press_x_root = 0
         self._grab_press_y_root = 0
         self._drag_active = False
+        self._drag_motion_bind_id: str | None = None
+        self._drag_release_bind_id: str | None = None
         self._drag_overlay_indices: list[int] = []
         self._drag_overlay_cursor_y: int | None = None
         self._drag_overlay_anchor_offset_y = 0
@@ -145,6 +147,10 @@ class MediaSonglistTable(tk.Canvas):
     def clear_drag_state(self) -> None:
         self._pending_grab_row_index = None
         self._drag_active = False
+        self._unbind_drag_capture()
+        self.clear_drag_overlay()
+
+    def clear_drag_overlay(self) -> None:
         self._drag_overlay_indices = []
         self._drag_overlay_cursor_y = None
         self._drag_overlay_anchor_offset_y = 0
@@ -359,6 +365,7 @@ class MediaSonglistTable(tk.Canvas):
             if not self._drag_threshold_exceeded(x_root, y_root):
                 return 'break'
             self._drag_active = True
+            self._bind_drag_capture()
             if self._on_track_drag_started is not None:
                 self._on_track_drag_started(self._pending_grab_row_index, x_root, y_root)
         self.update_drag_overlay(x_root, y_root)
@@ -397,6 +404,41 @@ class MediaSonglistTable(tk.Canvas):
         dx = abs(x_root - self._grab_press_x_root)
         dy = abs(y_root - self._grab_press_y_root)
         return max(dx, dy) >= spec.MEDIA_ROW_SONGLIST_DRAG_THRESHOLD_PX
+
+    def _bind_drag_capture(self) -> None:
+        owner = self.winfo_toplevel()
+        self._unbind_drag_capture()
+        self._drag_motion_bind_id = owner.bind('<B1-Motion>', self._on_captured_drag_motion, add='+')
+        self._drag_release_bind_id = owner.bind('<ButtonRelease-1>', self._on_captured_drag_release, add='+')
+
+    def _unbind_drag_capture(self) -> None:
+        owner = self.winfo_toplevel()
+        if self._drag_motion_bind_id is not None:
+            owner.unbind('<B1-Motion>', self._drag_motion_bind_id)
+            self._drag_motion_bind_id = None
+        if self._drag_release_bind_id is not None:
+            owner.unbind('<ButtonRelease-1>', self._drag_release_bind_id)
+            self._drag_release_bind_id = None
+
+    def _on_captured_drag_motion(self, event: tk.Event) -> str | None:
+        if not self._drag_active or self._pending_grab_row_index is None:
+            return None
+        x_root = int(getattr(event, 'x_root', 0))
+        y_root = int(getattr(event, 'y_root', 0))
+        self.update_drag_overlay(x_root, y_root)
+        if self._on_track_drag_moved is not None:
+            self._on_track_drag_moved(x_root, y_root)
+        return 'break'
+
+    def _on_captured_drag_release(self, event: tk.Event) -> str | None:
+        if not self._drag_active:
+            return None
+        x_root = int(getattr(event, 'x_root', 0))
+        y_root = int(getattr(event, 'y_root', 0))
+        if self._on_track_drag_finished is not None:
+            self._on_track_drag_finished(x_root, y_root)
+        self.clear_drag_state()
+        return 'break'
 
     def _canvas_y_from_root(self, y_root: int) -> int:
         return int(y_root - self.winfo_rooty())

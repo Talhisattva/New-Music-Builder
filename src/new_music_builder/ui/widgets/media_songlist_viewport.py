@@ -108,7 +108,10 @@ class MediaSonglistViewport(tk.Frame):
         sorted_indices = sorted(index for index in dragged_indices if 0 <= index < self.table.track_count())
         if not sorted_indices:
             return
-        self.cancel_drag()
+        if self._drag_active:
+            self.cancel_drag()
+        else:
+            self.table.clear_drag_overlay()
         self._drag_active = True
         self._drag_indices = sorted_indices
         self.table.begin_drag_overlay(set(sorted_indices), x_root, y_root)
