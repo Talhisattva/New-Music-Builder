@@ -24,6 +24,7 @@ from new_music_builder.services.session_store import SessionStore
 from new_music_builder.services.track_import import filter_supported_audio_paths
 from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.app_header import AppHeader
+from new_music_builder.ui.widgets.appearance_panel_shell import AppearancePanelShell
 from new_music_builder.ui.widgets.cover_picker import CoverPicker
 from new_music_builder.ui.widgets.labeled_checkbox import LabeledCheckbox
 from new_music_builder.ui.widgets.labeled_text_field import LabeledTextField
@@ -285,13 +286,29 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
         self.module_three_header = ModuleHeader(
             self.module_three_background,
-            text='PHASE 2 : CUSTOMIZE APPERANCE',
+            text='PHASE 2 : APPERANCE',
             icon_path=self._phase_three_icon_path(),
             bg_color=spec.MODULE_BACKGROUND_BG,
             text_color=spec.MODULE_HEADER_TEXT_COLOR,
         )
         self.module_three_phase_icon = self.module_three_header.icon_label
         self.module_three_phase_label = self.module_three_header.text_label
+
+        self.module_three_appearance_shell = AppearancePanelShell(
+            self.module_three_midground,
+            bg_color=spec.MODULE_MIDGROUND_BG,
+            show_dual_sprite_overlay=False,
+            show_expanded_footer_overlay=False,
+        )
+        self.module_three_appearance_shell.place(
+            x=spec.MODULE_THREE_CONTENT_POS[0],
+            y=spec.MODULE_THREE_CONTENT_POS[1],
+        )
+        self.module_three_tabs_pane = self.module_three_appearance_shell.tabs_pane
+        self.module_three_grid_viewport = self.module_three_appearance_shell.grid_viewport
+        self.module_three_footer_pane = self.module_three_appearance_shell.footer_pane
+        self.module_three_dual_sprite_overlay = self.module_three_appearance_shell.dual_sprite_overlay
+        self.module_three_expanded_footer_overlay = self.module_three_appearance_shell.expanded_footer_overlay
 
         self.module_two_top_header = MediaCreationHeader(
             self.module_two_midground_border,
