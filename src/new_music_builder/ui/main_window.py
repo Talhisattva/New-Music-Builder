@@ -25,6 +25,7 @@ from new_music_builder.services.track_import import filter_supported_audio_paths
 from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.app_header import AppHeader
 from new_music_builder.ui.widgets.appearance_panel_shell import AppearancePanelShell
+from new_music_builder.ui.widgets.appearance_selector import AppearanceSelector
 from new_music_builder.ui.widgets.cover_picker import CoverPicker
 from new_music_builder.ui.widgets.labeled_checkbox import LabeledCheckbox
 from new_music_builder.ui.widgets.labeled_text_field import LabeledTextField
@@ -129,6 +130,9 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
     def _check_icon_path(self) -> Path:
         return app_root() / 'assets' / 'Check.png'
+
+    def _small_check_icon_path(self) -> Path:
+        return app_root() / 'assets' / 'SmallCheck.png'
 
     def _cassette_item_icon_path(self) -> Path:
         return app_root() / 'assets' / 'Inventory' / 'Cassette' / 'Item_NM_Cassette4.png'
@@ -297,7 +301,6 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.module_three_appearance_shell = AppearancePanelShell(
             self.module_three_midground,
             bg_color=spec.MODULE_MIDGROUND_BG,
-            show_dual_sprite_overlay=False,
             show_expanded_footer_overlay=False,
         )
         self.module_three_appearance_shell.place(
@@ -305,10 +308,16 @@ class MainWindow(_DnDCompat, ctk.CTk):
             y=spec.MODULE_THREE_CONTENT_POS[1],
         )
         self.module_three_tabs_pane = self.module_three_appearance_shell.tabs_pane
+        self.module_three_dual_sprite_row = self.module_three_appearance_shell.dual_sprite_row
         self.module_three_grid_viewport = self.module_three_appearance_shell.grid_viewport
         self.module_three_footer_pane = self.module_three_appearance_shell.footer_pane
-        self.module_three_dual_sprite_overlay = self.module_three_appearance_shell.dual_sprite_overlay
         self.module_three_expanded_footer_overlay = self.module_three_appearance_shell.expanded_footer_overlay
+        self.module_three_appearance_selector = AppearanceSelector(
+            self.module_three_appearance_shell,
+            asset_catalog=self.asset_catalog,
+            small_check_icon_path=str(self._small_check_icon_path()),
+            on_change=self.on_project_change,
+        )
 
         self.module_two_top_header = MediaCreationHeader(
             self.module_two_midground_border,
@@ -331,6 +340,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.module_two_content_surface = self.module_two_scroll_area.content_frame
         self.module_two_scrollbar = self.module_two_scroll_area.scrollbar
         self._build_module_two_row_list()
+        self._refresh_module_three_appearance_selector()
 
         self.module_one_cover_picker = CoverPicker(
             self.module_one_midground,
@@ -538,6 +548,17 @@ class MainWindow(_DnDCompat, ctk.CTk):
             None,
         )
 
+    def _active_module_three_row(self):
+        expanded = next((row for row in self.session.project.media_rows if row.expanded), None)
+        if expanded is not None:
+            return expanded
+        return self.session.project.media_rows[0] if self.session.project.media_rows else None
+
+    def _refresh_module_three_appearance_selector(self) -> None:
+        if not hasattr(self, 'module_three_appearance_selector'):
+            return
+        self.module_three_appearance_selector.set_active_row(self._active_module_three_row())
+
     def _cancel_module_two_song_drag(self) -> None:
         if self._module_two_song_drag_session is None:
             return
@@ -704,6 +725,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.module_two_content_viewport.yview_moveto(1.0)
         self.module_two_scroll_area.refresh_scroll_region()
         self.module_two_content_viewport.yview_moveto(1.0)
+        self._refresh_module_three_appearance_selector()
         self.on_project_change()
 
     def _remove_module_two_media_rows(self) -> None:
@@ -731,6 +753,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         }
         self._build_module_two_row_list()
         self.module_two_content_viewport.yview_moveto(current_view[0])
+        self._refresh_module_three_appearance_selector()
         self.on_project_change()
 
     def _set_module_two_media_enabled(self, row_id: int, kind: MediaKind, enabled: bool) -> None:
@@ -801,6 +824,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
         self._build_module_two_row_list()
         self.module_two_content_viewport.yview_moveto(current_view[0])
+        self._refresh_module_three_appearance_selector()
         self.on_project_change()
 
     def _select_module_two_media_row(self, row_id: int, modifiers: RowSelectionModifiers) -> None:
@@ -964,6 +988,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._apply_default_asset_selections()
         if hasattr(self, 'module_one_cover_picker'):
             self.module_one_cover_picker.set_cover_path(self.session.project.workshop_poster_path)
+        self._refresh_module_three_appearance_selector()
         if hasattr(self, 'mod_setup'):
             self.mod_setup.refresh()
         if hasattr(self, 'media_creation'):
