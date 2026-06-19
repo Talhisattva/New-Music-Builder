@@ -1,4 +1,5 @@
 from new_music_builder.services.asset_catalog import AssetEntry
+from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.appearance_selector import (
     appearance_tab_order,
     BUILT_IN_DUAL_EMPTY_TO_FULL,
@@ -8,6 +9,7 @@ from new_music_builder.ui.widgets.appearance_selector import (
     merge_appearance_grid_entries,
     should_show_dual_sprite_controls,
 )
+from new_music_builder.ui.widgets.cursor_tooltip import compute_left_tooltip_placement
 
 
 def test_appearance_tab_order_matches_expected_labels() -> None:
@@ -156,3 +158,89 @@ def test_can_commit_dual_custom_requires_all_four_images() -> None:
             'world_empty': 'world-empty.png',
         }
     ) is True
+
+
+def test_compute_left_tooltip_placement_centers_square_and_points_to_cursor() -> None:
+    placement = compute_left_tooltip_placement(
+        cursor_x=500,
+        cursor_y=300,
+        window_left=100,
+        window_top=100,
+        window_width=1000,
+        window_height=700,
+    )
+
+    assert placement.window_x == 500 - spec.MODULE_THREE_TOOLTIP_CURSOR_OFFSET_X - spec.MODULE_THREE_TOOLTIP_POINTER_PROTRUSION - spec.MODULE_THREE_TOOLTIP_SQUARE_SIZE[0]
+    assert placement.window_y == 300 - (spec.MODULE_THREE_TOOLTIP_SQUARE_SIZE[1] // 2)
+    assert placement.pointer_tip_y == spec.MODULE_THREE_TOOLTIP_SQUARE_SIZE[1] // 2
+    assert spec.MODULE_THREE_TOOLTIP_SQUARE_SIZE == (258, 258)
+    assert spec.MODULE_THREE_TOOLTIP_IMAGE_SIZE == (256, 256)
+
+
+def test_compute_left_tooltip_placement_clamps_vertically_inside_window() -> None:
+    placement = compute_left_tooltip_placement(
+        cursor_x=500,
+        cursor_y=120,
+        window_left=100,
+        window_top=100,
+        window_width=1000,
+        window_height=700,
+    )
+
+    assert placement.window_y == 100
+    assert placement.pointer_tip_y == 20
+
+
+def test_dual_grid_entry_resolves_full_and_empty_world_paths() -> None:
+    defaults = [
+        AssetEntry(
+            key='jacket:18',
+            label='18',
+            inventory_path='full-inventory.png',
+            world_path='full-world.png',
+            sprite_mode='dual',
+            kind='jacket',
+        ),
+        AssetEntry(
+            key='jacket:18_empty',
+            label='18 Empty',
+            inventory_path='empty-inventory.png',
+            world_path='empty-world.png',
+            sprite_mode='dual',
+            kind='jacket',
+        ),
+    ]
+
+    merged = merge_appearance_grid_entries('jacket', defaults, [])
+    entry = merged[0]
+
+    assert entry.displayed_world_path(show_empty=False) == 'full-world.png'
+    assert entry.displayed_world_path(show_empty=True) == 'empty-world.png'
+
+
+def test_dual_grid_entry_resolves_display_path_for_inventory_and_world_modes() -> None:
+    defaults = [
+        AssetEntry(
+            key='jacket:18',
+            label='18',
+            inventory_path='full-inventory.png',
+            world_path='full-world.png',
+            sprite_mode='dual',
+            kind='jacket',
+        ),
+        AssetEntry(
+            key='jacket:18_empty',
+            label='18 Empty',
+            inventory_path='empty-inventory.png',
+            world_path='empty-world.png',
+            sprite_mode='dual',
+            kind='jacket',
+        ),
+    ]
+
+    entry = merge_appearance_grid_entries('jacket', defaults, [])[0]
+
+    assert entry.displayed_path('inventory', show_empty=False) == 'full-inventory.png'
+    assert entry.displayed_path('inventory', show_empty=True) == 'empty-inventory.png'
+    assert entry.displayed_path('world', show_empty=False) == 'full-world.png'
+    assert entry.displayed_path('world', show_empty=True) == 'empty-world.png'

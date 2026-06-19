@@ -1,174 +1,30 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
 import tkinter as tk
 import tkinter.font as tkfont
 
 from new_music_builder.domain.models import AppearanceKind, AppearanceSelection, MediaRow
 from new_music_builder.services.asset_catalog import AssetEntry
 from new_music_builder.ui import spec
+from new_music_builder.ui.widgets.appearance_entries import (
+    BUILT_IN_DUAL_EMPTY_TO_FULL,
+    TAB_KINDS,
+    AppearanceGridEntry,
+    PreviewMode,
+    appearance_tab_order,
+    apply_selection_from_grid_entry,
+    can_commit_dual_custom,
+    can_commit_single_custom,
+    fallback_selected_asset_key_after_delete,
+    merge_appearance_grid_entries,
+    should_show_dual_sprite_controls,
+)
 from new_music_builder.ui.widgets.appearance_custom_footer import AppearanceDualCustomFooter, AppearanceSingleCustomFooter
 from new_music_builder.ui.widgets.appearance_panel_shell import AppearancePanelShell
+from new_music_builder.ui.widgets.cursor_tooltip import CursorTooltip
 from new_music_builder.ui.widgets.images import load_tk_photoimage_contained
-
-
-TAB_KINDS: tuple[tuple[AppearanceKind, str], ...] = (
-    ('cassette', 'Cassette'),
-    ('vinyl', 'Vinyl'),
-    ('cd', 'CD'),
-    ('case', 'Case'),
-    ('jacket', 'Jacket'),
-    ('cd_cover', 'CD Case'),
-)
-
-DUAL_SPRITE_KINDS: frozenset[AppearanceKind] = frozenset({'case', 'jacket', 'cd_cover'})
-BUILT_IN_DUAL_PAIRS: dict[str, str] = {
-    'jacket:18': 'jacket:18_empty',
-    'jacket:19': 'jacket:19_empty',
-    'jacket:20': 'jacket:20_empty',
-    'jacket:21': 'jacket:21_empty',
-    'jacket:_Zomboid': 'jacket:_Zomboid_Empty',
-    'cd_cover:_Blank': 'cd_cover:_Empty',
-}
-BUILT_IN_DUAL_EMPTY_TO_FULL: dict[str, str] = {empty_key: full_key for full_key, empty_key in BUILT_IN_DUAL_PAIRS.items()}
-
-
-@dataclass(slots=True)
-class AppearanceGridEntry:
-    key: str
-    label: str
-    inventory_path: str
-    world_path: str
-    sprite_mode: str
-    kind: AppearanceKind
-    is_custom: bool = False
-    is_dual: bool = False
-    inventory_empty_path: str = ''
-    world_empty_path: str = ''
-
-    def displayed_inventory_path(self, *, show_empty: bool) -> str:
-        if self.is_dual and show_empty and self.inventory_empty_path:
-            return self.inventory_empty_path
-        return self.inventory_path
-
-
-def appearance_tab_order() -> tuple[tuple[AppearanceKind, str], ...]:
-    return TAB_KINDS
-
-
-def should_show_dual_sprite_controls(kind: AppearanceKind) -> bool:
-    return kind in DUAL_SPRITE_KINDS
-
-
-def can_commit_single_custom(staged: dict[str, str]) -> bool:
-    return bool(staged.get('inventory_full') and staged.get('world_full'))
-
-
-def can_commit_dual_custom(staged: dict[str, str]) -> bool:
-    return bool(
-        staged.get('inventory_full')
-        and staged.get('world_full')
-        and staged.get('inventory_empty')
-        and staged.get('world_empty')
-    )
-
-
-def merge_appearance_grid_entries(
-    kind: AppearanceKind,
-    defaults: list[AssetEntry],
-    custom_assets: list[dict[str, str]],
-) -> list[AppearanceGridEntry]:
-    merged: list[AppearanceGridEntry] = []
-    defaults_by_key = {entry.key: entry for entry in defaults}
-    consumed_default_keys: set[str] = set()
-    for entry in defaults:
-        if entry.key in consumed_default_keys:
-            continue
-        empty_pair_key = BUILT_IN_DUAL_PAIRS.get(entry.key)
-        if empty_pair_key and empty_pair_key in defaults_by_key:
-            empty_entry = defaults_by_key[empty_pair_key]
-            merged.append(
-                AppearanceGridEntry(
-                    key=entry.key,
-                    label=entry.label,
-                    inventory_path=entry.inventory_path,
-                    world_path=entry.world_path,
-                    sprite_mode='dual',
-                    kind=kind,
-                    is_custom=False,
-                    is_dual=True,
-                    inventory_empty_path=empty_entry.inventory_path,
-                    world_empty_path=empty_entry.world_path,
-                )
-            )
-            consumed_default_keys.add(entry.key)
-            consumed_default_keys.add(empty_pair_key)
-            continue
-        if entry.key in BUILT_IN_DUAL_EMPTY_TO_FULL:
-            consumed_default_keys.add(entry.key)
-            continue
-        merged.append(
-            AppearanceGridEntry(
-                key=entry.key,
-                label=entry.label,
-                inventory_path=entry.inventory_path,
-                world_path=entry.world_path,
-                sprite_mode=entry.sprite_mode,
-                kind=kind,
-                is_custom=False,
-            )
-        )
-    for index, asset in enumerate(custom_assets):
-        inventory_path = asset.get('inventory_full', '')
-        world_path = asset.get('world_full', '')
-        key = asset.get('key', f'custom:{kind}:{index + 1}')
-        label = asset.get('label') or inventory_path.rsplit('/', 1)[-1].rsplit('\\', 1)[-1] or f'Custom {index + 1}'
-        sprite_mode = asset.get('sprite_mode', 'single') or 'single'
-        is_dual = sprite_mode == 'dual' and bool(asset.get('inventory_empty') and asset.get('world_empty'))
-        merged.append(
-            AppearanceGridEntry(
-                key=key,
-                label=label,
-                inventory_path=inventory_path,
-                world_path=world_path,
-                sprite_mode=sprite_mode,
-                kind=kind,
-                is_custom=True,
-                is_dual=is_dual,
-                inventory_empty_path=asset.get('inventory_empty', ''),
-                world_empty_path=asset.get('world_empty', ''),
-            )
-        )
-    return merged
-
-
-def fallback_selected_asset_key_after_delete(
-    entries: list[AppearanceGridEntry],
-    *,
-    deleted_key: str,
-    selected_key: str,
-) -> str:
-    if selected_key != deleted_key:
-        return selected_key
-    return entries[0].key if entries else ''
-
-
-def apply_selection_from_grid_entry(selection: AppearanceSelection, entry: AppearanceGridEntry) -> None:
-    selection.selected_asset_key = entry.key
-    selection.sprite_mode = entry.sprite_mode if should_show_dual_sprite_controls(entry.kind) else 'single'
-    if entry.is_custom:
-        selection.source = 'custom'
-        selection.inventory_full = entry.inventory_path
-        selection.world_full = entry.world_path
-        selection.inventory_empty = entry.inventory_empty_path if entry.is_dual else ''
-        selection.world_empty = entry.world_empty_path if entry.is_dual else ''
-    else:
-        selection.source = 'default'
-        selection.inventory_full = ''
-        selection.world_full = ''
-        selection.inventory_empty = ''
-        selection.world_empty = ''
+from new_music_builder.ui.widgets.preview_mode_toggle import PreviewModeToggle
 
 
 class _BorderSurface(tk.Frame):
@@ -280,20 +136,20 @@ class _AppearanceTab(_BorderSurface):
             height=spec.MODULE_THREE_TAB_ICON_SIZE[1],
         )
         self.text_label = tk.Label(
-            self,
+            self.content,
             text=label,
             bg=spec.MODULE_THREE_TAB_BG,
             fg=spec.MODULE_THREE_TAB_LABEL_COLOR,
             bd=0,
             highlightthickness=0,
             font=label_font,
-            anchor='s',
+            anchor='center',
         )
         self.text_label.place(
-            x=(spec.MODULE_THREE_TAB_SIZE[0] - spec.MODULE_THREE_TAB_LABEL_WIDTH) // 2,
-            y=spec.MODULE_THREE_TAB_SIZE[1] - 12,
+            x=((spec.MODULE_THREE_TAB_SIZE[0] - (spec.MODULE_THREE_TAB_BORDER_WIDTH * 2)) - spec.MODULE_THREE_TAB_LABEL_WIDTH) // 2,
+            y=(spec.MODULE_THREE_TAB_SIZE[1] - (spec.MODULE_THREE_TAB_BORDER_WIDTH * 2)) - 10,
             width=spec.MODULE_THREE_TAB_LABEL_WIDTH,
-            height=9,
+            height=8,
         )
         self.icon_label.lift()
         self.text_label.lift()
@@ -338,8 +194,12 @@ class _AppearanceGridTile(_BorderSurface):
         parent: tk.Misc,
         *,
         entry: AppearanceGridEntry,
+        display_mode: PreviewMode,
         on_selected: Callable[[str], None],
         on_remove_custom: Callable[[str], None],
+        on_hover_started: Callable[[AppearanceGridEntry, int, int], None],
+        on_hover_moved: Callable[[AppearanceGridEntry, int, int], None],
+        on_hover_ended: Callable[[AppearanceGridEntry], None],
     ) -> None:
         super().__init__(
             parent,
@@ -351,10 +211,14 @@ class _AppearanceGridTile(_BorderSurface):
         self.entry = entry
         self._on_selected = on_selected
         self._on_remove_custom = on_remove_custom
+        self._on_hover_started = on_hover_started
+        self._on_hover_moved = on_hover_moved
+        self._on_hover_ended = on_hover_ended
         self._hovered = False
         self._selected = False
         self._show_empty = False
-        self._image_cache: dict[tuple[int, bool], object | None] = {}
+        self._display_mode: PreviewMode = display_mode
+        self._image_cache: dict[tuple[int, PreviewMode, bool], object | None] = {}
         self.icon_label = tk.Label(self, bg=spec.MODULE_THREE_GRID_TILE_BG, bd=0, highlightthickness=0)
         self.icon_label.place(
             x=(spec.MODULE_THREE_GRID_TILE_SIZE[0] - spec.MODULE_THREE_GRID_TILE_ICON_SIZE[0]) // 2,
@@ -385,6 +249,7 @@ class _AppearanceGridTile(_BorderSurface):
         for widget in (self, self.icon_label, self.content):
             widget.bind('<Enter>', self._on_enter, add='+')
             widget.bind('<Leave>', self._on_leave, add='+')
+            widget.bind('<Motion>', self._on_motion, add='+')
             widget.bind('<ButtonPress-1>', self._on_press, add='+')
 
     def set_selected(self, selected: bool) -> None:
@@ -392,10 +257,13 @@ class _AppearanceGridTile(_BorderSurface):
         self._apply_colors()
 
     def set_icon_size(self, size: int) -> None:
-        cache_key = (size, self._show_empty)
+        cache_key = (size, self._display_mode, self._show_empty)
         image = self._image_cache.get(cache_key)
         if image is None:
-            image = load_tk_photoimage_contained(self.entry.displayed_inventory_path(show_empty=self._show_empty), (size, size))
+            image = load_tk_photoimage_contained(
+                self.entry.displayed_path(self._display_mode, show_empty=self._show_empty),
+                (size, size),
+            )
             self._image_cache[cache_key] = image
         x = (spec.MODULE_THREE_GRID_TILE_SIZE[0] - size) // 2
         y = (spec.MODULE_THREE_GRID_TILE_SIZE[1] - size) // 2
@@ -411,15 +279,33 @@ class _AppearanceGridTile(_BorderSurface):
         self._show_empty = show_empty
         self.set_icon_size(spec.MODULE_THREE_GRID_TILE_ICON_SIZE[0])
 
+    def set_display_mode(self, mode: PreviewMode) -> None:
+        if self._display_mode == mode:
+            return
+        self._display_mode = mode
+        self.set_icon_size(spec.MODULE_THREE_GRID_TILE_ICON_SIZE[0])
+
+    @property
+    def display_mode(self) -> PreviewMode:
+        return self._display_mode
+
+    def current_display_path(self) -> str:
+        return self.entry.displayed_path(self._display_mode, show_empty=self._show_empty)
+
     def current_inventory_path(self) -> str:
         return self.entry.displayed_inventory_path(show_empty=self._show_empty)
+
+    def current_world_path(self) -> str:
+        return self.entry.displayed_world_path(show_empty=self._show_empty)
 
     def _prime_image_cache(self) -> None:
         sizes = set(spec.MODULE_THREE_GRID_ANIMATION_SIZES + (spec.MODULE_THREE_GRID_TILE_ICON_SIZE[0],))
         for size in sizes:
-            self._image_cache[(size, False)] = load_tk_photoimage_contained(self.entry.inventory_path, (size, size))
+            self._image_cache[(size, 'inventory', False)] = load_tk_photoimage_contained(self.entry.inventory_path, (size, size))
+            self._image_cache[(size, 'world', False)] = load_tk_photoimage_contained(self.entry.world_path, (size, size))
             if self.entry.is_dual:
-                self._image_cache[(size, True)] = load_tk_photoimage_contained(self.entry.inventory_empty_path, (size, size))
+                self._image_cache[(size, 'inventory', True)] = load_tk_photoimage_contained(self.entry.inventory_empty_path, (size, size))
+                self._image_cache[(size, 'world', True)] = load_tk_photoimage_contained(self.entry.world_empty_path, (size, size))
 
     def _apply_colors(self) -> None:
         if self._selected:
@@ -435,13 +321,18 @@ class _AppearanceGridTile(_BorderSurface):
         self.icon_label.configure(bg=fill)
         self.delete_label.configure(bg=fill)
 
-    def _on_enter(self, _event: tk.Event) -> None:
+    def _on_enter(self, event: tk.Event) -> None:
         self._hovered = True
         self._apply_colors()
+        self._on_hover_started(self.entry, int(event.x_root), int(event.y_root))
 
     def _on_leave(self, _event: tk.Event) -> None:
         self._hovered = False
         self._apply_colors()
+        self._on_hover_ended(self.entry)
+
+    def _on_motion(self, event: tk.Event) -> None:
+        self._on_hover_moved(self.entry, int(event.x_root), int(event.y_root))
 
     def _on_press(self, _event: tk.Event) -> str:
         self._on_selected(self.entry.key)
@@ -465,6 +356,8 @@ class AppearanceSelector:
         on_reset_custom: Callable[[AppearanceKind, bool], None],
         on_commit_custom: Callable[[AppearanceKind, bool], None],
         on_delete_custom: Callable[[AppearanceKind, str], None],
+        on_preview_mode_selected: Callable[[int, str], None] | None,
+        on_selection_changed: Callable[[int], None] | None,
         on_change: Callable[[], None],
     ) -> None:
         self.shell = shell
@@ -476,6 +369,8 @@ class AppearanceSelector:
         self._on_reset_custom = on_reset_custom
         self._on_commit_custom = on_commit_custom
         self._on_delete_custom = on_delete_custom
+        self._on_preview_mode_selected = on_preview_mode_selected
+        self._on_selection_changed = on_selection_changed
         self._on_change = on_change
         self._active_row: MediaRow | None = None
         self._active_kind: AppearanceKind = 'cassette'
@@ -484,10 +379,13 @@ class AppearanceSelector:
         self._current_entries_by_kind: dict[AppearanceKind, list[AppearanceGridEntry]] = {}
         self._dual_phase_show_empty = False
         self._dual_phase_after_id: str | None = None
+        self._tooltip_hide_after_id: str | None = None
+        self._cursor_tooltip = CursorTooltip(self.shell)
         self._dual_row_label_font = tkfont.Font(
             family=spec.MODULE_THREE_DUAL_SPRITE_LABEL_FONT_FAMILY,
             size=spec.MODULE_THREE_DUAL_SPRITE_LABEL_FONT_SIZE,
         )
+        self._preview_mode_toggle: PreviewModeToggle | None = None
 
         self._build_tabs()
         self._build_dual_sprite_row()
@@ -506,6 +404,8 @@ class AppearanceSelector:
         self.refresh_from_active_row()
 
     def set_active_row(self, row: MediaRow | None) -> None:
+        self._cancel_tooltip_hide()
+        self._cursor_tooltip.hide()
         self._active_row = row
         self.refresh_from_active_row()
 
@@ -513,13 +413,15 @@ class AppearanceSelector:
         row = self._active_row
         if row is None:
             self._cancel_dual_phase_loop()
+            self._cancel_tooltip_hide()
+            self._cursor_tooltip.hide()
             return
         row.ensure_appearances()
         for kind, _label in TAB_KINDS:
             self._ensure_valid_selection(row, kind)
             self._tab_widgets[kind].set_selected(kind == self._active_kind)
             entry = self._entry_for_kind(row, kind)
-            self._tab_widgets[kind].set_image(entry.displayed_inventory_path(show_empty=False) if entry else None)
+            self._tab_widgets[kind].set_image(entry.displayed_path(self._preview_mode(), show_empty=False) if entry else None)
         self._refresh_dual_sprite_row()
         self._refresh_footer()
         self._rebuild_grid()
@@ -531,7 +433,7 @@ class AppearanceSelector:
             self._tab_widgets[kind] = tab
 
     def _build_dual_sprite_row(self) -> None:
-        row_content = self.shell.dual_sprite_row.content
+        row_content = self.shell.dual_sprite_left_pane.content
         self.dual_checkbox = _SmallCheckBox(
             row_content,
             check_icon_path=self._small_check_icon_path,
@@ -552,7 +454,23 @@ class AppearanceSelector:
             font=self._dual_row_label_font,
             anchor='w',
         )
-        self.dual_label.place(x=label_x, y=0, width=160, height=spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE[1] - (spec.MODULE_THREE_PANEL_BORDER_WIDTH * 2))
+        self._place_dual_label(label_x)
+        self._preview_mode_toggle = PreviewModeToggle(
+            self.shell.preview_mode_pane.content,
+            left_text='WORLD',
+            right_text='INVENTORY',
+            left_mode='world',
+            right_mode='inventory',
+            left_width=spec.MODULE_THREE_PREVIEW_MODE_WORLD_SIZE[0],
+            right_width=spec.MODULE_THREE_PREVIEW_MODE_INVENTORY_SIZE[0],
+            height=spec.MODULE_THREE_PREVIEW_MODE_ROW_SIZE[1] - (spec.MODULE_THREE_PANEL_BORDER_WIDTH * 2),
+            initial_mode='inventory',
+            command=self._select_preview_mode,
+            bg_color=spec.MODULE_THREE_PANEL_BG,
+            outline_color=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_OUTLINE,
+            outline_width=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_OUTLINE_WIDTH,
+        )
+        self._preview_mode_toggle.place(x=0, y=0)
 
     def _build_footer(self) -> None:
         self.single_custom_footer = AppearanceSingleCustomFooter(
@@ -578,6 +496,8 @@ class AppearanceSelector:
         row = self._active_row
         if row is None:
             return
+        if self._preview_mode_toggle is not None:
+            self._preview_mode_toggle.set_mode(self._preview_mode())
         visible = should_show_dual_sprite_controls(self._active_kind)
         if visible:
             selection = row.appearances[self._active_kind]
@@ -587,12 +507,7 @@ class AppearanceSelector:
                 y=spec.MODULE_THREE_DUAL_SPRITE_CHECKBOX_POS[1],
             )
             label_x = spec.MODULE_THREE_DUAL_SPRITE_CHECKBOX_POS[0] + spec.MODULE_THREE_DUAL_SPRITE_CHECKBOX_SIZE[0] + spec.MODULE_THREE_DUAL_SPRITE_LABEL_GAP_X
-            self.dual_label.place(
-                x=label_x,
-                y=0,
-                width=160,
-                height=spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE[1] - (spec.MODULE_THREE_PANEL_BORDER_WIDTH * 2),
-            )
+            self._place_dual_label(label_x)
         else:
             self.dual_checkbox.place_forget()
             self.dual_label.place_forget()
@@ -621,6 +536,8 @@ class AppearanceSelector:
 
     def _rebuild_grid(self) -> None:
         self._cancel_dual_phase_loop()
+        self._cancel_tooltip_hide()
+        self._cursor_tooltip.hide()
         for child in self.shell.grid_viewport.content_frame.winfo_children():
             child.destroy()
         self._grid_tiles.clear()
@@ -641,8 +558,12 @@ class AppearanceSelector:
             tile = _AppearanceGridTile(
                 self.shell.grid_viewport.content_frame,
                 entry=entry,
+                display_mode=self._preview_mode(),
                 on_selected=self._handle_grid_selected,
                 on_remove_custom=self._handle_remove_custom,
+                on_hover_started=self._handle_tile_hover_started,
+                on_hover_moved=self._handle_tile_hover_moved,
+                on_hover_ended=self._handle_tile_hover_ended,
             )
             tile.place(
                 x=(index % 4) * spec.MODULE_THREE_GRID_TILE_SIZE[0],
@@ -673,10 +594,33 @@ class AppearanceSelector:
         self._update_active_tab_icon()
         self._refresh_dual_sprite_row()
         self._refresh_footer()
+        if self._on_selection_changed is not None:
+            self._on_selection_changed(row.row_id)
         self._on_change()
 
     def _handle_remove_custom(self, key: str) -> None:
         self._on_delete_custom(self._active_kind, key)
+
+    def _handle_tile_hover_started(self, _entry: AppearanceGridEntry, x_root: int, y_root: int) -> None:
+        if self._preview_mode() != 'world':
+            self._cursor_tooltip.hide()
+            return
+        self._cancel_tooltip_hide()
+        tile = self._grid_tiles.get(_entry.key)
+        self._cursor_tooltip.set_image(tile.current_world_path() if tile is not None else _entry.displayed_world_path(show_empty=False))
+        self._cursor_tooltip.show_at_cursor(x_root, y_root, direction='left')
+
+    def _handle_tile_hover_moved(self, _entry: AppearanceGridEntry, x_root: int, y_root: int) -> None:
+        if self._preview_mode() != 'world':
+            self._cursor_tooltip.hide()
+            return
+        self._cancel_tooltip_hide()
+        tile = self._grid_tiles.get(_entry.key)
+        self._cursor_tooltip.set_image(tile.current_world_path() if tile is not None else _entry.displayed_world_path(show_empty=False))
+        self._cursor_tooltip.move_to_cursor(x_root, y_root)
+
+    def _handle_tile_hover_ended(self, _entry: AppearanceGridEntry) -> None:
+        self._schedule_tooltip_hide()
 
     def _toggle_dual_sprite(self) -> None:
         row = self._active_row
@@ -686,6 +630,8 @@ class AppearanceSelector:
         selection.sprite_mode = 'single' if selection.sprite_mode == 'dual' else 'dual'
         self._refresh_dual_sprite_row()
         self._refresh_footer()
+        if self._on_selection_changed is not None:
+            self._on_selection_changed(row.row_id)
         self._on_change()
 
     def _ensure_valid_selection(self, row: MediaRow, kind: AppearanceKind) -> None:
@@ -725,9 +671,9 @@ class AppearanceSelector:
             return
         selected_tile = self._grid_tiles.get(entry.key)
         if selected_tile is not None:
-            self._tab_widgets[self._active_kind].set_image(selected_tile.current_inventory_path())
+            self._tab_widgets[self._active_kind].set_image(selected_tile.current_display_path())
             return
-        self._tab_widgets[self._active_kind].set_image(entry.displayed_inventory_path(show_empty=self._dual_phase_show_empty))
+        self._tab_widgets[self._active_kind].set_image(entry.displayed_path(self._preview_mode(), show_empty=self._dual_phase_show_empty))
 
     def _schedule_dual_phase_loop_if_needed(self) -> None:
         if any(tile.entry.is_dual for tile in self._grid_tiles.values()):
@@ -748,5 +694,45 @@ class AppearanceSelector:
         self._dual_phase_show_empty = not self._dual_phase_show_empty
         for tile in self._grid_tiles.values():
             tile.set_dual_phase(show_empty=self._dual_phase_show_empty)
+        hovered_tile = next((tile for tile in self._grid_tiles.values() if tile._hovered), None)
+        if hovered_tile is not None and self._preview_mode() == 'world':
+            self._cursor_tooltip.set_image(hovered_tile.current_world_path())
+        elif self._preview_mode() != 'world':
+            self._cursor_tooltip.hide()
         self._update_active_tab_icon()
         self._schedule_dual_phase_loop_if_needed()
+
+    def _place_dual_label(self, x: int) -> None:
+        row_height = spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE[1] - (spec.MODULE_THREE_PANEL_BORDER_WIDTH * 2)
+        label_height = self._dual_row_label_font.metrics('linespace') + 2
+        y = max(0, (row_height - label_height) // 2)
+        self.dual_label.place(x=x, y=y, width=spec.MODULE_THREE_DUAL_SPRITE_LABEL_WIDTH, height=label_height)
+
+    def _preview_mode(self) -> PreviewMode:
+        row = self._active_row
+        if row is None:
+            return 'inventory'
+        return 'world' if row.preview_mode == 'world' else 'inventory'
+
+    def _select_preview_mode(self, mode: str) -> None:
+        row = self._active_row
+        if row is None or mode not in {'inventory', 'world'}:
+            return
+        if self._on_preview_mode_selected is not None:
+            self._on_preview_mode_selected(row.row_id, mode)
+
+    def _schedule_tooltip_hide(self) -> None:
+        self._cancel_tooltip_hide()
+        self._tooltip_hide_after_id = self.shell.after(spec.MODULE_THREE_GRID_HOVER_HIDE_DELAY_MS, self._hide_tooltip_now)
+
+    def _cancel_tooltip_hide(self) -> None:
+        if self._tooltip_hide_after_id is not None:
+            try:
+                self.shell.after_cancel(self._tooltip_hide_after_id)
+            except tk.TclError:
+                pass
+            self._tooltip_hide_after_id = None
+
+    def _hide_tooltip_now(self) -> None:
+        self._tooltip_hide_after_id = None
+        self._cursor_tooltip.hide()

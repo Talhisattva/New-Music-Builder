@@ -25,6 +25,7 @@ from new_music_builder.services.session_store import SessionStore
 from new_music_builder.services.track_import import filter_supported_audio_paths
 from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.app_header import AppHeader
+from new_music_builder.ui.widgets.appearance_entries import entry_for_selected_key
 from new_music_builder.ui.widgets.appearance_panel_shell import AppearancePanelShell
 from new_music_builder.ui.widgets.appearance_selector import (
     AppearanceSelector,
@@ -168,27 +169,16 @@ class MainWindow(_DnDCompat, ctk.CTk):
     def _preview_audio_icon_path(self) -> Path:
         return app_root() / 'assets' / 'PreviewAudioIcon.png'
 
-    def _module_two_live_preview_paths(self) -> dict[str, dict[str, str]]:
-        inventory_root = app_root() / 'assets' / 'Inventory'
-        world_root = app_root() / 'assets' / 'World'
-        return {
-            'inventory': {
-                'cassette': str(inventory_root / 'Cassette' / 'Item_NM_Cassette4.png'),
-                'cassette_case': str(inventory_root / 'CassetteCase' / 'Item_NM_Case9.png'),
-                'vinyl': str(inventory_root / 'Vinyl' / 'Item_NM_Vinyl7.png'),
-                'vinyl_jacket': str(inventory_root / 'VinylJacket' / 'Item_NM_Jacket9.png'),
-                'cd': str(inventory_root / 'CD' / 'Item_NM_CD.png'),
-                'cd_cover': str(inventory_root / 'CDCover' / 'Item_NM_CDCover9.png'),
-            },
-            'world': {
-                'cassette': str(world_root / 'Cassette' / 'World_NM_Cassette04.png'),
-                'cassette_case': str(world_root / 'CassetteCase' / 'World_NM_CassetteCover9.png'),
-                'vinyl': str(world_root / 'Vinyl' / 'World_NM_Vinyl8.png'),
-                'vinyl_jacket': str(world_root / 'VinylJacket' / 'World_NM_Cover9.png'),
-                'cd': str(world_root / 'CD' / 'World_NM_CD.png'),
-                'cd_cover': str(world_root / 'CDCover' / 'World_NM_CDCover9.png'),
-            },
-        }
+    def _module_two_preview_entry(self, row, kind: AppearanceKind) -> AppearanceGridEntry | None:
+        row.ensure_appearances()
+        entries = self._module_three_entries_for_kind(kind)
+        return entry_for_selected_key(entries, row.appearances[kind].selected_asset_key)
+
+    def _module_two_preview_path_for_row(self, row, kind: AppearanceKind, mode: str) -> str | None:
+        entry = self._module_two_preview_entry(row, kind)
+        if entry is None:
+            return None
+        return entry.displayed_path('world' if mode == 'world' else 'inventory', show_empty=False)
 
     def _apply_window_icon(self) -> None:
         native_icon = self._native_icon_path()
@@ -332,6 +322,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
             on_reset_custom=self._reset_module_three_custom_staged,
             on_commit_custom=self._commit_module_three_custom,
             on_delete_custom=self._delete_module_three_custom_asset,
+            on_preview_mode_selected=self._set_module_two_preview_mode,
+            on_selection_changed=self._refresh_module_two_live_preview_for_row,
             on_change=self.on_project_change,
         )
 
@@ -495,7 +487,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             grab_icon_path=str(self._grab_icon_path()),
             table_check_icon_path=str(self._table_check_icon_path()),
             preview_audio_icon_path=str(self._preview_audio_icon_path()),
-            live_preview_paths=self._module_two_live_preview_paths(),
+            resolve_live_preview_path=self._module_two_preview_path_for_row,
             bg_color=spec.MODULE_MIDGROUND_BG,
             on_row_selected=self._expand_module_two_media_row,
             selected_row_ids=self.module_two_selected_row_ids,
@@ -645,6 +637,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
                 world_empty_path=custom_record.get('world_empty', ''),
             ),
         )
+        self._refresh_module_two_live_preview_for_row(target_row.row_id)
         self._reset_module_three_custom_staged(kind, dual_mode)
         self._refresh_module_three_appearance_selector()
         self.on_project_change()
@@ -678,6 +671,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             next_entry = next((entry for entry in remaining_entries if entry.key == next_key), None)
             if next_entry is not None:
                 apply_selection_from_grid_entry(selection, next_entry)
+                self._refresh_module_two_live_preview_for_row(row.row_id)
         self._refresh_module_three_appearance_selector()
         self.on_project_change()
 
@@ -714,6 +708,11 @@ class MainWindow(_DnDCompat, ctk.CTk):
         if not hasattr(self, 'module_three_appearance_selector'):
             return
         self.module_three_appearance_selector.set_active_row(self._active_module_three_row())
+
+    def _refresh_module_two_live_preview_for_row(self, row_id: int) -> None:
+        expanded_widget = self._expanded_row_widget(row_id)
+        if expanded_widget is not None:
+            expanded_widget.refresh_live_preview()
 
     def _cancel_module_two_song_drag(self) -> None:
         if self._module_two_song_drag_session is None:
@@ -961,6 +960,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         if target_row.preview_mode == mode:
             return
         target_row.preview_mode = mode
+        self._refresh_module_two_live_preview_for_row(row_id)
+        self._refresh_module_three_appearance_selector()
         self.on_project_change()
 
     def _expand_module_two_media_row(self, row_id: int) -> None:

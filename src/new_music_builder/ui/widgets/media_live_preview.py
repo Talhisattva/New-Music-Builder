@@ -1,89 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from pathlib import Path
 import tkinter as tk
 
-from PIL import Image, ImageTk
-
-from new_music_builder.domain.models import MediaRow
+from new_music_builder.domain.models import AppearanceKind, MediaRow
 from new_music_builder.ui import spec
-from new_music_builder.ui.widgets.images import load_tk_photoimage
-
-
-class _PreviewModeButton(tk.Canvas):
-    def __init__(
-        self,
-        parent: tk.Misc,
-        *,
-        text: str,
-        command: Callable[[], None] | None = None,
-        size: tuple[int, int],
-    ) -> None:
-        super().__init__(
-            parent,
-            width=size[0],
-            height=size[1],
-            bg=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_INACTIVE_BG,
-            bd=0,
-            highlightthickness=0,
-        )
-        self._command = command
-        self._size = size
-        self._is_active = False
-        self._draw(text)
-        self.bind('<ButtonPress-1>', self._on_press, add='+')
-        self.bind('<ButtonRelease-1>', self._on_release, add='+')
-
-    def _draw(self, text: str) -> None:
-        self._fill_id = self.create_rectangle(
-            0,
-            0,
-            self._size[0],
-            self._size[1],
-            outline='',
-            fill=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_INACTIVE_BG,
-        )
-        self.create_text(
-            self._size[0] / 2,
-            self._size[1] / 2,
-            text=text,
-            fill=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_TEXT_COLOR,
-            font=(
-                spec.MEDIA_ROW_LIVE_PREVIEW_MODE_FONT_FAMILY,
-                spec.MEDIA_ROW_LIVE_PREVIEW_MODE_FONT_SIZE,
-            ),
-            anchor='c',
-        )
-
-    def _on_press(self, _event: tk.Event | None = None) -> str:
-        return 'break'
-
-    def _on_release(self, event: tk.Event | None = None) -> str:
-        inside = False
-        if event is not None:
-            inside = 0 <= event.x <= self._size[0] and 0 <= event.y <= self._size[1]
-        if inside and self._command is not None:
-            self._command()
-        return 'break'
-
-    def set_active(self, active: bool) -> None:
-        self._is_active = active
-        self.itemconfigure(
-            self._fill_id,
-            fill=(
-                spec.MEDIA_ROW_LIVE_PREVIEW_MODE_ACTIVE_BG
-                if active
-                else spec.MEDIA_ROW_LIVE_PREVIEW_MODE_INACTIVE_BG
-            ),
-        )
-        self.configure(
-            bg=(
-                spec.MEDIA_ROW_LIVE_PREVIEW_MODE_ACTIVE_BG
-                if active
-                else spec.MEDIA_ROW_LIVE_PREVIEW_MODE_INACTIVE_BG
-            )
-        )
+from new_music_builder.ui.widgets.images import load_tk_photoimage, load_tk_photoimage_contained
+from new_music_builder.ui.widgets.preview_mode_toggle import PreviewModeToggle
 
 
 class MediaLivePreview(tk.Frame):
@@ -93,7 +16,7 @@ class MediaLivePreview(tk.Frame):
         *,
         row: MediaRow,
         bg_color: str,
-        asset_paths: dict[str, dict[str, str]] | None = None,
+        resolve_preview_path: Callable[[MediaRow, AppearanceKind, str], str | None] | None = None,
         on_mode_selected: Callable[[int, str], None] | None = None,
     ) -> None:
         super().__init__(
@@ -108,23 +31,17 @@ class MediaLivePreview(tk.Frame):
         self._row = row
         self._row_id = row.row_id
         self._selected_mode = row.preview_mode
-        self._asset_paths = asset_paths or {}
+        self._resolve_preview_path = resolve_preview_path
         self._on_mode_selected = on_mode_selected
         self._content_bg = spec.MEDIA_ROW_LIVE_PREVIEW_CONTENT_BG
         self._slot_keys = (
-            ('cassette', 'cassette_case'),
-            ('vinyl', 'vinyl_jacket'),
+            ('cassette', 'case'),
+            ('vinyl', 'jacket'),
             ('cd', 'cd_cover'),
         )
         self._slot_frames: list[tk.Frame] = []
         self._slot_labels: list[tk.Label] = []
-        self._images: dict[str, dict[str, tk.PhotoImage | None]] = {
-            mode: {
-                key: self._load_preview_image(mode, key, path)
-                for key, path in mode_paths.items()
-            }
-            for mode, mode_paths in self._asset_paths.items()
-        }
+        self._images: dict[tuple[str, str, str], tk.PhotoImage | None] = {}
 
         self.header = tk.Frame(
             self,
@@ -175,44 +92,22 @@ class MediaLivePreview(tk.Frame):
         self.mode_strip.place(x=0, y=strip_y)
         self.mode_strip.pack_propagate(False)
 
-        self.inventory_button = _PreviewModeButton(
+        self.mode_toggle = PreviewModeToggle(
             self.mode_strip,
-            text='Inventory',
-            command=lambda: self._select_mode('inventory'),
-            size=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_BUTTON_SIZE,
-        )
-        self.inventory_button.place(x=0, y=0)
-
-        self.mode_left_border = tk.Frame(
-            self.mode_strip,
-            bg=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_OUTLINE,
-            bd=0,
-            highlightthickness=0,
-            width=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_OUTLINE_WIDTH,
+            left_text='Inventory',
+            right_text='World',
+            left_mode='inventory',
+            right_mode='world',
+            left_width=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_BUTTON_SIZE[0],
+            right_width=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_BUTTON_SIZE[0],
             height=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_STRIP_HEIGHT,
+            initial_mode=self._selected_mode,
+            command=self._select_mode,
+            bg_color=bg_color,
+            outline_color=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_OUTLINE,
+            outline_width=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_OUTLINE_WIDTH,
         )
-        self.mode_left_border.place(x=0, y=0)
-
-        self.world_button = _PreviewModeButton(
-            self.mode_strip,
-            text='World',
-            command=lambda: self._select_mode('world'),
-            size=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_BUTTON_SIZE,
-        )
-        self.world_button.place(x=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_BUTTON_SIZE[0], y=0)
-
-        self.mode_right_border = tk.Frame(
-            self.mode_strip,
-            bg=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_OUTLINE,
-            bd=0,
-            highlightthickness=0,
-            width=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_OUTLINE_WIDTH,
-            height=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_STRIP_HEIGHT,
-        )
-        self.mode_right_border.place(
-            x=spec.MEDIA_ROW_LIVE_PREVIEW_SIZE[0] - spec.MEDIA_ROW_LIVE_PREVIEW_MODE_OUTLINE_WIDTH,
-            y=0,
-        )
+        self.mode_toggle.place(x=0, y=0)
 
         content_y = strip_y + spec.MEDIA_ROW_LIVE_PREVIEW_MODE_STRIP_HEIGHT
         self.content_border = tk.Frame(
@@ -244,36 +139,19 @@ class MediaLivePreview(tk.Frame):
 
         self._apply_state()
 
-    def _load_preview_image(
-        self,
-        mode: str,
-        key: str,
-        path: str | None,
-    ) -> tk.PhotoImage | None:
-        if mode != 'world':
-            return load_tk_photoimage(path)
-        if key == 'cassette':
-            return self._load_aspect_fit_image(path, spec.MEDIA_ROW_LIVE_PREVIEW_SLOT_SIZE)
-        return load_tk_photoimage(path, size=spec.MEDIA_ROW_LIVE_PREVIEW_SLOT_SIZE)
-
-    def _load_aspect_fit_image(
-        self,
-        path: str | None,
-        box_size: tuple[int, int],
-    ) -> tk.PhotoImage | None:
+    def _image_for_slot(self, mode: str, kind: AppearanceKind) -> tk.PhotoImage | None:
+        if self._resolve_preview_path is None:
+            return None
+        path = self._resolve_preview_path(self._row, kind, mode)
         if not path:
             return None
-        img_path = Path(path)
-        if not img_path.exists():
-            return None
-        image = Image.open(img_path)
-        fitted = Image.new('RGBA', box_size, (0, 0, 0, 0))
-        contained = image.copy()
-        contained.thumbnail(box_size, Image.Resampling.LANCZOS)
-        paste_x = (box_size[0] - contained.width) // 2
-        paste_y = (box_size[1] - contained.height) // 2
-        fitted.paste(contained, (paste_x, paste_y), contained if contained.mode == 'RGBA' else None)
-        return ImageTk.PhotoImage(fitted)
+        cache_key = (mode, kind, path)
+        if cache_key not in self._images:
+            if mode == 'world':
+                self._images[cache_key] = load_tk_photoimage_contained(path, spec.MEDIA_ROW_LIVE_PREVIEW_SLOT_SIZE)
+            else:
+                self._images[cache_key] = load_tk_photoimage(path, size=spec.MEDIA_ROW_LIVE_PREVIEW_SLOT_SIZE)
+        return self._images[cache_key]
 
     def _build_content_slots(self) -> None:
         left_x = spec.MEDIA_ROW_LIVE_PREVIEW_SLOT_LEFT_X
@@ -313,22 +191,20 @@ class MediaLivePreview(tk.Frame):
             self._on_mode_selected(self._row_id, mode)
 
     def _apply_state(self) -> None:
-        self.inventory_button.set_active(self._selected_mode == 'inventory')
-        self.world_button.set_active(self._selected_mode == 'world')
+        self.mode_toggle.set_mode(self._selected_mode)
         self._apply_preview_images()
 
     def _apply_preview_images(self) -> None:
-        mode_images = self._images.get(self._selected_mode, {})
         for row_index, (media_key, container_key) in enumerate(self._slot_keys):
             left_label = self._slot_labels[row_index * 2]
             right_label = self._slot_labels[(row_index * 2) + 1]
             enabled = self._row.enabled_media[media_key]
             left_label.configure(
-                image=mode_images.get(media_key) if enabled else '',
+                image=self._image_for_slot(self._selected_mode, media_key) if enabled else '',
                 bg=self._content_bg,
             )
             right_label.configure(
-                image=mode_images.get(container_key) if enabled else '',
+                image=self._image_for_slot(self._selected_mode, container_key) if enabled else '',
                 bg=self._content_bg,
             )
 

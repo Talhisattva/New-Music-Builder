@@ -4,7 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 import tkinter as tk
 
-from new_music_builder.domain.models import MediaKind, MediaRow
+from new_music_builder.domain.models import AppearanceKind, MediaKind, MediaRow
 from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.collapsed_row_chevron import CollapsedRowChevron
 from new_music_builder.ui.widgets.collapsed_row_details import CollapsedRowDetails
@@ -42,7 +42,7 @@ class MediaRowShell(tk.Frame):
         grab_icon_path: str | None = None,
         table_check_icon_path: str | None = None,
         preview_audio_icon_path: str | None = None,
-        live_preview_paths: dict[str, dict[str, str]] | None = None,
+        resolve_live_preview_path: Callable[[MediaRow, AppearanceKind, str], str | None] | None = None,
         on_select: Callable[[int], None] | None = None,
         selected: bool = False,
         selected_count: int = 0,
@@ -172,7 +172,7 @@ class MediaRowShell(tk.Frame):
                 self.surface,
                 row=row,
                 bg_color=spec.MEDIA_ROW_BG,
-                asset_paths=live_preview_paths,
+                resolve_preview_path=resolve_live_preview_path,
                 on_mode_selected=on_preview_mode_selected,
             )
             self.live_preview.place(
@@ -371,7 +371,7 @@ class MediaRowList(tk.Frame):
         grab_icon_path: str | None = None,
         table_check_icon_path: str | None = None,
         preview_audio_icon_path: str | None = None,
-        live_preview_paths: dict[str, dict[str, str]] | None = None,
+        resolve_live_preview_path: Callable[[MediaRow, AppearanceKind, str], str | None] | None = None,
         bg_color: str | None = None,
         on_row_selected: Callable[[int], None] | None = None,
         selected_row_ids: set[int] | None = None,
@@ -416,7 +416,7 @@ class MediaRowList(tk.Frame):
         self._grab_icon_path = grab_icon_path
         self._table_check_icon_path = table_check_icon_path
         self._preview_audio_icon_path = preview_audio_icon_path
-        self._live_preview_paths = live_preview_paths
+        self._resolve_live_preview_path = resolve_live_preview_path
         self._on_row_selected = on_row_selected
         self._selected_row_ids = set(selected_row_ids or set())
         self._selected_count = len(self._selected_row_ids)
@@ -481,7 +481,7 @@ class MediaRowList(tk.Frame):
                 grab_icon_path=self._grab_icon_path,
                 table_check_icon_path=self._table_check_icon_path,
                 preview_audio_icon_path=self._preview_audio_icon_path,
-                live_preview_paths=self._live_preview_paths,
+                resolve_live_preview_path=self._resolve_live_preview_path,
                 on_select=self._on_row_selected,
                 selected=(row.row_id in self._selected_row_ids),
                 selected_count=self._selected_count,

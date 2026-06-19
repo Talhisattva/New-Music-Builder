@@ -126,19 +126,27 @@ class AppearancePanelShell(tk.Frame):
         )
         self.footer_pane.place(x=0, y=spec.MODULE_THREE_FOOTER_Y)
 
-        self.dual_sprite_row = _BorderPane(
+        self.dual_sprite_left_pane = _BorderPane(
             self,
-            size=spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE,
+            size=spec.MODULE_THREE_DUAL_SPRITE_LEFT_SIZE,
             fill_color=fill_color,
             border_color=border_color,
         )
-        self.dual_sprite_row.place(x=0, y=spec.MODULE_THREE_DUAL_SPRITE_ROW_Y)
+        self.dual_sprite_left_pane.place(x=0, y=spec.MODULE_THREE_DUAL_SPRITE_ROW_Y)
+        self.preview_mode_pane = _BorderPane(
+            self,
+            size=spec.MODULE_THREE_PREVIEW_MODE_ROW_SIZE,
+            fill_color=fill_color,
+            border_color=border_color,
+        )
+        self.preview_mode_pane.place(x=spec.MODULE_THREE_DUAL_SPRITE_LEFT_SIZE[0], y=spec.MODULE_THREE_DUAL_SPRITE_ROW_Y)
         self.expanded_footer_overlay = _BorderPane(
             self,
             size=spec.MODULE_THREE_EXPANDED_FOOTER_OVERLAY_SIZE,
             fill_color=fill_color,
             border_color=border_color,
         )
+        self.dual_sprite_row = self.dual_sprite_left_pane
 
         self.set_expanded_footer_overlay_visible(show_expanded_footer_overlay)
 
