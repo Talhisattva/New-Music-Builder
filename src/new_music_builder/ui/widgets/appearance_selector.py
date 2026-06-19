@@ -456,21 +456,21 @@ class AppearanceSelector:
         )
         self._place_dual_label(label_x)
         self._preview_mode_toggle = PreviewModeToggle(
-            self.shell.preview_mode_pane.content,
+            self.shell,
             left_text='WORLD',
             right_text='INVENTORY',
             left_mode='world',
             right_mode='inventory',
             left_width=spec.MODULE_THREE_PREVIEW_MODE_WORLD_SIZE[0],
             right_width=spec.MODULE_THREE_PREVIEW_MODE_INVENTORY_SIZE[0],
-            height=spec.MODULE_THREE_PREVIEW_MODE_ROW_SIZE[1] - (spec.MODULE_THREE_PANEL_BORDER_WIDTH * 2),
+            height=spec.MODULE_THREE_PREVIEW_MODE_ROW_SIZE[1],
             initial_mode='inventory',
             command=self._select_preview_mode,
             bg_color=spec.MODULE_THREE_PANEL_BG,
             outline_color=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_OUTLINE,
             outline_width=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_OUTLINE_WIDTH,
         )
-        self._preview_mode_toggle.place(x=0, y=0)
+        self._preview_mode_toggle.place(x=spec.MODULE_THREE_DUAL_SPRITE_LEFT_SIZE[0], y=spec.MODULE_THREE_DUAL_SPRITE_ROW_Y)
 
     def _build_footer(self) -> None:
         self.single_custom_footer = AppearanceSingleCustomFooter(
@@ -508,9 +508,29 @@ class AppearanceSelector:
             )
             label_x = spec.MODULE_THREE_DUAL_SPRITE_CHECKBOX_POS[0] + spec.MODULE_THREE_DUAL_SPRITE_CHECKBOX_SIZE[0] + spec.MODULE_THREE_DUAL_SPRITE_LABEL_GAP_X
             self._place_dual_label(label_x)
+            if self._preview_mode_toggle is not None:
+                self._preview_mode_toggle.resize(
+                    left_width=spec.MODULE_THREE_PREVIEW_MODE_WORLD_SIZE[0],
+                    right_width=spec.MODULE_THREE_PREVIEW_MODE_INVENTORY_SIZE[0],
+                    height=spec.MODULE_THREE_PREVIEW_MODE_ROW_SIZE[1],
+                )
+                self._preview_mode_toggle.place_configure(
+                    x=spec.MODULE_THREE_DUAL_SPRITE_LEFT_SIZE[0],
+                    y=spec.MODULE_THREE_DUAL_SPRITE_ROW_Y,
+                )
         else:
             self.dual_checkbox.place_forget()
             self.dual_label.place_forget()
+            if self._preview_mode_toggle is not None:
+                self._preview_mode_toggle.resize(
+                    left_width=spec.MODULE_THREE_DUAL_SPRITE_LEFT_SIZE[0],
+                    right_width=spec.MODULE_THREE_PREVIEW_MODE_ROW_SIZE[0],
+                    height=spec.MODULE_THREE_PREVIEW_MODE_ROW_SIZE[1],
+                )
+                self._preview_mode_toggle.place_configure(
+                    x=0,
+                    y=spec.MODULE_THREE_DUAL_SPRITE_ROW_Y,
+                )
 
     def _refresh_footer(self) -> None:
         staged = self._get_staged_custom_images(self._active_kind)

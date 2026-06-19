@@ -25,6 +25,7 @@ class _ModeButton(tk.Canvas):
         )
         self._command = command
         self._size = size
+        self._text = text
         self._draw(text)
         self.bind('<ButtonPress-1>', self._on_press, add='+')
         self.bind('<ButtonRelease-1>', self._on_release, add='+')
@@ -58,6 +59,12 @@ class _ModeButton(tk.Canvas):
         )
         self.itemconfigure(self._fill_id, fill=fill)
         self.configure(bg=fill)
+
+    def resize(self, size: tuple[int, int]) -> None:
+        self._size = size
+        self.configure(width=size[0], height=size[1])
+        self.delete('all')
+        self._draw(self._text)
 
     def _on_press(self, _event: tk.Event | None = None) -> str:
         return 'break'
@@ -102,6 +109,10 @@ class PreviewModeToggle(tk.Frame):
         self._right_mode = right_mode
         self._mode = initial_mode if initial_mode in {left_mode, right_mode} else left_mode
         self._command = command
+        self._outline_width = outline_width
+        self._height = height
+        self._left_width = left_width
+        self._right_width = right_width
 
         self.left_border = tk.Frame(self, bg=outline_color, bd=0, highlightthickness=0, width=outline_width, height=height)
         self.left_border.place(x=0, y=0)
@@ -139,6 +150,24 @@ class PreviewModeToggle(tk.Frame):
         self._mode = mode
         self.left_button.set_active(mode == self._left_mode)
         self.right_button.set_active(mode == self._right_mode)
+
+    def resize(self, *, left_width: int, right_width: int, height: int | None = None) -> None:
+        self._left_width = left_width
+        self._right_width = right_width
+        if height is not None:
+            self._height = height
+        total_width = self._left_width + self._right_width
+        self.configure(width=total_width, height=self._height)
+        self.left_border.place_configure(x=0, y=0, width=self._outline_width, height=self._height)
+        self.right_border.place_configure(x=total_width - self._outline_width, y=0, width=self._outline_width, height=self._height)
+        self.top_border.place_configure(x=0, y=0, width=total_width, height=self._outline_width)
+        self.bottom_border.place_configure(x=0, y=self._height - self._outline_width, width=total_width, height=self._outline_width)
+        self.middle_border.place_configure(x=self._left_width, y=0, width=self._outline_width, height=self._height)
+        self.left_button.resize((self._left_width, self._height))
+        self.right_button.resize((self._right_width, self._height))
+        self.left_button.place_configure(x=0, y=0, width=self._left_width, height=self._height)
+        self.right_button.place_configure(x=self._left_width, y=0, width=self._right_width, height=self._height)
+        self.set_mode(self._mode)
 
     def _select(self, mode: str) -> None:
         if mode == self._mode:
