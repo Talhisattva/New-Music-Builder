@@ -140,6 +140,7 @@ class MediaLivePreview(tk.Frame):
         self.content_area.pack_propagate(False)
 
         self._build_content_slots()
+        self._build_column_labels()
 
         self._apply_state()
 
@@ -188,6 +189,46 @@ class MediaLivePreview(tk.Frame):
                     widget.bind('<Enter>', lambda event, kind=slot_kind: self._on_slot_enter(kind, event), add='+')
                     widget.bind('<Motion>', lambda event, kind=slot_kind: self._on_slot_motion(kind, event), add='+')
                     widget.bind('<Leave>', lambda _event, kind=slot_kind: self._on_slot_leave(kind), add='+')
+
+    def _build_column_labels(self) -> None:
+        left_x = spec.MEDIA_ROW_LIVE_PREVIEW_SLOT_LEFT_X
+        right_x = left_x + spec.MEDIA_ROW_LIVE_PREVIEW_SLOT_SIZE[0] + spec.MEDIA_ROW_LIVE_PREVIEW_SLOT_GAP_X
+        label_font = (
+            spec.MEDIA_ROW_LIVE_PREVIEW_COLUMN_LABEL_FONT_FAMILY,
+            spec.MEDIA_ROW_LIVE_PREVIEW_COLUMN_LABEL_FONT_SIZE,
+        )
+        self.media_label = tk.Label(
+            self.content_area,
+            text='MEDIA',
+            bg=self._content_bg,
+            fg=spec.MEDIA_ROW_LIVE_PREVIEW_COLUMN_LABEL_COLOR,
+            bd=0,
+            highlightthickness=0,
+            font=label_font,
+            anchor='center',
+        )
+        self.media_label.place(
+            x=left_x,
+            y=spec.MEDIA_ROW_LIVE_PREVIEW_COLUMN_LABEL_Y,
+            width=spec.MEDIA_ROW_LIVE_PREVIEW_COLUMN_LABEL_SIZE[0],
+            height=spec.MEDIA_ROW_LIVE_PREVIEW_COLUMN_LABEL_SIZE[1],
+        )
+        self.case_label = tk.Label(
+            self.content_area,
+            text='CASE',
+            bg=self._content_bg,
+            fg=spec.MEDIA_ROW_LIVE_PREVIEW_COLUMN_LABEL_COLOR,
+            bd=0,
+            highlightthickness=0,
+            font=label_font,
+            anchor='center',
+        )
+        self.case_label.place(
+            x=right_x,
+            y=spec.MEDIA_ROW_LIVE_PREVIEW_COLUMN_LABEL_Y,
+            width=spec.MEDIA_ROW_LIVE_PREVIEW_COLUMN_LABEL_SIZE[0],
+            height=spec.MEDIA_ROW_LIVE_PREVIEW_COLUMN_LABEL_SIZE[1],
+        )
 
     def _select_mode(self, mode: str) -> None:
         if mode == self._selected_mode:
