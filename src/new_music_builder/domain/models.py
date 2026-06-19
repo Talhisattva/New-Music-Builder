@@ -7,6 +7,8 @@ from typing import Any, Literal
 MediaKind = Literal["cassette", "vinyl", "cd"]
 AppearanceKind = Literal["cassette", "vinyl", "cd", "case", "jacket", "cd_cover"]
 SpriteMode = Literal["single", "dual"]
+SongSortColumn = Literal["ogg", "song_name", "length"]
+SongSortDirection = Literal["asc", "desc"]
 
 
 @dataclass(slots=True)
@@ -16,6 +18,12 @@ class TrackEntry:
     display_label: str = ""
     duration: str = ""
     conversion_status: str = "pending"
+
+
+@dataclass(slots=True)
+class SongSortState:
+    column: SongSortColumn | None = None
+    direction: SongSortDirection = "asc"
 
 
 @dataclass(slots=True)
@@ -42,6 +50,8 @@ class MediaRow:
     cover_path: str = ""
     tracks_a: list[TrackEntry] = field(default_factory=list)
     tracks_b: list[TrackEntry] = field(default_factory=list)
+    song_sort_a: SongSortState = field(default_factory=SongSortState)
+    song_sort_b: SongSortState = field(default_factory=SongSortState)
     appearances: dict[AppearanceKind, AppearanceSelection] = field(default_factory=dict)
     expanded: bool = False
 
@@ -49,6 +59,9 @@ class MediaRow:
         for kind in ("cassette", "vinyl", "cd", "case", "jacket", "cd_cover"):
             if kind not in self.appearances:
                 self.appearances[kind] = AppearanceSelection(kind=kind)
+
+    def song_sort_for_side(self, side: Literal["A", "B"]) -> SongSortState:
+        return self.song_sort_a if side == "A" else self.song_sort_b
 
 
 @dataclass(slots=True)
@@ -125,6 +138,16 @@ def _coerce_appearance(kind: AppearanceKind, data: dict[str, Any] | None) -> App
     )
 
 
+def _coerce_song_sort(data: dict[str, Any] | None) -> SongSortState:
+    data = data or {}
+    raw_column = data.get("column")
+    raw_direction = str(data.get("direction", "asc"))
+    return SongSortState(
+        column=str(raw_column) if raw_column in {"ogg", "song_name", "length"} else None,
+        direction=raw_direction if raw_direction in {"asc", "desc"} else "asc",
+    )
+
+
 def project_from_dict(data: dict[str, Any]) -> ProjectConfig:
     rows: list[MediaRow] = []
     for raw_row in data.get("media_rows", []):
@@ -145,6 +168,8 @@ def project_from_dict(data: dict[str, Any]) -> ProjectConfig:
             cover_path=str(raw_row.get("cover_path", "")),
             tracks_a=[_coerce_track(item) for item in raw_row.get("tracks_a", [])],
             tracks_b=[_coerce_track(item) for item in raw_row.get("tracks_b", [])],
+            song_sort_a=_coerce_song_sort(raw_row.get("song_sort_a")),
+            song_sort_b=_coerce_song_sort(raw_row.get("song_sort_b")),
             appearances={},
             expanded=bool(raw_row.get("expanded", False)),
         )

@@ -13,7 +13,7 @@ import customtkinter as ctk
 from PIL import Image, ImageTk
 
 from new_music_builder import __version__
-from new_music_builder.domain.models import AppearanceKind, MediaKind, default_media_row
+from new_music_builder.domain.models import AppearanceKind, MediaKind, SongSortColumn, default_media_row
 from new_music_builder.platform.paths import app_root
 from new_music_builder.services.asset_catalog import AssetCatalog
 from new_music_builder.services.audio_workspace import AudioWorkspaceService
@@ -186,7 +186,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         return entry.displayed_path('world' if mode == 'world' else 'inventory', show_empty=False)
 
     def _module_two_media_strip_path_for_row(self, row, kind: MediaKind, mode: str) -> str | None:
-        return self._module_two_preview_path_for_row(row, kind, mode)
+        return self._module_two_preview_path_for_row(row, kind, 'inventory')
 
     def _apply_window_icon(self) -> None:
         native_icon = self._native_icon_path()
@@ -509,6 +509,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             selected_song_indices_by_key=self.module_two_song_selected_indices,
             on_song_selected=self._select_module_two_song,
             on_song_remove_requested=self._remove_module_two_song_via_row_click,
+            on_song_sort_requested=self._sort_module_two_songs,
             on_song_drag_started=self._begin_module_two_song_drag,
             on_song_drag_moved=self._update_module_two_song_drag,
             on_song_drag_finished=self._finish_module_two_song_drag,
@@ -962,6 +963,24 @@ class MainWindow(_DnDCompat, ctk.CTk):
         if expanded_widget is not None:
             expanded_widget.refresh_song_table()
             expanded_widget.set_song_selection_state(self._module_two_song_selection_for_row(row_id, side))
+        self.on_project_change()
+
+    def _sort_module_two_songs(self, row_id: int, column: SongSortColumn) -> None:
+        self._cancel_module_two_song_drag()
+        target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
+        if target_row is None:
+            return
+        side = target_row.selected_side
+        sort_state = self.session.sort_tracks_in_media_row(row_id, side, column)
+        if sort_state is None:
+            return
+        key = (row_id, side)
+        self.module_two_song_selected_indices[key] = set()
+        self.module_two_song_selection_anchor_indices[key] = None
+        expanded_widget = self._expanded_row_widget(row_id)
+        if expanded_widget is not None:
+            expanded_widget.refresh_song_table()
+            expanded_widget.set_song_selection_state(set())
         self.on_project_change()
 
     def _set_module_two_preview_mode(self, row_id: int, mode: str) -> None:

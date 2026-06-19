@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 import tkinter as tk
 
-from new_music_builder.domain.models import MediaRow, TrackEntry
+from new_music_builder.domain.models import MediaRow, SongSortColumn, TrackEntry
 from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.media_songlist_table import MediaSonglistTable, TrackSelectionModifiers
 from new_music_builder.ui.widgets.scroll_area import ScrollViewport
@@ -23,6 +23,7 @@ class MediaSonglistViewport(tk.Frame):
         selected_track_indices: set[int] | None = None,
         on_track_selected: Callable[[int, TrackSelectionModifiers], None] | None = None,
         on_track_remove_requested: Callable[[int], None] | None = None,
+        on_header_sort_requested: Callable[[SongSortColumn], None] | None = None,
         on_track_drag_started: Callable[[int, int, int], None] | None = None,
         on_track_drag_moved: Callable[[int, int], None] | None = None,
         on_track_drag_finished: Callable[[int, int], None] | None = None,
@@ -48,6 +49,7 @@ class MediaSonglistViewport(tk.Frame):
         self._selected_track_indices = set(selected_track_indices or set())
         self._on_track_selected = on_track_selected
         self._on_track_remove_requested = on_track_remove_requested
+        self._on_header_sort_requested = on_header_sort_requested
         self._on_track_drag_started = on_track_drag_started
         self._on_track_drag_moved = on_track_drag_moved
         self._on_track_drag_finished = on_track_drag_finished
@@ -78,6 +80,7 @@ class MediaSonglistViewport(tk.Frame):
             preview_audio_icon_path=preview_audio_icon_path,
             on_track_selected=self._emit_track_selection,
             on_track_remove_requested=self._emit_track_remove,
+            on_header_sort_requested=self._emit_header_sort_requested,
             on_track_drag_started=self._emit_track_drag_started,
             on_track_drag_moved=self._emit_track_drag_moved,
             on_track_drag_finished=self._emit_track_drag_finished,
@@ -93,6 +96,8 @@ class MediaSonglistViewport(tk.Frame):
 
     def refresh_content(self) -> None:
         self.table.set_tracks(self._active_tracks())
+        sort_state = self._row.song_sort_for_side(self._row.selected_side)
+        self.table.set_sort_state(sort_state.column, sort_state.direction)
         self.table.set_selection_state(self._selected_track_indices)
         self.refresh_scroll_region()
 
@@ -192,6 +197,10 @@ class MediaSonglistViewport(tk.Frame):
     def _emit_track_remove(self, track_index: int) -> None:
         if self._on_track_remove_requested is not None:
             self._on_track_remove_requested(track_index)
+
+    def _emit_header_sort_requested(self, column: SongSortColumn) -> None:
+        if self._on_header_sort_requested is not None:
+            self._on_header_sort_requested(column)
 
     def _emit_track_drag_started(self, track_index: int, x_root: int, y_root: int) -> None:
         if self._on_track_drag_started is not None:

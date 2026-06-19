@@ -4,7 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 import tkinter as tk
 
-from new_music_builder.domain.models import AppearanceKind, MediaKind, MediaRow
+from new_music_builder.domain.models import AppearanceKind, MediaKind, MediaRow, SongSortColumn
 from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.collapsed_row_chevron import CollapsedRowChevron
 from new_music_builder.ui.widgets.collapsed_row_details import CollapsedRowDetails
@@ -55,6 +55,7 @@ class MediaRowShell(tk.Frame):
         selected_song_indices: set[int] | None = None,
         on_song_selected: Callable[[int, int, TrackSelectionModifiers], None] | None = None,
         on_song_remove_requested: Callable[[int, int], None] | None = None,
+        on_song_sort_requested: Callable[[int, SongSortColumn], None] | None = None,
         on_song_drag_started: Callable[[int, int, int, int], None] | None = None,
         on_song_drag_moved: Callable[[int, int, int], None] | None = None,
         on_song_drag_finished: Callable[[int, int, int], None] | None = None,
@@ -94,7 +95,6 @@ class MediaRowShell(tk.Frame):
         self.surface.place(x=spec.MEDIA_ROW_OUTLINE_WIDTH, y=spec.MEDIA_ROW_OUTLINE_WIDTH)
         self.surface.pack_propagate(False)
         self._bind_background_interactions()
-        self._apply_background_state()
 
         self.expanded_container = tk.Frame(self.surface, bg=spec.MEDIA_ROW_BG, bd=0, highlightthickness=0)
         self.collapsed_container = tk.Frame(self.surface, bg=spec.MEDIA_ROW_BG, bd=0, highlightthickness=0)
@@ -141,6 +141,7 @@ class MediaRowShell(tk.Frame):
             selected_track_indices=selected_song_indices,
             on_track_selected=(lambda track_index, modifiers: on_song_selected(row.row_id, track_index, modifiers)) if on_song_selected is not None else None,
             on_track_remove_requested=(lambda track_index: on_song_remove_requested(row.row_id, track_index)) if on_song_remove_requested is not None else None,
+            on_header_sort_requested=(lambda column: on_song_sort_requested(row.row_id, column)) if on_song_sort_requested is not None else None,
             on_track_drag_started=(lambda track_index, x_root, y_root: on_song_drag_started(row.row_id, track_index, x_root, y_root)) if on_song_drag_started is not None else None,
             on_track_drag_moved=(lambda x_root, y_root: on_song_drag_moved(row.row_id, x_root, y_root)) if on_song_drag_moved is not None else None,
             on_track_drag_finished=(lambda x_root, y_root: on_song_drag_finished(row.row_id, x_root, y_root)) if on_song_drag_finished is not None else None,
@@ -380,6 +381,7 @@ class MediaRowList(tk.Frame):
         selected_song_indices_by_key: dict[tuple[int, str], set[int]] | None = None,
         on_song_selected: Callable[[int, int, TrackSelectionModifiers], None] | None = None,
         on_song_remove_requested: Callable[[int, int], None] | None = None,
+        on_song_sort_requested: Callable[[int, SongSortColumn], None] | None = None,
         on_song_drag_started: Callable[[int, int, int, int], None] | None = None,
         on_song_drag_moved: Callable[[int, int, int], None] | None = None,
         on_song_drag_finished: Callable[[int, int, int], None] | None = None,
@@ -426,6 +428,7 @@ class MediaRowList(tk.Frame):
         }
         self._on_song_selected = on_song_selected
         self._on_song_remove_requested = on_song_remove_requested
+        self._on_song_sort_requested = on_song_sort_requested
         self._on_song_drag_started = on_song_drag_started
         self._on_song_drag_moved = on_song_drag_moved
         self._on_song_drag_finished = on_song_drag_finished
@@ -485,6 +488,7 @@ class MediaRowList(tk.Frame):
                 selected_song_indices=self._selected_song_indices_by_key.get((row.row_id, row.selected_side), set()),
                 on_song_selected=self._on_song_selected,
                 on_song_remove_requested=self._on_song_remove_requested,
+                on_song_sort_requested=self._on_song_sort_requested,
                 on_song_drag_started=self._on_song_drag_started,
                 on_song_drag_moved=self._on_song_drag_moved,
                 on_song_drag_finished=self._on_song_drag_finished,

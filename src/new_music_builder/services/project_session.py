@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from new_music_builder.domain.models import MediaRow, ProjectConfig, default_media_row, next_row_id
+from new_music_builder.domain.models import MediaRow, ProjectConfig, SongSortColumn, SongSortState, TrackEntry, default_media_row, next_row_id
 from new_music_builder.services.track_import import build_track_entry, filter_supported_audio_paths
 
 
@@ -46,6 +46,8 @@ class ProjectSession:
         for path in supported_paths:
             tracks.append(build_track_entry(path))
             inserted_indices.append(len(tracks) - 1)
+        target_row.song_sort_for_side(side).column = None
+        target_row.song_sort_for_side(side).direction = 'asc'
         return inserted_indices
 
     def remove_tracks_from_media_row(self, row_id: int, side: str, indices: set[int]) -> list[int]:
@@ -59,6 +61,9 @@ class ProjectSession:
             return []
         for index in removable:
             del tracks[index]
+        if not tracks:
+            target_row.song_sort_for_side(side).column = None
+            target_row.song_sort_for_side(side).direction = 'asc'
         return sorted(removable)
 
     def move_tracks_within_media_row(
@@ -99,8 +104,55 @@ class ProjectSession:
             target_row.tracks_a = reordered
         else:
             target_row.tracks_b = reordered
+        target_row.song_sort_for_side(side).column = None
+        target_row.song_sort_for_side(side).direction = 'asc'
 
         return list(range(adjusted_target, adjusted_target + len(moving_tracks)))
+
+    def sort_tracks_in_media_row(self, row_id: int, side: str, column: SongSortColumn) -> SongSortState | None:
+        target_row = next((row for row in self.project.media_rows if row.row_id == row_id), None)
+        if target_row is None or side not in {'A', 'B'}:
+            return None
+
+        tracks = target_row.tracks_a if side == 'A' else target_row.tracks_b
+        sort_state = target_row.song_sort_for_side(side)
+        direction = self._next_sort_direction(sort_state, column)
+        reverse = direction == 'desc'
+        indexed_tracks = list(enumerate(tracks))
+        indexed_tracks.sort(key=lambda item: self._track_sort_key(item[1], column), reverse=reverse)
+        reordered = [track for _index, track in indexed_tracks]
+
+        if side == 'A':
+            target_row.tracks_a = reordered
+        else:
+            target_row.tracks_b = reordered
+
+        sort_state.column = column
+        sort_state.direction = direction
+        return sort_state
+
+    def _next_sort_direction(self, state: SongSortState, column: SongSortColumn) -> str:
+        if state.column == column:
+            return 'desc' if state.direction == 'asc' else 'asc'
+        if column == 'ogg':
+            return 'desc'
+        return 'asc'
+
+    def _track_sort_key(self, track: TrackEntry, column: SongSortColumn) -> tuple[object, ...]:
+        if column == 'ogg':
+            return (Path(track.source_path).suffix.lower() == '.ogg',)
+        if column == 'song_name':
+            return ((track.display_label or Path(track.source_path).stem).casefold(),)
+        return (self._duration_seconds(track.duration),)
+
+    def _duration_seconds(self, duration: str) -> int:
+        parts = duration.split(':')
+        if not parts or any(not part.isdigit() for part in parts):
+            return -1
+        total = 0
+        for part in parts:
+            total = (total * 60) + int(part)
+        return total
 
     def _renumber_media_rows(self) -> None:
         for index, row in enumerate(self.project.media_rows, start=1):
@@ -118,6 +170,8 @@ class ProjectSession:
                 cover_path=row.cover_path,
                 tracks_a=list(row.tracks_a),
                 tracks_b=list(row.tracks_b),
+                song_sort_a=SongSortState(column=row.song_sort_a.column, direction=row.song_sort_a.direction),
+                song_sort_b=SongSortState(column=row.song_sort_b.column, direction=row.song_sort_b.direction),
                 appearances=dict(row.appearances),
                 expanded=row.expanded,
             )

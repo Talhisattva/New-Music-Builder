@@ -8,7 +8,7 @@ import tkinter.font as tkfont
 
 from PIL import ImageTk
 
-from new_music_builder.domain.models import TrackEntry
+from new_music_builder.domain.models import SongSortColumn, SongSortDirection, TrackEntry
 from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.images import load_tk_photoimage
 
@@ -31,6 +31,7 @@ class MediaSonglistTable(tk.Canvas):
         preview_audio_icon_path: str | None = None,
         on_track_selected: Callable[[int, TrackSelectionModifiers], None] | None = None,
         on_track_remove_requested: Callable[[int], None] | None = None,
+        on_header_sort_requested: Callable[[SongSortColumn], None] | None = None,
         on_track_drag_started: Callable[[int, int, int], None] | None = None,
         on_track_drag_moved: Callable[[int, int], None] | None = None,
         on_track_drag_finished: Callable[[int, int], None] | None = None,
@@ -53,6 +54,7 @@ class MediaSonglistTable(tk.Canvas):
         self._tracks: list[TrackEntry] = []
         self._selected_indices: set[int] = set()
         self._hover_index: int | None = None
+        self._hover_header_column: int | None = None
         self._insertion_index: int | None = None
         self._pending_grab_row_index: int | None = None
         self._grab_press_x_root = 0
@@ -65,12 +67,23 @@ class MediaSonglistTable(tk.Canvas):
         self._drag_overlay_anchor_offset_y = 0
         self._on_track_selected = on_track_selected
         self._on_track_remove_requested = on_track_remove_requested
+        self._on_header_sort_requested = on_header_sort_requested
         self._on_track_drag_started = on_track_drag_started
         self._on_track_drag_moved = on_track_drag_moved
         self._on_track_drag_finished = on_track_drag_finished
+        self._sort_column: SongSortColumn | None = None
+        self._sort_direction: SongSortDirection = 'asc'
         self._row_font = tkfont.Font(
             family=spec.MEDIA_ROW_SONGLIST_TABLE_ROW_FONT_FAMILY,
             size=spec.MEDIA_ROW_SONGLIST_TABLE_ROW_FONT_SIZE,
+        )
+        self._header_font = (
+            spec.MEDIA_ROW_SONGLIST_TABLE_HEADER_FONT_FAMILY,
+            spec.MEDIA_ROW_SONGLIST_TABLE_HEADER_FONT_SIZE,
+        )
+        self._sort_font = (
+            spec.MEDIA_ROW_SONGLIST_TABLE_HEADER_SORT_FONT_FAMILY,
+            spec.MEDIA_ROW_SONGLIST_TABLE_HEADER_SORT_FONT_SIZE,
         )
         self._remove_font = (
             spec.MEDIA_ROW_SONGLIST_TABLE_REMOVE_FONT_FAMILY,
@@ -123,6 +136,13 @@ class MediaSonglistTable(tk.Canvas):
 
     def current_insertion_index(self) -> int | None:
         return self._insertion_index
+
+    def set_sort_state(self, column: SongSortColumn | None, direction: SongSortDirection) -> None:
+        if self._sort_column == column and self._sort_direction == direction:
+            return
+        self._sort_column = column
+        self._sort_direction = direction
+        self.redraw()
 
     def begin_drag_overlay(self, dragged_indices: set[int], x_root: int, y_root: int) -> None:
         self._drag_overlay_indices = sorted(index for index in dragged_indices if 0 <= index < len(self._tracks))
@@ -180,6 +200,17 @@ class MediaSonglistTable(tk.Canvas):
 
     def _draw_background(self, height: int) -> None:
         self.create_rectangle(0, 0, self._width, self._header_height, outline='', fill=spec.MEDIA_ROW_SONGLIST_TABLE_HEADER_BG)
+        hovered_column = self._hover_header_column
+        if hovered_column in self._sortable_header_columns():
+            left_x = self._column_left_x(hovered_column)
+            self.create_rectangle(
+                left_x,
+                0,
+                left_x + self._column_widths[hovered_column],
+                self._header_height,
+                outline='',
+                fill=spec.MEDIA_ROW_SONGLIST_TABLE_HEADER_HOVER_BG,
+            )
         body_y = self._header_height
         for row_index in range(self.visible_row_count()):
             row_top = body_y + (row_index * self._row_height)
@@ -240,14 +271,20 @@ class MediaSonglistTable(tk.Canvas):
             if index == 3:
                 self._draw_ear_icon(center_x, center_y)
             elif labels[index]:
+                anchor = 'c'
+                text_x = center_x
+                if index in self._sortable_header_columns():
+                    anchor = 'w'
+                    text_x = current_x + 6
                 self.create_text(
-                    center_x,
+                    text_x,
                     center_y,
                     text=labels[index],
                     fill=spec.MEDIA_ROW_SONGLIST_TABLE_HEADER_TEXT_COLOR,
-                    font=(spec.MEDIA_ROW_SONGLIST_TABLE_HEADER_FONT_FAMILY, spec.MEDIA_ROW_SONGLIST_TABLE_HEADER_FONT_SIZE),
-                    anchor='c',
+                    font=self._header_font,
+                    anchor=anchor,
                 )
+                self._draw_sort_indicator(index, center_y)
             current_x += column_width
 
     def _draw_ear_icon(self, center_x: float, center_y: float) -> None:
@@ -327,7 +364,20 @@ class MediaSonglistTable(tk.Canvas):
     def _on_motion(self, event: tk.Event) -> None:
         if self._drag_active:
             return
-        row_index = self._row_index_at(int(getattr(event, 'y', -1)))
+        y = int(getattr(event, 'y', -1))
+        if 0 <= y < self._header_height:
+            hover_header_column = self._column_index_at(int(getattr(event, 'x', -1)))
+            hover_header_column = hover_header_column if hover_header_column in self._sortable_header_columns() else None
+            if hover_header_column == self._hover_header_column and self._hover_index is None:
+                return
+            self._hover_header_column = hover_header_column
+            self._hover_index = None
+            self.redraw()
+            return
+        if self._hover_header_column is not None:
+            self._hover_header_column = None
+            self.redraw()
+        row_index = self._row_index_at(y)
         hover_index = row_index if row_index is not None and row_index < len(self._tracks) else None
         if hover_index == self._hover_index:
             return
@@ -335,13 +385,17 @@ class MediaSonglistTable(tk.Canvas):
         self.redraw()
 
     def _on_leave(self, _event: tk.Event) -> None:
-        if self._hover_index is None:
+        if self._hover_index is None and self._hover_header_column is None:
             return
         self._hover_index = None
+        self._hover_header_column = None
         self.redraw()
 
     def _on_button_press(self, event: tk.Event) -> str:
-        row_index = self._row_index_at(int(getattr(event, 'y', -1)))
+        y = int(getattr(event, 'y', -1))
+        if 0 <= y < self._header_height:
+            return 'break'
+        row_index = self._row_index_at(y)
         if row_index is None or row_index >= len(self._tracks):
             self.clear_drag_state()
             return 'break'
@@ -391,6 +445,11 @@ class MediaSonglistTable(tk.Canvas):
             self.clear_drag_state()
             return 'break'
 
+        if 0 <= y < self._header_height:
+            sort_column = self._header_sort_column_at(x)
+            if sort_column is not None and self._on_header_sort_requested is not None:
+                self._on_header_sort_requested(sort_column)
+            return 'break'
         if row_index is None or row_index >= len(self._tracks):
             return 'break'
         if column_index == 5 and self._on_track_remove_requested is not None:
@@ -478,3 +537,30 @@ class MediaSonglistTable(tk.Canvas):
     def _decode_selection_modifiers(self, event: tk.Event) -> TrackSelectionModifiers:
         state = int(getattr(event, 'state', 0))
         return TrackSelectionModifiers(shift=bool(state & 0x0001), additive=bool(state & 0x0004))
+
+    def _sortable_header_columns(self) -> tuple[int, ...]:
+        return (1, 2, 4)
+
+    def _header_sort_column_at(self, x: int) -> SongSortColumn | None:
+        column_index = self._column_index_at(x)
+        if column_index == 1:
+            return 'ogg'
+        if column_index == 2:
+            return 'song_name'
+        if column_index == 4:
+            return 'length'
+        return None
+
+    def _draw_sort_indicator(self, column_index: int, center_y: float) -> None:
+        sort_column = self._header_sort_column_at(self._column_left_x(column_index))
+        if sort_column is None or sort_column == 'ogg' or self._sort_column != sort_column:
+            return
+        glyph = '▲' if self._sort_direction == 'asc' else '▼'
+        self.create_text(
+            self._column_left_x(column_index) + self._column_widths[column_index] - spec.MEDIA_ROW_SONGLIST_TABLE_HEADER_SORT_PAD_X,
+            center_y,
+            text=glyph,
+            fill=spec.MEDIA_ROW_SONGLIST_TABLE_HEADER_TEXT_COLOR,
+            font=self._sort_font,
+            anchor='e',
+        )
