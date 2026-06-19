@@ -5,7 +5,8 @@ import tkinter as tk
 
 from new_music_builder.domain.models import AppearanceKind, MediaRow
 from new_music_builder.ui import spec
-from new_music_builder.ui.widgets.images import load_tk_photoimage, load_tk_photoimage_contained
+from new_music_builder.ui.widgets.cursor_tooltip import CursorTooltip
+from new_music_builder.ui.widgets.images import load_tk_photoimage_contained
 from new_music_builder.ui.widgets.preview_mode_toggle import PreviewModeToggle
 
 
@@ -41,7 +42,10 @@ class MediaLivePreview(tk.Frame):
         )
         self._slot_frames: list[tk.Frame] = []
         self._slot_labels: list[tk.Label] = []
+        self._slot_kinds: list[AppearanceKind] = []
         self._images: dict[tuple[str, str, str], tk.PhotoImage | None] = {}
+        self._tooltip_hide_after_id: str | None = None
+        self._cursor_tooltip = CursorTooltip(self)
 
         self.header = tk.Frame(
             self,
@@ -147,10 +151,7 @@ class MediaLivePreview(tk.Frame):
             return None
         cache_key = (mode, kind, path)
         if cache_key not in self._images:
-            if mode == 'world':
-                self._images[cache_key] = load_tk_photoimage_contained(path, spec.MEDIA_ROW_LIVE_PREVIEW_SLOT_SIZE)
-            else:
-                self._images[cache_key] = load_tk_photoimage(path, size=spec.MEDIA_ROW_LIVE_PREVIEW_SLOT_SIZE)
+            self._images[cache_key] = load_tk_photoimage_contained(path, spec.MEDIA_ROW_LIVE_PREVIEW_IMAGE_SIZE)
         return self._images[cache_key]
 
     def _build_content_slots(self) -> None:
@@ -159,9 +160,10 @@ class MediaLivePreview(tk.Frame):
         slot_width, slot_height = spec.MEDIA_ROW_LIVE_PREVIEW_SLOT_SIZE
         right_x = left_x + slot_width + spec.MEDIA_ROW_LIVE_PREVIEW_SLOT_GAP_X
 
-        for row_index, _pair in enumerate(self._slot_keys):
+        for row_index, pair in enumerate(self._slot_keys):
             slot_y = top_y + (row_index * slot_height)
-            for slot_x in (left_x, right_x):
+            for index_within_row, slot_x in enumerate((left_x, right_x)):
+                slot_kind = pair[index_within_row]
                 slot = tk.Frame(
                     self.content_area,
                     bg=self._content_bg,
@@ -181,6 +183,11 @@ class MediaLivePreview(tk.Frame):
                 label.place(relx=0.5, rely=0.5, anchor='center')
                 self._slot_frames.append(slot)
                 self._slot_labels.append(label)
+                self._slot_kinds.append(slot_kind)
+                for widget in (slot, label):
+                    widget.bind('<Enter>', lambda event, kind=slot_kind: self._on_slot_enter(kind, event), add='+')
+                    widget.bind('<Motion>', lambda event, kind=slot_kind: self._on_slot_motion(kind, event), add='+')
+                    widget.bind('<Leave>', lambda _event, kind=slot_kind: self._on_slot_leave(kind), add='+')
 
     def _select_mode(self, mode: str) -> None:
         if mode == self._selected_mode:
@@ -192,6 +199,9 @@ class MediaLivePreview(tk.Frame):
 
     def _apply_state(self) -> None:
         self.mode_toggle.set_mode(self._selected_mode)
+        if self._selected_mode != 'world':
+            self._cancel_tooltip_hide()
+            self._cursor_tooltip.hide()
         self._apply_preview_images()
 
     def _apply_preview_images(self) -> None:
@@ -214,3 +224,43 @@ class MediaLivePreview(tk.Frame):
     def set_bg_color(self, color: str) -> None:
         self.configure(bg=color)
         self.mode_strip.configure(bg=color)
+
+    def _slot_world_path(self, kind: AppearanceKind) -> str | None:
+        if self._resolve_preview_path is None:
+            return None
+        return self._resolve_preview_path(self._row, kind, 'world')
+
+    def _on_slot_enter(self, kind: AppearanceKind, event: tk.Event) -> None:
+        if self._selected_mode != 'world':
+            self._cursor_tooltip.hide()
+            return
+        self._cancel_tooltip_hide()
+        self._cursor_tooltip.set_image(self._slot_world_path(kind))
+        self._cursor_tooltip.show_at_cursor(int(event.x_root), int(event.y_root), direction='left')
+
+    def _on_slot_motion(self, kind: AppearanceKind, event: tk.Event) -> None:
+        if self._selected_mode != 'world':
+            self._cursor_tooltip.hide()
+            return
+        self._cancel_tooltip_hide()
+        self._cursor_tooltip.set_image(self._slot_world_path(kind))
+        self._cursor_tooltip.move_to_cursor(int(event.x_root), int(event.y_root))
+
+    def _on_slot_leave(self, _kind: AppearanceKind) -> None:
+        self._schedule_tooltip_hide()
+
+    def _schedule_tooltip_hide(self) -> None:
+        self._cancel_tooltip_hide()
+        self._tooltip_hide_after_id = self.after(spec.MODULE_THREE_GRID_HOVER_HIDE_DELAY_MS, self._hide_tooltip_now)
+
+    def _cancel_tooltip_hide(self) -> None:
+        if self._tooltip_hide_after_id is not None:
+            try:
+                self.after_cancel(self._tooltip_hide_after_id)
+            except tk.TclError:
+                pass
+            self._tooltip_hide_after_id = None
+
+    def _hide_tooltip_now(self) -> None:
+        self._tooltip_hide_after_id = None
+        self._cursor_tooltip.hide()
