@@ -477,12 +477,12 @@ class AppearanceSelector:
         self._place_dual_label(label_x)
         self._preview_mode_toggle = PreviewModeToggle(
             self.shell,
-            left_text='WORLD',
-            right_text='INVENTORY',
-            left_mode='world',
-            right_mode='inventory',
-            left_width=spec.MODULE_THREE_PREVIEW_MODE_WORLD_SIZE[0],
-            right_width=spec.MODULE_THREE_PREVIEW_MODE_INVENTORY_SIZE[0],
+            left_text='INVENTORY',
+            right_text='WORLD',
+            left_mode='inventory',
+            right_mode='world',
+            left_width=spec.MODULE_THREE_PREVIEW_MODE_INVENTORY_SIZE[0],
+            right_width=spec.MODULE_THREE_PREVIEW_MODE_WORLD_SIZE[0],
             height=spec.MODULE_THREE_PREVIEW_MODE_ROW_SIZE[1],
             initial_mode='inventory',
             command=self._select_preview_mode,
@@ -536,8 +536,8 @@ class AppearanceSelector:
             self._place_dual_label(label_x)
             if self._preview_mode_toggle is not None:
                 self._preview_mode_toggle.resize(
-                    left_width=spec.MODULE_THREE_PREVIEW_MODE_WORLD_SIZE[0],
-                    right_width=spec.MODULE_THREE_PREVIEW_MODE_INVENTORY_SIZE[0],
+                    left_width=spec.MODULE_THREE_PREVIEW_MODE_INVENTORY_SIZE[0],
+                    right_width=spec.MODULE_THREE_PREVIEW_MODE_WORLD_SIZE[0],
                     height=spec.MODULE_THREE_PREVIEW_MODE_ROW_SIZE[1],
                 )
                 self._preview_mode_toggle.place_configure(

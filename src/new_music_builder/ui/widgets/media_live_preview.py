@@ -260,7 +260,10 @@ class MediaLivePreview(tk.Frame):
             )
 
     def refresh_content(self) -> None:
-        self._apply_preview_images()
+        resolved_mode = 'world' if self._row.preview_mode == 'world' else 'inventory'
+        if resolved_mode != self._selected_mode:
+            self._selected_mode = resolved_mode
+        self._apply_state()
 
     def set_bg_color(self, color: str) -> None:
         self.configure(bg=color)
