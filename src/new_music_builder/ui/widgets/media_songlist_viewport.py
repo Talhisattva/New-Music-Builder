@@ -55,6 +55,7 @@ class MediaSonglistViewport(tk.Frame):
         self._on_track_drag_finished = on_track_drag_finished
         self._drag_active = False
         self._drag_indices: list[int] = []
+        self._last_width = spec.MEDIA_ROW_SONGLIST_VIEWPORT_SIZE[0]
 
         self.scroll_viewport = ScrollViewport(
             self,
@@ -90,6 +91,19 @@ class MediaSonglistViewport(tk.Frame):
         self._bind_drop_target()
         self.refresh_content()
         self.refresh_scroll_region()
+
+    def resize(self, width: int) -> None:
+        if width == self._last_width:
+            return
+        self._last_width = width
+        viewport_width = max(1, width - spec.MEDIA_ROW_SONGLIST_SCROLLBAR_SIZE[0])
+        self.configure(width=width, height=spec.MEDIA_ROW_SONGLIST_VIEWPORT_SIZE[1])
+        self.scroll_viewport.resize(
+            size=(width, spec.MEDIA_ROW_SONGLIST_VIEWPORT_SIZE[1]),
+            viewport_size=(viewport_width, spec.MEDIA_ROW_SONGLIST_VIEWPORT_MASK_SIZE[1]),
+            scrollbar_size=spec.MEDIA_ROW_SONGLIST_SCROLLBAR_SIZE,
+        )
+        self.table.resize(viewport_width)
 
     def refresh_scroll_region(self) -> None:
         self.scroll_viewport.refresh_scroll_region()

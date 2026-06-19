@@ -9,6 +9,8 @@ AppearanceKind = Literal["cassette", "vinyl", "cd", "case", "jacket", "cd_cover"
 SpriteMode = Literal["single", "dual"]
 SongSortColumn = Literal["ogg", "song_name", "length"]
 SongSortDirection = Literal["asc", "desc"]
+ConversionSongStatus = Literal["queued", "converting", "done"]
+ExportLogColorRole = Literal["neutral", "queued", "converting", "done"]
 
 
 @dataclass(slots=True)
@@ -102,6 +104,49 @@ class BuildEvent:
     status: str
     message: str
     percent: int = 0
+
+
+@dataclass(slots=True)
+class ConversionSongProgress:
+    song_label: str
+    queue_index: int
+    percent: int = 0
+    status: ConversionSongStatus = "queued"
+    size_label: str = ""
+
+
+@dataclass(slots=True)
+class ConversionSideGroup:
+    row_id: int
+    side: Literal["A", "B"]
+    display_label: str
+    songs: list[ConversionSongProgress] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class ExportLogLine:
+    timestamp: str
+    prefix_text: str = ""
+    subject_text: str = ""
+    trailing_text: str = ""
+    size_text: str = ""
+    color_role: ExportLogColorRole = "neutral"
+
+
+@dataclass(slots=True)
+class ExportRunHistoryEntry:
+    divider_label: str
+    lines: list[ExportLogLine] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class ExportRunState:
+    ordered_groups: list[ConversionSideGroup] = field(default_factory=list)
+    active_group_index: int | None = None
+    active_song_index: int | None = None
+    current_run_log_lines: list[ExportLogLine] = field(default_factory=list)
+    history_runs: list[ExportRunHistoryEntry] = field(default_factory=list)
+    output_path: str = ""
 
 
 def default_media_row(row_id: int) -> MediaRow:

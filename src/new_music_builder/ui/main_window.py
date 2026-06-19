@@ -13,7 +13,15 @@ import customtkinter as ctk
 from PIL import Image, ImageTk
 
 from new_music_builder import __version__
-from new_music_builder.domain.models import AppearanceKind, MediaKind, SongSortColumn, default_media_row
+from new_music_builder.domain.models import (
+    AppearanceKind,
+    ConversionSideGroup,
+    ConversionSongProgress,
+    ExportLogLine,
+    MediaKind,
+    SongSortColumn,
+    default_media_row,
+)
 from new_music_builder.platform.paths import app_root
 from new_music_builder.services.asset_catalog import AssetCatalog
 from new_music_builder.services.audio_workspace import AudioWorkspaceService
@@ -36,6 +44,7 @@ from new_music_builder.ui.widgets.appearance_selector import (
     fallback_selected_asset_key_after_delete,
     merge_appearance_grid_entries,
 )
+from new_music_builder.ui.widgets.border_pane import BorderPane
 from new_music_builder.ui.widgets.cover_picker import CoverPicker
 from new_music_builder.ui.widgets.labeled_checkbox import LabeledCheckbox
 from new_music_builder.ui.widgets.labeled_text_field import LabeledTextField
@@ -44,6 +53,8 @@ from new_music_builder.ui.widgets.media_creation_header import MediaCreationHead
 from new_music_builder.ui.widgets.media_row_list import MediaRowList, RowSelectionModifiers
 from new_music_builder.ui.widgets.media_songlist_table import TrackSelectionModifiers
 from new_music_builder.ui.widgets.menu_strip import MenuStrip
+from new_music_builder.ui.widgets.module_four_panel import ModuleFourPanel
+from new_music_builder.ui.widgets.module_action_header import ModuleActionHeader
 from new_music_builder.ui.widgets.module_header import ModuleHeader
 from new_music_builder.ui.widgets.module_shell import ModuleShell
 from new_music_builder.ui.widgets.output_folder_field import OutputFolderField
@@ -98,14 +109,19 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.module_three_staged_custom_images: dict[str, dict[str, str]] = {}
         self.build_log: list[str] = []
         self.preview_entries: list[str] = []
+        self._responsive_content_width = 0
+        self._responsive_layout_after_id: str | None = None
+        self._responsive_last_widths: dict[str, int] = {}
 
         self._apply_window_icon()
         self._build_menu()
         self._build_header()
         self._build_menu_strip()
         self._build_layout()
+        self.content_frame.bind('<Configure>', self._on_content_frame_configure, add='+')
         self.bind('<Delete>', self._on_delete_selected_songs, add='+')
         self.refresh_all()
+        self._schedule_responsive_layout()
         self.protocol('WM_DELETE_WINDOW', self.on_close)
 
     def _initialize_drag_and_drop(self) -> None:
@@ -136,6 +152,9 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
     def _phase_three_icon_path(self) -> Path:
         return app_root() / 'assets' / 'PhaseThreeIcon.png'
+
+    def _phase_four_icon_path(self) -> Path:
+        return app_root() / 'assets' / 'PhaseFourIcon.png'
 
     def _check_icon_path(self) -> Path:
         return app_root() / 'assets' / 'Check.png'
@@ -173,6 +192,15 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
     def _preview_audio_icon_path(self) -> Path:
         return app_root() / 'assets' / 'PreviewAudioIcon.png'
+
+    def _status_check_icon_path(self) -> Path:
+        return app_root() / 'assets' / 'StatusCheckIcon.png'
+
+    def _status_converting_icon_path(self) -> Path:
+        return app_root() / 'assets' / 'StatusConvertingIcon.png'
+
+    def _status_queued_icon_path(self) -> Path:
+        return app_root() / 'assets' / 'StatusQueuedIcon.png'
 
     def _module_two_preview_entry(self, row, kind: AppearanceKind) -> AppearanceGridEntry | None:
         row.ensure_appearances()
@@ -286,6 +314,24 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.module_three_midground_border = self.module_three_shell.midground_border
         self.module_three_midground = self.module_three_shell.midground_surface
 
+        self.phase_three_combo_shell = ModuleShell(
+            self.content_frame,
+            size=spec.PHASE_THREE_COMBO_SIZE,
+            midground_size=spec.PHASE_THREE_COMBO_MIDGROUND_SIZE,
+            midground_offset=spec.PHASE_THREE_COMBO_MIDGROUND_OFFSET,
+        )
+        self.phase_three_combo_shell.grid(
+            row=1,
+            column=0,
+            columnspan=2,
+            sticky='nw',
+            pady=(spec.PHASE_THREE_COMBO_TOP_GAP, 0),
+        )
+        self.phase_three_combo_shell.grid_propagate(False)
+        self.phase_three_combo_background = self.phase_three_combo_shell.background_surface
+        self.phase_three_combo_midground_border = self.phase_three_combo_shell.midground_border
+        self.phase_three_combo_midground = self.phase_three_combo_shell.midground_surface
+
         self.module_two_header = ModuleHeader(
             self.module_two_background,
             text='PHASE 2 : MEDIA CREATION',
@@ -305,6 +351,65 @@ class MainWindow(_DnDCompat, ctk.CTk):
         )
         self.module_three_phase_icon = self.module_three_header.icon_label
         self.module_three_phase_label = self.module_three_header.text_label
+
+        self.phase_three_combo_header = ModuleActionHeader(
+            self.phase_three_combo_midground_border,
+            width=spec.PHASE_THREE_COMBO_MIDGROUND_SIZE[0],
+            text='PHASE 3 : BUILD & EXPORT',
+            icon_path=self._phase_four_icon_path(),
+            right_text='CLICK TO EXPORT',
+            command=self.run_build_preview,
+        )
+        self.phase_three_combo_header.place(x=0, y=0)
+        self.phase_three_combo_phase_icon = self.phase_three_combo_header.icon_label
+        self.phase_three_combo_phase_label = self.phase_three_combo_header.text_label
+
+        self.phase_three_combo_content_area = tk.Frame(
+            self.phase_three_combo_midground,
+            bg=spec.MODULE_MIDGROUND_BG,
+            bd=0,
+            highlightthickness=0,
+            width=spec.PHASE_THREE_COMBO_CONTENT_AREA_SIZE[0],
+            height=spec.PHASE_THREE_COMBO_CONTENT_AREA_SIZE[1],
+        )
+        self.phase_three_combo_content_area.place(x=0, y=spec.PHASE_THREE_COMBO_CONTENT_AREA_Y)
+        self.phase_three_combo_content_area.pack_propagate(False)
+
+        self.phase_three_module_four_foreground = BorderPane(
+            self.phase_three_combo_content_area,
+            size=spec.PHASE_THREE_MODULE_FOUR_SIZE,
+            fill_color=spec.PHASE_THREE_FOREGROUND_BG,
+            border_color=spec.PHASE_THREE_FOREGROUND_BORDER_COLOR,
+            border_width=spec.PHASE_THREE_FOREGROUND_BORDER_WIDTH,
+        )
+        self.phase_three_module_four_foreground.place(
+            x=spec.PHASE_THREE_MODULE_FOUR_POS[0],
+            y=spec.PHASE_THREE_MODULE_FOUR_POS[1],
+        )
+        self.module_four_panel = ModuleFourPanel(
+            self.phase_three_module_four_foreground,
+            status_check_icon_path=str(self._status_check_icon_path()),
+            status_converting_icon_path=str(self._status_converting_icon_path()),
+            status_queued_icon_path=str(self._status_queued_icon_path()),
+        )
+        self.module_four_panel.place(x=0, y=0)
+
+        module_five_x = (
+            spec.PHASE_THREE_MODULE_FOUR_POS[0]
+            + spec.PHASE_THREE_MODULE_FOUR_SIZE[0]
+            + spec.PHASE_THREE_MODULE_FIVE_GAP_X
+        )
+        self.phase_three_module_five_foreground = BorderPane(
+            self.phase_three_combo_content_area,
+            size=spec.PHASE_THREE_MODULE_FIVE_SIZE,
+            fill_color=spec.PHASE_THREE_FOREGROUND_BG,
+            border_color=spec.PHASE_THREE_FOREGROUND_BORDER_COLOR,
+            border_width=spec.PHASE_THREE_FOREGROUND_BORDER_WIDTH,
+        )
+        self.phase_three_module_five_foreground.place(
+            x=module_five_x,
+            y=spec.PHASE_THREE_MODULE_FOUR_POS[1],
+        )
 
         self.module_three_appearance_shell = AppearancePanelShell(
             self.module_three_midground,
@@ -519,6 +624,116 @@ class MainWindow(_DnDCompat, ctk.CTk):
         )
         self.module_two_row_list.pack(anchor='nw')
         self.module_two_scroll_area.refresh_scroll_region()
+        self._schedule_responsive_layout()
+
+    def _on_content_frame_configure(self, _event: tk.Event) -> None:
+        self._schedule_responsive_layout()
+
+    def _schedule_responsive_layout(self) -> None:
+        if self._responsive_layout_after_id is not None:
+            return
+        self._responsive_layout_after_id = self.after_idle(self._apply_responsive_layout)
+
+    def _apply_responsive_layout(self) -> None:
+        self._responsive_layout_after_id = None
+        if not hasattr(self, 'content_frame'):
+            return
+        available_width = self.content_frame.winfo_width()
+        if available_width <= 1 or available_width == self._responsive_content_width:
+            return
+        self._responsive_content_width = available_width
+
+        base_top_width = (
+            spec.MODULE_ONE_SIZE[0]
+            + spec.MODULE_GAP_X
+            + spec.MODULE_TWO_SIZE[0]
+            + spec.MODULE_GAP_X
+            + spec.MODULE_THREE_SIZE[0]
+        )
+        extra_width = max(0, available_width - base_top_width)
+
+        module_two_width = spec.MODULE_TWO_SIZE[0] + extra_width
+        module_two_midground_width = spec.MODULE_TWO_MIDGROUND_SIZE[0] + extra_width
+        module_two_top_header_width = spec.MODULE_TWO_TOP_HEADER_SIZE[0] + extra_width
+        module_two_scroll_area_width = spec.MODULE_TWO_SCROLL_AREA_SIZE[0] + extra_width
+        module_two_scroll_viewport_width = spec.MODULE_TWO_SCROLL_VIEWPORT_SIZE[0] + extra_width
+        media_row_list_width = spec.MEDIA_ROW_LIST_WIDTH + extra_width
+
+        if self._responsive_last_widths.get('module_two_shell') != module_two_width:
+            self.module_two_shell.resize(
+                size=(module_two_width, spec.MODULE_TWO_SIZE[1]),
+                midground_size=(module_two_midground_width, spec.MODULE_TWO_MIDGROUND_SIZE[1]),
+            )
+            self._responsive_last_widths['module_two_shell'] = module_two_width
+        if self._responsive_last_widths.get('module_two_header') != module_two_top_header_width:
+            self.module_two_top_header.resize(module_two_top_header_width)
+            self.module_two_top_header.place_configure(width=module_two_top_header_width, height=spec.MODULE_TWO_TOP_HEADER_SIZE[1])
+            self._responsive_last_widths['module_two_header'] = module_two_top_header_width
+        if self._responsive_last_widths.get('module_two_scroll') != module_two_scroll_area_width:
+            self.module_two_scroll_area.resize(
+                size=(module_two_scroll_area_width, spec.MODULE_TWO_SCROLL_AREA_SIZE[1]),
+                viewport_size=(module_two_scroll_viewport_width, spec.MODULE_TWO_SCROLL_VIEWPORT_SIZE[1]),
+                scrollbar_size=spec.SCROLLBAR_TRACK_SIZE,
+            )
+            self.module_two_scroll_area.place_configure(
+                x=0,
+                y=spec.MODULE_TWO_TOP_HEADER_SIZE[1],
+                width=module_two_scroll_area_width,
+                height=spec.MODULE_TWO_SCROLL_AREA_SIZE[1],
+            )
+            self._responsive_last_widths['module_two_scroll'] = module_two_scroll_area_width
+        if hasattr(self, 'module_two_row_list'):
+            if self._responsive_last_widths.get('module_two_rows') != media_row_list_width:
+                self.module_two_row_list.resize(media_row_list_width)
+                self._responsive_last_widths['module_two_rows'] = media_row_list_width
+
+        phase_three_width = spec.PHASE_THREE_COMBO_SIZE[0] + extra_width
+        phase_three_midground_width = spec.PHASE_THREE_COMBO_MIDGROUND_SIZE[0] + extra_width
+        phase_three_content_width = spec.PHASE_THREE_COMBO_CONTENT_AREA_SIZE[0] + extra_width
+        module_four_width = spec.PHASE_THREE_MODULE_FOUR_SIZE[0] + extra_width
+        module_five_x = (
+            spec.PHASE_THREE_MODULE_FOUR_POS[0]
+            + module_four_width
+            + spec.PHASE_THREE_MODULE_FIVE_GAP_X
+        )
+
+        if self._responsive_last_widths.get('phase_three_shell') != phase_three_width:
+            self.phase_three_combo_shell.resize(
+                size=(phase_three_width, spec.PHASE_THREE_COMBO_SIZE[1]),
+                midground_size=(phase_three_midground_width, spec.PHASE_THREE_COMBO_MIDGROUND_SIZE[1]),
+                midground_offset=spec.PHASE_THREE_COMBO_MIDGROUND_OFFSET,
+            )
+            self._responsive_last_widths['phase_three_shell'] = phase_three_width
+        if self._responsive_last_widths.get('phase_three_header') != phase_three_midground_width:
+            self.phase_three_combo_header.resize(phase_three_midground_width)
+            self.phase_three_combo_header.place_configure(x=0, y=0, width=phase_three_midground_width, height=spec.MODULE_ACTION_HEADER_HEIGHT)
+            self._responsive_last_widths['phase_three_header'] = phase_three_midground_width
+        if self._responsive_last_widths.get('phase_three_content') != phase_three_content_width:
+            self.phase_three_combo_content_area.configure(width=phase_three_content_width, height=spec.PHASE_THREE_COMBO_CONTENT_AREA_SIZE[1])
+            self.phase_three_combo_content_area.place_configure(
+                x=0,
+                y=spec.PHASE_THREE_COMBO_CONTENT_AREA_Y,
+                width=phase_three_content_width,
+                height=spec.PHASE_THREE_COMBO_CONTENT_AREA_SIZE[1],
+            )
+            self._responsive_last_widths['phase_three_content'] = phase_three_content_width
+        if self._responsive_last_widths.get('module_four_width') != module_four_width:
+            self.phase_three_module_four_foreground.resize((module_four_width, spec.PHASE_THREE_MODULE_FOUR_SIZE[1]))
+            self.phase_three_module_four_foreground.place_configure(
+                x=spec.PHASE_THREE_MODULE_FOUR_POS[0],
+                y=spec.PHASE_THREE_MODULE_FOUR_POS[1],
+                width=module_four_width,
+                height=spec.PHASE_THREE_MODULE_FOUR_SIZE[1],
+            )
+            self.module_four_panel.resize(module_four_width)
+            self.module_four_panel.place_configure(x=0, y=0, width=module_four_width, height=spec.PHASE_THREE_MODULE_FOUR_SIZE[1])
+            self.phase_three_module_five_foreground.place_configure(
+                x=module_five_x,
+                y=spec.PHASE_THREE_MODULE_FOUR_POS[1],
+                width=spec.PHASE_THREE_MODULE_FIVE_SIZE[0],
+                height=spec.PHASE_THREE_MODULE_FIVE_SIZE[1],
+            )
+            self._responsive_last_widths['module_four_width'] = module_four_width
 
     def _image_filetypes(self) -> list[tuple[str, str]]:
         return [
@@ -1187,6 +1402,9 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self.appearance.refresh()
         if hasattr(self, 'build_export'):
             self.build_export.refresh(self.build_log, self.preview_entries)
+        if hasattr(self, 'module_four_panel'):
+            self.module_four_panel.queue_scroll.refresh_scroll_region()
+            self.module_four_panel.log_scroll.refresh_scroll_region()
         if hasattr(self, 'build_summary'):
             self.build_summary.refresh()
 
@@ -1209,6 +1427,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.module_two_song_selection_anchor_indices.clear()
         self.build_log = []
         self.preview_entries = []
+        if hasattr(self, 'module_four_panel'):
+            self.module_four_panel.reset_current_run()
         self.refresh_all()
 
     def reset_phase_one_fields(self) -> None:
@@ -1245,25 +1465,162 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.module_two_selection_anchor_row_id = None
         self.module_two_song_selected_indices.clear()
         self.module_two_song_selection_anchor_indices.clear()
+        if hasattr(self, 'module_four_panel'):
+            self.module_four_panel.reset_current_run()
         self.refresh_all()
 
     def run_build_preview(self) -> None:
-        self.build_log = [f"[{datetime.now().strftime('%H:%M:%S')}] Build started - {len(self.session.project.media_rows) * 2} sides queued."]
-        self.preview_entries = []
-        for row in self.session.project.media_rows:
-            for side_name, tracks in [('A', row.tracks_a), ('B', row.tracks_b)]:
-                self.build_log.append(f"[{datetime.now().strftime('%H:%M:%S')}] Queued: {row.media_name} (Side {side_name}) - {len(tracks)} songs")
-                self.preview_entries.append(f'{row.media_name} (Side {side_name})')
-        if hasattr(self, 'build_export'):
-            self.build_export.refresh(self.build_log, self.preview_entries)
+        if hasattr(self, 'module_four_panel'):
+            self.module_four_panel.archive_current_run()
+            self.module_four_panel.reset_current_run()
+            preview_groups = self._module_four_preview_groups()
+            if preview_groups:
+                self.module_four_panel.set_queue_groups(preview_groups)
+            output_path = self.session.project.workshop_output_folder or str(app_root())
+            self.module_four_panel.set_output_path(output_path)
+            preview_lines = self._module_four_preview_log_lines(preview_groups, output_path)
+            self.module_four_panel.set_log_lines(preview_lines)
+            self.build_log = [self._module_four_log_line_text(line) for line in preview_lines]
+            self.preview_entries = [group.display_label.replace('\n', ' ') for group in preview_groups]
+        else:
+            self.build_log = [f"[{datetime.now().strftime('%H:%M:%S')}] Build started - {len(self.session.project.media_rows) * 2} sides queued."]
+            self.preview_entries = []
         if hasattr(self, 'build_summary'):
             self.build_summary.refresh()
 
     def reset_transient_state(self) -> None:
         self.build_log = []
         self.preview_entries = []
+        if hasattr(self, 'module_four_panel'):
+            self.module_four_panel.reset_current_run()
         if hasattr(self, 'build_export'):
             self.build_export.refresh(self.build_log, self.preview_entries)
+
+    def _module_four_preview_groups(self) -> list[ConversionSideGroup]:
+        groups: list[ConversionSideGroup] = []
+        for row in self.session.project.media_rows:
+            for side_name, tracks in [('A', row.tracks_a), ('B', row.tracks_b)]:
+                if not tracks:
+                    continue
+                songs = [
+                    ConversionSongProgress(
+                        song_label=track.display_label or Path(track.source_path).stem or f'Track {index}',
+                        queue_index=index,
+                        percent=0,
+                        status='queued',
+                        size_label='3.1 KB',
+                    )
+                    for index, track in enumerate(tracks, start=1)
+                ]
+                groups.append(
+                    ConversionSideGroup(
+                        row_id=row.row_id,
+                        side=side_name,
+                        display_label=f'{row.media_name}\n{side_name}-SIDE',
+                        songs=songs,
+                    )
+                )
+
+        if not groups:
+            sample_groups = [
+                (
+                    1,
+                    'Single Song Media Name That Is Very Long For Marquee Testing',
+                    {
+                        'A': ['Only Track'],
+                        'B': ['Only Track Reprise'],
+                    },
+                ),
+                (
+                    2,
+                    'Sample Media Mix With An Extraordinarily Long Name 2',
+                    {
+                        'A': [f'Long Sample Song {index}' for index in range(1, 11)],
+                    },
+                ),
+                (
+                    3,
+                    'Sample Media Mix With A Very Long Closing Name 3',
+                    {
+                        'A': ['Closing Track 1', 'Closing Track 2', 'Closing Track 3', 'Closing Track 4'],
+                    },
+                ),
+            ]
+            for row_id, media_name, sides in sample_groups:
+                for side_name, song_names in sides.items():
+                    groups.append(
+                        ConversionSideGroup(
+                            row_id=row_id,
+                            side=side_name,
+                            display_label=f'{media_name}\n{side_name}-SIDE',
+                            songs=[
+                                ConversionSongProgress(
+                                    song_label=song_name,
+                                    queue_index=song_index,
+                                    percent=0,
+                                    status='queued',
+                                    size_label='3.1 KB',
+                                )
+                                for song_index, song_name in enumerate(song_names, start=1)
+                            ],
+                        )
+                    )
+
+        if groups and groups[0].songs:
+            groups[0].songs[0].percent = 60
+            groups[0].songs[0].status = 'converting'
+
+        multi_song_group = next((group for group in groups if len(group.songs) > 1), None)
+        if multi_song_group is not None:
+            for song_index, song in enumerate(multi_song_group.songs):
+                if song_index == 0:
+                    song.percent = 100
+                    song.status = 'done'
+                elif song_index == 1:
+                    song.percent = 60
+                    song.status = 'converting'
+                else:
+                    song.percent = 0
+                    song.status = 'queued'
+
+        return groups
+
+    def _module_four_preview_log_lines(self, groups: list[ConversionSideGroup], output_path: str) -> list[ExportLogLine]:
+        current_time = datetime.now()
+        done_one = current_time.strftime('%H:%M:%S')
+        done_two = (current_time.replace(second=(current_time.second + 1) % 60)).strftime('%H:%M:%S')
+        done_three = (current_time.replace(second=(current_time.second + 2) % 60)).strftime('%H:%M:%S')
+        active_time = (current_time.replace(second=(current_time.second + 3) % 60)).strftime('%H:%M:%S')
+
+        song_names: list[str] = []
+        for group in groups:
+            for song in group.songs:
+                song_names.append(f'{song.song_label}.ogg')
+        while len(song_names) < 4:
+            song_names.append(f'Sample Track {len(song_names) + 1}.ogg')
+
+        return [
+            ExportLogLine(timestamp=done_one, prefix_text='Converting:', subject_text=song_names[0], trailing_text='....DONE', size_text='(3.1 KB)', color_role='done'),
+            ExportLogLine(timestamp=done_two, prefix_text='Converting:', subject_text=song_names[1], trailing_text='....DONE', size_text='(3.1 KB)', color_role='done'),
+            ExportLogLine(timestamp=done_three, prefix_text='Converting:', subject_text=song_names[2], trailing_text='....DONE', size_text='(3.1 KB)', color_role='done'),
+            ExportLogLine(timestamp=active_time, prefix_text='Converting:', subject_text=song_names[3], trailing_text='....60%', size_text='(3.1 KB)', color_role='converting'),
+            ExportLogLine(timestamp=active_time, prefix_text='All files will be saved to:', color_role='neutral'),
+            ExportLogLine(timestamp='', prefix_text=output_path, color_role='neutral'),
+        ]
+
+    def _module_four_log_line_text(self, line: ExportLogLine) -> str:
+        parts: list[str] = []
+        if line.timestamp:
+            parts.append(f'[{line.timestamp}]')
+        if line.prefix_text:
+            parts.append(line.prefix_text)
+        if line.subject_text:
+            parts.append(line.subject_text)
+        if line.trailing_text:
+            parts.append(line.trailing_text)
+        if line.size_text:
+            parts.append(line.size_text)
+        return ' '.join(parts)
 
     def on_close(self) -> None:
         self.session_store.save(self.session.project, self.session.current_path)

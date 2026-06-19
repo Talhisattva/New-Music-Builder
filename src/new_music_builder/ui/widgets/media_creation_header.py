@@ -61,3 +61,13 @@ class MediaCreationHeader(tk.Frame):
             size=spec.MODULE_TWO_TOP_HEADER_BUTTON_SIZE,
         )
         self.remove_button.place(x=remove_x, y=add_y)
+
+    def resize(self, width: int) -> None:
+        self.configure(width=width)
+        inner_width = width - (spec.MODULE_TWO_TOP_HEADER_OUTLINE_WIDTH * 2)
+        self.surface.configure(width=inner_width)
+        self.surface.place_configure(
+            x=spec.MODULE_TWO_TOP_HEADER_OUTLINE_WIDTH,
+            y=spec.MODULE_TWO_TOP_HEADER_OUTLINE_WIDTH,
+            width=inner_width,
+        )

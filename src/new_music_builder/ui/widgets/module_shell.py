@@ -31,8 +31,11 @@ class ModuleShell(tk.Canvas):
         self._outline_width = outline_width
         self._midground_size = midground_size
         self._midground_offset = midground_offset
+        self._background_color = background_color
+        self._midground_color = midground_color
+        self._midground_outline_color = midground_outline_color
 
-        self.create_rectangle(0, 0, size[0], size[1], outline='', fill=outline_color)
+        self._outline_rect_id = self.create_rectangle(0, 0, size[0], size[1], outline='', fill=outline_color)
 
         self.background_surface = tk.Frame(
             self,
@@ -42,7 +45,7 @@ class ModuleShell(tk.Canvas):
             width=size[0] - (outline_width * 2),
             height=size[1] - (outline_width * 2),
         )
-        self.create_window(
+        self._background_window_id = self.create_window(
             outline_width,
             outline_width,
             anchor='nw',
@@ -59,7 +62,7 @@ class ModuleShell(tk.Canvas):
             width=midground_size[0],
             height=midground_size[1],
         )
-        self.create_window(
+        self._midground_window_id = self.create_window(
             midground_offset[0],
             midground_offset[1],
             anchor='nw',
@@ -77,3 +80,34 @@ class ModuleShell(tk.Canvas):
             height=midground_size[1] - 2,
         )
         self.midground_surface.place(x=1, y=1)
+
+    def resize(
+        self,
+        *,
+        size: tuple[int, int],
+        midground_size: tuple[int, int] | None = None,
+        midground_offset: tuple[int, int] | None = None,
+    ) -> None:
+        self._size = size
+        self._midground_size = midground_size or self._midground_size
+        self._midground_offset = midground_offset or self._midground_offset
+        self.configure(width=size[0], height=size[1])
+        self.coords(self._outline_rect_id, 0, 0, size[0], size[1])
+        background_width = size[0] - (self._outline_width * 2)
+        background_height = size[1] - (self._outline_width * 2)
+        self.background_surface.configure(width=background_width, height=background_height)
+        self.itemconfigure(self._background_window_id, width=background_width, height=background_height)
+        self.coords(self._background_window_id, self._outline_width, self._outline_width)
+
+        self.midground_border.configure(width=self._midground_size[0], height=self._midground_size[1])
+        self.itemconfigure(
+            self._midground_window_id,
+            width=self._midground_size[0],
+            height=self._midground_size[1],
+        )
+        self.coords(self._midground_window_id, self._midground_offset[0], self._midground_offset[1])
+        self.midground_surface.configure(
+            width=self._midground_size[0] - 2,
+            height=self._midground_size[1] - 2,
+        )
+        self.midground_surface.place_configure(x=1, y=1, width=self._midground_size[0] - 2, height=self._midground_size[1] - 2)

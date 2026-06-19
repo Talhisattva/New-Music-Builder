@@ -230,8 +230,59 @@ class MediaRowShell(tk.Frame):
         self.badge = self.expanded_badge if expanded else self.collapsed_badge
         self.cover = self.expanded_cover if expanded else self.collapsed_cover
         self.media_type_strip = self.expanded_media_type_strip if expanded else self.collapsed_media_type_strip
+        self._last_resized_width: int | None = None
+        self._last_live_preview_x: int | None = None
+        self._last_songlist_width: int | None = None
         self.set_expanded(expanded)
         self._apply_background_state()
+
+    def resize(self, width: int) -> None:
+        if self._last_resized_width == width:
+            return
+        self._last_resized_width = width
+        size = (width, spec.MEDIA_ROW_EXPANDED_SIZE[1]) if self._expanded else (width, spec.MEDIA_ROW_COLLAPSED_SIZE[1])
+        inner_width = size[0] - (spec.MEDIA_ROW_OUTLINE_WIDTH * 2)
+        inner_height = size[1] - (spec.MEDIA_ROW_OUTLINE_WIDTH * 2)
+        self.configure(width=size[0], height=size[1])
+        self.surface.configure(width=inner_width, height=inner_height)
+        self.surface.place_configure(x=spec.MEDIA_ROW_OUTLINE_WIDTH, y=spec.MEDIA_ROW_OUTLINE_WIDTH, width=inner_width, height=inner_height)
+        if self._expanded:
+            self.expanded_container.place_configure(x=0, y=0, width=inner_width, height=inner_height)
+            live_preview_right_inset = (
+                spec.MEDIA_ROW_EXPANDED_SIZE[0]
+                - spec.MEDIA_ROW_LIVE_PREVIEW_POS[0]
+                - spec.MEDIA_ROW_LIVE_PREVIEW_SIZE[0]
+                - (spec.MEDIA_ROW_OUTLINE_WIDTH * 2)
+            )
+            songlist_gap_to_preview = (
+                spec.MEDIA_ROW_LIVE_PREVIEW_POS[0]
+                - spec.MEDIA_ROW_SONGLIST_VIEWPORT_POS[0]
+                - spec.MEDIA_ROW_SONGLIST_VIEWPORT_SIZE[0]
+            )
+            live_preview_x = inner_width - spec.MEDIA_ROW_LIVE_PREVIEW_SIZE[0] - live_preview_right_inset
+            songlist_width = max(
+                spec.MEDIA_ROW_SONGLIST_VIEWPORT_SIZE[0],
+                live_preview_x - spec.MEDIA_ROW_SONGLIST_VIEWPORT_POS[0] - songlist_gap_to_preview,
+            )
+            if self._last_songlist_width != songlist_width:
+                self.songlist_viewport.resize(songlist_width)
+                self.songlist_viewport.place_configure(
+                    x=spec.MEDIA_ROW_SONGLIST_VIEWPORT_POS[0],
+                    y=spec.MEDIA_ROW_SONGLIST_VIEWPORT_POS[1],
+                    width=songlist_width,
+                    height=spec.MEDIA_ROW_SONGLIST_VIEWPORT_SIZE[1],
+                )
+                self._last_songlist_width = songlist_width
+            if self._last_live_preview_x != live_preview_x:
+                self.live_preview.place_configure(
+                    x=live_preview_x,
+                    y=spec.MEDIA_ROW_LIVE_PREVIEW_POS[1],
+                    width=spec.MEDIA_ROW_LIVE_PREVIEW_SIZE[0],
+                    height=spec.MEDIA_ROW_LIVE_PREVIEW_SIZE[1],
+                )
+                self._last_live_preview_x = live_preview_x
+        else:
+            self.collapsed_container.place_configure(x=0, y=0, width=inner_width, height=inner_height)
 
     def _bind_background_interactions(self) -> None:
         for sequence, handler in (
@@ -322,6 +373,9 @@ class MediaRowShell(tk.Frame):
         self._expanded = expanded
         self._row_expanded = expanded
         self._row.expanded = expanded
+        self._last_resized_width = None
+        self._last_live_preview_x = None
+        self._last_songlist_width = None
         size = spec.MEDIA_ROW_EXPANDED_SIZE if expanded else spec.MEDIA_ROW_COLLAPSED_SIZE
         inner_width = size[0] - (spec.MEDIA_ROW_OUTLINE_WIDTH * 2)
         inner_height = size[1] - (spec.MEDIA_ROW_OUTLINE_WIDTH * 2)
@@ -436,8 +490,18 @@ class MediaRowList(tk.Frame):
         self._can_accept_song_drop = can_accept_song_drop
         self._on_song_drop = on_song_drop
         self.row_widgets: list[MediaRowShell] = []
+        self._last_width = spec.MEDIA_ROW_LIST_WIDTH
 
         self._build_rows()
+
+    def resize(self, width: int) -> None:
+        if self._last_width == width:
+            return
+        self._last_width = width
+        self.configure(width=width)
+        for row_widget in self.row_widgets:
+            row_widget.resize(width - spec.MEDIA_ROW_INSET_X)
+        self.refresh_row_layouts()
 
     def _normalized_rows(self, rows: list[MediaRow]) -> list[MediaRow]:
         normalized = list(rows)
@@ -521,8 +585,10 @@ class MediaRowList(tk.Frame):
 
     def refresh_row_layouts(self) -> None:
         current_y = spec.MEDIA_ROW_INSET_Y
+        row_width = int(self.cget('width')) - spec.MEDIA_ROW_INSET_X
         for row, row_widget in zip(self.rows, self.row_widgets):
             row_widget.set_expanded(row.expanded)
+            row_widget.resize(row_width)
             row_widget.place(x=spec.MEDIA_ROW_INSET_X, y=current_y)
             current_y += row_widget.winfo_reqheight() + spec.MEDIA_ROW_GAP_Y
         self.configure(height=self._total_height_for_rows(self.rows))

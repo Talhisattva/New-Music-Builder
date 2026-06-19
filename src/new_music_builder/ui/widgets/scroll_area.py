@@ -52,6 +52,15 @@ class CustomScrollbar(tk.Canvas):
         self._draw_track()
         self._bind_events()
 
+    def resize(self, size: tuple[int, int]) -> None:
+        self._size = size
+        self.configure(width=size[0], height=size[1])
+        inset = self._track_outline_width
+        self.coords(self._track_id, 0, 0, size[0], size[1])
+        self.coords(self._track_fill_id, inset, inset, size[0] - inset, size[1] - inset)
+        if self._thumb_visible:
+            self.set_view(self._first_fraction, self._last_fraction)
+
     def set_track_outline_color(self, color: str) -> None:
         self._track_outline = color
         self.itemconfigure(self._track_id, fill=color)
@@ -288,6 +297,32 @@ class ScrollViewport(tk.Frame):
         self.content_frame.bind('<Configure>', self._on_content_configure, add='+')
         self.viewport_canvas.bind('<Configure>', self._on_canvas_configure, add='+')
 
+    def resize(
+        self,
+        *,
+        size: tuple[int, int],
+        viewport_size: tuple[int, int],
+        scrollbar_size: tuple[int, int] | None = None,
+    ) -> None:
+        self._viewport_size = viewport_size
+        self._scrollbar_size = scrollbar_size or self._scrollbar_size
+        self.configure(width=size[0], height=size[1])
+        self.viewport_canvas.configure(width=viewport_size[0], height=viewport_size[1])
+        self.viewport_canvas.place_configure(x=0, y=0, width=viewport_size[0], height=viewport_size[1])
+        self.viewport_left_edge.place_configure(x=0, y=0, width=self._viewport_edge_width, height=viewport_size[1])
+        self.viewport_top_edge.place_configure(x=0, y=0, width=viewport_size[0], height=self._viewport_edge_width)
+        self.viewport_bottom_edge.place_configure(
+            x=0,
+            y=viewport_size[1] - self._viewport_edge_width,
+            width=viewport_size[0],
+            height=self._viewport_edge_width,
+        )
+        self.content_frame.configure(width=viewport_size[0])
+        self.viewport_canvas.itemconfigure(self._content_window_id, width=viewport_size[0])
+        self.scrollbar.resize(self._scrollbar_size)
+        self.scrollbar.place_configure(x=viewport_size[0], y=0, width=self._scrollbar_size[0], height=self._scrollbar_size[1])
+        self.refresh_scroll_region()
+
     def refresh_scroll_region(self) -> None:
         self.update_idletasks()
         content_height = self.content_frame.winfo_reqheight()
@@ -321,6 +356,12 @@ class ScrollViewport(tk.Frame):
 
     def scroll_by_pixels(self, delta_pixels: float) -> None:
         self._scroll_by_pixels(delta_pixels)
+
+    def scroll_to_bottom(self) -> None:
+        self.refresh_scroll_region()
+        self.viewport_canvas.yview_moveto(1.0)
+        first, last = self.viewport_canvas.yview()
+        self.scrollbar.set_view(first, last)
 
     def _ensure_global_wheel_binding(self) -> None:
         if ScrollViewport._global_wheel_bound:

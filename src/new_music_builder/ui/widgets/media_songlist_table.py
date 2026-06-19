@@ -48,7 +48,8 @@ class MediaSonglistTable(tk.Canvas):
         self._header_height = spec.MEDIA_ROW_SONGLIST_TABLE_HEADER_HEIGHT
         self._row_height = spec.MEDIA_ROW_SONGLIST_TABLE_ROW_HEIGHT
         self._min_row_count = spec.MEDIA_ROW_SONGLIST_TABLE_MIN_ROWS
-        self._column_widths = spec.MEDIA_ROW_SONGLIST_TABLE_COLUMN_WIDTHS
+        self._base_column_widths = spec.MEDIA_ROW_SONGLIST_TABLE_COLUMN_WIDTHS
+        self._column_widths = self._base_column_widths
         self._divider_color = spec.MEDIA_ROW_SONGLIST_TABLE_DIVIDER_COLOR
         self._divider_width = spec.MEDIA_ROW_SONGLIST_TABLE_DIVIDER_WIDTH
         self._tracks: list[TrackEntry] = []
@@ -93,7 +94,19 @@ class MediaSonglistTable(tk.Canvas):
         self._grab_icon_image = self._load_icon(grab_icon_path)
         self._table_check_icon_image = self._load_icon(table_check_icon_path)
         self._preview_audio_icon_image = self._load_icon(preview_audio_icon_path)
+        self._last_resized_width = self._width
         self._bind_interactions()
+        self.redraw()
+
+    def resize(self, width: int) -> None:
+        if width == self._last_resized_width:
+            return
+        extra_width = max(0, width - spec.MEDIA_ROW_SONGLIST_TABLE_SIZE[0])
+        column_widths = list(self._base_column_widths)
+        column_widths[2] = self._base_column_widths[2] + extra_width
+        self._column_widths = tuple(column_widths)
+        self._width = sum(self._column_widths)
+        self._last_resized_width = width
         self.redraw()
 
     def _load_icon(self, path: str | None) -> ImageTk.PhotoImage | None:
