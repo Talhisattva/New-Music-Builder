@@ -33,9 +33,6 @@ class MediaRowShell(tk.Frame):
         row: MediaRow,
         expanded: bool,
         folder_icon_path: str | None = None,
-        cassette_icon_path: str | None = None,
-        vinyl_icon_path: str | None = None,
-        cd_icon_path: str | None = None,
         check_icon_path: str | None = None,
         edit_icon_path: str | None = None,
         ear_icon_path: str | None = None,
@@ -43,6 +40,7 @@ class MediaRowShell(tk.Frame):
         table_check_icon_path: str | None = None,
         preview_audio_icon_path: str | None = None,
         resolve_live_preview_path: Callable[[MediaRow, AppearanceKind, str], str | None] | None = None,
+        resolve_media_strip_path: Callable[[MediaRow, MediaKind, str], str | None] | None = None,
         on_select: Callable[[int], None] | None = None,
         selected: bool = False,
         selected_count: int = 0,
@@ -183,11 +181,9 @@ class MediaRowShell(tk.Frame):
                 self.surface,
                 row=row,
                 expanded=True,
-                cassette_icon_path=cassette_icon_path,
-                vinyl_icon_path=vinyl_icon_path,
-                cd_icon_path=cd_icon_path,
                 check_icon_path=check_icon_path,
                 bg_color=spec.MEDIA_ROW_BG,
+                resolve_media_strip_path=resolve_media_strip_path,
                 on_enabled_media_changed=on_enabled_media_changed,
             )
             self.media_type_strip.place(
@@ -214,11 +210,9 @@ class MediaRowShell(tk.Frame):
                 self.surface,
                 row=row,
                 expanded=False,
-                cassette_icon_path=cassette_icon_path,
-                vinyl_icon_path=vinyl_icon_path,
-                cd_icon_path=cd_icon_path,
                 check_icon_path=check_icon_path,
                 bg_color=spec.MEDIA_ROW_BG,
+                resolve_media_strip_path=resolve_media_strip_path,
                 on_enabled_media_changed=on_enabled_media_changed,
             )
             self.media_type_strip.place(
@@ -318,6 +312,10 @@ class MediaRowShell(tk.Frame):
         if hasattr(self, 'songlist_viewport'):
             self.songlist_viewport.refresh_content()
 
+    def refresh_media_type_strip(self) -> None:
+        if hasattr(self, 'media_type_strip'):
+            self.media_type_strip.refresh_content()
+
     def set_song_selection_state(self, selected_song_indices: set[int]) -> None:
         if hasattr(self, 'songlist_viewport'):
             self.songlist_viewport.set_selection_state(selected_song_indices)
@@ -362,9 +360,6 @@ class MediaRowList(tk.Frame):
         *,
         rows: list[MediaRow],
         folder_icon_path: str | None = None,
-        cassette_icon_path: str | None = None,
-        vinyl_icon_path: str | None = None,
-        cd_icon_path: str | None = None,
         check_icon_path: str | None = None,
         edit_icon_path: str | None = None,
         ear_icon_path: str | None = None,
@@ -372,6 +367,7 @@ class MediaRowList(tk.Frame):
         table_check_icon_path: str | None = None,
         preview_audio_icon_path: str | None = None,
         resolve_live_preview_path: Callable[[MediaRow, AppearanceKind, str], str | None] | None = None,
+        resolve_media_strip_path: Callable[[MediaRow, MediaKind, str], str | None] | None = None,
         bg_color: str | None = None,
         on_row_selected: Callable[[int], None] | None = None,
         selected_row_ids: set[int] | None = None,
@@ -407,9 +403,6 @@ class MediaRowList(tk.Frame):
         self.pack_propagate(False)
         self.rows = normalized_rows
         self._folder_icon_path = folder_icon_path
-        self._cassette_icon_path = cassette_icon_path
-        self._vinyl_icon_path = vinyl_icon_path
-        self._cd_icon_path = cd_icon_path
         self._check_icon_path = check_icon_path
         self._edit_icon_path = edit_icon_path
         self._ear_icon_path = ear_icon_path
@@ -417,6 +410,7 @@ class MediaRowList(tk.Frame):
         self._table_check_icon_path = table_check_icon_path
         self._preview_audio_icon_path = preview_audio_icon_path
         self._resolve_live_preview_path = resolve_live_preview_path
+        self._resolve_media_strip_path = resolve_media_strip_path
         self._on_row_selected = on_row_selected
         self._selected_row_ids = set(selected_row_ids or set())
         self._selected_count = len(self._selected_row_ids)
@@ -472,9 +466,6 @@ class MediaRowList(tk.Frame):
                 row=row,
                 expanded=row.expanded,
                 folder_icon_path=self._folder_icon_path,
-                cassette_icon_path=self._cassette_icon_path,
-                vinyl_icon_path=self._vinyl_icon_path,
-                cd_icon_path=self._cd_icon_path,
                 check_icon_path=self._check_icon_path,
                 edit_icon_path=self._edit_icon_path,
                 ear_icon_path=self._ear_icon_path,
@@ -482,6 +473,7 @@ class MediaRowList(tk.Frame):
                 table_check_icon_path=self._table_check_icon_path,
                 preview_audio_icon_path=self._preview_audio_icon_path,
                 resolve_live_preview_path=self._resolve_live_preview_path,
+                resolve_media_strip_path=self._resolve_media_strip_path,
                 on_select=self._on_row_selected,
                 selected=(row.row_id in self._selected_row_ids),
                 selected_count=self._selected_count,
@@ -515,3 +507,8 @@ class MediaRowList(tk.Frame):
                 selected=(row_widget._row_id in self._selected_row_ids),
                 selected_count=self._selected_count,
             )
+
+    def refresh_media_type_strips_for_row(self, row_id: int) -> None:
+        for row_widget in self.row_widgets:
+            if row_widget._row_id == row_id:
+                row_widget.refresh_media_type_strip()

@@ -185,6 +185,9 @@ class MainWindow(_DnDCompat, ctk.CTk):
             return None
         return entry.displayed_path('world' if mode == 'world' else 'inventory', show_empty=False)
 
+    def _module_two_media_strip_path_for_row(self, row, kind: MediaKind, mode: str) -> str | None:
+        return self._module_two_preview_path_for_row(row, kind, mode)
+
     def _apply_window_icon(self) -> None:
         native_icon = self._native_icon_path()
         if native_icon.exists() and sys.platform.startswith('win'):
@@ -484,9 +487,6 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self.module_two_content_surface,
             rows=self.session.project.media_rows,
             folder_icon_path=str(self._folder_button_icon_path()),
-            cassette_icon_path=str(self._cassette_item_icon_path()),
-            vinyl_icon_path=str(self._vinyl_item_icon_path()),
-            cd_icon_path=str(self._cd_item_icon_path()),
             check_icon_path=str(self._check_icon_path()),
             edit_icon_path=str(self._edit_icon_path()),
             ear_icon_path=str(self._ear_icon_path()),
@@ -494,6 +494,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             table_check_icon_path=str(self._table_check_icon_path()),
             preview_audio_icon_path=str(self._preview_audio_icon_path()),
             resolve_live_preview_path=self._module_two_preview_path_for_row,
+            resolve_media_strip_path=self._module_two_media_strip_path_for_row,
             bg_color=spec.MODULE_MIDGROUND_BG,
             on_row_selected=self._expand_module_two_media_row,
             selected_row_ids=self.module_two_selected_row_ids,
@@ -719,6 +720,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         expanded_widget = self._expanded_row_widget(row_id)
         if expanded_widget is not None:
             expanded_widget.refresh_live_preview()
+        if hasattr(self, 'module_two_row_list'):
+            self.module_two_row_list.refresh_media_type_strips_for_row(row_id)
 
     def _cancel_module_two_song_drag(self) -> None:
         if self._module_two_song_drag_session is None:
@@ -931,6 +934,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             expanded_widget = self._expanded_row_widget(row_id)
             if expanded_widget is not None:
                 expanded_widget.refresh_live_preview()
+            self.module_two_row_list.refresh_media_type_strips_for_row(row_id)
         self._refresh_module_three_appearance_selector()
         self.on_project_change()
 
