@@ -73,6 +73,7 @@ class MediaRowShell(tk.Frame):
         )
         self.pack_propagate(False)
         self._row_id = row.row_id
+        self._row = row
         self._expanded = expanded
         self._row_expanded = row.expanded
         self._selected = selected
@@ -95,154 +96,140 @@ class MediaRowShell(tk.Frame):
         self._bind_background_interactions()
         self._apply_background_state()
 
-        if expanded:
-            self.cover = ExpandedMediaCover(
-                self.surface,
-                folder_icon_path=folder_icon_path,
-                cover_path=row.cover_path,
-                command=(lambda: on_cover_selected(row.row_id)) if on_cover_selected is not None else None,
-            )
-            self.cover.place(
-                x=spec.MEDIA_ROW_EXPANDED_COVER_POS[0],
-                y=spec.MEDIA_ROW_EXPANDED_COVER_POS[1],
-            )
-            badge_x, badge_y = spec.MEDIA_ROW_BADGE_EXPANDED_POS
-            self.badge = MediaRowBadge(
-                self.surface,
-                row_number=row.row_id,
-                command=(lambda: on_select(row.row_id)) if on_select is not None else None,
-            )
-            self.badge.place(x=badge_x, y=badge_y)
-            self.rename_field = MediaRenameField(
-                self.surface,
-                row=row,
-                edit_icon_path=edit_icon_path,
-                bg_color=spec.MEDIA_ROW_RENAME_BG,
-                on_name_committed=on_name_committed,
-            )
-            self.rename_field.place(
-                x=spec.MEDIA_ROW_RENAME_POS[0],
-                y=spec.MEDIA_ROW_RENAME_POS[1],
-            )
-            self.side_toggle = MediaSideToggle(
-                self.surface,
-                row=row,
-                bg_color=spec.MEDIA_ROW_BG,
-                on_side_selected=on_side_selected,
-            )
-            self.side_toggle.place(
-                x=spec.MEDIA_ROW_SIDE_TOGGLE_POS[0],
-                y=spec.MEDIA_ROW_SIDE_TOGGLE_POS[1],
-            )
-            self.songlist_viewport = MediaSonglistViewport(
-                self.surface,
-                row=row,
-                bg_color=spec.MEDIA_ROW_BG,
-                ear_icon_path=ear_icon_path,
-                grab_icon_path=grab_icon_path,
-                table_check_icon_path=table_check_icon_path,
-                preview_audio_icon_path=preview_audio_icon_path,
-                selected_track_indices=selected_song_indices,
-                on_track_selected=(lambda track_index, modifiers: on_song_selected(row.row_id, track_index, modifiers)) if on_song_selected is not None else None,
-                on_track_remove_requested=(lambda track_index: on_song_remove_requested(row.row_id, track_index)) if on_song_remove_requested is not None else None,
-                on_track_drag_started=(lambda track_index, x_root, y_root: on_song_drag_started(row.row_id, track_index, x_root, y_root)) if on_song_drag_started is not None else None,
-                on_track_drag_moved=(lambda x_root, y_root: on_song_drag_moved(row.row_id, x_root, y_root)) if on_song_drag_moved is not None else None,
-                on_track_drag_finished=(lambda x_root, y_root: on_song_drag_finished(row.row_id, x_root, y_root)) if on_song_drag_finished is not None else None,
-                dnd_type=dnd_type,
-                can_accept_drop=can_accept_song_drop,
-                on_drop_files=(lambda paths: on_song_drop(row.row_id, paths)) if on_song_drop is not None else None,
-            )
-            self.songlist_viewport.place(
-                x=spec.MEDIA_ROW_SONGLIST_VIEWPORT_POS[0],
-                y=spec.MEDIA_ROW_SONGLIST_VIEWPORT_POS[1],
-            )
-            self.song_actions = MediaSongActions(
-                self.surface,
-                bg_color=spec.MEDIA_ROW_BG,
-                on_add_song=(lambda: on_add_song(row.row_id)) if on_add_song is not None else None,
-                on_remove_song=(lambda: on_remove_song(row.row_id)) if on_remove_song is not None else None,
-            )
-            self.song_actions.place(
-                x=spec.MEDIA_ROW_SONG_ACTIONS_POS[0],
-                y=spec.MEDIA_ROW_SONG_ACTIONS_POS[1],
-            )
-            self.live_preview = MediaLivePreview(
-                self.surface,
-                row=row,
-                bg_color=spec.MEDIA_ROW_BG,
-                resolve_preview_path=resolve_live_preview_path,
-                on_mode_selected=on_preview_mode_selected,
-            )
-            self.live_preview.place(
-                x=spec.MEDIA_ROW_LIVE_PREVIEW_POS[0],
-                y=spec.MEDIA_ROW_LIVE_PREVIEW_POS[1],
-            )
-            self.media_type_strip = MediaTypeStrip(
-                self.surface,
-                row=row,
-                expanded=True,
-                check_icon_path=check_icon_path,
-                bg_color=spec.MEDIA_ROW_BG,
-                resolve_media_strip_path=resolve_media_strip_path,
-                on_enabled_media_changed=on_enabled_media_changed,
-            )
-            self.media_type_strip.place(
-                x=spec.MEDIA_ROW_MEDIA_STRIP_EXPANDED_POS[0],
-                y=spec.MEDIA_ROW_MEDIA_STRIP_EXPANDED_POS[1],
-            )
-        else:
-            badge_x, badge_y = spec.MEDIA_ROW_BADGE_COLLAPSED_POS
-            self.badge = MediaRowBadge(
-                self.surface,
-                row_number=row.row_id,
-                command=(lambda: on_select(row.row_id)) if on_select is not None else None,
-            )
-            self.badge.place(x=badge_x, y=badge_y)
-            self.cover = CollapsedMediaCover(
-                self.surface,
-                cover_path=row.cover_path,
-            )
-            self.cover.place(
-                x=spec.MEDIA_ROW_COLLAPSED_COVER_POS[0],
-                y=spec.MEDIA_ROW_COLLAPSED_COVER_POS[1],
-            )
-            self.media_type_strip = MediaTypeStrip(
-                self.surface,
-                row=row,
-                expanded=False,
-                check_icon_path=check_icon_path,
-                bg_color=spec.MEDIA_ROW_BG,
-                resolve_media_strip_path=resolve_media_strip_path,
-                on_enabled_media_changed=on_enabled_media_changed,
-            )
-            self.media_type_strip.place(
-                x=spec.MEDIA_ROW_MEDIA_STRIP_COLLAPSED_POS[0],
-                y=spec.MEDIA_ROW_MEDIA_STRIP_COLLAPSED_POS[1],
-            )
-            self.collapsed_chevron = CollapsedRowChevron(
-                self.surface,
-                bg_color=spec.MEDIA_ROW_BG,
-            )
-            self.collapsed_chevron.place(
-                x=spec.MEDIA_ROW_COLLAPSED_CHEVRON_POS[0],
-                y=spec.MEDIA_ROW_COLLAPSED_CHEVRON_POS[1],
-            )
-            self.collapsed_details = CollapsedRowDetails(
-                self.surface,
-                row=row,
-                bg_color=spec.MEDIA_ROW_BG,
-            )
-            self.collapsed_details.place(
-                x=spec.MEDIA_ROW_COLLAPSED_DETAILS_POS[0],
-                y=spec.MEDIA_ROW_COLLAPSED_DETAILS_POS[1],
-            )
-            for background_widget in (
-                self.cover,
-                self.media_type_strip,
-                self.collapsed_chevron,
-                self.collapsed_details,
-            ):
-                self._bind_widget_to_background_interactions(background_widget)
+        self.expanded_container = tk.Frame(self.surface, bg=spec.MEDIA_ROW_BG, bd=0, highlightthickness=0)
+        self.collapsed_container = tk.Frame(self.surface, bg=spec.MEDIA_ROW_BG, bd=0, highlightthickness=0)
+
+        self.expanded_cover = ExpandedMediaCover(
+            self.expanded_container,
+            folder_icon_path=folder_icon_path,
+            cover_path=row.cover_path,
+            command=(lambda: on_cover_selected(row.row_id)) if on_cover_selected is not None else None,
+        )
+        self.expanded_cover.place(
+            x=spec.MEDIA_ROW_EXPANDED_COVER_POS[0],
+            y=spec.MEDIA_ROW_EXPANDED_COVER_POS[1],
+        )
+        self.expanded_badge = MediaRowBadge(
+            self.expanded_container,
+            row_number=row.row_id,
+            command=(lambda: on_select(row.row_id)) if on_select is not None else None,
+        )
+        self.expanded_badge.place(x=spec.MEDIA_ROW_BADGE_EXPANDED_POS[0], y=spec.MEDIA_ROW_BADGE_EXPANDED_POS[1])
+        self.rename_field = MediaRenameField(
+            self.expanded_container,
+            row=row,
+            edit_icon_path=edit_icon_path,
+            bg_color=spec.MEDIA_ROW_RENAME_BG,
+            on_name_committed=on_name_committed,
+        )
+        self.rename_field.place(x=spec.MEDIA_ROW_RENAME_POS[0], y=spec.MEDIA_ROW_RENAME_POS[1])
+        self.side_toggle = MediaSideToggle(
+            self.expanded_container,
+            row=row,
+            bg_color=spec.MEDIA_ROW_BG,
+            on_side_selected=on_side_selected,
+        )
+        self.side_toggle.place(x=spec.MEDIA_ROW_SIDE_TOGGLE_POS[0], y=spec.MEDIA_ROW_SIDE_TOGGLE_POS[1])
+        self.songlist_viewport = MediaSonglistViewport(
+            self.expanded_container,
+            row=row,
+            bg_color=spec.MEDIA_ROW_BG,
+            ear_icon_path=ear_icon_path,
+            grab_icon_path=grab_icon_path,
+            table_check_icon_path=table_check_icon_path,
+            preview_audio_icon_path=preview_audio_icon_path,
+            selected_track_indices=selected_song_indices,
+            on_track_selected=(lambda track_index, modifiers: on_song_selected(row.row_id, track_index, modifiers)) if on_song_selected is not None else None,
+            on_track_remove_requested=(lambda track_index: on_song_remove_requested(row.row_id, track_index)) if on_song_remove_requested is not None else None,
+            on_track_drag_started=(lambda track_index, x_root, y_root: on_song_drag_started(row.row_id, track_index, x_root, y_root)) if on_song_drag_started is not None else None,
+            on_track_drag_moved=(lambda x_root, y_root: on_song_drag_moved(row.row_id, x_root, y_root)) if on_song_drag_moved is not None else None,
+            on_track_drag_finished=(lambda x_root, y_root: on_song_drag_finished(row.row_id, x_root, y_root)) if on_song_drag_finished is not None else None,
+            dnd_type=dnd_type,
+            can_accept_drop=can_accept_song_drop,
+            on_drop_files=(lambda paths: on_song_drop(row.row_id, paths)) if on_song_drop is not None else None,
+        )
+        self.songlist_viewport.place(x=spec.MEDIA_ROW_SONGLIST_VIEWPORT_POS[0], y=spec.MEDIA_ROW_SONGLIST_VIEWPORT_POS[1])
+        self.song_actions = MediaSongActions(
+            self.expanded_container,
+            bg_color=spec.MEDIA_ROW_BG,
+            on_add_song=(lambda: on_add_song(row.row_id)) if on_add_song is not None else None,
+            on_remove_song=(lambda: on_remove_song(row.row_id)) if on_remove_song is not None else None,
+        )
+        self.song_actions.place(x=spec.MEDIA_ROW_SONG_ACTIONS_POS[0], y=spec.MEDIA_ROW_SONG_ACTIONS_POS[1])
+        self.live_preview = MediaLivePreview(
+            self.expanded_container,
+            row=row,
+            bg_color=spec.MEDIA_ROW_BG,
+            resolve_preview_path=resolve_live_preview_path,
+            on_mode_selected=on_preview_mode_selected,
+        )
+        self.live_preview.place(x=spec.MEDIA_ROW_LIVE_PREVIEW_POS[0], y=spec.MEDIA_ROW_LIVE_PREVIEW_POS[1])
+        self.expanded_media_type_strip = MediaTypeStrip(
+            self.expanded_container,
+            row=row,
+            expanded=True,
+            check_icon_path=check_icon_path,
+            bg_color=spec.MEDIA_ROW_BG,
+            resolve_media_strip_path=resolve_media_strip_path,
+            on_enabled_media_changed=on_enabled_media_changed,
+        )
+        self.expanded_media_type_strip.place(
+            x=spec.MEDIA_ROW_MEDIA_STRIP_EXPANDED_POS[0],
+            y=spec.MEDIA_ROW_MEDIA_STRIP_EXPANDED_POS[1],
+        )
+
+        self.collapsed_badge = MediaRowBadge(
+            self.collapsed_container,
+            row_number=row.row_id,
+            command=(lambda: on_select(row.row_id)) if on_select is not None else None,
+        )
+        self.collapsed_badge.place(x=spec.MEDIA_ROW_BADGE_COLLAPSED_POS[0], y=spec.MEDIA_ROW_BADGE_COLLAPSED_POS[1])
+        self.collapsed_cover = CollapsedMediaCover(
+            self.collapsed_container,
+            cover_path=row.cover_path,
+        )
+        self.collapsed_cover.place(x=spec.MEDIA_ROW_COLLAPSED_COVER_POS[0], y=spec.MEDIA_ROW_COLLAPSED_COVER_POS[1])
+        self.collapsed_media_type_strip = MediaTypeStrip(
+            self.collapsed_container,
+            row=row,
+            expanded=False,
+            check_icon_path=check_icon_path,
+            bg_color=spec.MEDIA_ROW_BG,
+            resolve_media_strip_path=resolve_media_strip_path,
+            on_enabled_media_changed=on_enabled_media_changed,
+        )
+        self.collapsed_media_type_strip.place(
+            x=spec.MEDIA_ROW_MEDIA_STRIP_COLLAPSED_POS[0],
+            y=spec.MEDIA_ROW_MEDIA_STRIP_COLLAPSED_POS[1],
+        )
+        self.collapsed_chevron = CollapsedRowChevron(
+            self.collapsed_container,
+            bg_color=spec.MEDIA_ROW_BG,
+        )
+        self.collapsed_chevron.place(
+            x=spec.MEDIA_ROW_COLLAPSED_CHEVRON_POS[0],
+            y=spec.MEDIA_ROW_COLLAPSED_CHEVRON_POS[1],
+        )
+        self.collapsed_details = CollapsedRowDetails(
+            self.collapsed_container,
+            row=row,
+            bg_color=spec.MEDIA_ROW_BG,
+        )
+        self.collapsed_details.place(
+            x=spec.MEDIA_ROW_COLLAPSED_DETAILS_POS[0],
+            y=spec.MEDIA_ROW_COLLAPSED_DETAILS_POS[1],
+        )
+        for background_widget in (
+            self.collapsed_cover,
+            self.collapsed_media_type_strip,
+            self.collapsed_chevron,
+            self.collapsed_details,
+        ):
+            self._bind_widget_to_background_interactions(background_widget)
+        self.badge = self.expanded_badge if expanded else self.collapsed_badge
+        self.cover = self.expanded_cover if expanded else self.collapsed_cover
+        self.media_type_strip = self.expanded_media_type_strip if expanded else self.collapsed_media_type_strip
+        self.set_expanded(expanded)
         self._apply_background_state()
 
     def _bind_background_interactions(self) -> None:
@@ -282,18 +269,15 @@ class MediaRowShell(tk.Frame):
         elif self._hovered:
             fill_color = spec.MEDIA_ROW_HOVER_BG
         self.surface.configure(bg=fill_color)
-        if hasattr(self, 'media_type_strip'):
-            self.media_type_strip.set_bg_color(fill_color)
-        if hasattr(self, 'side_toggle'):
-            self.side_toggle.set_bg_color(fill_color)
-        if hasattr(self, 'song_actions'):
-            self.song_actions.set_bg_color(fill_color)
-        if hasattr(self, 'live_preview'):
-            self.live_preview.set_bg_color(fill_color)
-        if hasattr(self, 'collapsed_chevron'):
-            self.collapsed_chevron.set_bg_color(fill_color)
-        if hasattr(self, 'collapsed_details'):
-            self.collapsed_details.set_bg_color(fill_color)
+        self.expanded_container.configure(bg=fill_color)
+        self.collapsed_container.configure(bg=fill_color)
+        self.expanded_media_type_strip.set_bg_color(fill_color)
+        self.collapsed_media_type_strip.set_bg_color(fill_color)
+        self.side_toggle.set_bg_color(fill_color)
+        self.song_actions.set_bg_color(fill_color)
+        self.live_preview.set_bg_color(fill_color)
+        self.collapsed_chevron.set_bg_color(fill_color)
+        self.collapsed_details.set_bg_color(fill_color)
 
     def set_selection_state(self, *, selected: bool, selected_count: int) -> None:
         self._selected = selected
@@ -305,42 +289,56 @@ class MediaRowShell(tk.Frame):
             self.live_preview.refresh_content()
 
     def refresh_cover(self, cover_path: str) -> None:
-        if hasattr(self, 'cover'):
-            self.cover.set_cover_path(cover_path)
+        self.expanded_cover.set_cover_path(cover_path)
+        self.collapsed_cover.set_cover_path(cover_path)
 
     def refresh_song_table(self) -> None:
-        if hasattr(self, 'songlist_viewport'):
-            self.songlist_viewport.refresh_content()
+        self.songlist_viewport.refresh_content()
 
     def refresh_media_type_strip(self) -> None:
-        if hasattr(self, 'media_type_strip'):
-            self.media_type_strip.refresh_content()
+        self.expanded_media_type_strip.refresh_content()
+        self.collapsed_media_type_strip.refresh_content()
 
     def set_song_selection_state(self, selected_song_indices: set[int]) -> None:
-        if hasattr(self, 'songlist_viewport'):
-            self.songlist_viewport.set_selection_state(selected_song_indices)
+        self.songlist_viewport.set_selection_state(selected_song_indices)
 
     def begin_song_drag(self, dragged_indices: set[int], x_root: int, y_root: int) -> None:
-        if hasattr(self, 'songlist_viewport'):
-            self.songlist_viewport.begin_drag(dragged_indices, x_root, y_root)
+        self.songlist_viewport.begin_drag(dragged_indices, x_root, y_root)
 
     def update_song_drag(self, x_root: int, y_root: int) -> None:
-        if hasattr(self, 'songlist_viewport'):
-            self.songlist_viewport.update_drag(x_root, y_root)
+        self.songlist_viewport.update_drag(x_root, y_root)
 
     def finish_song_drag(self, x_root: int, y_root: int) -> int | None:
-        if hasattr(self, 'songlist_viewport'):
-            return self.songlist_viewport.finish_drag(x_root, y_root)
-        return None
+        return self.songlist_viewport.finish_drag(x_root, y_root)
 
     def current_song_insertion_index(self) -> int | None:
-        if hasattr(self, 'songlist_viewport'):
-            return self.songlist_viewport.table.current_insertion_index()
-        return None
+        return self.songlist_viewport.table.current_insertion_index()
 
     def cancel_song_drag(self) -> None:
-        if hasattr(self, 'songlist_viewport'):
-            self.songlist_viewport.cancel_drag()
+        self.songlist_viewport.cancel_drag()
+
+    def set_expanded(self, expanded: bool) -> None:
+        self._expanded = expanded
+        self._row_expanded = expanded
+        self._row.expanded = expanded
+        size = spec.MEDIA_ROW_EXPANDED_SIZE if expanded else spec.MEDIA_ROW_COLLAPSED_SIZE
+        inner_width = size[0] - (spec.MEDIA_ROW_OUTLINE_WIDTH * 2)
+        inner_height = size[1] - (spec.MEDIA_ROW_OUTLINE_WIDTH * 2)
+        self.configure(width=size[0], height=size[1])
+        self.surface.configure(width=inner_width, height=inner_height)
+        if expanded:
+            self.collapsed_container.place_forget()
+            self.expanded_container.place(x=0, y=0, width=inner_width, height=inner_height)
+            self.badge = self.expanded_badge
+            self.cover = self.expanded_cover
+            self.media_type_strip = self.expanded_media_type_strip
+        else:
+            self.expanded_container.place_forget()
+            self.collapsed_container.place(x=0, y=0, width=inner_width, height=inner_height)
+            self.badge = self.collapsed_badge
+            self.cover = self.collapsed_cover
+            self.media_type_strip = self.collapsed_media_type_strip
+        self._apply_background_state()
 
     def _decode_selection_modifiers(self, event: tk.Event) -> RowSelectionModifiers:
         state = int(getattr(event, 'state', 0))
@@ -459,7 +457,6 @@ class MediaRowList(tk.Frame):
         return height
 
     def _build_rows(self) -> None:
-        current_y = spec.MEDIA_ROW_INSET_Y
         for row in self.rows:
             widget = MediaRowShell(
                 self,
@@ -495,9 +492,8 @@ class MediaRowList(tk.Frame):
                 can_accept_song_drop=self._can_accept_song_drop,
                 on_song_drop=self._on_song_drop,
             )
-            widget.place(x=spec.MEDIA_ROW_INSET_X, y=current_y)
             self.row_widgets.append(widget)
-            current_y += widget.winfo_reqheight() + spec.MEDIA_ROW_GAP_Y
+        self.refresh_row_layouts()
 
     def set_selection_state(self, selected_row_ids: set[int]) -> None:
         self._selected_row_ids = set(selected_row_ids)
@@ -512,3 +508,17 @@ class MediaRowList(tk.Frame):
         for row_widget in self.row_widgets:
             if row_widget._row_id == row_id:
                 row_widget.refresh_media_type_strip()
+
+    def set_expanded_row(self, row_id: int | None) -> None:
+        for row, row_widget in zip(self.rows, self.row_widgets):
+            row.expanded = row.row_id == row_id if row_id is not None else False
+            row_widget.set_expanded(row.expanded)
+        self.refresh_row_layouts()
+
+    def refresh_row_layouts(self) -> None:
+        current_y = spec.MEDIA_ROW_INSET_Y
+        for row, row_widget in zip(self.rows, self.row_widgets):
+            row_widget.set_expanded(row.expanded)
+            row_widget.place(x=spec.MEDIA_ROW_INSET_X, y=current_y)
+            current_y += row_widget.winfo_reqheight() + spec.MEDIA_ROW_GAP_Y
+        self.configure(height=self._total_height_for_rows(self.rows))

@@ -700,7 +700,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             (
                 widget
                 for widget in self.module_two_row_list.row_widgets
-                if getattr(widget, '_row_expanded', False) and getattr(widget, '_row_id', None) == row_id
+                if getattr(widget, '_row_id', None) == row_id and getattr(widget, '_row_expanded', False)
             ),
             None,
         )
@@ -985,12 +985,15 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.module_two_selected_row_ids.clear()
         self.module_two_selection_anchor_row_id = None
         if target_row.expanded:
+            expanded_row_id: int | None = None
             target_row.expanded = False
         else:
             for row in self.session.project.media_rows:
                 row.expanded = row.row_id == row_id
+            expanded_row_id = row_id
 
-        self._build_module_two_row_list()
+        self.module_two_row_list.set_expanded_row(expanded_row_id)
+        self.module_two_scroll_area.refresh_scroll_region()
         self.module_two_content_viewport.yview_moveto(current_view[0])
         self._refresh_module_three_appearance_selector()
         self.on_project_change()
