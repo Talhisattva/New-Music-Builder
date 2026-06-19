@@ -812,4 +812,23 @@ class AppearanceSelector:
         self._grid_build_after_id = None
         self._grid_loading_overlay.hide()
         self._update_active_tab_icon()
+        self._scroll_tile_into_view(selected_key)
         self._schedule_dual_phase_loop_if_needed()
+
+    def _scroll_tile_into_view(self, key: str) -> None:
+        tile = self._grid_tiles.get(key)
+        if tile is None:
+            return
+        viewport_height = spec.MODULE_THREE_GRID_MASK_SIZE[1]
+        content_height = self.shell.grid_viewport.content_frame.winfo_reqheight()
+        if content_height <= viewport_height:
+            self.shell.grid_viewport.viewport_canvas.yview_moveto(0.0)
+            return
+        tile_y = tile.winfo_y()
+        tile_height = spec.MODULE_THREE_GRID_TILE_SIZE[1]
+        scrollable = max(0, content_height - viewport_height)
+        target_top = max(0, min(scrollable, tile_y - ((viewport_height - tile_height) // 2)))
+        target_fraction = (target_top / content_height) if content_height > 0 else 0.0
+        self.shell.grid_viewport.viewport_canvas.yview_moveto(target_fraction)
+        first, last = self.shell.grid_viewport.viewport_canvas.yview()
+        self.shell.grid_viewport.scrollbar.set_view(first, last)
