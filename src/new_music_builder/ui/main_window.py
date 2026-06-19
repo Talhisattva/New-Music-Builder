@@ -93,9 +93,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.workshop_output_folder_var = tk.StringVar(value=self.session.project.workshop_output_folder)
         self._window_icon_image = None
 
-        sibling_root = app_root().parent
-        base_mod_root = sibling_root / 'Talis New Music'
-        self.asset_catalog_service = AssetCatalog(base_mod_root)
+        self.asset_catalog_service = AssetCatalog(app_root() / 'assets')
         self.asset_catalog = self.asset_catalog_service.scan()
         self.module_three_staged_custom_images: dict[str, dict[str, str]] = {}
         self.build_log: list[str] = []
@@ -146,7 +144,11 @@ class MainWindow(_DnDCompat, ctk.CTk):
         return app_root() / 'assets' / 'SmallCheck.png'
 
     def _loading_icon_path(self) -> Path:
-        return app_root() / 'assets' / 'LoadingIcon.png'
+        assets_root = app_root() / 'assets'
+        preferred = assets_root / 'LoadingIcon.png'
+        if preferred.exists():
+            return preferred
+        return assets_root / 'LoadingImage.png'
 
     def _cassette_item_icon_path(self) -> Path:
         return app_root() / 'assets' / 'Inventory' / 'Cassette' / 'Item_NM_Cassette4.png'

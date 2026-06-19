@@ -3,11 +3,11 @@ from pathlib import Path
 from new_music_builder.services.asset_catalog import AssetCatalog
 
 
-BASE_MOD = Path(r'C:\Users\chowl\Zomboid\Workshop\Talis New Music')
+ASSETS_ROOT = Path(__file__).resolve().parents[1] / 'assets'
 
 
 def test_asset_catalog_finds_expected_families() -> None:
-    catalog = AssetCatalog(BASE_MOD).scan()
+    catalog = AssetCatalog(ASSETS_ROOT).scan()
 
     assert catalog['cassette']
     assert catalog['vinyl']
