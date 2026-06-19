@@ -18,6 +18,8 @@ from new_music_builder.domain.models import (
     ConversionSideGroup,
     ConversionSongProgress,
     ExportLogLine,
+    GeneratedPreviewCell,
+    GeneratedPreviewRow,
     MediaKind,
     SongSortColumn,
     default_media_row,
@@ -54,6 +56,7 @@ from new_music_builder.ui.widgets.media_row_list import MediaRowList, RowSelecti
 from new_music_builder.ui.widgets.media_songlist_table import TrackSelectionModifiers
 from new_music_builder.ui.widgets.menu_strip import MenuStrip
 from new_music_builder.ui.widgets.module_four_panel import ModuleFourPanel
+from new_music_builder.ui.widgets.module_five_panel import ModuleFivePanel
 from new_music_builder.ui.widgets.module_action_header import ModuleActionHeader
 from new_music_builder.ui.widgets.module_header import ModuleHeader
 from new_music_builder.ui.widgets.module_shell import ModuleShell
@@ -111,7 +114,9 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.preview_entries: list[str] = []
         self._responsive_content_width = 0
         self._responsive_layout_after_id: str | None = None
+        self._responsive_finalize_after_id: str | None = None
         self._responsive_last_widths: dict[str, int] = {}
+        self._live_resize_active = False
 
         self._apply_window_icon()
         self._build_menu()
@@ -410,6 +415,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
             x=module_five_x,
             y=spec.PHASE_THREE_MODULE_FOUR_POS[1],
         )
+        self.module_five_panel = ModuleFivePanel(self.phase_three_module_five_foreground)
+        self.module_five_panel.place(x=0, y=0)
 
         self.module_three_appearance_shell = AppearancePanelShell(
             self.module_three_midground,
@@ -631,15 +638,51 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
     def _schedule_responsive_layout(self) -> None:
         if self._responsive_layout_after_id is not None:
+            if self._responsive_finalize_after_id is not None:
+                self.after_cancel(self._responsive_finalize_after_id)
+            self._responsive_finalize_after_id = self.after(140, self._finalize_responsive_layout)
             return
-        self._responsive_layout_after_id = self.after_idle(self._apply_responsive_layout)
+        self._responsive_layout_after_id = self.after_idle(self._apply_live_responsive_layout)
+        if self._responsive_finalize_after_id is not None:
+            self.after_cancel(self._responsive_finalize_after_id)
+        self._responsive_finalize_after_id = self.after(140, self._finalize_responsive_layout)
 
-    def _apply_responsive_layout(self) -> None:
+    def _apply_live_responsive_layout(self) -> None:
+        self._set_live_resize_active(True)
+        self._apply_responsive_layout(include_heavy=False)
+
+    def _finalize_responsive_layout(self) -> None:
+        self._responsive_finalize_after_id = None
+        self._set_live_resize_active(False)
+        self._apply_responsive_layout(include_heavy=True, force=True)
+
+    def _set_live_resize_active(self, active: bool) -> None:
+        if self._live_resize_active == active:
+            return
+        self._live_resize_active = active
+        if active:
+            if hasattr(self, 'module_two_row_list'):
+                self.module_two_row_list.pack_forget()
+            if hasattr(self, 'module_four_panel'):
+                self.module_four_panel.place_forget()
+            if hasattr(self, 'module_five_panel'):
+                self.module_five_panel.place_forget()
+            return
+        if hasattr(self, 'module_two_row_list'):
+            self.module_two_row_list.pack(anchor='nw')
+        if hasattr(self, 'module_four_panel'):
+            self.module_four_panel.place(x=0, y=0)
+        if hasattr(self, 'module_five_panel'):
+            self.module_five_panel.place(x=0, y=0)
+
+    def _apply_responsive_layout(self, *, include_heavy: bool = True, force: bool = False) -> None:
         self._responsive_layout_after_id = None
         if not hasattr(self, 'content_frame'):
             return
         available_width = self.content_frame.winfo_width()
-        if available_width <= 1 or available_width == self._responsive_content_width:
+        if available_width <= 1:
+            return
+        if not force and available_width == self._responsive_content_width:
             return
         self._responsive_content_width = available_width
 
@@ -682,7 +725,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
                 height=spec.MODULE_TWO_SCROLL_AREA_SIZE[1],
             )
             self._responsive_last_widths['module_two_scroll'] = module_two_scroll_area_width
-        if hasattr(self, 'module_two_row_list'):
+        if include_heavy and hasattr(self, 'module_two_row_list'):
             if self._responsive_last_widths.get('module_two_rows') != media_row_list_width:
                 self.module_two_row_list.resize(media_row_list_width)
                 self._responsive_last_widths['module_two_rows'] = media_row_list_width
@@ -725,8 +768,9 @@ class MainWindow(_DnDCompat, ctk.CTk):
                 width=module_four_width,
                 height=spec.PHASE_THREE_MODULE_FOUR_SIZE[1],
             )
-            self.module_four_panel.resize(module_four_width)
-            self.module_four_panel.place_configure(x=0, y=0, width=module_four_width, height=spec.PHASE_THREE_MODULE_FOUR_SIZE[1])
+            if include_heavy:
+                self.module_four_panel.resize(module_four_width)
+                self.module_four_panel.place_configure(x=0, y=0, width=module_four_width, height=spec.PHASE_THREE_MODULE_FOUR_SIZE[1])
             self.phase_three_module_five_foreground.place_configure(
                 x=module_five_x,
                 y=spec.PHASE_THREE_MODULE_FOUR_POS[1],
@@ -734,6 +778,9 @@ class MainWindow(_DnDCompat, ctk.CTk):
                 height=spec.PHASE_THREE_MODULE_FIVE_SIZE[1],
             )
             self._responsive_last_widths['module_four_width'] = module_four_width
+        elif include_heavy and hasattr(self, 'module_four_panel'):
+            self.module_four_panel.resize(module_four_width)
+            self.module_four_panel.place_configure(x=0, y=0, width=module_four_width, height=spec.PHASE_THREE_MODULE_FOUR_SIZE[1])
 
     def _image_filetypes(self) -> list[tuple[str, str]]:
         return [
@@ -1429,6 +1476,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.preview_entries = []
         if hasattr(self, 'module_four_panel'):
             self.module_four_panel.reset_current_run()
+        if hasattr(self, 'module_five_panel'):
+            self.module_five_panel.reset_preview_rows()
         self.refresh_all()
 
     def reset_phase_one_fields(self) -> None:
@@ -1473,9 +1522,14 @@ class MainWindow(_DnDCompat, ctk.CTk):
         if hasattr(self, 'module_four_panel'):
             self.module_four_panel.archive_current_run()
             self.module_four_panel.reset_current_run()
+            if hasattr(self, 'module_five_panel'):
+                self.module_five_panel.reset_preview_rows()
             preview_groups = self._module_four_preview_groups()
             if preview_groups:
                 self.module_four_panel.set_queue_groups(preview_groups)
+            preview_rows = self._module_five_preview_rows()
+            if hasattr(self, 'module_five_panel') and preview_rows:
+                self.module_five_panel.set_preview_rows(preview_rows)
             output_path = self.session.project.workshop_output_folder or str(app_root())
             self.module_four_panel.set_output_path(output_path)
             preview_lines = self._module_four_preview_log_lines(preview_groups, output_path)
@@ -1493,6 +1547,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.preview_entries = []
         if hasattr(self, 'module_four_panel'):
             self.module_four_panel.reset_current_run()
+        if hasattr(self, 'module_five_panel'):
+            self.module_five_panel.reset_preview_rows()
         if hasattr(self, 'build_export'):
             self.build_export.refresh(self.build_log, self.preview_entries)
 
@@ -1621,6 +1677,140 @@ class MainWindow(_DnDCompat, ctk.CTk):
         if line.size_text:
             parts.append(line.size_text)
         return ' '.join(parts)
+
+    def _module_five_preview_rows(self) -> list[GeneratedPreviewRow]:
+        preview_rows: list[GeneratedPreviewRow] = []
+        for row in self.session.project.media_rows:
+            for side_name, tracks in (('A', row.tracks_a), ('B', row.tracks_b)):
+                if not tracks:
+                    continue
+                preview_rows.append(
+                    GeneratedPreviewRow(
+                        row_id=row.row_id,
+                        side=side_name,
+                        inventory_cell=self._build_generated_preview_cell(row, side_name, mode='inventory', tracks=tracks),
+                        world_cell=self._build_generated_preview_cell(row, side_name, mode='world', tracks=tracks),
+                    )
+                )
+
+        if preview_rows:
+            return preview_rows
+
+        sample_cover = str(app_root() / 'assets' / 'World' / 'VinylJacket' / 'World_NM_Cover1.png')
+        sample_rows = [
+            (
+                1,
+                'Tali Sample Mix',
+                'A',
+                ['Only Track'],
+                (
+                    str(app_root() / 'assets' / 'Inventory' / 'Cassette' / 'Item_NM_Cassette1.png'),
+                    str(app_root() / 'assets' / 'Inventory' / 'Vinyl' / 'Item_NM_Vinyl1.png'),
+                    str(app_root() / 'assets' / 'Inventory' / 'CD' / 'Item_NM_CD.png'),
+                    str(app_root() / 'assets' / 'Inventory' / 'CassetteCase' / 'Item_NM_Case1.png'),
+                    str(app_root() / 'assets' / 'Inventory' / 'VinylJacket' / 'Item_NM_Jacket1.png'),
+                    str(app_root() / 'assets' / 'Inventory' / 'CDCover' / 'Item_NM_CDCover1.png'),
+                ),
+                (
+                    str(app_root() / 'assets' / 'World' / 'Cassette' / 'World_NM_Cassette01.png'),
+                    str(app_root() / 'assets' / 'World' / 'Vinyl' / 'World_NM_Vinyl1.png'),
+                    str(app_root() / 'assets' / 'World' / 'CD' / 'World_NM_CD.png'),
+                    str(app_root() / 'assets' / 'World' / 'CassetteCase' / 'World_NM_CassetteCover1.png'),
+                    str(app_root() / 'assets' / 'World' / 'VinylJacket' / 'World_NM_Cover1.png'),
+                    str(app_root() / 'assets' / 'World' / 'CDCover' / 'World_NM_CDCover1.png'),
+                ),
+            ),
+            (
+                1,
+                'Tali Sample Mix',
+                'B',
+                ['Closing One', 'Closing Two', 'Closing Three'],
+                (
+                    str(app_root() / 'assets' / 'Inventory' / 'Cassette' / 'Item_NM_Cassette1.png'),
+                    str(app_root() / 'assets' / 'Inventory' / 'Vinyl' / 'Item_NM_Vinyl1.png'),
+                    str(app_root() / 'assets' / 'Inventory' / 'CD' / 'Item_NM_CD.png'),
+                    str(app_root() / 'assets' / 'Inventory' / 'CassetteCase' / 'Item_NM_Case1.png'),
+                    str(app_root() / 'assets' / 'Inventory' / 'VinylJacket' / 'Item_NM_Jacket1.png'),
+                    str(app_root() / 'assets' / 'Inventory' / 'CDCover' / 'Item_NM_CDCover1.png'),
+                ),
+                (
+                    str(app_root() / 'assets' / 'World' / 'Cassette' / 'World_NM_Cassette01.png'),
+                    str(app_root() / 'assets' / 'World' / 'Vinyl' / 'World_NM_Vinyl1.png'),
+                    str(app_root() / 'assets' / 'World' / 'CD' / 'World_NM_CD.png'),
+                    str(app_root() / 'assets' / 'World' / 'CassetteCase' / 'World_NM_CassetteCover1.png'),
+                    str(app_root() / 'assets' / 'World' / 'VinylJacket' / 'World_NM_Cover1.png'),
+                    str(app_root() / 'assets' / 'World' / 'CDCover' / 'World_NM_CDCover1.png'),
+                ),
+            ),
+        ]
+        for row_id, media_name, side_name, song_names, inventory_paths, world_paths in sample_rows:
+            preview_rows.append(
+                GeneratedPreviewRow(
+                    row_id=row_id,
+                    side=side_name,
+                    inventory_cell=GeneratedPreviewCell(
+                        label_text=f'{media_name} ({side_name}-Side)',
+                        section_text='INVENTORY',
+                        song_count=len(song_names),
+                        duration_text=self._duration_text_for_track_durations(['00:03:20' for _ in song_names]),
+                        cover_path=sample_cover,
+                        slot_paths=inventory_paths,
+                    ),
+                    world_cell=GeneratedPreviewCell(
+                        label_text=f'{media_name} ({side_name}-Side)',
+                        section_text='WORLD',
+                        song_count=len(song_names),
+                        duration_text=self._duration_text_for_track_durations(['00:03:20' for _ in song_names]),
+                        cover_path=sample_cover,
+                        slot_paths=world_paths,
+                    ),
+                )
+            )
+        return preview_rows
+
+    def _build_generated_preview_cell(self, row, side_name: str, *, mode: str, tracks: list) -> GeneratedPreviewCell:
+        slot_kinds: tuple[tuple[AppearanceKind, MediaKind], ...] = (
+            ('cassette', 'cassette'),
+            ('vinyl', 'vinyl'),
+            ('cd', 'cd'),
+            ('case', 'cassette'),
+            ('jacket', 'vinyl'),
+            ('cd_cover', 'cd'),
+        )
+        slot_paths: list[str | None] = []
+        for appearance_kind, media_kind in slot_kinds:
+            if not row.enabled_media.get(media_kind, True):
+                slot_paths.append(None)
+                continue
+            slot_paths.append(self._module_two_preview_path_for_row(row, appearance_kind, mode))
+        return GeneratedPreviewCell(
+            label_text=f'{row.media_name} ({side_name}-Side)',
+            section_text='WORLD' if mode == 'world' else 'INVENTORY',
+            song_count=len(tracks),
+            duration_text=self._duration_text_for_tracks(tracks),
+            cover_path=row.cover_path,
+            slot_paths=tuple(slot_paths),
+        )
+
+    def _duration_text_for_tracks(self, tracks: list) -> str:
+        return self._duration_text_for_track_durations([str(getattr(track, 'duration', '') or '') for track in tracks])
+
+    def _duration_text_for_track_durations(self, durations: list[str]) -> str:
+        total_seconds = sum(self._seconds_from_duration_text(value) for value in durations)
+        hours = total_seconds // 3600
+        minutes = (total_seconds % 3600) // 60
+        seconds = total_seconds % 60
+        return f'{hours:02d}:{minutes:02d}:{seconds:02d}'
+
+    def _seconds_from_duration_text(self, value: str) -> int:
+        parts = value.strip().split(':')
+        if len(parts) != 3:
+            return 0
+        try:
+            hours, minutes, seconds = (int(part) for part in parts)
+        except ValueError:
+            return 0
+        return max(0, hours) * 3600 + max(0, minutes) * 60 + max(0, seconds)
 
     def on_close(self) -> None:
         self.session_store.save(self.session.project, self.session.current_path)

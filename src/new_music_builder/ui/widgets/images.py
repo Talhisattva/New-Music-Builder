@@ -8,6 +8,7 @@ from PIL import Image, ImageTk
 _RAW_IMAGE_CACHE: dict[tuple[str, tuple[int, int] | None], ImageTk.PhotoImage] = {}
 _CONTAINED_IMAGE_CACHE: dict[tuple[str, tuple[int, int], tuple[int, int, int, int]], ImageTk.PhotoImage] = {}
 _PIL_CONTAINED_CACHE: dict[tuple[str, tuple[int, int], tuple[int, int, int, int]], Image.Image] = {}
+_HORIZONTAL_FILL_IMAGE_CACHE: dict[tuple[str, tuple[int, int], int], ImageTk.PhotoImage] = {}
 
 
 def _normalize_path(path: str | Path | None) -> Path | None:
@@ -87,4 +88,47 @@ def load_tk_photoimage_contained(
         return None
     photo = ImageTk.PhotoImage(image)
     _CONTAINED_IMAGE_CACHE[cache_key] = photo
+    return photo
+
+
+def load_tk_photoimage_horizontal_fill(
+    path: str | Path | None,
+    size: tuple[int, int],
+    *,
+    opacity_percent: int = 100,
+) -> ImageTk.PhotoImage | None:
+    img_path = _normalize_path(path)
+    if img_path is None:
+        return None
+    opacity_percent = max(0, min(100, opacity_percent))
+    cache_key = (str(img_path), size, opacity_percent)
+    cached = _HORIZONTAL_FILL_IMAGE_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+
+    image = Image.open(img_path).convert('RGBA')
+    target_width, target_height = size
+    if target_width <= 0 or target_height <= 0:
+        return None
+
+    scale_ratio = target_width / max(1, image.width)
+    scaled_height = max(1, int(round(image.height * scale_ratio)))
+    scaled = image.resize((target_width, scaled_height), Image.Resampling.LANCZOS)
+
+    if opacity_percent < 100:
+        alpha = scaled.getchannel('A')
+        alpha = alpha.point(lambda value: int(value * (opacity_percent / 100.0)))
+        scaled.putalpha(alpha)
+
+    composed = Image.new('RGBA', size, (0, 0, 0, 0))
+    if scaled_height <= target_height:
+        offset_y = (target_height - scaled_height) // 2
+        composed.paste(scaled, (0, offset_y), scaled)
+    else:
+        crop_top = (scaled_height - target_height) // 2
+        cropped = scaled.crop((0, crop_top, target_width, crop_top + target_height))
+        composed.paste(cropped, (0, 0), cropped)
+
+    photo = ImageTk.PhotoImage(composed)
+    _HORIZONTAL_FILL_IMAGE_CACHE[cache_key] = photo
     return photo

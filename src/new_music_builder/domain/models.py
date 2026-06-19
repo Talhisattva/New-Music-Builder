@@ -149,6 +149,24 @@ class ExportRunState:
     output_path: str = ""
 
 
+@dataclass(slots=True)
+class GeneratedPreviewCell:
+    label_text: str
+    section_text: str
+    song_count: int = 0
+    duration_text: str = "00:00:00"
+    cover_path: str = ""
+    slot_paths: tuple[str | None, ...] = ()
+
+
+@dataclass(slots=True)
+class GeneratedPreviewRow:
+    row_id: int
+    side: Literal["A", "B"]
+    inventory_cell: GeneratedPreviewCell
+    world_cell: GeneratedPreviewCell
+
+
 def default_media_row(row_id: int) -> MediaRow:
     row = MediaRow(row_id=row_id, media_name=f"Media Mix {row_id}", expanded=(row_id == 1))
     row.ensure_appearances()
