@@ -8,6 +8,7 @@ from new_music_builder.ui.widgets.appearance_selector import (
     fallback_selected_asset_key_after_delete,
     merge_appearance_grid_entries,
     should_show_dual_sprite_controls,
+    visible_tab_kinds_for_enabled_media,
 )
 from new_music_builder.ui.widgets.cursor_tooltip import compute_left_tooltip_placement
 
@@ -30,6 +31,42 @@ def test_should_show_dual_sprite_controls_only_for_cover_kinds() -> None:
     assert should_show_dual_sprite_controls('cassette') is False
     assert should_show_dual_sprite_controls('vinyl') is False
     assert should_show_dual_sprite_controls('cd') is False
+
+
+def test_visible_tab_kinds_follow_enabled_media_in_global_order() -> None:
+    visible = visible_tab_kinds_for_enabled_media(
+        {
+            'cassette': True,
+            'vinyl': True,
+            'cd': False,
+        }
+    )
+
+    assert visible == ('cassette', 'vinyl', 'case', 'jacket')
+
+
+def test_visible_tab_kinds_for_single_vinyl_media_pair() -> None:
+    visible = visible_tab_kinds_for_enabled_media(
+        {
+            'cassette': False,
+            'vinyl': True,
+            'cd': False,
+        }
+    )
+
+    assert visible == ('vinyl', 'jacket')
+
+
+def test_visible_tab_kinds_empty_when_all_media_disabled() -> None:
+    visible = visible_tab_kinds_for_enabled_media(
+        {
+            'cassette': False,
+            'vinyl': False,
+            'cd': False,
+        }
+    )
+
+    assert visible == ()
 
 
 def test_merge_appearance_grid_entries_appends_custom_items_after_defaults() -> None:

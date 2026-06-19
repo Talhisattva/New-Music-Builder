@@ -19,6 +19,7 @@ from new_music_builder.ui.widgets.appearance_entries import (
     fallback_selected_asset_key_after_delete,
     merge_appearance_grid_entries,
     should_show_dual_sprite_controls,
+    visible_tab_kinds_for_enabled_media,
 )
 from new_music_builder.ui.widgets.appearance_custom_footer import AppearanceDualCustomFooter, AppearanceSingleCustomFooter
 from new_music_builder.ui.widgets.appearance_panel_shell import AppearancePanelShell
@@ -375,7 +376,7 @@ class AppearanceSelector:
         self._on_selection_changed = on_selection_changed
         self._on_change = on_change
         self._active_row: MediaRow | None = None
-        self._active_kind: AppearanceKind = 'cassette'
+        self._active_kind: AppearanceKind | None = 'cassette'
         self._tab_widgets: dict[AppearanceKind, _AppearanceTab] = {}
         self._grid_tiles: dict[str, _AppearanceGridTile] = {}
         self._current_entries_by_kind: dict[AppearanceKind, list[AppearanceGridEntry]] = {}
@@ -402,7 +403,7 @@ class AppearanceSelector:
         self._build_footer()
 
     @property
-    def active_kind(self) -> AppearanceKind:
+    def active_kind(self) -> AppearanceKind | None:
         return self._active_kind
 
     def set_active_kind(self, kind: AppearanceKind) -> None:
@@ -427,9 +428,16 @@ class AppearanceSelector:
             self._cancel_tooltip_hide()
             self._cursor_tooltip.hide()
             self._grid_loading_overlay.hide()
+            self._active_kind = None
+            self._apply_tab_visibility(())
             return
         row.ensure_appearances()
+        visible_kinds = visible_tab_kinds_for_enabled_media(row.enabled_media)
+        self._normalize_active_kind(visible_kinds)
+        self._apply_tab_visibility(visible_kinds)
         for kind, _label in TAB_KINDS:
+            if kind not in visible_kinds:
+                continue
             self._ensure_valid_selection(row, kind)
             self._tab_widgets[kind].set_selected(kind == self._active_kind)
             entry = self._entry_for_kind(row, kind)
@@ -510,6 +518,12 @@ class AppearanceSelector:
             return
         if self._preview_mode_toggle is not None:
             self._preview_mode_toggle.set_mode(self._preview_mode())
+        if self._active_kind is None:
+            self.dual_checkbox.place_forget()
+            self.dual_label.place_forget()
+            if self._preview_mode_toggle is not None:
+                self._preview_mode_toggle.place_forget()
+            return
         visible = should_show_dual_sprite_controls(self._active_kind)
         if visible:
             selection = row.appearances[self._active_kind]
@@ -530,6 +544,10 @@ class AppearanceSelector:
                     x=spec.MODULE_THREE_DUAL_SPRITE_LEFT_SIZE[0],
                     y=spec.MODULE_THREE_DUAL_SPRITE_ROW_Y,
                 )
+                self._preview_mode_toggle.place(
+                    x=spec.MODULE_THREE_DUAL_SPRITE_LEFT_SIZE[0],
+                    y=spec.MODULE_THREE_DUAL_SPRITE_ROW_Y,
+                )
         else:
             self.dual_checkbox.place_forget()
             self.dual_label.place_forget()
@@ -543,8 +561,16 @@ class AppearanceSelector:
                     x=0,
                     y=spec.MODULE_THREE_DUAL_SPRITE_ROW_Y,
                 )
+                self._preview_mode_toggle.place(
+                    x=0,
+                    y=spec.MODULE_THREE_DUAL_SPRITE_ROW_Y,
+                )
 
     def _refresh_footer(self) -> None:
+        if self._active_kind is None:
+            self.dual_custom_footer.place_forget()
+            self.single_custom_footer.place_forget()
+            return
         staged = self._get_staged_custom_images(self._active_kind)
         dual_mode = self._footer_uses_dual_mode()
         if dual_mode:
@@ -576,7 +602,12 @@ class AppearanceSelector:
         self._grid_tiles.clear()
         self._dual_phase_show_empty = False
         row = self._active_row
-        if row is None:
+        if row is None or self._active_kind is None:
+            self.shell.grid_viewport.content_frame.configure(
+                width=spec.MODULE_THREE_GRID_MASK_SIZE[0],
+                height=0,
+            )
+            self.shell.grid_viewport.refresh_scroll_region()
             return
         entries = self._entries_for_kind(self._active_kind)
         self._current_entries_by_kind[self._active_kind] = entries
@@ -603,7 +634,7 @@ class AppearanceSelector:
 
     def _handle_grid_selected(self, key: str) -> None:
         row = self._active_row
-        if row is None:
+        if row is None or self._active_kind is None:
             return
         selection = row.appearances[self._active_kind]
         entry = next((item for item in self._entries_for_kind(self._active_kind) if item.key == key), None)
@@ -622,6 +653,8 @@ class AppearanceSelector:
         self._on_change()
 
     def _handle_remove_custom(self, key: str) -> None:
+        if self._active_kind is None:
+            return
         self._on_delete_custom(self._active_kind, key)
 
     def _handle_tile_hover_started(self, _entry: AppearanceGridEntry, x_root: int, y_root: int) -> None:
@@ -647,7 +680,7 @@ class AppearanceSelector:
 
     def _toggle_dual_sprite(self) -> None:
         row = self._active_row
-        if row is None or not should_show_dual_sprite_controls(self._active_kind):
+        if row is None or self._active_kind is None or not should_show_dual_sprite_controls(self._active_kind):
             return
         selection = row.appearances[self._active_kind]
         selection.sprite_mode = 'single' if selection.sprite_mode == 'dual' else 'dual'
@@ -680,13 +713,13 @@ class AppearanceSelector:
 
     def _footer_uses_dual_mode(self) -> bool:
         row = self._active_row
-        if row is None or not should_show_dual_sprite_controls(self._active_kind):
+        if row is None or self._active_kind is None or not should_show_dual_sprite_controls(self._active_kind):
             return False
         return row.appearances[self._active_kind].sprite_mode == 'dual'
 
     def _update_active_tab_icon(self) -> None:
         row = self._active_row
-        if row is None:
+        if row is None or self._active_kind is None:
             return
         entry = self._entry_for_kind(row, self._active_kind)
         if entry is None:
@@ -743,6 +776,25 @@ class AppearanceSelector:
             return
         if self._on_preview_mode_selected is not None:
             self._on_preview_mode_selected(row.row_id, mode)
+
+    def _normalize_active_kind(self, visible_kinds: tuple[AppearanceKind, ...]) -> None:
+        if not visible_kinds:
+            self._active_kind = None
+            return
+        if self._active_kind in visible_kinds:
+            return
+        self._active_kind = visible_kinds[0]
+
+    def _apply_tab_visibility(self, visible_kinds: tuple[AppearanceKind, ...]) -> None:
+        visible_set = set(visible_kinds)
+        visible_index = 0
+        for kind, _label in TAB_KINDS:
+            tab = self._tab_widgets[kind]
+            if kind in visible_set:
+                tab.place(x=visible_index * spec.MODULE_THREE_TAB_SIZE[0], y=0)
+                visible_index += 1
+            else:
+                tab.place_forget()
 
     def _schedule_tooltip_hide(self) -> None:
         self._cancel_tooltip_hide()

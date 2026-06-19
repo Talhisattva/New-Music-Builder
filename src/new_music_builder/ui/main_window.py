@@ -931,6 +931,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             expanded_widget = self._expanded_row_widget(row_id)
             if expanded_widget is not None:
                 expanded_widget.refresh_live_preview()
+        self._refresh_module_three_appearance_selector()
         self.on_project_change()
 
     def _commit_module_two_media_name(self, row_id: int, value: str) -> None:

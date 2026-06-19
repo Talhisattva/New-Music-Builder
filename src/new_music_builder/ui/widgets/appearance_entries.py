@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-from new_music_builder.domain.models import AppearanceKind, AppearanceSelection
+from new_music_builder.domain.models import AppearanceKind, AppearanceSelection, MediaKind
 from new_music_builder.services.asset_catalog import AssetEntry
 
 PreviewMode = Literal['inventory', 'world']
@@ -18,6 +18,11 @@ TAB_KINDS: tuple[tuple[AppearanceKind, str], ...] = (
 )
 
 DUAL_SPRITE_KINDS: frozenset[AppearanceKind] = frozenset({'case', 'jacket', 'cd_cover'})
+MEDIA_TO_APPEARANCE_TABS: dict[MediaKind, tuple[AppearanceKind, AppearanceKind]] = {
+    'cassette': ('cassette', 'case'),
+    'vinyl': ('vinyl', 'jacket'),
+    'cd': ('cd', 'cd_cover'),
+}
 BUILT_IN_DUAL_PAIRS: dict[str, str] = {
     'jacket:18': 'jacket:18_empty',
     'jacket:19': 'jacket:19_empty',
@@ -64,6 +69,16 @@ def appearance_tab_order() -> tuple[tuple[AppearanceKind, str], ...]:
 
 def should_show_dual_sprite_controls(kind: AppearanceKind) -> bool:
     return kind in DUAL_SPRITE_KINDS
+
+
+def visible_tab_kinds_for_enabled_media(enabled_media: dict[MediaKind, bool]) -> tuple[AppearanceKind, ...]:
+    visible: list[AppearanceKind] = []
+    for kind, _label in TAB_KINDS:
+        for media_kind, mapped_tabs in MEDIA_TO_APPEARANCE_TABS.items():
+            if kind in mapped_tabs and enabled_media.get(media_kind, False):
+                visible.append(kind)
+                break
+    return tuple(visible)
 
 
 def can_commit_single_custom(staged: dict[str, str]) -> bool:
