@@ -145,6 +145,9 @@ class MainWindow(_DnDCompat, ctk.CTk):
     def _small_check_icon_path(self) -> Path:
         return app_root() / 'assets' / 'SmallCheck.png'
 
+    def _loading_icon_path(self) -> Path:
+        return app_root() / 'assets' / 'LoadingIcon.png'
+
     def _cassette_item_icon_path(self) -> Path:
         return app_root() / 'assets' / 'Inventory' / 'Cassette' / 'Item_NM_Cassette4.png'
 
@@ -316,6 +319,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self.module_three_appearance_shell,
             asset_catalog=self.asset_catalog,
             small_check_icon_path=str(self._small_check_icon_path()),
+            loading_icon_path=str(self._loading_icon_path()),
             get_custom_assets=self._module_three_custom_assets_for_kind,
             get_staged_custom_images=self._module_three_staged_custom_for_kind,
             on_pick_custom_slot=self._pick_module_three_custom_slot,

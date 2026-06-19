@@ -24,6 +24,7 @@ from new_music_builder.ui.widgets.appearance_custom_footer import AppearanceDual
 from new_music_builder.ui.widgets.appearance_panel_shell import AppearancePanelShell
 from new_music_builder.ui.widgets.cursor_tooltip import CursorTooltip
 from new_music_builder.ui.widgets.images import load_tk_photoimage_contained
+from new_music_builder.ui.widgets.loading_overlay import LoadingOverlay
 from new_music_builder.ui.widgets.preview_mode_toggle import PreviewModeToggle
 
 
@@ -299,13 +300,12 @@ class _AppearanceGridTile(_BorderSurface):
         return self.entry.displayed_world_path(show_empty=self._show_empty)
 
     def _prime_image_cache(self) -> None:
-        sizes = set(spec.MODULE_THREE_GRID_ANIMATION_SIZES + (spec.MODULE_THREE_GRID_TILE_ICON_SIZE[0],))
-        for size in sizes:
-            self._image_cache[(size, 'inventory', False)] = load_tk_photoimage_contained(self.entry.inventory_path, (size, size))
-            self._image_cache[(size, 'world', False)] = load_tk_photoimage_contained(self.entry.world_path, (size, size))
-            if self.entry.is_dual:
-                self._image_cache[(size, 'inventory', True)] = load_tk_photoimage_contained(self.entry.inventory_empty_path, (size, size))
-                self._image_cache[(size, 'world', True)] = load_tk_photoimage_contained(self.entry.world_empty_path, (size, size))
+        size = spec.MODULE_THREE_GRID_TILE_ICON_SIZE[0]
+        self._image_cache[(size, 'inventory', False)] = load_tk_photoimage_contained(self.entry.inventory_path, (size, size))
+        self._image_cache[(size, 'world', False)] = load_tk_photoimage_contained(self.entry.world_path, (size, size))
+        if self.entry.is_dual:
+            self._image_cache[(size, 'inventory', True)] = load_tk_photoimage_contained(self.entry.inventory_empty_path, (size, size))
+            self._image_cache[(size, 'world', True)] = load_tk_photoimage_contained(self.entry.world_empty_path, (size, size))
 
     def _apply_colors(self) -> None:
         if self._selected:
@@ -350,6 +350,7 @@ class AppearanceSelector:
         *,
         asset_catalog: dict[str, list[AssetEntry]],
         small_check_icon_path: str | None,
+        loading_icon_path: str | None,
         get_custom_assets: Callable[[AppearanceKind], list[dict[str, str]]],
         get_staged_custom_images: Callable[[AppearanceKind], dict[str, str]],
         on_pick_custom_slot: Callable[[AppearanceKind, str], None],
@@ -363,6 +364,7 @@ class AppearanceSelector:
         self.shell = shell
         self.asset_catalog = asset_catalog
         self._small_check_icon_path = small_check_icon_path
+        self._loading_icon_path = loading_icon_path
         self._get_custom_assets = get_custom_assets
         self._get_staged_custom_images = get_staged_custom_images
         self._on_pick_custom_slot = on_pick_custom_slot
@@ -379,8 +381,16 @@ class AppearanceSelector:
         self._current_entries_by_kind: dict[AppearanceKind, list[AppearanceGridEntry]] = {}
         self._dual_phase_show_empty = False
         self._dual_phase_after_id: str | None = None
+        self._grid_build_after_id: str | None = None
+        self._grid_build_generation = 0
         self._tooltip_hide_after_id: str | None = None
         self._cursor_tooltip = CursorTooltip(self.shell)
+        self._grid_loading_overlay = LoadingOverlay(
+            self.shell,
+            size=spec.MODULE_THREE_GRID_LOADING_OVERLAY_SIZE,
+            icon_path=self._loading_icon_path,
+            bg_color=spec.MODULE_THREE_PANEL_BG,
+        )
         self._dual_row_label_font = tkfont.Font(
             family=spec.MODULE_THREE_DUAL_SPRITE_LABEL_FONT_FAMILY,
             size=spec.MODULE_THREE_DUAL_SPRITE_LABEL_FONT_SIZE,
@@ -413,8 +423,10 @@ class AppearanceSelector:
         row = self._active_row
         if row is None:
             self._cancel_dual_phase_loop()
+            self._cancel_grid_build()
             self._cancel_tooltip_hide()
             self._cursor_tooltip.hide()
+            self._grid_loading_overlay.hide()
             return
         row.ensure_appearances()
         for kind, _label in TAB_KINDS:
@@ -556,6 +568,7 @@ class AppearanceSelector:
 
     def _rebuild_grid(self) -> None:
         self._cancel_dual_phase_loop()
+        self._cancel_grid_build()
         self._cancel_tooltip_hide()
         self._cursor_tooltip.hide()
         for child in self.shell.grid_viewport.content_frame.winfo_children():
@@ -574,26 +587,16 @@ class AppearanceSelector:
             width=spec.MODULE_THREE_GRID_MASK_SIZE[0],
             height=content_height,
         )
-        for index, entry in enumerate(entries):
-            tile = _AppearanceGridTile(
-                self.shell.grid_viewport.content_frame,
-                entry=entry,
-                display_mode=self._preview_mode(),
-                on_selected=self._handle_grid_selected,
-                on_remove_custom=self._handle_remove_custom,
-                on_hover_started=self._handle_tile_hover_started,
-                on_hover_moved=self._handle_tile_hover_moved,
-                on_hover_ended=self._handle_tile_hover_ended,
-            )
-            tile.place(
-                x=(index % 4) * spec.MODULE_THREE_GRID_TILE_SIZE[0],
-                y=(index // 4) * spec.MODULE_THREE_GRID_TILE_SIZE[1],
-            )
-            tile.set_selected(entry.key == selected_key)
-            self._grid_tiles[entry.key] = tile
         self.shell.grid_viewport.refresh_scroll_region()
-        self._update_active_tab_icon()
-        self._schedule_dual_phase_loop_if_needed()
+        self._grid_loading_overlay.show(x=0, y=spec.MODULE_THREE_GRID_VIEWPORT_Y)
+        self._grid_build_generation += 1
+        generation = self._grid_build_generation
+        self._build_grid_entries_chunk(
+            generation=generation,
+            entries=entries,
+            selected_key=selected_key,
+            start_index=0,
+        )
 
     def _handle_tab_selected(self, kind: AppearanceKind) -> None:
         self.set_active_kind(kind)
@@ -709,7 +712,7 @@ class AppearanceSelector:
 
     def _advance_dual_phase(self) -> None:
         self._dual_phase_after_id = None
-        if not self._grid_tiles:
+        if not self._grid_tiles or self._grid_build_after_id is not None:
             return
         self._dual_phase_show_empty = not self._dual_phase_show_empty
         for tile in self._grid_tiles.values():
@@ -756,3 +759,57 @@ class AppearanceSelector:
     def _hide_tooltip_now(self) -> None:
         self._tooltip_hide_after_id = None
         self._cursor_tooltip.hide()
+
+    def _cancel_grid_build(self) -> None:
+        if self._grid_build_after_id is not None:
+            try:
+                self.shell.after_cancel(self._grid_build_after_id)
+            except tk.TclError:
+                pass
+            self._grid_build_after_id = None
+
+    def _build_grid_entries_chunk(
+        self,
+        *,
+        generation: int,
+        entries: list[AppearanceGridEntry],
+        selected_key: str,
+        start_index: int,
+    ) -> None:
+        if generation != self._grid_build_generation:
+            return
+        end_index = min(start_index + spec.MODULE_THREE_GRID_LOADING_BATCH_SIZE, len(entries))
+        for index in range(start_index, end_index):
+            entry = entries[index]
+            tile = _AppearanceGridTile(
+                self.shell.grid_viewport.content_frame,
+                entry=entry,
+                display_mode=self._preview_mode(),
+                on_selected=self._handle_grid_selected,
+                on_remove_custom=self._handle_remove_custom,
+                on_hover_started=self._handle_tile_hover_started,
+                on_hover_moved=self._handle_tile_hover_moved,
+                on_hover_ended=self._handle_tile_hover_ended,
+            )
+            tile.place(
+                x=(index % 4) * spec.MODULE_THREE_GRID_TILE_SIZE[0],
+                y=(index // 4) * spec.MODULE_THREE_GRID_TILE_SIZE[1],
+            )
+            tile.set_selected(entry.key == selected_key)
+            self._grid_tiles[entry.key] = tile
+        self.shell.grid_viewport.refresh_scroll_region()
+        if end_index < len(entries):
+            self._grid_build_after_id = self.shell.after(
+                1,
+                lambda: self._build_grid_entries_chunk(
+                    generation=generation,
+                    entries=entries,
+                    selected_key=selected_key,
+                    start_index=end_index,
+                ),
+            )
+            return
+        self._grid_build_after_id = None
+        self._grid_loading_overlay.hide()
+        self._update_active_tab_icon()
+        self._schedule_dual_phase_loop_if_needed()
