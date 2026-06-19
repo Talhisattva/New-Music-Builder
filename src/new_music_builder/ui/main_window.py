@@ -7,12 +7,13 @@ import time
 import tkinter as tk
 import tkinter.filedialog as fd
 import tkinter.messagebox as messagebox
+from uuid import uuid4
 
 import customtkinter as ctk
 from PIL import Image, ImageTk
 
 from new_music_builder import __version__
-from new_music_builder.domain.models import MediaKind, default_media_row
+from new_music_builder.domain.models import AppearanceKind, MediaKind, default_media_row
 from new_music_builder.platform.paths import app_root
 from new_music_builder.services.asset_catalog import AssetCatalog
 from new_music_builder.services.audio_workspace import AudioWorkspaceService
@@ -25,7 +26,15 @@ from new_music_builder.services.track_import import filter_supported_audio_paths
 from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.app_header import AppHeader
 from new_music_builder.ui.widgets.appearance_panel_shell import AppearancePanelShell
-from new_music_builder.ui.widgets.appearance_selector import AppearanceSelector
+from new_music_builder.ui.widgets.appearance_selector import (
+    AppearanceSelector,
+    AppearanceGridEntry,
+    apply_selection_from_grid_entry,
+    can_commit_dual_custom,
+    can_commit_single_custom,
+    fallback_selected_asset_key_after_delete,
+    merge_appearance_grid_entries,
+)
 from new_music_builder.ui.widgets.cover_picker import CoverPicker
 from new_music_builder.ui.widgets.labeled_checkbox import LabeledCheckbox
 from new_music_builder.ui.widgets.labeled_text_field import LabeledTextField
@@ -87,6 +96,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         base_mod_root = sibling_root / 'Talis New Music'
         self.asset_catalog_service = AssetCatalog(base_mod_root)
         self.asset_catalog = self.asset_catalog_service.scan()
+        self.module_three_staged_custom_images: dict[str, dict[str, str]] = {}
         self.build_log: list[str] = []
         self.preview_entries: list[str] = []
 
@@ -316,6 +326,12 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self.module_three_appearance_shell,
             asset_catalog=self.asset_catalog,
             small_check_icon_path=str(self._small_check_icon_path()),
+            get_custom_assets=self._module_three_custom_assets_for_kind,
+            get_staged_custom_images=self._module_three_staged_custom_for_kind,
+            on_pick_custom_slot=self._pick_module_three_custom_slot,
+            on_reset_custom=self._reset_module_three_custom_staged,
+            on_commit_custom=self._commit_module_three_custom,
+            on_delete_custom=self._delete_module_three_custom_asset,
             on_change=self.on_project_change,
         )
 
@@ -524,6 +540,146 @@ class MainWindow(_DnDCompat, ctk.CTk):
             if resolved.exists():
                 return str(resolved.parent if resolved.is_file() else resolved)
         return str(Path.home())
+
+    def _module_three_staged_custom_for_kind(self, kind: AppearanceKind) -> dict[str, str]:
+        return self.module_three_staged_custom_images.setdefault(kind, {})
+
+    def _module_three_custom_assets_for_kind(self, kind: AppearanceKind) -> list[dict[str, str]]:
+        assets = self.session.project.custom_assets.setdefault(kind, [])
+        changed = False
+        for index, asset in enumerate(assets):
+            if not asset.get('key'):
+                asset['key'] = f'custom:{kind}:{uuid4().hex}'
+                changed = True
+            if not asset.get('label'):
+                inventory_path = asset.get('inventory_full', '')
+                label = Path(inventory_path).stem if inventory_path else f'Custom {index + 1}'
+                asset['label'] = label
+                changed = True
+        if changed:
+            self.on_project_change()
+        return assets
+
+    def _module_three_entries_for_kind(self, kind: AppearanceKind) -> list[AppearanceGridEntry]:
+        return merge_appearance_grid_entries(
+            kind,
+            self.asset_catalog.get(kind, []),
+            self._module_three_custom_assets_for_kind(kind),
+        )
+
+    def _pick_module_three_custom_image(self, kind: AppearanceKind, slot: str) -> None:
+        staged = self._module_three_staged_custom_for_kind(kind)
+        target_row = self._active_module_three_row()
+        initial_path = staged.get(slot, '')
+        if not initial_path and target_row is not None:
+            selection = target_row.appearances[kind]
+            if slot == 'inventory_full':
+                initial_path = selection.inventory_full
+            elif slot == 'world_full':
+                initial_path = selection.world_full
+            elif slot == 'inventory_empty':
+                initial_path = selection.inventory_empty
+            else:
+                initial_path = selection.world_empty
+        selected = fd.askopenfilename(
+            title=f"Select {slot.replace('_', ' ').title()} Texture",
+            filetypes=self._image_filetypes(),
+            initialdir=self._initial_image_dir(initial_path),
+            parent=self,
+        )
+        if not selected:
+            return
+        staged[slot] = selected
+        self._refresh_module_three_appearance_selector()
+
+    def _pick_module_three_custom_slot(self, kind: AppearanceKind, slot: str) -> None:
+        self._pick_module_three_custom_image(kind, slot)
+
+    def _reset_module_three_custom_staged(self, kind: AppearanceKind, dual_mode: bool) -> None:
+        staged = self._module_three_staged_custom_for_kind(kind)
+        if dual_mode:
+            for key in ('inventory_full', 'world_full', 'inventory_empty', 'world_empty'):
+                staged.pop(key, None)
+        else:
+            for key in ('inventory_full', 'world_full'):
+                staged.pop(key, None)
+        self._refresh_module_three_appearance_selector()
+
+    def _commit_module_three_custom(self, kind: AppearanceKind, dual_mode: bool) -> None:
+        staged = self._module_three_staged_custom_for_kind(kind)
+        if dual_mode:
+            if not can_commit_dual_custom(staged):
+                return
+        elif not can_commit_single_custom(staged):
+            return
+        target_row = self._active_module_three_row()
+        if target_row is None:
+            return
+        target_row.ensure_appearances()
+        selection = target_row.appearances[kind]
+        sprite_mode = 'dual' if dual_mode else 'single'
+        custom_key = f'custom:{kind}:{uuid4().hex}'
+        custom_record = {
+            'key': custom_key,
+            'label': Path(staged['inventory_full']).stem or 'Custom',
+            'inventory_full': staged['inventory_full'],
+            'world_full': staged['world_full'],
+            'sprite_mode': sprite_mode,
+        }
+        if dual_mode:
+            custom_record['inventory_empty'] = staged['inventory_empty']
+            custom_record['world_empty'] = staged['world_empty']
+        self.session.project.custom_assets.setdefault(kind, []).append(custom_record)
+        apply_selection_from_grid_entry(
+            selection,
+            AppearanceGridEntry(
+                key=custom_record['key'],
+                label=custom_record['label'],
+                inventory_path=custom_record['inventory_full'],
+                world_path=custom_record['world_full'],
+                sprite_mode=custom_record['sprite_mode'],
+                kind=kind,
+                is_custom=True,
+                is_dual=dual_mode,
+                inventory_empty_path=custom_record.get('inventory_empty', ''),
+                world_empty_path=custom_record.get('world_empty', ''),
+            ),
+        )
+        self._reset_module_three_custom_staged(kind, dual_mode)
+        self._refresh_module_three_appearance_selector()
+        self.on_project_change()
+
+    def _delete_module_three_custom_asset(self, kind: AppearanceKind, key: str) -> None:
+        assets = self._module_three_custom_assets_for_kind(kind)
+        next_assets = [asset for asset in assets if asset.get('key') != key]
+        if len(next_assets) == len(assets):
+            return
+        self.session.project.custom_assets[kind] = next_assets
+        remaining_entries = self._module_three_entries_for_kind(kind)
+        for row in self.session.project.media_rows:
+            row.ensure_appearances()
+            selection = row.appearances[kind]
+            next_key = fallback_selected_asset_key_after_delete(
+                remaining_entries,
+                deleted_key=key,
+                selected_key=selection.selected_asset_key,
+            )
+            if next_key == selection.selected_asset_key:
+                continue
+            if not next_key:
+                selection.selected_asset_key = ''
+                selection.source = 'default'
+                selection.inventory_full = ''
+                selection.world_full = ''
+                selection.inventory_empty = ''
+                selection.world_empty = ''
+                selection.sprite_mode = 'single'
+                continue
+            next_entry = next((entry for entry in remaining_entries if entry.key == next_key), None)
+            if next_entry is not None:
+                apply_selection_from_grid_entry(selection, next_entry)
+        self._refresh_module_three_appearance_selector()
+        self.on_project_change()
 
     def _initial_audio_dir(self, row_id: int | None = None) -> str:
         if row_id is not None:
@@ -1012,6 +1168,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._cancel_module_two_song_drag()
         self.session.reset()
         self._restore_unsaved_phase_two_default()
+        self.module_three_staged_custom_images.clear()
         self.module_two_selected_row_ids.clear()
         self.module_two_selection_anchor_row_id = None
         self.module_two_song_selected_indices.clear()
@@ -1049,6 +1206,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.session.project = self.project_store.load(path)
         self.session.current_path = str(path)
         self.recent_store.push(path)
+        self.module_three_staged_custom_images.clear()
         self.module_two_selected_row_ids.clear()
         self.module_two_selection_anchor_row_id = None
         self.module_two_song_selected_indices.clear()

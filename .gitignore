@@ -15,6 +15,7 @@ recent.json
 last_session.json
 
 # Reference / generated
+_references/
 _references/figma_export/
 _references/figma_export/node_modules/
 _references/figma_export/dist/

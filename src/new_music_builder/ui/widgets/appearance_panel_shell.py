@@ -114,12 +114,15 @@ class AppearancePanelShell(tk.Frame):
             bg_color=fill_color,
         )
         self.grid_viewport.place(x=0, y=spec.MODULE_THREE_GRID_VIEWPORT_Y)
+        self.grid_viewport.viewport_left_edge.lower(self.grid_viewport.viewport_canvas)
+        self.grid_viewport.viewport_top_edge.lower(self.grid_viewport.viewport_canvas)
+        self.grid_viewport.viewport_bottom_edge.lower(self.grid_viewport.viewport_canvas)
 
         self.footer_pane = _BorderPane(
             self,
             size=spec.MODULE_THREE_FOOTER_SIZE,
-            fill_color=fill_color,
-            border_color=border_color,
+            fill_color=spec.MODULE_THREE_CUSTOM_ROW_BG,
+            border_color=spec.MODULE_THREE_CUSTOM_ROW_BORDER_COLOR,
         )
         self.footer_pane.place(x=0, y=spec.MODULE_THREE_FOOTER_Y)
 
