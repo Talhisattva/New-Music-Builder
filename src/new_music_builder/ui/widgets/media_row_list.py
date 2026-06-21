@@ -684,6 +684,7 @@ class MediaRowList(tk.Frame):
         on_song_drop: Callable[[int, list[str]], None] | None = None,
     ) -> None:
         resolved_bg = bg_color if bg_color is not None else parent.cget('bg')
+        self._display_expanded_row_id: int | None = None
         normalized_rows = self._normalized_rows(rows)
         total_height = self._total_height_for_rows(normalized_rows)
         super().__init__(
@@ -776,7 +777,7 @@ class MediaRowList(tk.Frame):
     def _total_height_for_rows(self, rows: list[MediaRow]) -> int:
         height = spec.MEDIA_ROW_INSET_Y
         for index, row in enumerate(rows):
-            height += spec.MEDIA_ROW_EXPANDED_SIZE[1] if row.expanded else spec.MEDIA_ROW_COLLAPSED_SIZE[1]
+            height += spec.MEDIA_ROW_EXPANDED_SIZE[1] if self._expansion_state_for_row(row) else spec.MEDIA_ROW_COLLAPSED_SIZE[1]
             if index < len(rows) - 1:
                 height += spec.MEDIA_ROW_GAP_Y
         height += spec.MEDIA_ROW_INSET_Y
@@ -868,10 +869,15 @@ class MediaRowList(tk.Frame):
             row_widget.refresh_collapsed_details()
 
     def set_expanded_row(self, row_id: int | None) -> None:
+        self._display_expanded_row_id = None
         for row, row_widget in zip(self.rows, self.row_widgets):
             row.expanded = row.row_id == row_id if row_id is not None else False
             row_widget.set_expanded(row.expanded)
         self.refresh_badge_numbers()
+        self.refresh_row_layouts()
+
+    def set_browse_expanded_row(self, row_id: int | None) -> None:
+        self._display_expanded_row_id = row_id
         self.refresh_row_layouts()
 
     def refresh_row_layouts(self) -> None:
@@ -882,8 +888,9 @@ class MediaRowList(tk.Frame):
         current_y = spec.MEDIA_ROW_INSET_Y
         row_width = int(self.cget('width')) - spec.MEDIA_ROW_INSET_X
         for row, row_widget in zip(self.rows, self.row_widgets):
-            if row_widget._expanded != row.expanded:
-                row_widget.set_expanded(row.expanded)
+            target_expanded = self._expansion_state_for_row(row)
+            if row_widget._expanded != target_expanded:
+                row_widget.set_expanded(target_expanded)
             row_widget.resize(row_width)
             row_widget.place(x=spec.MEDIA_ROW_INSET_X, y=current_y)
             current_y += row_widget.winfo_reqheight() + spec.MEDIA_ROW_GAP_Y
@@ -963,8 +970,9 @@ class MediaRowList(tk.Frame):
             if row.row_id in dragged_id_set:
                 continue
             widget = widget_by_id[row.row_id]
-            if widget._expanded != row.expanded:
-                widget.set_expanded(row.expanded)
+            target_expanded = self._expansion_state_for_row(row)
+            if widget._expanded != target_expanded:
+                widget.set_expanded(target_expanded)
             widget.resize(row_width)
             widget.place(x=spec.MEDIA_ROW_INSET_X, y=current_y)
             current_y += widget.winfo_reqheight() + spec.MEDIA_ROW_GAP_Y
@@ -995,6 +1003,11 @@ class MediaRowList(tk.Frame):
         )
         self._drag_insertion_outline.lower()
         self.configure(height=self._total_height_for_rows(self.rows))
+
+    def _expansion_state_for_row(self, row: MediaRow) -> bool:
+        if self._display_expanded_row_id is None:
+            return row.expanded
+        return row.row_id == self._display_expanded_row_id
 
     def _row_insertion_index_from_local_y(self, local_y: int) -> int:
         dragged_id_set = set(self._row_drag_ids)

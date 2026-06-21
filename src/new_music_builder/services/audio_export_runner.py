@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import hashlib
-import shutil
 from collections.abc import Callable
 from pathlib import Path
 
 from new_music_builder.domain.models import AudioRunEvent, AudioRunResult, AudioWorkPlan, PlannedAudioWorkItem
-from new_music_builder.services.audio_conversion import ExportAbortedError, ensure_cached_ogg
+from new_music_builder.services.audio_conversion import ensure_cached_ogg
+from new_music_builder.services.cancelable_file_copy import copy_file_with_cancel
+from new_music_builder.services.export_cancellation import ExportAbortedError
 
 
 def run_audio_export(
@@ -78,7 +79,21 @@ def run_audio_export(
                     result.converted_count += 1
 
                 _raise_if_cancelled(cancel_requested, result)
-                shutil.copy2(cache_path, target_path)
+                copy_file_with_cancel(
+                    cache_path,
+                    target_path,
+                    cancel_requested=cancel_requested,
+                    emit_progress=lambda percent, message: emit_side(
+                        "song_progress",
+                        song_index=song_index,
+                        track_number=item.track_number,
+                        display_label=item.display_label,
+                        percent=percent,
+                        message=message,
+                        size_text=_format_size_text(cache_path.stat().st_size) if cache_path.exists() else "",
+                    ),
+                    progress_message="Copying exported song...",
+                )
                 size_text = _format_size_text(target_path.stat().st_size)
                 result.built_song_count += 1
                 side_built_any = True

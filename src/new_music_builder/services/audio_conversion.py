@@ -2,21 +2,18 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from pathlib import Path
-import shutil
 
 import miniaudio
 import numpy as np
 import soundfile as sf
 
 from new_music_builder.domain.models import PlannedAudioWorkItem
+from new_music_builder.services.cancelable_file_copy import copy_file_with_cancel
+from new_music_builder.services.export_cancellation import ExportAbortedError
 
 
 ProgressCallback = Callable[[int, str], None]
 CancelCheck = Callable[[], bool]
-
-
-class ExportAbortedError(RuntimeError):
-    pass
 
 
 def ensure_cached_ogg(
@@ -26,9 +23,15 @@ def ensure_cached_ogg(
     emit_progress: ProgressCallback,
     cancel_requested: CancelCheck | None = None,
 ) -> bool:
+    emit_progress = _coalesced_progress_emitter(emit_progress)
     _raise_if_cancelled(cancel_requested)
     if item.action == "copy_ogg":
-        _copy_source_to_cache(Path(item.source_path), cache_path, cancel_requested=cancel_requested)
+        _copy_source_to_cache(
+            Path(item.source_path),
+            cache_path,
+            emit_progress=emit_progress,
+            cancel_requested=cancel_requested,
+        )
         emit_progress(100, "Copied source .ogg.")
         return False
     if item.action != "convert_to_ogg":
@@ -41,13 +44,20 @@ def _copy_source_to_cache(
     source_path: Path,
     cache_path: Path,
     *,
+    emit_progress: ProgressCallback,
     cancel_requested: CancelCheck | None = None,
 ) -> None:
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     if cache_path.exists():
+        emit_progress(100, "Using cached source .ogg.")
         return
-    _raise_if_cancelled(cancel_requested)
-    shutil.copy2(source_path, cache_path)
+    copy_file_with_cancel(
+        source_path,
+        cache_path,
+        cancel_requested=cancel_requested,
+        emit_progress=emit_progress,
+        progress_message="Caching source .ogg...",
+    )
 
 
 def _convert_to_cached_ogg(
@@ -197,3 +207,18 @@ def _write_ogg_vorbis(
 def _raise_if_cancelled(cancel_requested: CancelCheck | None) -> None:
     if cancel_requested is not None and cancel_requested():
         raise ExportAbortedError("Build aborted by user.")
+
+
+def _coalesced_progress_emitter(emit_progress: ProgressCallback) -> ProgressCallback:
+    last_percent = -1
+    last_message = ""
+
+    def _emit(percent: int, message: str) -> None:
+        nonlocal last_percent, last_message
+        if percent == last_percent and message == last_message:
+            return
+        last_percent = percent
+        last_message = message
+        emit_progress(percent, message)
+
+    return _emit
