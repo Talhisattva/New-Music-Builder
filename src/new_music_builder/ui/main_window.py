@@ -55,6 +55,7 @@ from new_music_builder.ui.widgets.appearance_selector import (
 )
 from new_music_builder.ui.widgets.border_pane import BorderPane
 from new_music_builder.ui.widgets.cover_picker import CoverPicker
+from new_music_builder.ui.widgets.confirmation_dialog import ConfirmDialog
 from new_music_builder.ui.widgets.labeled_checkbox import LabeledCheckbox
 from new_music_builder.ui.widgets.labeled_text_field import LabeledTextField
 from new_music_builder.ui.widgets.main_button import MainButton
@@ -447,7 +448,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             open_folder_icon_path=str(self._open_folder_check_icon_path()),
             reset_icon_path=str(self._reset_icon_path()),
             on_open_output_folder=self._open_output_folder,
-            on_reset=self.reset_transient_state,
+            on_reset=self.reset_project_to_defaults,
         )
         self.module_six_panel.place(x=0, y=0)
 
@@ -1560,6 +1561,16 @@ class MainWindow(_DnDCompat, ctk.CTk):
                     row.appearances[kind].sprite_mode = entries[0].sprite_mode
 
     def new_project(self) -> None:
+        if not self._confirm_reset_to_defaults('Start New Project', 'YES'):
+            return
+        self._reset_project_to_defaults()
+
+    def reset_project_to_defaults(self) -> None:
+        if not self._confirm_reset_to_defaults('Reset Project', 'RESET'):
+            return
+        self._reset_project_to_defaults()
+
+    def _reset_project_to_defaults(self) -> None:
         self._cancel_module_two_song_drag()
         self.session.reset()
         self._restore_unsaved_phase_two_default()
@@ -1579,6 +1590,18 @@ class MainWindow(_DnDCompat, ctk.CTk):
         if hasattr(self, 'module_six_panel'):
             self.module_six_panel.reset()
         self.refresh_all()
+        self.on_project_change()
+
+    def _confirm_reset_to_defaults(self, title: str, accept_text: str) -> bool:
+        dialog = ConfirmDialog(
+            self,
+            icon_path=self._native_icon_path(),
+            title=title,
+            label_text='Are you sure you want to reset to default? Any unsaved changes will be lost.',
+            accept_text=accept_text,
+            cancel_text='CANCEL',
+        )
+        return dialog.show()
 
     def reset_phase_one_fields(self) -> None:
         if hasattr(self, 'mod_setup'):

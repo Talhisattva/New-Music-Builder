@@ -3,9 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 import tkinter as tk
 
-from PIL import Image, ImageTk
-
 from new_music_builder.ui import spec
+from new_music_builder.ui.widgets.dialog_shell import DialogShell
 from new_music_builder.ui.widgets.main_button import MainButton
 
 
@@ -149,7 +148,7 @@ class _SampleRateDropdown(tk.Frame):
         self._close_menu()
 
 
-class SampleRateDialog(tk.Toplevel):
+class SampleRateDialog(DialogShell):
     def __init__(
         self,
         parent: tk.Misc,
@@ -157,53 +156,15 @@ class SampleRateDialog(tk.Toplevel):
         icon_path: str | Path | None,
         initial_value: int,
     ) -> None:
-        super().__init__(parent)
-        self.withdraw()
-        self.title(spec.SAMPLE_RATE_DIALOG_TITLE)
-        self.configure(bg=spec.SAMPLE_RATE_DIALOG_BG)
-        self.resizable(False, False)
-        self.transient(parent.winfo_toplevel())
+        super().__init__(
+            parent,
+            title=spec.SAMPLE_RATE_DIALOG_TITLE,
+            icon_path=icon_path,
+            size=spec.SAMPLE_RATE_DIALOG_SIZE,
+            label_text=spec.SAMPLE_RATE_DIALOG_LABEL_TEXT,
+            label_wraplength=spec.SAMPLE_RATE_DIALOG_LABEL_SIZE[0],
+        )
         self.result: int | None = None
-        self._window_icon_image: ImageTk.PhotoImage | None = None
-        self.protocol('WM_DELETE_WINDOW', self._cancel)
-        self.bind('<Escape>', lambda _event: self._cancel(), add='+')
-        self._apply_icon(icon_path)
-
-        width, height = spec.SAMPLE_RATE_DIALOG_SIZE
-        parent_window = parent.winfo_toplevel()
-        x = parent_window.winfo_rootx() + max(0, (parent_window.winfo_width() - width) // 2)
-        y = parent_window.winfo_rooty() + max(0, (parent_window.winfo_height() - height) // 2)
-        self.geometry(f'{width}x{height}+{x}+{y}')
-
-        panel = tk.Frame(
-            self,
-            bg=spec.SAMPLE_RATE_DIALOG_PANEL_BORDER,
-            bd=0,
-            highlightthickness=0,
-            width=width - 20,
-            height=height - 20,
-        )
-        panel.place(x=10, y=10)
-        panel_inner = tk.Frame(
-            panel,
-            bg=spec.SAMPLE_RATE_DIALOG_PANEL_BG,
-            bd=0,
-            highlightthickness=0,
-            width=(width - 20) - 2,
-            height=(height - 20) - 2,
-        )
-        panel_inner.place(x=1, y=1)
-
-        self.label = tk.Label(
-            panel_inner,
-            text=spec.SAMPLE_RATE_DIALOG_LABEL_TEXT,
-            bg=spec.SAMPLE_RATE_DIALOG_PANEL_BG,
-            fg=spec.SAMPLE_RATE_DIALOG_LABEL_COLOR,
-            bd=0,
-            highlightthickness=0,
-            font=(spec.SAMPLE_RATE_DIALOG_LABEL_FONT_FAMILY, spec.SAMPLE_RATE_DIALOG_LABEL_FONT_SIZE),
-            anchor='w',
-        )
         self.label.place(
             x=spec.SAMPLE_RATE_DIALOG_LABEL_POS[0],
             y=spec.SAMPLE_RATE_DIALOG_LABEL_POS[1],
@@ -212,7 +173,7 @@ class SampleRateDialog(tk.Toplevel):
         )
 
         self.dropdown = _SampleRateDropdown(
-            panel_inner,
+            self.panel_inner,
             options=[
                 ('32000 Hz', 32000),
                 ('44100 Hz', 44100),
@@ -227,10 +188,10 @@ class SampleRateDialog(tk.Toplevel):
 
         button_width = spec.MAIN_BUTTON_SIZE[0]
         total_buttons_width = (button_width * 2) + spec.SAMPLE_RATE_DIALOG_BUTTON_GAP_X
-        button_x = ((width - 20) - total_buttons_width) // 2
-        self.ok_button = MainButton(panel_inner, text='OK', command=self._accept, variant='positive')
+        button_x = ((spec.SAMPLE_RATE_DIALOG_SIZE[0] - 20) - total_buttons_width) // 2
+        self.ok_button = MainButton(self.panel_inner, text='OK', command=self._accept, variant='positive')
         self.ok_button.place(x=button_x, y=spec.SAMPLE_RATE_DIALOG_BUTTON_Y, width=button_width, height=spec.MAIN_BUTTON_SIZE[1])
-        self.cancel_button = MainButton(panel_inner, text='CANCEL', command=self._cancel, variant='positive')
+        self.cancel_button = MainButton(self.panel_inner, text='CANCEL', command=self._cancel, variant='negative')
         self.cancel_button.place(
             x=button_x + button_width + spec.SAMPLE_RATE_DIALOG_BUTTON_GAP_X,
             y=spec.SAMPLE_RATE_DIALOG_BUTTON_Y,
@@ -239,46 +200,17 @@ class SampleRateDialog(tk.Toplevel):
         )
 
     def show(self) -> int | None:
-        self.deiconify()
-        self.lift()
-        self.update_idletasks()
-        self.grab_set()
-        self.focus_force()
+        self.show_modal()
         self.wait_window()
         return self.result
 
     def _accept(self) -> None:
         self.result = self.dropdown.get()
-        self._release_grab()
-        self.destroy()
+        self.close_dialog()
 
     def _cancel(self) -> None:
         self.result = None
-        self._release_grab()
-        self.destroy()
+        self.close_dialog()
 
-    def _release_grab(self) -> None:
-        try:
-            if self.grab_current() is self:
-                self.grab_release()
-        except tk.TclError:
-            pass
-
-    def _apply_icon(self, icon_path: str | Path | None) -> None:
-        if icon_path is None:
-            return
-        resolved = Path(icon_path)
-        if not resolved.exists():
-            return
-        if resolved.suffix.lower() == '.ico':
-            try:
-                self.iconbitmap(default=str(resolved))
-                return
-            except tk.TclError:
-                pass
-        try:
-            image = Image.open(resolved)
-            self._window_icon_image = ImageTk.PhotoImage(image)
-            self.iconphoto(True, self._window_icon_image)
-        except Exception:
-            pass
+    def _on_window_close(self) -> None:
+        self._cancel()
