@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from datetime import datetime
+import logging
 from pathlib import Path
 import queue
 import sys
@@ -92,6 +93,9 @@ except ImportError:
 else:
     class _DnDCompat(TkinterDnD.DnDWrapper):
         pass
+
+
+LOGGER = logging.getLogger('new_music_builder')
 
 class MainWindow(_DnDCompat, ctk.CTk):
 
@@ -272,6 +276,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         return self._build_locked
 
     def _set_build_locked(self, locked: bool) -> None:
+        started = time.perf_counter()
+        LOGGER.info("build-lock start locked=%s thread=%s", locked, threading.current_thread().name)
         self._build_locked = locked
         self.phase_three_combo_header.set_right_text('CLICK TO ABORT EXPORT' if locked else 'CLICK TO EXPORT')
         self.module_one_header.set_icon_path(self._phase_one_disabled_icon_path() if locked else self._phase_one_icon_path())
@@ -300,10 +306,17 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
         for menu_name, item_label in self._project_mutation_actions():
             self.menu_strip.set_action_enabled(menu_name, item_label, not locked)
+        LOGGER.info(
+            "build-lock end locked=%s duration_ms=%.1f thread=%s",
+            locked,
+            (time.perf_counter() - started) * 1000.0,
+            threading.current_thread().name,
+        )
 
     def _request_abort_export(self) -> None:
         if not self._build_locked:
             return
+        LOGGER.info("abort requested thread=%s", threading.current_thread().name)
         self._build_abort_requested = True
         if self._build_abort_event is not None:
             self._build_abort_event.set()
@@ -1881,30 +1894,58 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.refresh_all()
 
     def run_build_preview(self) -> None:
+        overall_started = time.perf_counter()
+        LOGGER.info("run_build_preview start thread=%s", threading.current_thread().name)
         if self._is_build_locked():
+            LOGGER.info("run_build_preview redirected to abort")
             self._request_abort_export()
             return
+        step_started = time.perf_counter()
         self._sync_phase_one_project_state()
+        LOGGER.info("phase-one sync complete duration_ms=%.1f", (time.perf_counter() - step_started) * 1000.0)
+        step_started = time.perf_counter()
         project_snapshot = deepcopy(self.session.project)
+        LOGGER.info("project snapshot complete duration_ms=%.1f", (time.perf_counter() - step_started) * 1000.0)
+        step_started = time.perf_counter()
         plan = build_export_plan(project_snapshot, self.asset_catalog)
+        LOGGER.info("build_export_plan complete duration_ms=%.1f", (time.perf_counter() - step_started) * 1000.0)
+        step_started = time.perf_counter()
         validation_errors = validate_export_request(project_snapshot, plan)
+        LOGGER.info(
+            "validate_export_request complete errors=%s duration_ms=%.1f",
+            len(validation_errors),
+            (time.perf_counter() - step_started) * 1000.0,
+        )
         self._active_preview_rows_by_side = {}
         self._active_successful_sides = []
         scenario_output_path = ''
         if not validation_errors:
+            step_started = time.perf_counter()
             targets = resolve_export_target(
                 plan,
                 project_snapshot.workshop_output_folder,
                 mod_name=project_snapshot.mod_name,
                 mod_id=project_snapshot.mod_id,
             )
+            LOGGER.info(
+                "resolve_export_target complete root=%s duration_ms=%.1f",
+                targets.root,
+                (time.perf_counter() - step_started) * 1000.0,
+            )
             scenario_output_path = targets.root
+        step_started = time.perf_counter()
         scenario = build_preview_scenario(plan, scenario_output_path)
+        LOGGER.info(
+            "build_preview_scenario complete rows=%s duration_ms=%.1f",
+            len(scenario.preview_rows),
+            (time.perf_counter() - step_started) * 1000.0,
+        )
         self._active_preview_rows_by_side = {
             (row.row_id, row.side): row
             for row in scenario.preview_rows
         }
 
+        LOGGER.info("resetting module four/five current run state")
         if hasattr(self, 'module_four_panel'):
             self.module_four_panel.archive_current_run()
             self.module_four_panel.reset_current_run()
@@ -1912,6 +1953,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self.module_five_panel.reset_preview_rows()
 
         if validation_errors:
+            LOGGER.info("validation blocked export")
             stats = build_scaffold_stats(
                 plan,
                 ScaffoldResult(mod_size_text='0 KB', errors=validation_errors),
@@ -1930,7 +1972,9 @@ class MainWindow(_DnDCompat, ctk.CTk):
             return
 
         output_root = Path(targets.root)
+        LOGGER.info("export output_root=%s exists=%s", output_root, output_root.exists())
         if output_root.exists() and not self._confirm_overwrite_export_root(output_root):
+            LOGGER.info("overwrite cancelled output_root=%s", output_root)
             cancelled_line = ExportLogLine(
                 timestamp=datetime.now().strftime("%H:%M:%S"),
                 prefix_text="Build cancelled.",
@@ -1965,7 +2009,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._build_abort_requested = False
         self._build_abort_event = threading.Event()
         self._active_build_final_targets = targets
-        self._set_build_locked(True)
+        LOGGER.info("setting initial module four state")
         if hasattr(self, 'module_four_panel'):
             self.module_four_panel.set_output_path(targets.root)
             self.module_four_panel.set_log_lines(
@@ -1978,13 +2022,22 @@ class MainWindow(_DnDCompat, ctk.CTk):
                     )
                 ]
             )
+        self.update_idletasks()
+        LOGGER.info("initial module four state rendered")
+        self._set_build_locked(True)
         self.build_log = []
         self.preview_entries = []
 
+        LOGGER.info("starting worker-backed export run")
         self._start_audio_build_run(
             plan=plan,
             project_snapshot=project_snapshot,
             final_targets=targets,
+        )
+        LOGGER.info(
+            "run_build_preview end duration_ms=%.1f thread=%s",
+            (time.perf_counter() - overall_started) * 1000.0,
+            threading.current_thread().name,
         )
 
     def reset_transient_state(self) -> None:
@@ -2018,6 +2071,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         project_snapshot,
         final_targets: ExportTargetPaths,
     ) -> None:
+        LOGGER.info("start_audio_build_run root=%s", final_targets.root)
         self._build_event_queue = queue.Queue()
         self._active_build_thread = threading.Thread(
             target=self._run_audio_build_worker,
@@ -2027,8 +2081,10 @@ class MainWindow(_DnDCompat, ctk.CTk):
                 "final_targets": final_targets,
             },
             daemon=True,
+            name='nmb-build-worker',
         )
         self._active_build_thread.start()
+        LOGGER.info("build worker started ident=%s", self._active_build_thread.ident)
         self._schedule_build_event_poll(plan)
 
     def _run_audio_build_worker(
@@ -2039,6 +2095,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         final_targets: ExportTargetPaths,
     ) -> None:
         assert self._build_event_queue is not None
+        LOGGER.info("build worker entry root=%s thread=%s", final_targets.root, threading.current_thread().name)
         try:
             result = run_staged_export(
                 project_snapshot,
@@ -2049,25 +2106,38 @@ class MainWindow(_DnDCompat, ctk.CTk):
                 emit=lambda event: self._build_event_queue.put(("event", event)),
                 cancel_requested=self._build_abort_pending,
             )
+            LOGGER.info(
+                "build worker result aborted=%s fatal_error=%s errors=%s built_songs=%s",
+                result.aborted,
+                bool(result.fatal_error),
+                len(result.errors),
+                result.built_song_count,
+            )
             self._build_event_queue.put(("result", result))
         except Exception as exc:
+            LOGGER.exception("build worker fatal exception: %s", exc)
             self._build_event_queue.put(("fatal", (final_targets.root, str(exc))))
 
     def _schedule_build_event_poll(self, plan) -> None:
         if self._build_poll_after_id is not None:
             self.after_cancel(self._build_poll_after_id)
+        LOGGER.info("schedule_build_event_poll")
         self._build_poll_after_id = self.after(16, lambda: self._poll_build_events(plan))
 
     def _poll_build_events(self, plan) -> None:
         if self._build_event_queue is None:
+            LOGGER.info("poll_build_events early exit queue missing")
             self._build_poll_after_id = None
             return
         keep_polling = True
+        processed = 0
         while True:
             try:
                 kind, payload = self._build_event_queue.get_nowait()
             except queue.Empty:
                 break
+            processed += 1
+            LOGGER.info("poll_build_events kind=%s", kind)
             if kind == "event":
                 self._handle_audio_run_event(payload)
             elif kind == "result":
@@ -2078,8 +2148,11 @@ class MainWindow(_DnDCompat, ctk.CTk):
                 self._finalize_audio_run_failure(plan, str(output_root), str(error_message))
                 keep_polling = False
         if keep_polling:
+            if processed:
+                LOGGER.info("poll_build_events processed=%s continue", processed)
             self._build_poll_after_id = self.after(16, lambda: self._poll_build_events(plan))
         else:
+            LOGGER.info("poll_build_events processed=%s stop", processed)
             self._build_poll_after_id = None
             self._build_event_queue = None
             self._active_build_thread = None
@@ -2087,6 +2160,13 @@ class MainWindow(_DnDCompat, ctk.CTk):
     def _handle_audio_run_event(self, event: AudioRunEvent) -> None:
         if not hasattr(self, 'module_four_panel'):
             return
+        LOGGER.info(
+            "handle_audio_run_event kind=%s row=%s side=%s message=%s",
+            event.kind,
+            event.row_id,
+            event.side,
+            event.message,
+        )
         if event.kind == "run_preparing":
             line = ExportLogLine(
                 timestamp=datetime.now().strftime("%H:%M:%S"),
@@ -2215,6 +2295,13 @@ class MainWindow(_DnDCompat, ctk.CTk):
             )
 
     def _finalize_audio_run(self, plan, result: AudioRunResult) -> None:
+        LOGGER.info(
+            "finalize_audio_run aborted=%s fatal_error=%s errors=%s built_songs=%s",
+            result.aborted,
+            bool(result.fatal_error),
+            len(result.errors),
+            result.built_song_count,
+        )
         final_targets = self._active_build_final_targets
         if result.aborted:
             output_path = Path(final_targets.root) if final_targets is not None else Path(result.output_path)
@@ -2314,6 +2401,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._active_build_final_targets = None
 
     def _finalize_audio_run_failure(self, plan, output_root: str, error_message: str) -> None:
+        LOGGER.error("finalize_audio_run_failure root=%s error=%s", output_root, error_message)
         final_targets = self._active_build_final_targets
         output_path = Path(final_targets.root) if final_targets is not None else Path(output_root)
         self._last_export_output_path = str(output_path) if output_path.exists() else ''

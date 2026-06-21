@@ -69,6 +69,9 @@ class ExpandedMediaCover(tk.Frame):
         )
         self.cover_surface.configure(image=self._cover_image)
 
+    def set_enabled(self, enabled: bool) -> None:
+        self.folder_button.set_enabled(enabled)
+
 
 class CollapsedMediaCover(tk.Frame):
     def __init__(

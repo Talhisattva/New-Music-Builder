@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import shutil
 from collections.abc import Callable
 from pathlib import Path
@@ -15,6 +16,7 @@ from new_music_builder.services.export_scaffold import write_export_scaffold
 
 BuildEventEmitter = Callable[[AudioRunEvent], None]
 CancelCheck = Callable[[], bool]
+LOGGER = logging.getLogger('new_music_builder')
 
 
 def run_staged_export(
@@ -28,16 +30,24 @@ def run_staged_export(
     cancel_requested: CancelCheck | None = None,
 ) -> AudioRunResult:
     final_root = Path(final_targets.root)
+    LOGGER.info("run_staged_export start final_root=%s", final_root)
     result = AudioRunResult(output_path=str(final_root))
     staging_targets = create_staging_targets(final_targets)
     staging_root = Path(staging_targets.root)
 
     try:
+        LOGGER.info("run_staged_export emit preparing staging_root=%s", staging_root)
         _emit(emit, "run_preparing", message="Preparing export...")
         _raise_if_cancelled(cancel_requested)
 
+        LOGGER.info("run_staged_export scaffold start staging_root=%s", staging_root)
         _emit(emit, "scaffold_started", message="Writing export scaffold...")
         scaffold_result = write_export_scaffold(project, plan, staging_targets, asset_catalog)
+        LOGGER.info(
+            "run_staged_export scaffold complete errors=%s size=%s",
+            len(scaffold_result.errors),
+            scaffold_result.mod_size_text,
+        )
         if scaffold_result.errors:
             result.errors.extend(scaffold_result.errors)
             result.fatal_error = scaffold_result.errors[0]
@@ -53,7 +63,9 @@ def run_staged_export(
         )
         _raise_if_cancelled(cancel_requested)
 
+        LOGGER.info("run_staged_export build_audio_work_plan start")
         work_plan = build_audio_work_plan(project, plan, staging_targets)
+        LOGGER.info("run_staged_export audio_export start songs=%s", len(work_plan.items))
         audio_result = run_audio_export(
             work_plan,
             cache_root=cache_root,
@@ -65,26 +77,33 @@ def run_staged_export(
         result.output_path = str(final_root)
 
         if result.aborted:
+            LOGGER.info("run_staged_export audio aborted message=%s", result.abort_message)
             _emit(emit, "run_aborted", message=result.abort_message or "Build aborted by user.")
             return result
 
         _raise_if_cancelled(cancel_requested)
+        LOGGER.info("run_staged_export promote start staging=%s final=%s", staging_root, final_root)
         _promote_staging_export_root(staging_root, final_root)
         result.mod_size_text = _format_size_text(_directory_size_bytes(final_root))
+        LOGGER.info("run_staged_export promote complete size=%s", result.mod_size_text)
         return result
     except ExportAbortedError as exc:
+        LOGGER.info("run_staged_export caught abort: %s", exc)
         result.aborted = True
         result.abort_message = str(exc)
         result.fatal_error = str(exc)
         _emit(emit, "run_aborted", message=result.abort_message)
         return result
     except Exception as exc:
+        LOGGER.exception("run_staged_export failed: %s", exc)
         result.fatal_error = str(exc)
         _emit(emit, "run_failed", message=result.fatal_error)
         raise
     finally:
         if staging_root.exists():
+            LOGGER.info("run_staged_export cleanup staging_root=%s", staging_root)
             shutil.rmtree(staging_root, ignore_errors=True)
+        LOGGER.info("run_staged_export end final_root=%s", final_root)
 
 
 def create_staging_targets(final_targets: ExportTargetPaths) -> ExportTargetPaths:
