@@ -17,7 +17,7 @@ class MediaLivePreview(tk.Frame):
         *,
         row: MediaRow,
         bg_color: str,
-        resolve_preview_path: Callable[[MediaRow, AppearanceKind, str], str | None] | None = None,
+        resolve_preview_path: Callable[[MediaRow, AppearanceKind, str, bool], str | None] | None = None,
         on_mode_selected: Callable[[int, str], None] | None = None,
     ) -> None:
         super().__init__(
@@ -45,6 +45,8 @@ class MediaLivePreview(tk.Frame):
         self._slot_kinds: list[AppearanceKind] = []
         self._images: dict[tuple[str, str, object], tk.PhotoImage | None] = {}
         self._tooltip_hide_after_id: str | None = None
+        self._dual_phase_show_empty = False
+        self._dual_phase_after_id: str | None = None
         self._cursor_tooltip = CursorTooltip(self)
 
         self.header = tk.Frame(
@@ -147,10 +149,10 @@ class MediaLivePreview(tk.Frame):
     def _image_for_slot(self, mode: str, kind: AppearanceKind) -> tk.PhotoImage | None:
         if self._resolve_preview_path is None:
             return None
-        path = self._resolve_preview_path(self._row, kind, mode)
+        path = self._resolve_preview_path(self._row, kind, mode, self._dual_phase_show_empty)
         if not path:
             return None
-        cache_key = (mode, kind, cache_token_for_path(path) or path)
+        cache_key = (mode, kind, self._dual_phase_show_empty, cache_token_for_path(path) or path)
         if cache_key not in self._images:
             self._images[cache_key] = load_tk_photoimage_contained(path, spec.MEDIA_ROW_LIVE_PREVIEW_IMAGE_SIZE)
         return self._images[cache_key]
@@ -243,6 +245,7 @@ class MediaLivePreview(tk.Frame):
         if self._selected_mode != 'world':
             self._cancel_tooltip_hide()
             self._cursor_tooltip.hide()
+        self._restart_dual_phase()
         self._apply_preview_images()
 
     def _apply_preview_images(self) -> None:
@@ -265,6 +268,11 @@ class MediaLivePreview(tk.Frame):
             self._selected_mode = resolved_mode
         self._apply_state()
 
+    def destroy(self) -> None:
+        self._cancel_dual_phase()
+        self._cancel_tooltip_hide()
+        super().destroy()
+
     def set_bg_color(self, color: str) -> None:
         self.configure(bg=color)
         self.mode_strip.configure(bg=color)
@@ -272,7 +280,44 @@ class MediaLivePreview(tk.Frame):
     def _slot_world_path(self, kind: AppearanceKind) -> str | None:
         if self._resolve_preview_path is None:
             return None
-        return self._resolve_preview_path(self._row, kind, 'world')
+        return self._resolve_preview_path(self._row, kind, 'world', self._dual_phase_show_empty)
+
+    def _restart_dual_phase(self) -> None:
+        self._cancel_dual_phase()
+        self._dual_phase_show_empty = False
+        if not self._has_visible_dual_slots():
+            return
+        self._dual_phase_after_id = self.after(spec.MODULE_THREE_DUAL_GRID_SWAP_INTERVAL_MS, self._advance_dual_phase)
+
+    def _advance_dual_phase(self) -> None:
+        self._dual_phase_after_id = None
+        if not self._has_visible_dual_slots():
+            self._dual_phase_show_empty = False
+            self._apply_preview_images()
+            return
+        self._dual_phase_show_empty = not self._dual_phase_show_empty
+        self._apply_preview_images()
+        self._dual_phase_after_id = self.after(spec.MODULE_THREE_DUAL_GRID_SWAP_INTERVAL_MS, self._advance_dual_phase)
+
+    def _cancel_dual_phase(self) -> None:
+        if self._dual_phase_after_id is not None:
+            try:
+                self.after_cancel(self._dual_phase_after_id)
+            except tk.TclError:
+                pass
+            self._dual_phase_after_id = None
+
+    def _has_visible_dual_slots(self) -> bool:
+        if self._resolve_preview_path is None:
+            return False
+        for media_kind, container_kind in self._slot_keys:
+            if not self._row.enabled_media.get(media_kind, False):
+                continue
+            full_path = self._resolve_preview_path(self._row, container_kind, self._selected_mode, False)
+            empty_path = self._resolve_preview_path(self._row, container_kind, self._selected_mode, True)
+            if empty_path and empty_path != full_path:
+                return True
+        return False
 
     def _on_slot_enter(self, kind: AppearanceKind, event: tk.Event) -> None:
         if self._selected_mode != 'world':

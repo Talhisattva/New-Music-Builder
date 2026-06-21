@@ -277,12 +277,15 @@ def _preview_rows_from_plan(plan: ExportPlan) -> list[GeneratedPreviewRow]:
 
 def _build_preview_cell(planned_row: PlannedMediaRow, side: PlannedSide, *, mode: str) -> GeneratedPreviewCell:
     slot_paths: list[str | None] = []
+    empty_slot_paths: list[str | None] = []
     for appearance_kind, media_kind in _SLOT_KINDS:
         if not planned_row.enabled_media.get(media_kind, True):
             slot_paths.append(None)
+            empty_slot_paths.append(None)
             continue
         appearance = planned_row.appearances.for_kind(appearance_kind)
         slot_paths.append(appearance.world_path if mode == "world" else appearance.inventory_path)
+        empty_slot_paths.append(appearance.world_empty_path if mode == "world" else appearance.inventory_empty_path)
     return GeneratedPreviewCell(
         label_text=f"{planned_row.media_name} ({side.side}-Side)",
         section_text="WORLD" if mode == "world" else "INVENTORY",
@@ -290,6 +293,7 @@ def _build_preview_cell(planned_row: PlannedMediaRow, side: PlannedSide, *, mode
         duration_text=side.duration_text,
         cover_path=planned_row.cover_path,
         slot_paths=tuple(slot_paths),
+        empty_slot_paths=tuple(empty_slot_paths),
     )
 
 

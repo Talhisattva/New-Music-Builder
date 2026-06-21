@@ -27,6 +27,8 @@ class ModuleFivePreviewRow(tk.Canvas):
         )
         self._row = None
         self._tooltip_hide_after_id: str | None = None
+        self._dual_phase_after_id: str | None = None
+        self._show_empty = False
         self._cursor_tooltip = CursorTooltip(self)
         self._icon_images: list[tk.PhotoImage | None] = []
         self._cover_images: list[tk.PhotoImage | None] = []
@@ -45,7 +47,13 @@ class ModuleFivePreviewRow(tk.Canvas):
 
     def set_row(self, row: GeneratedPreviewRow) -> None:
         self._row = row
+        self._restart_dual_phase()
         self._redraw()
+
+    def destroy(self) -> None:
+        self._cancel_dual_phase()
+        self._cancel_tooltip_hide()
+        super().destroy()
 
     def _redraw(self) -> None:
         self.delete('all')
@@ -139,6 +147,8 @@ class ModuleFivePreviewRow(tk.Canvas):
         icon_y = spec.PHASE_THREE_MODULE_FIVE_ICON_START[1]
         icon_width, _icon_height = spec.PHASE_THREE_MODULE_FIVE_ICON_SIZE
         for index, path in enumerate(cell.slot_paths):
+            if self._show_empty and index < len(cell.empty_slot_paths) and cell.empty_slot_paths[index]:
+                path = cell.empty_slot_paths[index]
             slot_left = icon_x + (index * (icon_width + spec.PHASE_THREE_MODULE_FIVE_ICON_GAP_X))
             self.create_rectangle(
                 slot_left,
@@ -166,6 +176,40 @@ class ModuleFivePreviewRow(tk.Canvas):
                 self.tag_bind(hover_tag, '<Enter>', lambda event, value=path: self._on_world_enter(value, event), add='+')
                 self.tag_bind(hover_tag, '<Motion>', lambda event, value=path: self._on_world_motion(value, event), add='+')
                 self.tag_bind(hover_tag, '<Leave>', self._on_world_leave, add='+')
+
+    def _restart_dual_phase(self) -> None:
+        self._cancel_dual_phase()
+        self._show_empty = False
+        if not self._has_dual_slots():
+            return
+        self._dual_phase_after_id = self.after(spec.MODULE_THREE_DUAL_GRID_SWAP_INTERVAL_MS, self._advance_dual_phase)
+
+    def _advance_dual_phase(self) -> None:
+        self._dual_phase_after_id = None
+        if not self._has_dual_slots():
+            self._show_empty = False
+            self._redraw()
+            return
+        self._show_empty = not self._show_empty
+        self._redraw()
+        self._dual_phase_after_id = self.after(spec.MODULE_THREE_DUAL_GRID_SWAP_INTERVAL_MS, self._advance_dual_phase)
+
+    def _cancel_dual_phase(self) -> None:
+        if self._dual_phase_after_id is not None:
+            try:
+                self.after_cancel(self._dual_phase_after_id)
+            except tk.TclError:
+                pass
+            self._dual_phase_after_id = None
+
+    def _has_dual_slots(self) -> bool:
+        if self._row is None:
+            return False
+        for cell in (self._row.inventory_cell, self._row.world_cell):
+            for full_path, empty_path in zip(cell.slot_paths, cell.empty_slot_paths):
+                if empty_path and empty_path != full_path:
+                    return True
+        return False
 
     def _draw_meta_line(self, right_x: int, y: int, *, prefix: str, value: str) -> None:
         value_width = self._meta_font.measure(value)

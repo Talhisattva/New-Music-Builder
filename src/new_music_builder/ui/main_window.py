@@ -145,6 +145,10 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._active_build_final_targets: ExportTargetPaths | None = None
         self._active_preview_rows_by_side: dict[tuple[int, str], GeneratedPreviewRow] = {}
         self._active_successful_sides: list[tuple[int, str]] = []
+        self._active_expected_sides_by_row: dict[int, set[str]] = {}
+        self._active_completed_sides_by_row: dict[int, set[str]] = {}
+        self._active_successful_sides_by_row: dict[int, set[str]] = {}
+        self._active_emitted_preview_rows: set[tuple[int, str]] = set()
 
         self.asset_catalog_service = AssetCatalog(app_root() / 'assets')
         self.asset_catalog = self.asset_catalog_service.scan()
@@ -361,11 +365,11 @@ class MainWindow(_DnDCompat, ctk.CTk):
         entries = self._module_three_entries_for_kind(kind)
         return entry_for_selected_key(entries, row.appearances[kind].selected_asset_key)
 
-    def _module_two_preview_path_for_row(self, row, kind: AppearanceKind, mode: str) -> str | None:
+    def _module_two_preview_path_for_row(self, row, kind: AppearanceKind, mode: str, show_empty: bool = False) -> str | None:
         entry = self._module_two_preview_entry(row, kind)
         if entry is None:
             return None
-        return entry.displayed_path('world' if mode == 'world' else 'inventory', show_empty=False)
+        return entry.displayed_path('world' if mode == 'world' else 'inventory', show_empty=show_empty)
 
     def _module_two_media_strip_path_for_row(self, row, kind: MediaKind, mode: str) -> str | None:
         return self._module_two_preview_path_for_row(row, kind, 'inventory')
@@ -2006,6 +2010,12 @@ class MainWindow(_DnDCompat, ctk.CTk):
             (row.row_id, row.side): row
             for row in scenario.preview_rows
         }
+        self._active_expected_sides_by_row = {}
+        for side in plan.sides:
+            self._active_expected_sides_by_row.setdefault(side.row_id, set()).add(side.side)
+        self._active_completed_sides_by_row = {}
+        self._active_successful_sides_by_row = {}
+        self._active_emitted_preview_rows.clear()
 
         LOGGER.info("[run=%s] resetting module four/five current run state", run_id)
         if hasattr(self, 'module_four_panel'):
@@ -2276,11 +2286,12 @@ class MainWindow(_DnDCompat, ctk.CTk):
             )
             return
         if event.kind == "run_aborted":
+            abort_detail = "" if event.message.strip() == "Build aborted by user." else event.message
             self.module_four_panel.append_log_line(
                 ExportLogLine(
                     timestamp=datetime.now().strftime("%H:%M:%S"),
-                    prefix_text="Build aborted.",
-                    trailing_text=event.message,
+                    prefix_text="Build aborted by user.",
+                    trailing_text=abort_detail,
                     color_role="error",
                 )
             )
@@ -2349,6 +2360,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
                 )
             )
         elif event.kind == "song_succeeded":
+            self._active_successful_sides_by_row.setdefault(event.row_id, set()).add(event.side)
             self._sync_converted_song_ogg_link(event)
             self.module_four_panel.finalize_active_log_line(
                 ExportLogLine(
@@ -2369,6 +2381,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
                     color_role="error",
                 )
             )
+        elif event.kind == "side_completed":
+            self._mark_preview_row_ready(event.row_id, event.side)
 
     def _sync_converted_song_ogg_link(self, event: AudioRunEvent) -> None:
         if event.song_index is None or not event.cached_ogg_path.strip():
@@ -2388,6 +2402,27 @@ class MainWindow(_DnDCompat, ctk.CTk):
             return
         expanded_widget.refresh_song_table()
         expanded_widget.set_song_selection_state(self._module_two_song_selection_for_row(event.row_id, event.side))
+
+    def _mark_preview_row_ready(self, row_id: int, side: str) -> None:
+        expected_sides = self._active_expected_sides_by_row.get(row_id, set())
+        completed_sides = self._active_completed_sides_by_row.setdefault(row_id, set())
+        completed_sides.add(side)
+        if not expected_sides or completed_sides != expected_sides:
+            return
+        successful_sides = self._active_successful_sides_by_row.get(row_id, set())
+        preview_keys = [
+            (row_id, side_name)
+            for side_name in sorted(successful_sides, key=lambda value: 0 if value == "A" else 1)
+            if (row_id, side_name) not in self._active_emitted_preview_rows
+        ]
+        if not preview_keys or not hasattr(self, 'module_five_panel'):
+            return
+        for key in preview_keys:
+            preview_row = self._active_preview_rows_by_side.get(key)
+            if preview_row is None:
+                continue
+            self.module_five_panel.append_preview_row(preview_row)
+            self._active_emitted_preview_rows.add(key)
 
     def _finalize_audio_run(self, plan, result: AudioRunResult) -> None:
         LOGGER.info(

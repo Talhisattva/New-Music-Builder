@@ -177,6 +177,7 @@ class GeneratedPreviewCell:
     duration_text: str = "00:00:00"
     cover_path: str = ""
     slot_paths: tuple[str | None, ...] = ()
+    empty_slot_paths: tuple[str | None, ...] = ()
 
 
 @dataclass(slots=True)
