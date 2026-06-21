@@ -6,7 +6,7 @@ import tkinter as tk
 from new_music_builder.domain.models import MediaKind, MediaRow
 from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.appearance_entries import PreviewMode
-from new_music_builder.ui.widgets.images import load_tk_photoimage_contained
+from new_music_builder.ui.widgets.images import cache_token_for_path, load_tk_photoimage_contained
 from new_music_builder.ui.widgets.labeled_checkbox import ImageCheckbox
 
 
@@ -42,7 +42,7 @@ class MediaTypeStrip(tk.Frame):
         self._check_icon_path = check_icon_path
         self._resolve_media_strip_path = resolve_media_strip_path
         self._on_enabled_media_changed = on_enabled_media_changed
-        self._icon_images: dict[tuple[PreviewMode, MediaKind, str], tk.PhotoImage | None] = {}
+        self._icon_images: dict[tuple[PreviewMode, MediaKind, object], tk.PhotoImage | None] = {}
         self.icon_frames: dict[MediaKind, tk.Frame] = {}
         self.icon_labels: dict[MediaKind, tk.Label] = {}
         self.checkboxes: dict[MediaKind, ImageCheckbox] = {}
@@ -122,7 +122,7 @@ class MediaTypeStrip(tk.Frame):
         path = self._resolve_media_strip_path(self._row, kind, mode)
         if not path:
             return None
-        cache_key = (mode, kind, path)
+        cache_key = (mode, kind, cache_token_for_path(path) or path)
         if cache_key not in self._icon_images:
             self._icon_images[cache_key] = load_tk_photoimage_contained(path, spec.MEDIA_ROW_MEDIA_STRIP_SLOT_SIZE)
         return self._icon_images[cache_key]

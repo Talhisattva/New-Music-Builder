@@ -5,9 +5,11 @@ from pathlib import Path
 import customtkinter as ctk
 from PIL import Image, ImageTk
 
-_RAW_IMAGE_CACHE: dict[tuple[str, tuple[int, int] | None], ImageTk.PhotoImage] = {}
-_CONTAINED_IMAGE_CACHE: dict[tuple[str, tuple[int, int], tuple[int, int, int, int]], ImageTk.PhotoImage] = {}
-_PIL_CONTAINED_CACHE: dict[tuple[str, tuple[int, int], tuple[int, int, int, int]], Image.Image] = {}
+ImageCacheToken = tuple[str, int, int]
+
+_RAW_IMAGE_CACHE: dict[tuple[ImageCacheToken, tuple[int, int] | None], ImageTk.PhotoImage] = {}
+_CONTAINED_IMAGE_CACHE: dict[tuple[ImageCacheToken, tuple[int, int], tuple[int, int, int, int]], ImageTk.PhotoImage] = {}
+_PIL_CONTAINED_CACHE: dict[tuple[ImageCacheToken, tuple[int, int], tuple[int, int, int, int]], Image.Image] = {}
 _HORIZONTAL_FILL_IMAGE_CACHE: dict[tuple[object, ...], ImageTk.PhotoImage] = {}
 
 
@@ -18,6 +20,14 @@ def _normalize_path(path: str | Path | None) -> Path | None:
     if not img_path.exists():
         return None
     return img_path.resolve()
+
+
+def cache_token_for_path(path: str | Path | None) -> ImageCacheToken | None:
+    img_path = _normalize_path(path)
+    if img_path is None:
+        return None
+    stat = img_path.stat()
+    return (str(img_path), stat.st_mtime_ns, stat.st_size)
 
 
 def load_ctk_image(path: str | Path | None, size: tuple[int, int]) -> ctk.CTkImage | None:
@@ -36,10 +46,11 @@ def load_contained_pil_image(
     *,
     background: tuple[int, int, int, int] = (0, 0, 0, 0),
 ) -> Image.Image | None:
-    img_path = _normalize_path(path)
-    if img_path is None:
+    token = cache_token_for_path(path)
+    if token is None:
         return None
-    cache_key = (str(img_path), size, background)
+    img_path = Path(token[0])
+    cache_key = (token, size, background)
     cached = _PIL_CONTAINED_CACHE.get(cache_key)
     if cached is not None:
         return cached.copy()
@@ -55,10 +66,11 @@ def load_contained_pil_image(
 
 
 def load_tk_photoimage(path: str | Path | None, size: tuple[int, int] | None = None) -> ImageTk.PhotoImage | None:
-    img_path = _normalize_path(path)
-    if img_path is None:
+    token = cache_token_for_path(path)
+    if token is None:
         return None
-    cache_key = (str(img_path), size)
+    img_path = Path(token[0])
+    cache_key = (token, size)
     cached = _RAW_IMAGE_CACHE.get(cache_key)
     if cached is not None:
         return cached
@@ -76,14 +88,14 @@ def load_tk_photoimage_contained(
     *,
     background: tuple[int, int, int, int] = (0, 0, 0, 0),
 ) -> ImageTk.PhotoImage | None:
-    img_path = _normalize_path(path)
-    if img_path is None:
+    token = cache_token_for_path(path)
+    if token is None:
         return None
-    cache_key = (str(img_path), size, background)
+    cache_key = (token, size, background)
     cached = _CONTAINED_IMAGE_CACHE.get(cache_key)
     if cached is not None:
         return cached
-    image = load_contained_pil_image(img_path, size, background=background)
+    image = load_contained_pil_image(token[0], size, background=background)
     if image is None:
         return None
     photo = ImageTk.PhotoImage(image)
@@ -98,11 +110,12 @@ def load_tk_photoimage_horizontal_fill(
     opacity_percent: int = 100,
     composite_background: tuple[int, int, int] | None = None,
 ) -> ImageTk.PhotoImage | None:
-    img_path = _normalize_path(path)
-    if img_path is None:
+    token = cache_token_for_path(path)
+    if token is None:
         return None
+    img_path = Path(token[0])
     opacity_percent = max(0, min(100, opacity_percent))
-    cache_key = (str(img_path), size, opacity_percent, *(composite_background or ()))
+    cache_key = (token, size, opacity_percent, *(composite_background or ()))
     cached = _HORIZONTAL_FILL_IMAGE_CACHE.get(cache_key)
     if cached is not None:
         return cached

@@ -6,7 +6,7 @@ import tkinter as tk
 from new_music_builder.domain.models import AppearanceKind, MediaRow
 from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.cursor_tooltip import CursorTooltip
-from new_music_builder.ui.widgets.images import load_tk_photoimage_contained
+from new_music_builder.ui.widgets.images import cache_token_for_path, load_tk_photoimage_contained
 from new_music_builder.ui.widgets.preview_mode_toggle import PreviewModeToggle
 
 
@@ -43,7 +43,7 @@ class MediaLivePreview(tk.Frame):
         self._slot_frames: list[tk.Frame] = []
         self._slot_labels: list[tk.Label] = []
         self._slot_kinds: list[AppearanceKind] = []
-        self._images: dict[tuple[str, str, str], tk.PhotoImage | None] = {}
+        self._images: dict[tuple[str, str, object], tk.PhotoImage | None] = {}
         self._tooltip_hide_after_id: str | None = None
         self._cursor_tooltip = CursorTooltip(self)
 
@@ -150,7 +150,7 @@ class MediaLivePreview(tk.Frame):
         path = self._resolve_preview_path(self._row, kind, mode)
         if not path:
             return None
-        cache_key = (mode, kind, path)
+        cache_key = (mode, kind, cache_token_for_path(path) or path)
         if cache_key not in self._images:
             self._images[cache_key] = load_tk_photoimage_contained(path, spec.MEDIA_ROW_LIVE_PREVIEW_IMAGE_SIZE)
         return self._images[cache_key]
