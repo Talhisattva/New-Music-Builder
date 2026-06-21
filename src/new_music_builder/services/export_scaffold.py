@@ -406,11 +406,11 @@ def _error_log_lines(output_root: Path, errors: list[str]) -> list[ExportLogLine
 def build_scaffold_stats(plan: ExportPlan, result: ScaffoldResult) -> BuildSummaryStats:
     return BuildSummaryStats(
         media_rows=plan.stats.media_rows,
-        exported_media_rows=plan.stats.exported_media_rows,
+        exported_media_rows=0,
         total_sides=plan.stats.total_sides,
         total_songs=plan.stats.total_songs,
-        built_songs=plan.stats.total_songs,
-        converted=plan.stats.converted,
+        built_songs=0,
+        converted=0,
         mod_size_text=result.mod_size_text,
         errors=len(result.errors),
     )

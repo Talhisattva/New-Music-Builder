@@ -36,8 +36,7 @@ class _BuildStatusCard(tk.Canvas):
 
     def set_stats(self, stats: BuildSummaryStats) -> None:
         self._title_text = 'BUILD ERROR' if stats.errors else 'BUILD COMPLETE'
-        built_songs = stats.built_songs if stats.built_songs else stats.total_songs
-        self._summary_text = f'{stats.exported_media_rows}/{stats.media_rows} Media - {built_songs}/{stats.total_songs} Songs'
+        self._summary_text = f'{stats.exported_media_rows}/{stats.media_rows} Media - {stats.built_songs}/{stats.total_songs} Songs'
         self._state = 'error' if stats.errors else 'complete'
         self._draw()
 
