@@ -1912,7 +1912,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             )
             self._build_event_queue.put(("result", result))
         except Exception as exc:
-            self._build_event_queue.put(("fatal", str(exc)))
+            self._build_event_queue.put(("fatal", (output_root, str(exc))))
 
     def _schedule_build_event_poll(self, plan) -> None:
         if self._build_poll_after_id is not None:
@@ -1935,7 +1935,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
                 self._finalize_audio_run(plan, payload)
                 keep_polling = False
             elif kind == "fatal":
-                self._finalize_audio_run_failure(plan, str(payload))
+                output_root, error_message = payload
+                self._finalize_audio_run_failure(plan, str(output_root), str(error_message))
                 keep_polling = False
         if keep_polling:
             self._build_poll_after_id = self.after(16, lambda: self._poll_build_events(plan))
@@ -2061,7 +2062,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         if hasattr(self, 'build_summary'):
             self.build_summary.refresh()
 
-    def _finalize_audio_run_failure(self, plan, error_message: str) -> None:
+    def _finalize_audio_run_failure(self, plan, output_root: str, error_message: str) -> None:
         if hasattr(self, 'module_four_panel'):
             self.module_four_panel.append_log_line(
                 ExportLogLine(
@@ -2071,6 +2072,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
                     color_role="error",
                 )
             )
+        output_path = Path(output_root)
+        self._last_export_output_path = str(output_path) if output_path.exists() else ''
         stats = BuildSummaryStats(
             media_rows=0,
             exported_media_rows=0,
@@ -2081,7 +2084,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             planned_total_sides=plan.stats.planned_total_sides,
             planned_total_songs=plan.stats.planned_total_songs,
             converted=0,
-            mod_size_text="0 KB",
+            mod_size_text=self._directory_size_text(output_path),
             errors=1,
         )
         if hasattr(self, 'module_six_panel'):
@@ -2090,6 +2093,25 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.preview_entries = []
         if hasattr(self, 'build_summary'):
             self.build_summary.refresh()
+
+    def _directory_size_text(self, root: Path) -> str:
+        if not root.exists():
+            return "0 KB"
+        total = 0
+        for path in root.rglob('*'):
+            if not path.is_file():
+                continue
+            try:
+                total += path.stat().st_size
+            except OSError:
+                continue
+        if total >= 1024 * 1024 * 1024:
+            return f"{total / (1024 * 1024 * 1024):.1f} GB"
+        if total >= 1024 * 1024:
+            return f"{total / (1024 * 1024):.1f} MB"
+        if total >= 1024:
+            return f"{total / 1024:.1f} KB"
+        return f"{total} B"
 
     def _module_four_log_line_text(self, line: ExportLogLine) -> str:
         parts: list[str] = []
