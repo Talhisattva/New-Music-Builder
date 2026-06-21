@@ -653,6 +653,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.module_one_save_button = MainButton(
             self.module_one_midground_border,
             text='SAVE',
+            command=self.save_project,
         )
         self.module_one_save_button.place(x=action_button_x, y=action_button_y)
 
@@ -660,6 +661,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.module_one_load_button = MainButton(
             self.module_one_midground_border,
             text='LOAD',
+            command=self.load_project,
         )
         self.module_one_load_button.place(x=load_button_x, y=action_button_y)
 
@@ -1644,6 +1646,12 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._last_export_output_path = ''
         if hasattr(self, 'module_four_panel'):
             self.module_four_panel.reset_current_run()
+        if hasattr(self, 'module_five_panel'):
+            self.module_five_panel.reset_preview_rows()
+        if hasattr(self, 'module_six_panel'):
+            self.module_six_panel.reset()
+        self._build_module_two_row_list()
+        self._refresh_module_three_appearance_selector()
         self.refresh_all()
 
     def run_build_preview(self) -> None:

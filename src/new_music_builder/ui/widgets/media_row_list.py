@@ -437,6 +437,7 @@ class MediaRowShell(tk.Frame):
 
     def refresh_collapsed_details(self) -> None:
         self.collapsed_details.refresh_content(self._row)
+        self._bind_widget_to_background_interactions(self.collapsed_details)
 
     def set_song_selection_state(self, selected_song_indices: set[int]) -> None:
         self.songlist_viewport.set_selection_state(selected_song_indices)
