@@ -394,12 +394,12 @@ def _success_log_lines(output_root: Path, mod_size_text: str) -> list[ExportLogL
 
 def _error_log_lines(output_root: Path, errors: list[str]) -> list[ExportLogLine]:
     lines = [
-        ExportLogLine(timestamp=datetime.now().strftime("%H:%M:%S"), prefix_text="Export failed.", color_role="neutral"),
+        ExportLogLine(timestamp=datetime.now().strftime("%H:%M:%S"), prefix_text="Export failed.", color_role="error"),
     ]
     if output_root:
-        lines.append(ExportLogLine(timestamp="", prefix_text=str(output_root), color_role="neutral"))
+        lines.append(ExportLogLine(timestamp="", prefix_text=str(output_root), color_role="error"))
     for error in errors:
-        lines.append(ExportLogLine(timestamp="", prefix_text=error, color_role="neutral"))
+        lines.append(ExportLogLine(timestamp="", prefix_text=error, color_role="error"))
     return lines
 
 
@@ -424,9 +424,9 @@ def build_validation_log_lines(errors: list[str]) -> list[ExportLogLine]:
         ExportLogLine(
             timestamp=datetime.now().strftime("%H:%M:%S"),
             prefix_text="Build & Export could not start.",
-            color_role="neutral",
+            color_role="error",
         )
     ]
     for error in errors:
-        lines.append(ExportLogLine(timestamp="", prefix_text=error, color_role="neutral"))
+        lines.append(ExportLogLine(timestamp="", prefix_text=error, color_role="error"))
     return lines

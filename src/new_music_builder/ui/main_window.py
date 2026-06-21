@@ -2179,12 +2179,12 @@ class MainWindow(_DnDCompat, ctk.CTk):
     def _schedule_build_event_poll(self, plan, run_id: str) -> None:
         if self._build_poll_after_id is not None:
             self.after_cancel(self._build_poll_after_id)
-        LOGGER.info("[run=%s] schedule_build_event_poll", run_id)
+        LOGGER.debug("[run=%s] schedule_build_event_poll", run_id)
         self._build_poll_after_id = self.after(16, lambda: self._poll_build_events(plan, run_id))
 
     def _poll_build_events(self, plan, run_id: str) -> None:
         if self._build_event_queue is None:
-            LOGGER.info("[run=%s] poll_build_events early exit queue missing", run_id)
+            LOGGER.debug("[run=%s] poll_build_events early exit queue missing", run_id)
             self._build_poll_after_id = None
             return
         batch = self._build_event_pump.drain(self._build_event_queue)
@@ -2200,7 +2200,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
                 self._finalize_audio_run_failure(plan, str(output_root), str(error_message))
                 keep_polling = False
         if batch.stats.raw_items_processed:
-            LOGGER.info(
+            LOGGER.debug(
                 "[run=%s] poll_build_events queue_before=%s queue_after=%s raw=%s emitted=%s counts=%s",
                 run_id,
                 batch.stats.queue_size_before,
@@ -2212,7 +2212,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         if keep_polling:
             self._build_poll_after_id = self.after(16, lambda: self._poll_build_events(plan, run_id))
         else:
-            LOGGER.info("[run=%s] poll_build_events stop", run_id)
+            LOGGER.debug("[run=%s] poll_build_events stop", run_id)
             self._build_poll_after_id = None
             self._build_event_queue = None
             self._active_build_thread = None
@@ -2221,7 +2221,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         if not hasattr(self, 'module_four_panel'):
             return
         if event.kind != "song_progress":
-            LOGGER.info(
+            LOGGER.debug(
                 "[run=%s] handle_audio_run_event kind=%s row=%s side=%s message=%s",
                 self._active_build_run_id or "-",
                 event.kind,
@@ -2491,6 +2491,15 @@ class MainWindow(_DnDCompat, ctk.CTk):
         final_targets = self._active_build_final_targets
         output_path = Path(final_targets.root) if final_targets is not None else Path(output_root)
         self._last_export_output_path = str(output_path) if output_path.exists() else ''
+        if hasattr(self, 'module_four_panel'):
+            self.module_four_panel.append_log_line(
+                ExportLogLine(
+                    timestamp=datetime.now().strftime("%H:%M:%S"),
+                    prefix_text="Build failed.",
+                    trailing_text=error_message,
+                    color_role="error",
+                )
+            )
         stats = BuildSummaryStats(
             media_rows=0,
             exported_media_rows=0,
@@ -2623,3 +2632,20 @@ class MainWindow(_DnDCompat, ctk.CTk):
             return
         self.session_store.save(self.session.project, self.session.current_path)
         self.destroy()
+
+    def report_callback_exception(self, exc, val, tb) -> None:
+        from new_music_builder.platform.logging_support import write_runtime_fatal_log
+
+        crash_path = write_runtime_fatal_log(
+            "Unhandled Tk callback exception",
+            exc,
+            val,
+            tb,
+            thread_name=threading.current_thread().name,
+        )
+        LOGGER.exception("Unhandled Tk callback exception. See %s", crash_path, exc_info=(exc, val, tb))
+        messagebox.showerror(
+            'New Music Builder Error',
+            'An unexpected error occurred.\n\n'
+            f'See: {crash_path}',
+        )

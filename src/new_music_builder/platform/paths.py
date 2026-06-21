@@ -22,6 +22,18 @@ def logs_root() -> Path:
     return root
 
 
+def diagnostic_log_path() -> Path:
+    return logs_root() / 'new_music_builder.log'
+
+
+def startup_fatal_log_path() -> Path:
+    return logs_root() / 'startup_fatal.log'
+
+
+def runtime_fatal_log_path() -> Path:
+    return logs_root() / 'runtime_fatal.log'
+
+
 def detect_workshop_dir() -> Path | None:
     for candidate in _zomboid_root_candidates():
         workshop = candidate / 'Workshop'
