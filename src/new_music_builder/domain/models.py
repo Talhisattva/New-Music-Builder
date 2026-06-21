@@ -9,9 +9,18 @@ AppearanceKind = Literal["cassette", "vinyl", "cd", "case", "jacket", "cd_cover"
 SpriteMode = Literal["single", "dual"]
 SongSortColumn = Literal["ogg", "song_name", "length"]
 SongSortDirection = Literal["asc", "desc"]
-ConversionSongStatus = Literal["queued", "converting", "done"]
-ExportLogColorRole = Literal["neutral", "queued", "converting", "done"]
+ConversionSongStatus = Literal["queued", "converting", "done", "failed"]
+ExportLogColorRole = Literal["neutral", "queued", "converting", "done", "error"]
 AudioBuildAction = Literal["copy_ogg", "convert_to_ogg", "error"]
+AudioRunEventKind = Literal[
+    "side_started",
+    "song_started",
+    "song_progress",
+    "song_succeeded",
+    "song_failed",
+    "side_completed",
+    "run_completed",
+]
 
 
 @dataclass(slots=True)
@@ -174,6 +183,7 @@ class BuildSummaryStats:
     exported_media_rows: int = 0
     total_sides: int = 0
     total_songs: int = 0
+    built_songs: int = 0
     converted: int = 0
     mod_size_text: str = "0 KB"
     errors: int = 0
@@ -275,6 +285,7 @@ class PlannedAudioWorkItem:
     side: Literal["A", "B"]
     track_number: int
     display_label: str
+    duration_seconds: int
     source_path: str
     target_relative_path: str
     target_path: str
@@ -298,6 +309,31 @@ class AudioWorkPlan:
     @property
     def error_count(self) -> int:
         return sum(1 for item in self.items if item.action == "error")
+
+
+@dataclass(slots=True)
+class AudioRunEvent:
+    kind: AudioRunEventKind
+    row_id: int
+    side: Literal["A", "B"]
+    song_index: int | None = None
+    track_number: int | None = None
+    display_label: str = ""
+    percent: int = 0
+    message: str = ""
+    size_text: str = ""
+
+
+@dataclass(slots=True)
+class AudioRunResult:
+    output_path: str = ""
+    successful_sides: list[tuple[int, Literal["A", "B"]]] = field(default_factory=list)
+    built_song_count: int = 0
+    failed_song_count: int = 0
+    converted_count: int = 0
+    errors: list[str] = field(default_factory=list)
+    fatal_error: str = ""
+    mod_size_text: str = "0 KB"
 
 
 @dataclass(slots=True)

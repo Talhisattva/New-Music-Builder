@@ -61,6 +61,7 @@ class ModuleFourLogView(tk.Frame):
         self._text.tag_configure('queued', foreground=spec.PHASE_THREE_MODULE_FOUR_LOG_TEXT_QUEUED)
         self._text.tag_configure('converting', foreground=spec.PHASE_THREE_MODULE_FOUR_LOG_TEXT_CONVERTING)
         self._text.tag_configure('done', foreground=spec.PHASE_THREE_MODULE_FOUR_LOG_TEXT_DONE)
+        self._text.tag_configure('error', foreground=spec.MAIN_BUTTON_NEGATIVE_TEXT_COLOR)
         self._text.bind('<KeyPress>', self._block_editing, add='+')
         self._text.bind('<Control-a>', self._select_all, add='+')
         self._text.bind('<Control-A>', self._select_all, add='+')
@@ -140,6 +141,8 @@ class ModuleFourLogView(tk.Frame):
             return 'converting'
         if role == 'done':
             return 'done'
+        if role == 'error':
+            return 'error'
         return 'neutral'
 
     def _rendered_line_count(self) -> int:

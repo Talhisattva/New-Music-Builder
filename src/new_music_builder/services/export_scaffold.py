@@ -19,9 +19,17 @@ from new_music_builder.services.export_naming import sanitize_filesystem_compone
 
 def validate_export_request(project: ProjectConfig, plan: ExportPlan) -> list[str]:
     errors: list[str] = []
+    ogg_folder = (project.ogg_output_folder or "").strip()
     workshop_folder = (project.workshop_output_folder or "").strip()
     mod_name = (project.mod_name or "").strip()
     mod_id = (project.mod_id or "").strip()
+
+    if not ogg_folder:
+        errors.append(".ogg Output Folder is required before Build & Export can run.")
+    else:
+        ogg_path = Path(ogg_folder)
+        if not ogg_path.exists() or not ogg_path.is_dir():
+            errors.append(".ogg Output Folder must exist and be a valid directory.")
 
     if not workshop_folder:
         errors.append("Workshop folder is required before Build & Export can run.")
@@ -401,6 +409,7 @@ def build_scaffold_stats(plan: ExportPlan, result: ScaffoldResult) -> BuildSumma
         exported_media_rows=plan.stats.exported_media_rows,
         total_sides=plan.stats.total_sides,
         total_songs=plan.stats.total_songs,
+        built_songs=plan.stats.total_songs,
         converted=plan.stats.converted,
         mod_size_text=result.mod_size_text,
         errors=len(result.errors),

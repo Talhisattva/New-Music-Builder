@@ -102,6 +102,13 @@ class ModuleFourPanel(tk.Frame):
         self.state.ordered_groups.append(deepcopy(group))
         self._refresh_views()
 
+    def append_song_to_group(self, row_id: int, side: str, song) -> None:
+        for group in self.state.ordered_groups:
+            if group.row_id == row_id and group.side == side:
+                group.songs.append(deepcopy(song))
+                self._refresh_views()
+                return
+
     def update_song_progress(self, row_id: int, side: str, song_index: int, percent: int, status: str, size_label: str) -> None:
         for group_index, group in enumerate(self.state.ordered_groups):
             if group.row_id != row_id or group.side != side:

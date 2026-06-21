@@ -291,6 +291,9 @@ class ModuleFourQueueTable(tk.Canvas):
             completed_segments = 10
             fill_color = spec.PHASE_THREE_MODULE_FOUR_PROGRESS_DONE_FILL
             border_color = spec.PHASE_THREE_MODULE_FOUR_PROGRESS_DONE_BORDER
+        elif status == 'failed':
+            fill_color = spec.MAIN_BUTTON_NEGATIVE_TEXT_COLOR
+            border_color = spec.MAIN_BUTTON_NEGATIVE_OUTLINE
 
         segment_size = spec.PHASE_THREE_MODULE_FOUR_PROGRESS_SEGMENT_SIZE
         for segment_index in range(completed_segments):
@@ -323,6 +326,10 @@ class ModuleFourQueueTable(tk.Canvas):
         elif status == 'converting':
             icon = self._converting_icon
             text = 'CONVERTING'
+        elif status == 'failed':
+            icon = None
+            text = 'ERROR'
+            text_color = spec.MAIN_BUTTON_NEGATIVE_TEXT_COLOR
 
         if icon is not None:
             self.create_image(

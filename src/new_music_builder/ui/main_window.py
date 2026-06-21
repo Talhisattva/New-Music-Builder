@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
+import queue
+import shutil
 import sys
+import threading
 import time
 import tkinter as tk
 import tkinter.filedialog as fd
@@ -14,7 +17,12 @@ from PIL import Image, ImageTk
 
 from new_music_builder import __version__
 from new_music_builder.domain.models import (
+    AudioRunEvent,
+    AudioRunResult,
     AppearanceKind,
+    BuildSummaryStats,
+    ConversionSideGroup,
+    ConversionSongProgress,
     ExportLogLine,
     GeneratedPreviewRow,
     MediaKind,
@@ -25,7 +33,9 @@ from new_music_builder.domain.models import (
 from new_music_builder.platform.paths import app_root
 from new_music_builder.platform.paths import detect_workshop_dir, open_folder
 from new_music_builder.services.asset_catalog import AssetCatalog
+from new_music_builder.services.audio_export_runner import run_audio_export
 from new_music_builder.services.audio_workspace import AudioWorkspaceService
+from new_music_builder.services.audio_work_plan import build_audio_work_plan
 from new_music_builder.services.export_planning import build_export_plan, build_preview_scenario
 from new_music_builder.services.export_scaffold import (
     build_scaffold_stats,
@@ -119,6 +129,11 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.workshop_output_folder_var = tk.StringVar(value=self.session.project.workshop_output_folder)
         self._window_icon_image = None
         self._last_export_output_path: str = ""
+        self._build_event_queue: queue.Queue[object] | None = None
+        self._build_poll_after_id: str | None = None
+        self._active_build_thread: threading.Thread | None = None
+        self._active_preview_rows_by_side: dict[tuple[int, str], GeneratedPreviewRow] = {}
+        self._active_successful_sides: list[tuple[int, str]] = []
 
         self.asset_catalog_service = AssetCatalog(app_root() / 'assets')
         self.asset_catalog = self.asset_catalog_service.scan()
@@ -1729,48 +1744,134 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._sync_phase_one_project_state()
         plan = build_export_plan(self.session.project, self.asset_catalog)
         validation_errors = validate_export_request(self.session.project, plan)
+        self._active_preview_rows_by_side = {}
+        self._active_successful_sides = []
+        scenario_output_path = ''
+        if not validation_errors:
+            targets = resolve_export_target(
+                plan,
+                self.session.project.workshop_output_folder,
+                mod_name=self.session.project.mod_name,
+                mod_id=self.session.project.mod_id,
+            )
+            scenario_output_path = targets.root
+        scenario = build_preview_scenario(plan, scenario_output_path)
+        self._active_preview_rows_by_side = {
+            (row.row_id, row.side): row
+            for row in scenario.preview_rows
+        }
+
         if hasattr(self, 'module_four_panel'):
             self.module_four_panel.archive_current_run()
             self.module_four_panel.reset_current_run()
-            if hasattr(self, 'module_five_panel'):
-                self.module_five_panel.reset_preview_rows()
-            output_path = ''
-            if not validation_errors:
-                targets = resolve_export_target(
-                    plan,
-                    self.session.project.workshop_output_folder,
-                    mod_name=self.session.project.mod_name,
-                    mod_id=self.session.project.mod_id,
-                )
-                output_path = targets.root
-            scenario = build_preview_scenario(plan, output_path)
-            if scenario.queue_groups:
-                self.module_four_panel.set_queue_groups(scenario.queue_groups)
-            if hasattr(self, 'module_five_panel') and scenario.preview_rows:
-                self.module_five_panel.set_preview_rows(scenario.preview_rows)
-            if validation_errors:
-                stats = build_scaffold_stats(
-                    plan,
-                    ScaffoldResult(mod_size_text='0 KB', errors=validation_errors),
-                )
-                log_lines = build_validation_log_lines(validation_errors)
-                self._last_export_output_path = ''
-            else:
-                scaffold_result = write_export_scaffold(self.session.project, plan, targets, self.asset_catalog)
-                stats = build_scaffold_stats(plan, scaffold_result)
-                log_lines = scaffold_result.log_lines
-                self._last_export_output_path = scaffold_result.output_path if not scaffold_result.errors else ''
-            self.module_four_panel.set_output_path(self._last_export_output_path or output_path)
-            self.module_four_panel.set_log_lines(log_lines)
+        if hasattr(self, 'module_five_panel'):
+            self.module_five_panel.reset_preview_rows()
+
+        if validation_errors:
+            stats = build_scaffold_stats(
+                plan,
+                ScaffoldResult(mod_size_text='0 KB', errors=validation_errors),
+            )
+            log_lines = build_validation_log_lines(validation_errors)
+            self._last_export_output_path = ''
+            if hasattr(self, 'module_four_panel'):
+                self.module_four_panel.set_output_path('')
+                self.module_four_panel.set_log_lines(log_lines)
             if hasattr(self, 'module_six_panel'):
                 self.module_six_panel.set_stats(stats)
             self.build_log = [self._module_four_log_line_text(line) for line in log_lines]
-            self.preview_entries = [group.display_label.replace('\n', ' ') for group in scenario.queue_groups]
-        else:
-            self.build_log = [f"[{datetime.now().strftime('%H:%M:%S')}] Build started - {len(self.session.project.media_rows) * 2} sides queued."]
             self.preview_entries = []
-        if hasattr(self, 'build_summary'):
-            self.build_summary.refresh()
+            if hasattr(self, 'build_summary'):
+                self.build_summary.refresh()
+            return
+
+        output_root = Path(targets.root)
+        if output_root.exists() and not self._confirm_overwrite_export_root(output_root):
+            cancelled_line = ExportLogLine(
+                timestamp=datetime.now().strftime("%H:%M:%S"),
+                prefix_text="Build cancelled.",
+                trailing_text="Existing export was not overwritten.",
+                color_role="error",
+            )
+            cancelled_stats = BuildSummaryStats(
+                media_rows=plan.stats.media_rows,
+                exported_media_rows=0,
+                total_sides=plan.stats.total_sides,
+                total_songs=plan.stats.total_songs,
+                built_songs=0,
+                converted=0,
+                mod_size_text="0 KB",
+                errors=1,
+            )
+            self._last_export_output_path = ''
+            if hasattr(self, 'module_four_panel'):
+                self.module_four_panel.set_output_path(str(output_root))
+                self.module_four_panel.set_log_lines([cancelled_line])
+            if hasattr(self, 'module_six_panel'):
+                self.module_six_panel.set_stats(cancelled_stats)
+            self.build_log = [self._module_four_log_line_text(cancelled_line)]
+            self.preview_entries = []
+            if hasattr(self, 'build_summary'):
+                self.build_summary.refresh()
+            return
+
+        if output_root.exists():
+            self._remove_existing_export_root(output_root, Path(self.session.project.workshop_output_folder))
+
+        scaffold_result = write_export_scaffold(self.session.project, plan, targets, self.asset_catalog)
+        self._last_export_output_path = scaffold_result.output_path if not scaffold_result.errors else ''
+        if hasattr(self, 'module_four_panel'):
+            self.module_four_panel.set_output_path(targets.root)
+            self.module_four_panel.set_log_lines(scaffold_result.log_lines)
+        self.build_log = [self._module_four_log_line_text(line) for line in scaffold_result.log_lines]
+        self.preview_entries = []
+
+        if scaffold_result.errors:
+            stats = build_scaffold_stats(plan, scaffold_result)
+            if hasattr(self, 'module_six_panel'):
+                self.module_six_panel.set_stats(stats)
+            if hasattr(self, 'build_summary'):
+                self.build_summary.refresh()
+            return
+
+        work_plan = build_audio_work_plan(self.session.project, plan, targets)
+        ffmpeg_path = self.audio_workspace.locate_ffmpeg()
+        if work_plan.convert_count > 0 and not ffmpeg_path:
+            error_lines = list(scaffold_result.log_lines)
+            error_lines.append(
+                ExportLogLine(
+                    timestamp=datetime.now().strftime("%H:%M:%S"),
+                    prefix_text="Audio export could not start.",
+                    trailing_text="ffmpeg was not found.",
+                    color_role="error",
+                )
+            )
+            stats = BuildSummaryStats(
+                media_rows=plan.stats.media_rows,
+                exported_media_rows=0,
+                total_sides=plan.stats.total_sides,
+                total_songs=plan.stats.total_songs,
+                built_songs=0,
+                converted=0,
+                mod_size_text=scaffold_result.mod_size_text,
+                errors=1,
+            )
+            if hasattr(self, 'module_four_panel'):
+                self.module_four_panel.set_log_lines(error_lines)
+            if hasattr(self, 'module_six_panel'):
+                self.module_six_panel.set_stats(stats)
+            self.build_log = [self._module_four_log_line_text(line) for line in error_lines]
+            if hasattr(self, 'build_summary'):
+                self.build_summary.refresh()
+            return
+
+        self._start_audio_build_run(
+            plan=plan,
+            targets=targets.root,
+            work_plan=work_plan,
+            ffmpeg_path=ffmpeg_path or "",
+            cache_root=self.session.project.ogg_output_folder,
+        )
 
     def reset_transient_state(self) -> None:
         self._last_export_output_path = ''
@@ -1784,6 +1885,239 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self.module_six_panel.reset()
         if hasattr(self, 'build_export'):
             self.build_export.refresh(self.build_log, self.preview_entries)
+
+    def _confirm_overwrite_export_root(self, output_root: Path) -> bool:
+        dialog = ConfirmDialog(
+            self,
+            icon_path=self._native_icon_path(),
+            title='Overwrite Existing Mod',
+            label_text='This build will overwrite an existing mod. Proceed?',
+            accept_text='YES',
+            cancel_text='CANCEL',
+        )
+        return dialog.show()
+
+    def _remove_existing_export_root(self, output_root: Path, workshop_root: Path) -> None:
+        resolved_output = output_root.resolve()
+        resolved_workshop = workshop_root.resolve()
+        if resolved_output == resolved_workshop or resolved_workshop not in resolved_output.parents:
+            raise RuntimeError("Refusing to overwrite an unsafe export path.")
+        shutil.rmtree(resolved_output)
+
+    def _start_audio_build_run(
+        self,
+        *,
+        plan,
+        targets: str,
+        work_plan,
+        ffmpeg_path: str,
+        cache_root: str,
+    ) -> None:
+        self._build_event_queue = queue.Queue()
+        self._active_build_thread = threading.Thread(
+            target=self._run_audio_build_worker,
+            kwargs={
+                "work_plan": work_plan,
+                "output_root": targets,
+                "cache_root": cache_root,
+                "ffmpeg_path": ffmpeg_path,
+            },
+            daemon=True,
+        )
+        self._active_build_thread.start()
+        self._schedule_build_event_poll(plan)
+
+    def _run_audio_build_worker(
+        self,
+        *,
+        work_plan,
+        output_root: str,
+        cache_root: str,
+        ffmpeg_path: str,
+    ) -> None:
+        assert self._build_event_queue is not None
+        try:
+            result = run_audio_export(
+                work_plan,
+                ffmpeg_path=ffmpeg_path,
+                cache_root=cache_root,
+                output_root=output_root,
+                emit=lambda event: self._build_event_queue.put(("event", event)),
+            )
+            self._build_event_queue.put(("result", result))
+        except Exception as exc:
+            self._build_event_queue.put(("fatal", str(exc)))
+
+    def _schedule_build_event_poll(self, plan) -> None:
+        if self._build_poll_after_id is not None:
+            self.after_cancel(self._build_poll_after_id)
+        self._build_poll_after_id = self.after(16, lambda: self._poll_build_events(plan))
+
+    def _poll_build_events(self, plan) -> None:
+        if self._build_event_queue is None:
+            self._build_poll_after_id = None
+            return
+        keep_polling = True
+        while True:
+            try:
+                kind, payload = self._build_event_queue.get_nowait()
+            except queue.Empty:
+                break
+            if kind == "event":
+                self._handle_audio_run_event(payload)
+            elif kind == "result":
+                self._finalize_audio_run(plan, payload)
+                keep_polling = False
+            elif kind == "fatal":
+                self._finalize_audio_run_failure(plan, str(payload))
+                keep_polling = False
+        if keep_polling:
+            self._build_poll_after_id = self.after(16, lambda: self._poll_build_events(plan))
+        else:
+            self._build_poll_after_id = None
+            self._build_event_queue = None
+            self._active_build_thread = None
+
+    def _handle_audio_run_event(self, event: AudioRunEvent) -> None:
+        if not hasattr(self, 'module_four_panel'):
+            return
+        key = (event.row_id, event.side)
+        if event.kind == "side_started":
+            label = self._active_preview_rows_by_side.get(key)
+            display_label = label.inventory_cell.label_text.replace(f" ({event.side}-Side)", f"\n{event.side}-SIDE") if label is not None else f"Row {event.row_id}\n{event.side}-SIDE"
+            self.module_four_panel.append_queue_group(
+                ConversionSideGroup(row_id=event.row_id, side=event.side, display_label=display_label, songs=[])
+            )
+        elif event.kind == "song_started":
+            self.module_four_panel.append_song_to_group(
+                event.row_id,
+                event.side,
+                ConversionSongProgress(
+                    song_label=event.display_label,
+                    queue_index=event.track_number or ((event.song_index or 0) + 1),
+                    percent=0,
+                    status="converting",
+                    size_label="",
+                ),
+            )
+        elif event.kind in {"song_progress", "song_succeeded", "song_failed"} and event.song_index is not None:
+            status = "converting"
+            if event.kind == "song_succeeded":
+                status = "done"
+            elif event.kind == "song_failed":
+                status = "failed"
+            self.module_four_panel.update_song_progress(
+                event.row_id,
+                event.side,
+                event.song_index,
+                event.percent,
+                status,
+                event.size_text,
+            )
+
+        if event.kind == "song_started":
+            self.module_four_panel.append_log_line(
+                ExportLogLine(
+                    timestamp=datetime.now().strftime("%H:%M:%S"),
+                    prefix_text="Starting song:",
+                    subject_text=event.display_label,
+                    color_role="queued",
+                )
+            )
+        elif event.kind == "song_progress":
+            self.module_four_panel.update_active_log_line(
+                ExportLogLine(
+                    timestamp=datetime.now().strftime("%H:%M:%S"),
+                    prefix_text="Converting:",
+                    subject_text=event.display_label,
+                    trailing_text=f"{event.percent}%",
+                    color_role="converting",
+                )
+            )
+        elif event.kind == "song_succeeded":
+            self.module_four_panel.finalize_active_log_line(
+                ExportLogLine(
+                    timestamp=datetime.now().strftime("%H:%M:%S"),
+                    prefix_text="Exported:",
+                    subject_text=event.display_label,
+                    size_text=event.size_text,
+                    color_role="done",
+                )
+            )
+        elif event.kind == "song_failed":
+            self.module_four_panel.finalize_active_log_line(
+                ExportLogLine(
+                    timestamp=datetime.now().strftime("%H:%M:%S"),
+                    prefix_text="Failed:",
+                    subject_text=event.display_label,
+                    trailing_text=event.message,
+                    color_role="error",
+                )
+            )
+
+    def _finalize_audio_run(self, plan, result: AudioRunResult) -> None:
+        self._last_export_output_path = result.output_path if result.built_song_count > 0 else ''
+        successful_rows = {row_id for row_id, _side in result.successful_sides}
+        preview_rows = [
+            self._active_preview_rows_by_side[key]
+            for key in result.successful_sides
+            if key in self._active_preview_rows_by_side
+        ]
+        if hasattr(self, 'module_five_panel'):
+            self.module_five_panel.set_preview_rows(preview_rows)
+        if hasattr(self, 'module_four_panel'):
+            self.module_four_panel.append_log_line(
+                ExportLogLine(
+                    timestamp=datetime.now().strftime("%H:%M:%S"),
+                    prefix_text="Build finished:",
+                    subject_text=str(Path(result.output_path)),
+                    trailing_text=result.mod_size_text,
+                    color_role="done" if not result.errors else "error",
+                )
+            )
+        stats = BuildSummaryStats(
+            media_rows=plan.stats.media_rows,
+            exported_media_rows=len(successful_rows),
+            total_sides=plan.stats.total_sides,
+            total_songs=plan.stats.total_songs,
+            built_songs=result.built_song_count,
+            converted=result.converted_count,
+            mod_size_text=result.mod_size_text,
+            errors=len(result.errors),
+        )
+        if hasattr(self, 'module_six_panel'):
+            self.module_six_panel.set_stats(stats)
+        self.build_log = [self._module_four_log_line_text(line) for line in getattr(self.module_four_panel.state, 'current_run_log_lines', [])] if hasattr(self, 'module_four_panel') else []
+        self.preview_entries = [f"{row.inventory_cell.label_text}" for row in preview_rows]
+        if hasattr(self, 'build_summary'):
+            self.build_summary.refresh()
+
+    def _finalize_audio_run_failure(self, plan, error_message: str) -> None:
+        if hasattr(self, 'module_four_panel'):
+            self.module_four_panel.append_log_line(
+                ExportLogLine(
+                    timestamp=datetime.now().strftime("%H:%M:%S"),
+                    prefix_text="Build failed.",
+                    trailing_text=error_message,
+                    color_role="error",
+                )
+            )
+        stats = BuildSummaryStats(
+            media_rows=plan.stats.media_rows,
+            exported_media_rows=0,
+            total_sides=plan.stats.total_sides,
+            total_songs=plan.stats.total_songs,
+            built_songs=0,
+            converted=0,
+            mod_size_text="0 KB",
+            errors=1,
+        )
+        if hasattr(self, 'module_six_panel'):
+            self.module_six_panel.set_stats(stats)
+        self.build_log = [self._module_four_log_line_text(line) for line in getattr(self.module_four_panel.state, 'current_run_log_lines', [])] if hasattr(self, 'module_four_panel') else []
+        self.preview_entries = []
+        if hasattr(self, 'build_summary'):
+            self.build_summary.refresh()
 
     def _module_four_log_line_text(self, line: ExportLogLine) -> str:
         parts: list[str] = []
