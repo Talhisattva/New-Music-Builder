@@ -7,6 +7,7 @@ from typing import Any, Literal
 MediaKind = Literal["cassette", "vinyl", "cd"]
 AppearanceKind = Literal["cassette", "vinyl", "cd", "case", "jacket", "cd_cover"]
 SpriteMode = Literal["single", "dual"]
+RegistrationMode = Literal["single", "split"]
 SongSortColumn = Literal["ogg", "song_name", "length"]
 SongSortDirection = Literal["asc", "desc"]
 ConversionSongStatus = Literal["queued", "converting", "done", "failed"]
@@ -284,6 +285,69 @@ class ExportPlan:
     rows: list[PlannedMediaRow] = field(default_factory=list)
     sides: list[PlannedSide] = field(default_factory=list)
     stats: BuildSummaryStats = field(default_factory=BuildSummaryStats)
+
+
+@dataclass(slots=True)
+class RegisteredTrack:
+    sequence_number: int
+    track_id: str
+    sound_id: str
+    display_label: str
+    export_audio_relative_path: str
+
+
+@dataclass(slots=True)
+class RegisteredSide:
+    side: Literal["A", "B"]
+    side_id: str
+    start_track_number: int
+    end_track_number: int
+    tracks: list[RegisteredTrack] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class RegisteredMediaVariant:
+    media_kind: MediaKind
+    mode: RegistrationMode
+    item_ids: dict[Literal["A", "B"], str] = field(default_factory=dict)
+    display_names: dict[Literal["A", "B"], str] = field(default_factory=dict)
+    icon_reference: str = ""
+    model_reference: str = ""
+    selected_asset_key: str = ""
+    asset_source: Literal["default", "custom"] = "default"
+
+
+@dataclass(slots=True)
+class RegisteredContainerVariant:
+    media_kind: MediaKind
+    container_kind: AppearanceKind
+    empty_item_id: str
+    full_item_id: str
+    empty_display_name: str
+    full_display_name: str
+    icon_reference: str = ""
+    model_reference: str = ""
+    selected_asset_key: str = ""
+    asset_source: Literal["default", "custom"] = "default"
+
+
+@dataclass(slots=True)
+class RegisteredAlbum:
+    row_id: int
+    album_id: str
+    title: str
+    module_id: str
+    mode: RegistrationMode
+    sound_prefix: str
+    sides: list[RegisteredSide] = field(default_factory=list)
+    media_variants: list[RegisteredMediaVariant] = field(default_factory=list)
+    container_variants: list[RegisteredContainerVariant] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class ExportRegistrationPlan:
+    module_id: str
+    albums: list[RegisteredAlbum] = field(default_factory=list)
 
 
 @dataclass(slots=True)
