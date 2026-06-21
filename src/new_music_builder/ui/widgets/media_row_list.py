@@ -899,6 +899,7 @@ class MediaRowList(tk.Frame):
                 insertion_y = current_y
                 insertion_height = spec.MEDIA_ROW_EXPANDED_SIZE[1] if row.expanded else spec.MEDIA_ROW_COLLAPSED_SIZE[1]
                 line_placed = True
+                current_y += insertion_height + spec.MEDIA_ROW_GAP_Y
             if row.row_id in dragged_id_set:
                 continue
             widget = widget_by_id[row.row_id]
@@ -908,11 +909,12 @@ class MediaRowList(tk.Frame):
             widget.place(x=spec.MEDIA_ROW_INSET_X, y=current_y)
             current_y += widget.winfo_reqheight() + spec.MEDIA_ROW_GAP_Y
         if not line_placed:
-            insertion_y = current_y - spec.MEDIA_ROW_GAP_Y
+            insertion_y = current_y
             if self._row_drag_ids:
                 first_dragged_widget = widget_by_id.get(self._row_drag_ids[0])
                 if first_dragged_widget is not None:
                     insertion_height = first_dragged_widget.winfo_height() or first_dragged_widget.winfo_reqheight()
+            current_y += insertion_height + spec.MEDIA_ROW_GAP_Y
 
         dragged_block_top = (self._row_drag_cursor_local_y or spec.MEDIA_ROW_INSET_Y) - self._row_drag_pointer_offset_y
         current_drag_y = dragged_block_top
@@ -922,7 +924,6 @@ class MediaRowList(tk.Frame):
                 continue
             widget.resize(row_width)
             widget.place(x=spec.MEDIA_ROW_INSET_X, y=current_drag_y)
-            self.after_idle(widget._apply_background_state)
             widget.lift()
             current_drag_y += widget.winfo_reqheight() + spec.MEDIA_ROW_GAP_Y
 
@@ -932,7 +933,7 @@ class MediaRowList(tk.Frame):
             width=row_width,
             height=insertion_height,
         )
-        self._drag_insertion_outline.lift()
+        self._drag_insertion_outline.lower()
         self.configure(height=self._total_height_for_rows(self.rows))
 
     def _row_insertion_index_from_local_y(self, local_y: int) -> int:
