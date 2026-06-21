@@ -335,7 +335,10 @@ class MediaSonglistTable(tk.Canvas):
         self.create_image(self._column_center_x(0), row_center_y, image=self._grab_icon_image, anchor='c')
 
     def _draw_ogg_status(self, track: TrackEntry, row_center_y: float) -> None:
-        if self._table_check_icon_image is None or Path(track.source_path).suffix.lower() != '.ogg':
+        has_ogg_link = bool(str(track.cached_ogg_path).strip())
+        if not has_ogg_link:
+            has_ogg_link = Path(track.source_path).suffix.lower() == '.ogg'
+        if self._table_check_icon_image is None or not has_ogg_link:
             return
         self.create_image(self._column_center_x(1), row_center_y, image=self._table_check_icon_image, anchor='c')
 

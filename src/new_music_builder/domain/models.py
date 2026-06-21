@@ -395,6 +395,7 @@ class AudioRunEvent:
     song_index: int | None = None
     track_number: int | None = None
     display_label: str = ""
+    cached_ogg_path: str = ""
     percent: int = 0
     message: str = ""
     size_text: str = ""

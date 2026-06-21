@@ -2336,6 +2336,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
                 )
             )
         elif event.kind == "song_succeeded":
+            self._sync_converted_song_ogg_link(event)
             self.module_four_panel.finalize_active_log_line(
                 ExportLogLine(
                     timestamp=datetime.now().strftime("%H:%M:%S"),
@@ -2355,6 +2356,25 @@ class MainWindow(_DnDCompat, ctk.CTk):
                     color_role="error",
                 )
             )
+
+    def _sync_converted_song_ogg_link(self, event: AudioRunEvent) -> None:
+        if event.song_index is None or not event.cached_ogg_path.strip():
+            return
+        target_row = next((row for row in self.session.project.media_rows if row.row_id == event.row_id), None)
+        if target_row is None:
+            return
+        tracks = target_row.tracks_a if event.side == "A" else target_row.tracks_b
+        if event.song_index < 0 or event.song_index >= len(tracks):
+            return
+        track = tracks[event.song_index]
+        track.cached_ogg_path = event.cached_ogg_path
+        if track.conversion_status != "source_ogg":
+            track.conversion_status = "cached_ogg"
+        expanded_widget = self._expanded_row_widget(event.row_id)
+        if expanded_widget is None or target_row.selected_side != event.side:
+            return
+        expanded_widget.refresh_song_table()
+        expanded_widget.set_song_selection_state(self._module_two_song_selection_for_row(event.row_id, event.side))
 
     def _finalize_audio_run(self, plan, result: AudioRunResult) -> None:
         LOGGER.info(

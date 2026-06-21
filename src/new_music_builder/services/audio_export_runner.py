@@ -102,6 +102,7 @@ def run_audio_export(
                     song_index=song_index,
                     track_number=item.track_number,
                     display_label=item.display_label,
+                    cached_ogg_path=str(cache_path),
                     percent=100,
                     message="Exported song.",
                     size_text=size_text,
