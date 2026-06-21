@@ -11,6 +11,7 @@ SongSortColumn = Literal["ogg", "song_name", "length"]
 SongSortDirection = Literal["asc", "desc"]
 ConversionSongStatus = Literal["queued", "converting", "done"]
 ExportLogColorRole = Literal["neutral", "queued", "converting", "done"]
+AudioBuildAction = Literal["copy_ogg", "convert_to_ogg", "error"]
 
 
 @dataclass(slots=True)
@@ -266,6 +267,37 @@ class ExportPlan:
     rows: list[PlannedMediaRow] = field(default_factory=list)
     sides: list[PlannedSide] = field(default_factory=list)
     stats: BuildSummaryStats = field(default_factory=BuildSummaryStats)
+
+
+@dataclass(slots=True)
+class PlannedAudioWorkItem:
+    row_id: int
+    side: Literal["A", "B"]
+    track_number: int
+    display_label: str
+    source_path: str
+    target_relative_path: str
+    target_path: str
+    action: AudioBuildAction
+    reason: str
+    sample_rate: int
+
+
+@dataclass(slots=True)
+class AudioWorkPlan:
+    items: list[PlannedAudioWorkItem] = field(default_factory=list)
+
+    @property
+    def copy_count(self) -> int:
+        return sum(1 for item in self.items if item.action == "copy_ogg")
+
+    @property
+    def convert_count(self) -> int:
+        return sum(1 for item in self.items if item.action == "convert_to_ogg")
+
+    @property
+    def error_count(self) -> int:
+        return sum(1 for item in self.items if item.action == "error")
 
 
 @dataclass(slots=True)
