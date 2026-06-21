@@ -1529,6 +1529,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.appearance.set_active_row(row_id)
 
     def on_project_change(self) -> None:
+        if hasattr(self, 'module_two_row_list'):
+            self.module_two_row_list.refresh_collapsed_details()
         if hasattr(self, 'build_summary'):
             self.build_summary.refresh()
         self.session_store.save(self.session.project, self.session.current_path)

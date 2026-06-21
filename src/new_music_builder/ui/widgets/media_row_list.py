@@ -299,6 +299,12 @@ class MediaRowShell(tk.Frame):
             self.collapsed_details,
         ):
             self._bind_widget_to_background_interactions(background_widget)
+        for sequence, handler in (
+            ('<Enter>', self._on_background_enter),
+            ('<Leave>', self._on_background_leave),
+            ('<ButtonRelease-1>', self._on_background_release),
+        ):
+            self.collapsed_container.bind(sequence, handler, add='+')
         self.badge = self.expanded_badge if expanded else self.collapsed_badge
         self.cover = self.expanded_cover if expanded else self.collapsed_cover
         self.media_type_strip = self.expanded_media_type_strip if expanded else self.collapsed_media_type_strip
@@ -428,6 +434,9 @@ class MediaRowShell(tk.Frame):
     def refresh_media_type_strip(self) -> None:
         self.expanded_media_type_strip.refresh_content()
         self.collapsed_media_type_strip.refresh_content()
+
+    def refresh_collapsed_details(self) -> None:
+        self.collapsed_details.refresh_content(self._row)
 
     def set_song_selection_state(self, selected_song_indices: set[int]) -> None:
         self.songlist_viewport.set_selection_state(selected_song_indices)
@@ -660,6 +669,15 @@ class MediaRowList(tk.Frame):
         for row_widget in self.row_widgets:
             if row_widget._row_id == row_id:
                 row_widget.refresh_media_type_strip()
+
+    def refresh_collapsed_details_for_row(self, row_id: int) -> None:
+        for row_widget in self.row_widgets:
+            if row_widget._row_id == row_id:
+                row_widget.refresh_collapsed_details()
+
+    def refresh_collapsed_details(self) -> None:
+        for row_widget in self.row_widgets:
+            row_widget.refresh_collapsed_details()
 
     def set_expanded_row(self, row_id: int | None) -> None:
         for row, row_widget in zip(self.rows, self.row_widgets):
