@@ -34,7 +34,6 @@ from new_music_builder.platform.paths import app_root
 from new_music_builder.platform.paths import detect_workshop_dir, open_folder
 from new_music_builder.services.asset_catalog import AssetCatalog
 from new_music_builder.services.audio_export_runner import run_audio_export
-from new_music_builder.services.audio_workspace import AudioWorkspaceService
 from new_music_builder.services.audio_work_plan import build_audio_work_plan
 from new_music_builder.services.export_planning import build_export_plan, build_preview_scenario
 from new_music_builder.services.export_scaffold import (
@@ -109,7 +108,6 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.project_store = ProjectStore()
         self.recent_store = RecentProjectsStore()
         self.session_store = SessionStore()
-        self.audio_workspace = AudioWorkspaceService()
         self.session, saved_path = self.session_store.load()
         self.session = ProjectSession(project=self.session, current_path=saved_path)
         self.module_two_selected_row_ids: set[int] = set()
@@ -1838,44 +1836,10 @@ class MainWindow(_DnDCompat, ctk.CTk):
             return
 
         work_plan = build_audio_work_plan(self.session.project, plan, targets)
-        ffmpeg_path = self.audio_workspace.locate_ffmpeg()
-        if work_plan.convert_count > 0 and not ffmpeg_path:
-            error_lines = list(scaffold_result.log_lines)
-            error_lines.append(
-                ExportLogLine(
-                    timestamp=datetime.now().strftime("%H:%M:%S"),
-                    prefix_text="Audio export could not start.",
-                    trailing_text="ffmpeg was not found.",
-                    color_role="error",
-                )
-            )
-            stats = BuildSummaryStats(
-                media_rows=0,
-                exported_media_rows=0,
-                total_sides=0,
-                total_songs=0,
-                built_songs=0,
-                planned_media_rows=plan.stats.planned_media_rows,
-                planned_total_sides=plan.stats.planned_total_sides,
-                planned_total_songs=plan.stats.planned_total_songs,
-                converted=0,
-                mod_size_text=scaffold_result.mod_size_text,
-                errors=1,
-            )
-            if hasattr(self, 'module_four_panel'):
-                self.module_four_panel.set_log_lines(error_lines)
-            if hasattr(self, 'module_six_panel'):
-                self.module_six_panel.set_stats(stats)
-            self.build_log = [self._module_four_log_line_text(line) for line in error_lines]
-            if hasattr(self, 'build_summary'):
-                self.build_summary.refresh()
-            return
-
         self._start_audio_build_run(
             plan=plan,
             targets=targets.root,
             work_plan=work_plan,
-            ffmpeg_path=ffmpeg_path or "",
             cache_root=self.session.project.ogg_output_folder,
         )
 
@@ -1916,7 +1880,6 @@ class MainWindow(_DnDCompat, ctk.CTk):
         plan,
         targets: str,
         work_plan,
-        ffmpeg_path: str,
         cache_root: str,
     ) -> None:
         self._build_event_queue = queue.Queue()
@@ -1926,7 +1889,6 @@ class MainWindow(_DnDCompat, ctk.CTk):
                 "work_plan": work_plan,
                 "output_root": targets,
                 "cache_root": cache_root,
-                "ffmpeg_path": ffmpeg_path,
             },
             daemon=True,
         )
@@ -1939,13 +1901,11 @@ class MainWindow(_DnDCompat, ctk.CTk):
         work_plan,
         output_root: str,
         cache_root: str,
-        ffmpeg_path: str,
     ) -> None:
         assert self._build_event_queue is not None
         try:
             result = run_audio_export(
                 work_plan,
-                ffmpeg_path=ffmpeg_path,
                 cache_root=cache_root,
                 output_root=output_root,
                 emit=lambda event: self._build_event_queue.put(("event", event)),

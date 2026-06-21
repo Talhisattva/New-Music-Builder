@@ -2,17 +2,16 @@ from __future__ import annotations
 
 import hashlib
 import shutil
-import subprocess
 from collections.abc import Callable
 from pathlib import Path
 
 from new_music_builder.domain.models import AudioRunEvent, AudioRunResult, AudioWorkPlan, PlannedAudioWorkItem
+from new_music_builder.services.audio_conversion import ensure_cached_ogg
 
 
 def run_audio_export(
     work_plan: AudioWorkPlan,
     *,
-    ffmpeg_path: str,
     cache_root: str | Path,
     output_root: str | Path,
     emit: Callable[[AudioRunEvent], None] | None = None,
@@ -58,32 +57,20 @@ def run_audio_export(
             cache_path = _cache_path_for_item(cache_dir, item)
 
             try:
-                if item.action == "copy_ogg":
-                    _copy_source_to_cache(Path(item.source_path), cache_path)
-                    emit_side(
+                converted = ensure_cached_ogg(
+                    item,
+                    cache_path,
+                    emit_progress=lambda percent, message: emit_side(
                         "song_progress",
                         song_index=song_index,
                         track_number=item.track_number,
                         display_label=item.display_label,
-                        percent=100,
-                        message="Copied source .ogg.",
-                        size_text=_format_size_text(cache_path.stat().st_size),
-                    )
-                else:
-                    _ensure_converted_ogg(
-                        item,
-                        cache_path,
-                        ffmpeg_path=ffmpeg_path,
-                        emit_progress=lambda percent, message: emit_side(
-                            "song_progress",
-                            song_index=song_index,
-                            track_number=item.track_number,
-                            display_label=item.display_label,
-                            percent=percent,
-                            message=message,
-                            size_text=_format_size_text(cache_path.stat().st_size) if cache_path.exists() else "",
-                        ),
-                    )
+                        percent=percent,
+                        message=message,
+                        size_text=_format_size_text(cache_path.stat().st_size) if cache_path.exists() else "",
+                    ),
+                )
+                if converted:
                     result.converted_count += 1
 
                 shutil.copy2(cache_path, target_path)
@@ -201,99 +188,6 @@ def _cache_path_for_item(cache_root: Path, item: PlannedAudioWorkItem) -> Path:
 def _safe_file_stem(value: str) -> str:
     cleaned = "".join(ch if ch not in '<>:"/\\|?*' else "_" for ch in value).strip()
     return cleaned or "track"
-
-
-def _copy_source_to_cache(source_path: Path, cache_path: Path) -> None:
-    if cache_path.exists():
-        return
-    shutil.copy2(source_path, cache_path)
-
-
-def _ensure_converted_ogg(
-    item: PlannedAudioWorkItem,
-    cache_path: Path,
-    *,
-    ffmpeg_path: str,
-    emit_progress: Callable[[int, str], None],
-) -> None:
-    if cache_path.exists():
-        emit_progress(100, "Using cached conversion.")
-        return
-
-    duration_seconds = max(1, item.duration_seconds)
-    cmd = [
-        ffmpeg_path,
-        "-hide_banner",
-        "-loglevel",
-        "error",
-        "-y",
-        "-i",
-        item.source_path,
-        "-vn",
-        "-ar",
-        str(item.sample_rate),
-        "-c:a",
-        "libvorbis",
-        "-q:a",
-        "5",
-        "-progress",
-        "pipe:1",
-        "-nostats",
-        str(cache_path),
-    ]
-    startup = subprocess.STARTUPINFO()
-    startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-    process = subprocess.Popen(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        stdin=subprocess.DEVNULL,
-        text=True,
-        bufsize=1,
-        universal_newlines=True,
-        startupinfo=startup,
-    )
-
-    last_percent = 0
-    try:
-        assert process.stdout is not None
-        for raw_line in process.stdout:
-            line = raw_line.strip()
-            if not line or "=" not in line:
-                continue
-            key, value = line.split("=", 1)
-            if key == "out_time_ms":
-                percent = _percent_from_ffmpeg_time(value, duration_seconds)
-                if percent > last_percent:
-                    last_percent = percent
-                    emit_progress(percent, "Converting song...")
-            elif key == "progress" and value == "end":
-                last_percent = 100
-                emit_progress(100, "Conversion complete.")
-        stderr_text = process.stderr.read() if process.stderr is not None else ""
-        return_code = process.wait()
-    finally:
-        if process.stdout is not None:
-            process.stdout.close()
-        if process.stderr is not None:
-            process.stderr.close()
-
-    if return_code != 0:
-        detail = (stderr_text or "ffmpeg conversion failed").strip()
-        raise RuntimeError(detail)
-    emit_progress(100, "Conversion complete.")
-
-
-def _percent_from_ffmpeg_time(out_time_ms_text: str, duration_seconds: int) -> int:
-    try:
-        out_time_ms = int(out_time_ms_text)
-    except ValueError:
-        return 0
-    elapsed_seconds = out_time_ms / 1_000_000.0
-    if duration_seconds <= 0:
-        return 0
-    bounded = max(0.0, min(1.0, elapsed_seconds / float(duration_seconds)))
-    return min(100, max(0, int(round(bounded * 100))))
 
 
 def _format_size_text(size_bytes: int) -> str:
