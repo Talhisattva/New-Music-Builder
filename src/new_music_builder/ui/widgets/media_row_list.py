@@ -691,6 +691,7 @@ class MediaRowList(tk.Frame):
         self._on_row_drag_started = on_row_drag_started
         self._on_row_drag_moved = on_row_drag_moved
         self._on_row_drag_finished = on_row_drag_finished
+        self._bg_color = resolved_bg
         self._dnd_type = dnd_type
         self._can_accept_song_drop = can_accept_song_drop
         self._on_song_drop = on_song_drop
@@ -701,12 +702,15 @@ class MediaRowList(tk.Frame):
         self._row_drag_pointer_offset_y = 0
         self._row_drag_cursor_local_y: int | None = None
         self._row_drag_insertion_index: int | None = None
-        self._drag_insertion_line = tk.Frame(
+        self._drag_insertion_outline = tk.Frame(
             self,
-            bg=spec.MEDIA_ROW_SONGLIST_DRAG_INSERT_COLOR,
+            bg=resolved_bg,
             bd=0,
-            highlightthickness=0,
-            height=spec.MEDIA_ROW_SONGLIST_DRAG_INSERT_WIDTH,
+            highlightbackground=spec.MEDIA_ROW_SONGLIST_DRAG_INSERT_COLOR,
+            highlightcolor=spec.MEDIA_ROW_SONGLIST_DRAG_INSERT_COLOR,
+            highlightthickness=1,
+            width=spec.MEDIA_ROW_COLLAPSED_SIZE[0],
+            height=spec.MEDIA_ROW_COLLAPSED_SIZE[1],
         )
 
         self._build_rows()
@@ -736,7 +740,7 @@ class MediaRowList(tk.Frame):
             if index < len(rows) - 1:
                 height += spec.MEDIA_ROW_GAP_Y
         height += spec.MEDIA_ROW_INSET_Y
-        return height
+        return max(height, spec.MODULE_TWO_SCROLL_VIEWPORT_SIZE[1])
 
     def _build_rows(self) -> None:
         for row in self.rows:
@@ -875,7 +879,7 @@ class MediaRowList(tk.Frame):
         self._row_drag_pointer_offset_y = 0
         self._row_drag_cursor_local_y = None
         self._row_drag_insertion_index = None
-        self._drag_insertion_line.place_forget()
+        self._drag_insertion_outline.place_forget()
         for row_widget in self.row_widgets:
             row_widget.cancel_row_drag()
         self.refresh_row_layouts()
@@ -888,10 +892,12 @@ class MediaRowList(tk.Frame):
         insertion_index = self._row_drag_insertion_index if self._row_drag_insertion_index is not None else len(self.rows)
         insertion_y = current_y
         line_placed = False
+        insertion_height = spec.MEDIA_ROW_COLLAPSED_SIZE[1]
 
         for full_index, row in enumerate(self.rows):
             if full_index == insertion_index and not line_placed:
                 insertion_y = current_y
+                insertion_height = spec.MEDIA_ROW_EXPANDED_SIZE[1] if row.expanded else spec.MEDIA_ROW_COLLAPSED_SIZE[1]
                 line_placed = True
             if row.row_id in dragged_id_set:
                 continue
@@ -903,6 +909,10 @@ class MediaRowList(tk.Frame):
             current_y += widget.winfo_reqheight() + spec.MEDIA_ROW_GAP_Y
         if not line_placed:
             insertion_y = current_y - spec.MEDIA_ROW_GAP_Y
+            if self._row_drag_ids:
+                first_dragged_widget = widget_by_id.get(self._row_drag_ids[0])
+                if first_dragged_widget is not None:
+                    insertion_height = first_dragged_widget.winfo_height() or first_dragged_widget.winfo_reqheight()
 
         dragged_block_top = (self._row_drag_cursor_local_y or spec.MEDIA_ROW_INSET_Y) - self._row_drag_pointer_offset_y
         current_drag_y = dragged_block_top
@@ -912,16 +922,17 @@ class MediaRowList(tk.Frame):
                 continue
             widget.resize(row_width)
             widget.place(x=spec.MEDIA_ROW_INSET_X, y=current_drag_y)
+            self.after_idle(widget._apply_background_state)
             widget.lift()
             current_drag_y += widget.winfo_reqheight() + spec.MEDIA_ROW_GAP_Y
 
-        self._drag_insertion_line.place(
+        self._drag_insertion_outline.place(
             x=spec.MEDIA_ROW_INSET_X,
             y=insertion_y,
             width=row_width,
-            height=spec.MEDIA_ROW_SONGLIST_DRAG_INSERT_WIDTH,
+            height=insertion_height,
         )
-        self._drag_insertion_line.lift()
+        self._drag_insertion_outline.lift()
         self.configure(height=self._total_height_for_rows(self.rows))
 
     def _row_insertion_index_from_local_y(self, local_y: int) -> int:
