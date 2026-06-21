@@ -2023,7 +2023,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
             )
 
     def _finalize_audio_run(self, plan, result: AudioRunResult) -> None:
-        self._last_export_output_path = result.output_path if result.built_song_count > 0 else ''
+        output_path = Path(result.output_path)
+        self._last_export_output_path = str(output_path) if output_path.exists() else ''
         successful_rows = {row_id for row_id, _side in result.successful_sides}
         preview_rows = [
             self._active_preview_rows_by_side[key]
