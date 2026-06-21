@@ -30,6 +30,7 @@ from new_music_builder.services.export_naming import (
     build_audio_track_file_name,
     build_audio_track_relative_path,
 )
+from new_music_builder.ui.widgets.appearance_entries import merge_appearance_grid_entries
 
 _SLOT_KINDS: tuple[tuple[AppearanceKind, MediaKind], ...] = (
     ("cassette", "cassette"),
@@ -180,37 +181,47 @@ def _resolve_appearance(
     selection,
     assets: list[AssetEntry],
 ) -> ResolvedAppearance:
-    if selection.source == "custom":
+    merged_entries = merge_appearance_grid_entries(
+        kind,
+        assets,
+        project.custom_assets.get(kind, []),
+    )
+    selected = next((entry for entry in merged_entries if entry.key == selection.selected_asset_key), None)
+    if selected is not None:
+        return ResolvedAppearance(
+            kind=kind,
+            selected_asset_key=selected.key,
+            source="custom" if selected.is_custom else "default",
+            inventory_path=selected.inventory_path,
+            world_path=selected.world_path,
+            sprite_mode="dual" if selected.is_dual else "single",
+            inventory_empty_path=selected.inventory_empty_path if selected.is_dual else "",
+            world_empty_path=selected.world_empty_path if selected.is_dual else "",
+        )
+
+    if selection.source == "custom" and (selection.inventory_full or selection.world_full):
         return ResolvedAppearance(
             kind=kind,
             selected_asset_key=selection.selected_asset_key,
             source="custom",
             inventory_path=str(selection.inventory_full or ""),
             world_path=str(selection.world_full or ""),
+            sprite_mode=selection.sprite_mode if selection.sprite_mode in {"single", "dual"} else "single",
+            inventory_empty_path=str(selection.inventory_empty or ""),
+            world_empty_path=str(selection.world_empty or ""),
         )
 
-    asset_by_key = {asset.key: asset for asset in assets}
-    selected = asset_by_key.get(selection.selected_asset_key)
-    if selected is None and assets:
-        selected = assets[0]
-    if selected is not None:
+    if merged_entries:
+        fallback = merged_entries[0]
         return ResolvedAppearance(
             kind=kind,
-            selected_asset_key=selected.key,
-            source="default",
-            inventory_path=selected.inventory_path,
-            world_path=selected.world_path,
-        )
-
-    for custom_asset in project.custom_assets.get(kind, []):
-        if custom_asset.get("key") != selection.selected_asset_key:
-            continue
-        return ResolvedAppearance(
-            kind=kind,
-            selected_asset_key=selection.selected_asset_key,
-            source="custom",
-            inventory_path=str(custom_asset.get("inventory_full", "")),
-            world_path=str(custom_asset.get("world_full", "")),
+            selected_asset_key=fallback.key,
+            source="custom" if fallback.is_custom else "default",
+            inventory_path=fallback.inventory_path,
+            world_path=fallback.world_path,
+            sprite_mode="dual" if fallback.is_dual else "single",
+            inventory_empty_path=fallback.inventory_empty_path if fallback.is_dual else "",
+            world_empty_path=fallback.world_empty_path if fallback.is_dual else "",
         )
 
     return ResolvedAppearance(
@@ -219,6 +230,9 @@ def _resolve_appearance(
         source="default",
         inventory_path="",
         world_path="",
+        sprite_mode="single",
+        inventory_empty_path="",
+        world_empty_path="",
     )
 
 

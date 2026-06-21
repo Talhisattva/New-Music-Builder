@@ -217,6 +217,9 @@ class ResolvedAppearance:
     source: Literal["default", "custom"] = "default"
     inventory_path: str = ""
     world_path: str = ""
+    sprite_mode: SpriteMode = "single"
+    inventory_empty_path: str = ""
+    world_empty_path: str = ""
 
 
 @dataclass(slots=True)
@@ -334,8 +337,10 @@ class RegisteredContainerVariant:
     full_item_id: str
     empty_display_name: str
     full_display_name: str
-    icon_reference: str = ""
-    model_reference: str = ""
+    empty_icon_reference: str = ""
+    full_icon_reference: str = ""
+    empty_model_reference: str = ""
+    full_model_reference: str = ""
     selected_asset_key: str = ""
     asset_source: Literal["default", "custom"] = "default"
 

@@ -124,8 +124,8 @@ def _build_media_variants(row: PlannedMediaRow, mode: RegistrationMode) -> list[
                 side_name: _playable_display_name(row.media_name, media_kind, side_name, mode)
                 for side_name in available_sides
             },
-            icon_reference=_appearance_icon_reference(appearance),
-            model_reference=_appearance_model_reference(appearance),
+            icon_reference=_appearance_icon_reference_from_appearance(appearance),
+            model_reference=_appearance_model_reference_from_appearance(appearance),
             selected_asset_key=appearance.selected_asset_key,
             asset_source=appearance.source,
         )
@@ -149,8 +149,10 @@ def _build_container_variants(row: PlannedMediaRow) -> list[RegisteredContainerV
                 full_item_id=f"{row.export_id}{_CONTAINER_SUFFIX[media_kind]}Full",
                 empty_display_name=f"{row.media_name} {container_label} (Empty)",
                 full_display_name=f"{row.media_name} {container_label} (Full)",
-                icon_reference=_appearance_icon_reference(appearance),
-                model_reference=_appearance_model_reference(appearance),
+                empty_icon_reference=_appearance_icon_reference(appearance.inventory_empty_path or appearance.inventory_path),
+                full_icon_reference=_appearance_icon_reference(appearance.inventory_path),
+                empty_model_reference=_appearance_model_reference(appearance.world_empty_path or appearance.world_path),
+                full_model_reference=_appearance_model_reference(appearance.world_path),
                 selected_asset_key=appearance.selected_asset_key,
                 asset_source=appearance.source,
             )
@@ -165,15 +167,27 @@ def _playable_display_name(title: str, media_kind: MediaKind, side_name: str, mo
     return f"{title} ({media_label} {side_name}-side)"
 
 
-def _appearance_icon_reference(appearance: ResolvedAppearance) -> str:
+def _appearance_icon_reference(path: str) -> str:
+    candidate = Path(path)
+    stem = candidate.stem
+    if stem.startswith("Item_"):
+        return stem.removeprefix("Item_")
+    return stem
+
+
+def _appearance_model_reference(path: str) -> str:
+    return Path(path).stem
+
+
+def _appearance_icon_reference_from_appearance(appearance: ResolvedAppearance) -> str:
     path = appearance.inventory_path or appearance.world_path
     if not path:
         return ""
-    return Path(path).stem
+    return _appearance_icon_reference(path)
 
 
-def _appearance_model_reference(appearance: ResolvedAppearance) -> str:
+def _appearance_model_reference_from_appearance(appearance: ResolvedAppearance) -> str:
     path = appearance.world_path or appearance.inventory_path
     if not path:
         return ""
-    return Path(path).stem
+    return _appearance_model_reference(path)

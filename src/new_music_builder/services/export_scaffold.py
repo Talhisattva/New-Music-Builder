@@ -15,6 +15,7 @@ from new_music_builder.domain.models import (
 )
 from new_music_builder.services.asset_catalog import AssetEntry
 from new_music_builder.services.export_naming import sanitize_filesystem_component
+from new_music_builder.services.export_script_writer import write_export_scripts
 
 
 def validate_export_request(project: ProjectConfig, plan: ExportPlan) -> list[str]:
@@ -95,6 +96,7 @@ def write_export_scaffold(
         _write_mod_info(project, v42 / "mod.info")
         _write_workshop_txt(project, root / "workshop.txt")
         _write_images(project, plan, targets, asset_catalog)
+        write_export_scripts(project, plan, targets)
         result.mod_size_text = _format_size_text(_directory_size_bytes(root))
         result.log_lines = _success_log_lines(root, result.mod_size_text)
     except Exception as exc:
