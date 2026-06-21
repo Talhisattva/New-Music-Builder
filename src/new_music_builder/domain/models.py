@@ -230,8 +230,10 @@ class PlannedTrack:
     duration_text: str
     duration_seconds: int
     needs_conversion: bool
-    export_file_name: str
-    export_relative_path: str
+    export_file_name: str = ""
+    export_relative_path: str = ""
+    track_id: str = ""
+    sound_id: str = ""
 
 
 @dataclass(slots=True)
@@ -240,6 +242,7 @@ class PlannedSide:
     side: Literal["A", "B"]
     media_name: str
     cover_path: str
+    side_id: str = ""
     export_folder_name: str = ""
     export_relative_dir: str = ""
     tracks: list[PlannedTrack] = field(default_factory=list)
@@ -270,6 +273,7 @@ class PlannedMediaRow:
     row_id: int
     media_name: str
     cover_path: str
+    export_id: str = ""
     enabled_media: dict[MediaKind, bool] = field(default_factory=dict)
     appearances: ResolvedAppearanceSet = field(default_factory=ResolvedAppearanceSet)
     sides: list[PlannedSide] = field(default_factory=list)

@@ -23,6 +23,7 @@ from new_music_builder.domain.models import (
     TrackEntry,
 )
 from new_music_builder.services.asset_catalog import AssetEntry
+from new_music_builder.services.export_ids import unique_export_id
 from new_music_builder.services.export_naming import (
     build_audio_row_folder_name,
     build_audio_side_folder_name,
@@ -43,21 +44,26 @@ _SLOT_KINDS: tuple[tuple[AppearanceKind, MediaKind], ...] = (
 def build_export_plan(project: ProjectConfig, asset_catalog: dict[str, list[AssetEntry]]) -> ExportPlan:
     planned_rows: list[PlannedMediaRow] = []
     planned_sides: list[PlannedSide] = []
+    used_row_ids: set[str] = set()
+    used_track_ids: set[str] = set()
 
     for row in project.media_rows:
         row.ensure_appearances()
         sides: list[PlannedSide] = []
         row_folder_name = build_audio_row_folder_name(row.media_name, row.row_id)
+        row_export_id = unique_export_id(row.media_name, used_row_ids, fallback=f"MediaRow{row.row_id}")
         for side_name, tracks in (("A", row.tracks_a), ("B", row.tracks_b)):
             if not tracks:
                 continue
             side_folder_name = build_audio_side_folder_name(side_name)
+            side_id = f"{row_export_id}Side{side_name}"
             sides.append(
                 PlannedSide(
                     row_id=row.row_id,
                     side=side_name,
                     media_name=row.media_name,
                     cover_path=row.cover_path,
+                    side_id=side_id,
                     export_folder_name=side_folder_name,
                     export_relative_dir=str(Path(row_folder_name) / side_folder_name),
                     tracks=[
@@ -67,6 +73,8 @@ def build_export_plan(project: ProjectConfig, asset_catalog: dict[str, list[Asse
                             side_name=side_name,
                             track=track,
                             track_number=index,
+                            side_id=side_id,
+                            used_track_ids=used_track_ids,
                         )
                         for index, track in enumerate(tracks, start=1)
                     ],
@@ -80,6 +88,7 @@ def build_export_plan(project: ProjectConfig, asset_catalog: dict[str, list[Asse
             row_id=row.row_id,
             media_name=row.media_name,
             cover_path=row.cover_path,
+            export_id=row_export_id,
             enabled_media=dict(row.enabled_media),
             appearances=_resolve_appearance_set(project, row, asset_catalog),
             sides=sides,
@@ -122,9 +131,16 @@ def _build_planned_track(
     side_name: str,
     track: TrackEntry,
     track_number: int,
+    side_id: str,
+    used_track_ids: set[str],
 ) -> PlannedTrack:
     source_path = str(track.source_path or "")
     display_label = track.display_label or Path(source_path).stem or "Track"
+    track_id = unique_export_id(
+        f"{side_id}_{track_number}_{display_label}",
+        used_track_ids,
+        fallback=f"{side_id}Track{track_number}",
+    )
     return PlannedTrack(
         track_number=track_number,
         source_path=source_path,
@@ -140,6 +156,8 @@ def _build_planned_track(
             display_label=display_label,
             track_number=track_number,
         ),
+        track_id=track_id,
+        sound_id=track_id,
     )
 
 
