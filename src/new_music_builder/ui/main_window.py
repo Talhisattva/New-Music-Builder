@@ -1488,8 +1488,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.on_project_change()
 
     def _set_module_two_media_side(self, row_id: int, side: str) -> None:
-        if self._is_build_locked():
-            return
+        locked = self._is_build_locked()
         self._cancel_module_two_song_drag()
         self._cancel_module_two_row_drag()
         target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
@@ -1503,7 +1502,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         if expanded_widget is not None:
             expanded_widget.refresh_song_table()
             expanded_widget.set_song_selection_state(self._module_two_song_selection_for_row(row_id, side))
-        self.on_project_change()
+        if not locked:
+            self.on_project_change()
 
     def _sort_module_two_songs(self, row_id: int, column: SongSortColumn) -> None:
         if self._is_build_locked():

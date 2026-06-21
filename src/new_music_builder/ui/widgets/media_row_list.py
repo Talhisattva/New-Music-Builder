@@ -530,7 +530,6 @@ class MediaRowShell(tk.Frame):
         self._locked = locked
         self.collapsed_remove_button.set_enabled(not locked)
         self.rename_field.set_enabled(not locked)
-        self.side_toggle.set_enabled(not locked)
         self.song_actions.set_enabled(not locked)
         self.expanded_media_type_strip.set_enabled(not locked)
         self.collapsed_media_type_strip.set_enabled(not locked)
