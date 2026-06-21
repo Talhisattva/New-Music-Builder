@@ -35,6 +35,39 @@ class ProjectSession:
         self.project.media_rows = [row for row in self.project.media_rows if row.row_id not in row_ids]
         self._renumber_media_rows()
 
+    def move_media_rows(self, selected_row_ids: set[int], target_index: int) -> list[int]:
+        rows = list(self.project.media_rows)
+        moving_rows = [row for row in rows if row.row_id in selected_row_ids]
+        if not moving_rows:
+            return []
+
+        moving_id_set = {row.row_id for row in moving_rows}
+        remaining_rows = [row for row in rows if row.row_id not in moving_id_set]
+        adjusted_target = max(0, min(len(rows), target_index))
+        adjusted_target -= sum(
+            1
+            for index, row in enumerate(rows)
+            if row.row_id in moving_id_set and index < target_index
+        )
+        adjusted_target = max(0, min(len(remaining_rows), adjusted_target))
+
+        original_block_start = min(
+            index for index, row in enumerate(rows) if row.row_id in moving_id_set
+        )
+        if adjusted_target == original_block_start:
+            return []
+
+        reordered = (
+            remaining_rows[:adjusted_target]
+            + moving_rows
+            + remaining_rows[adjusted_target:]
+        )
+        if [row.row_id for row in reordered] == [row.row_id for row in rows]:
+            return []
+
+        self.project.media_rows = reordered
+        return [row.row_id for row in moving_rows]
+
     def add_tracks_to_media_row(self, row_id: int, side: str, source_paths: list[str | Path]) -> list[int]:
         target_row = next((row for row in self.project.media_rows if row.row_id == row_id), None)
         if target_row is None or side not in {'A', 'B'}:

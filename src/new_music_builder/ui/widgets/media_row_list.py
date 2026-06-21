@@ -126,6 +126,9 @@ class MediaRowShell(tk.Frame):
         on_song_drag_started: Callable[[int, int, int, int], None] | None = None,
         on_song_drag_moved: Callable[[int, int, int], None] | None = None,
         on_song_drag_finished: Callable[[int, int, int], None] | None = None,
+        on_row_drag_started: Callable[[int, int, int], None] | None = None,
+        on_row_drag_moved: Callable[[int, int, int], None] | None = None,
+        on_row_drag_finished: Callable[[int, int, int], None] | None = None,
         dnd_type: str | None = None,
         can_accept_song_drop: Callable[[list[str]], bool] | None = None,
         on_song_drop: Callable[[int, list[str]], None] | None = None,
@@ -148,6 +151,16 @@ class MediaRowShell(tk.Frame):
         self._selected_count = selected_count
         self._hovered = False
         self._on_background_selected = on_background_selected
+        self._on_row_drag_started = on_row_drag_started
+        self._on_row_drag_moved = on_row_drag_moved
+        self._on_row_drag_finished = on_row_drag_finished
+        self._pending_collapsed_drag = False
+        self._collapsed_drag_active = False
+        self._collapsed_drag_press_x_root = 0
+        self._collapsed_drag_press_y_root = 0
+        self._collapsed_drag_modifiers = RowSelectionModifiers()
+        self._collapsed_drag_motion_bind_id: str | None = None
+        self._collapsed_drag_release_bind_id: str | None = None
 
         inner_width = size[0] - (spec.MEDIA_ROW_OUTLINE_WIDTH * 2)
         inner_height = size[1] - (spec.MEDIA_ROW_OUTLINE_WIDTH * 2)
@@ -302,6 +315,8 @@ class MediaRowShell(tk.Frame):
         for sequence, handler in (
             ('<Enter>', self._on_background_enter),
             ('<Leave>', self._on_background_leave),
+            ('<ButtonPress-1>', self._on_collapsed_background_press),
+            ('<B1-Motion>', self._on_collapsed_background_motion),
             ('<ButtonRelease-1>', self._on_background_release),
         ):
             self.collapsed_container.bind(sequence, handler, add='+')
@@ -379,6 +394,8 @@ class MediaRowShell(tk.Frame):
         for sequence, handler in (
             ('<Enter>', self._on_background_enter),
             ('<Leave>', self._on_background_leave),
+            ('<ButtonPress-1>', self._on_collapsed_background_press),
+            ('<B1-Motion>', self._on_collapsed_background_motion),
             ('<ButtonRelease-1>', self._on_background_release),
         ):
             widget.bind(sequence, handler, add='+')
@@ -394,8 +411,49 @@ class MediaRowShell(tk.Frame):
         self._apply_background_state()
 
     def _on_background_release(self, event: tk.Event) -> None:
+        if not self._expanded:
+            x_root = int(getattr(event, 'x_root', 0))
+            y_root = int(getattr(event, 'y_root', 0))
+            if self._collapsed_drag_active:
+                if self._on_row_drag_finished is not None:
+                    self._on_row_drag_finished(self._row_id, x_root, y_root)
+                self._cancel_collapsed_row_drag()
+                return
+            if self._pending_collapsed_drag:
+                modifiers = self._collapsed_drag_modifiers
+                self._cancel_collapsed_row_drag()
+                self._emit_background_selection(modifiers)
+                return
         modifiers = self._decode_selection_modifiers(event)
         self._emit_background_selection(modifiers)
+
+    def _on_collapsed_background_press(self, event: tk.Event) -> str:
+        if self._expanded:
+            return 'break'
+        self._pending_collapsed_drag = True
+        self._collapsed_drag_active = False
+        self._collapsed_drag_press_x_root = int(getattr(event, 'x_root', 0))
+        self._collapsed_drag_press_y_root = int(getattr(event, 'y_root', 0))
+        self._collapsed_drag_modifiers = self._decode_selection_modifiers(event)
+        return 'break'
+
+    def _on_collapsed_background_motion(self, event: tk.Event) -> str:
+        if self._expanded or not self._pending_collapsed_drag:
+            return 'break'
+        x_root = int(getattr(event, 'x_root', 0))
+        y_root = int(getattr(event, 'y_root', 0))
+        if not self._collapsed_drag_active:
+            dx = abs(x_root - self._collapsed_drag_press_x_root)
+            dy = abs(y_root - self._collapsed_drag_press_y_root)
+            if max(dx, dy) < spec.MEDIA_ROW_SONGLIST_DRAG_THRESHOLD_PX:
+                return 'break'
+            self._collapsed_drag_active = True
+            self._bind_collapsed_drag_capture()
+            if self._on_row_drag_started is not None:
+                self._on_row_drag_started(self._row_id, x_root, y_root)
+        if self._on_row_drag_moved is not None:
+            self._on_row_drag_moved(self._row_id, x_root, y_root)
+        return 'break'
 
     def _apply_background_state(self) -> None:
         fill_color = spec.MEDIA_ROW_BG
@@ -457,6 +515,9 @@ class MediaRowShell(tk.Frame):
     def cancel_song_drag(self) -> None:
         self.songlist_viewport.cancel_drag()
 
+    def cancel_row_drag(self) -> None:
+        self._cancel_collapsed_row_drag()
+
     def set_expanded(self, expanded: bool) -> None:
         self._expanded = expanded
         self._row_expanded = expanded
@@ -498,6 +559,49 @@ class MediaRowShell(tk.Frame):
         if self._on_background_selected is not None:
             self._on_background_selected(self._row_id, modifiers)
 
+    def _cancel_collapsed_row_drag(self) -> None:
+        self._pending_collapsed_drag = False
+        self._collapsed_drag_active = False
+        self._unbind_collapsed_drag_capture()
+
+    def _bind_collapsed_drag_capture(self) -> None:
+        owner = self.winfo_toplevel()
+        self._unbind_collapsed_drag_capture()
+        self._collapsed_drag_motion_bind_id = owner.bind('<B1-Motion>', self._on_captured_collapsed_drag_motion, add='+')
+        self._collapsed_drag_release_bind_id = owner.bind('<ButtonRelease-1>', self._on_captured_collapsed_drag_release, add='+')
+
+    def _unbind_collapsed_drag_capture(self) -> None:
+        owner = self.winfo_toplevel()
+        if self._collapsed_drag_motion_bind_id is not None:
+            owner.unbind('<B1-Motion>', self._collapsed_drag_motion_bind_id)
+            self._collapsed_drag_motion_bind_id = None
+        if self._collapsed_drag_release_bind_id is not None:
+            owner.unbind('<ButtonRelease-1>', self._collapsed_drag_release_bind_id)
+            self._collapsed_drag_release_bind_id = None
+
+    def _on_captured_collapsed_drag_motion(self, event: tk.Event) -> str | None:
+        if not self._collapsed_drag_active:
+            return None
+        if self._on_row_drag_moved is not None:
+            self._on_row_drag_moved(
+                self._row_id,
+                int(getattr(event, 'x_root', 0)),
+                int(getattr(event, 'y_root', 0)),
+            )
+        return 'break'
+
+    def _on_captured_collapsed_drag_release(self, event: tk.Event) -> str | None:
+        if not self._collapsed_drag_active:
+            return None
+        if self._on_row_drag_finished is not None:
+            self._on_row_drag_finished(
+                self._row_id,
+                int(getattr(event, 'x_root', 0)),
+                int(getattr(event, 'y_root', 0)),
+            )
+        self._cancel_collapsed_row_drag()
+        return 'break'
+
 
 class MediaRowList(tk.Frame):
     def __init__(
@@ -533,6 +637,9 @@ class MediaRowList(tk.Frame):
         on_song_drag_started: Callable[[int, int, int, int], None] | None = None,
         on_song_drag_moved: Callable[[int, int, int], None] | None = None,
         on_song_drag_finished: Callable[[int, int, int], None] | None = None,
+        on_row_drag_started: Callable[[int, int, int], None] | None = None,
+        on_row_drag_moved: Callable[[int, int, int], None] | None = None,
+        on_row_drag_finished: Callable[[int, int, int], None] | None = None,
         dnd_type: str | None = None,
         can_accept_song_drop: Callable[[list[str]], bool] | None = None,
         on_song_drop: Callable[[int, list[str]], None] | None = None,
@@ -581,11 +688,26 @@ class MediaRowList(tk.Frame):
         self._on_song_drag_started = on_song_drag_started
         self._on_song_drag_moved = on_song_drag_moved
         self._on_song_drag_finished = on_song_drag_finished
+        self._on_row_drag_started = on_row_drag_started
+        self._on_row_drag_moved = on_row_drag_moved
+        self._on_row_drag_finished = on_row_drag_finished
         self._dnd_type = dnd_type
         self._can_accept_song_drop = can_accept_song_drop
         self._on_song_drop = on_song_drop
         self.row_widgets: list[MediaRowShell] = []
         self._last_width = spec.MEDIA_ROW_LIST_WIDTH
+        self._row_drag_ids: list[int] = []
+        self._row_drag_active = False
+        self._row_drag_pointer_offset_y = 0
+        self._row_drag_cursor_local_y: int | None = None
+        self._row_drag_insertion_index: int | None = None
+        self._drag_insertion_line = tk.Frame(
+            self,
+            bg=spec.MEDIA_ROW_SONGLIST_DRAG_INSERT_COLOR,
+            bd=0,
+            highlightthickness=0,
+            height=spec.MEDIA_ROW_SONGLIST_DRAG_INSERT_WIDTH,
+        )
 
         self._build_rows()
 
@@ -650,6 +772,9 @@ class MediaRowList(tk.Frame):
                 on_song_drag_started=self._on_song_drag_started,
                 on_song_drag_moved=self._on_song_drag_moved,
                 on_song_drag_finished=self._on_song_drag_finished,
+                on_row_drag_started=self._on_row_drag_started,
+                on_row_drag_moved=self._on_row_drag_moved,
+                on_row_drag_finished=self._on_row_drag_finished,
                 dnd_type=self._dnd_type,
                 can_accept_song_drop=self._can_accept_song_drop,
                 on_song_drop=self._on_song_drop,
@@ -687,6 +812,9 @@ class MediaRowList(tk.Frame):
         self.refresh_row_layouts()
 
     def refresh_row_layouts(self) -> None:
+        if self._row_drag_active:
+            self._layout_during_row_drag()
+            return
         current_y = spec.MEDIA_ROW_INSET_Y
         row_width = int(self.cget('width')) - spec.MEDIA_ROW_INSET_X
         for row, row_widget in zip(self.rows, self.row_widgets):
@@ -696,3 +824,124 @@ class MediaRowList(tk.Frame):
             row_widget.place(x=spec.MEDIA_ROW_INSET_X, y=current_y)
             current_y += row_widget.winfo_reqheight() + spec.MEDIA_ROW_GAP_Y
         self.configure(height=self._total_height_for_rows(self.rows))
+
+    def begin_row_drag(self, dragged_row_ids: set[int], anchor_row_id: int, x_root: int, y_root: int) -> None:
+        ordered_drag_ids = [
+            row.row_id
+            for row in self.rows
+            if row.row_id in dragged_row_ids and not row.expanded
+        ]
+        if not ordered_drag_ids or anchor_row_id not in ordered_drag_ids:
+            return
+        widget_by_id = {widget._row_id: widget for widget in self.row_widgets}
+        anchor_widget = widget_by_id.get(anchor_row_id)
+        if anchor_widget is None:
+            return
+        local_y = self._local_y_from_root(y_root)
+        block_offset_before_anchor = 0
+        for row_id in ordered_drag_ids:
+            if row_id == anchor_row_id:
+                break
+            widget = widget_by_id.get(row_id)
+            if widget is None:
+                continue
+            block_offset_before_anchor += widget.winfo_height() + spec.MEDIA_ROW_GAP_Y
+        self._row_drag_ids = ordered_drag_ids
+        self._row_drag_active = True
+        self._row_drag_pointer_offset_y = block_offset_before_anchor + max(0, local_y - anchor_widget.winfo_y())
+        self._row_drag_cursor_local_y = local_y
+        self.update_row_drag(x_root, y_root)
+
+    def update_row_drag(self, x_root: int, y_root: int) -> None:
+        if not self._row_drag_active:
+            return
+        self._row_drag_cursor_local_y = self._local_y_from_root(y_root)
+        self._row_drag_insertion_index = self._row_insertion_index_from_local_y(self._row_drag_cursor_local_y)
+        self._layout_during_row_drag()
+
+    def finish_row_drag(self, x_root: int, y_root: int) -> int | None:
+        if not self._row_drag_active:
+            return None
+        self.update_row_drag(x_root, y_root)
+        insertion_index = self._row_drag_insertion_index
+        self.cancel_row_drag()
+        return insertion_index
+
+    def cancel_row_drag(self) -> None:
+        if not self._row_drag_active:
+            return
+        self._row_drag_ids = []
+        self._row_drag_active = False
+        self._row_drag_pointer_offset_y = 0
+        self._row_drag_cursor_local_y = None
+        self._row_drag_insertion_index = None
+        self._drag_insertion_line.place_forget()
+        for row_widget in self.row_widgets:
+            row_widget.cancel_row_drag()
+        self.refresh_row_layouts()
+
+    def _layout_during_row_drag(self) -> None:
+        row_width = int(self.cget('width')) - spec.MEDIA_ROW_INSET_X
+        widget_by_id = {widget._row_id: widget for widget in self.row_widgets}
+        dragged_id_set = set(self._row_drag_ids)
+        current_y = spec.MEDIA_ROW_INSET_Y
+        insertion_index = self._row_drag_insertion_index if self._row_drag_insertion_index is not None else len(self.rows)
+        insertion_y = current_y
+        line_placed = False
+
+        for full_index, row in enumerate(self.rows):
+            if full_index == insertion_index and not line_placed:
+                insertion_y = current_y
+                line_placed = True
+            if row.row_id in dragged_id_set:
+                continue
+            widget = widget_by_id[row.row_id]
+            if widget._expanded != row.expanded:
+                widget.set_expanded(row.expanded)
+            widget.resize(row_width)
+            widget.place(x=spec.MEDIA_ROW_INSET_X, y=current_y)
+            current_y += widget.winfo_reqheight() + spec.MEDIA_ROW_GAP_Y
+        if not line_placed:
+            insertion_y = current_y - spec.MEDIA_ROW_GAP_Y
+
+        dragged_block_top = (self._row_drag_cursor_local_y or spec.MEDIA_ROW_INSET_Y) - self._row_drag_pointer_offset_y
+        current_drag_y = dragged_block_top
+        for row_id in self._row_drag_ids:
+            widget = widget_by_id.get(row_id)
+            if widget is None:
+                continue
+            widget.resize(row_width)
+            widget.place(x=spec.MEDIA_ROW_INSET_X, y=current_drag_y)
+            widget.lift()
+            current_drag_y += widget.winfo_reqheight() + spec.MEDIA_ROW_GAP_Y
+
+        self._drag_insertion_line.place(
+            x=spec.MEDIA_ROW_INSET_X,
+            y=insertion_y,
+            width=row_width,
+            height=spec.MEDIA_ROW_SONGLIST_DRAG_INSERT_WIDTH,
+        )
+        self._drag_insertion_line.lift()
+        self.configure(height=self._total_height_for_rows(self.rows))
+
+    def _row_insertion_index_from_local_y(self, local_y: int) -> int:
+        dragged_id_set = set(self._row_drag_ids)
+        remaining_positions: list[tuple[int, int, int]] = []
+        current_y = spec.MEDIA_ROW_INSET_Y
+        for index, (row, widget) in enumerate(zip(self.rows, self.row_widgets)):
+            if row.row_id in dragged_id_set:
+                continue
+            row_height = widget.winfo_height() or widget.winfo_reqheight()
+            remaining_positions.append((index, current_y, row_height))
+            current_y += row_height + spec.MEDIA_ROW_GAP_Y
+        if not remaining_positions:
+            return len(self.rows)
+        if local_y <= remaining_positions[0][1]:
+            return 0
+        for full_index, row_top, row_height in remaining_positions:
+            if local_y < row_top + (row_height / 2):
+                return full_index
+        return len(self.rows)
+
+    def _local_y_from_root(self, y_root: int) -> int:
+        return int(y_root - self.winfo_rooty())

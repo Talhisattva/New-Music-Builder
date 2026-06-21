@@ -107,6 +107,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.module_two_song_selected_indices: dict[tuple[int, str], set[int]] = {}
         self.module_two_song_selection_anchor_indices: dict[tuple[int, str], int | None] = {}
         self._module_two_song_drag_session: dict[str, object] | None = None
+        self._module_two_row_drag_session: dict[str, object] | None = None
         self._module_two_selection_suppressed_until = 0.0
         self._module_two_consume_next_plain_selection = False
         self._restore_unsaved_phase_two_default()
@@ -715,6 +716,9 @@ class MainWindow(_DnDCompat, ctk.CTk):
             on_song_drag_started=self._begin_module_two_song_drag,
             on_song_drag_moved=self._update_module_two_song_drag,
             on_song_drag_finished=self._finish_module_two_song_drag,
+            on_row_drag_started=self._begin_module_two_row_drag,
+            on_row_drag_moved=self._update_module_two_row_drag,
+            on_row_drag_finished=self._finish_module_two_row_drag,
             dnd_type=DND_FILES,
             can_accept_song_drop=self._can_accept_song_drop,
             on_song_drop=self._on_module_two_song_drop,
@@ -1085,6 +1089,13 @@ class MainWindow(_DnDCompat, ctk.CTk):
             expanded_widget.cancel_song_drag()
         self._module_two_song_drag_session = None
 
+    def _cancel_module_two_row_drag(self) -> None:
+        if self._module_two_row_drag_session is None:
+            return
+        if hasattr(self, 'module_two_row_list'):
+            self.module_two_row_list.cancel_row_drag()
+        self._module_two_row_drag_session = None
+
     def _module_two_song_selection_key(self, row_id: int, side: str | None = None) -> tuple[int, str] | None:
         target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
         if target_row is None:
@@ -1231,6 +1242,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
     def _add_module_two_media_row(self) -> None:
         self._cancel_module_two_song_drag()
+        self._cancel_module_two_row_drag()
         for row in self.session.project.media_rows:
             row.expanded = False
 
@@ -1255,6 +1267,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
     def _remove_module_two_media_row_set(self, row_ids_to_remove: set[int] | None) -> None:
         self._cancel_module_two_song_drag()
+        self._cancel_module_two_row_drag()
         if row_ids_to_remove:
             target_row_ids = set(row_ids_to_remove)
         elif self.session.project.media_rows:
@@ -1314,6 +1327,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
     def _set_module_two_media_side(self, row_id: int, side: str) -> None:
         self._cancel_module_two_song_drag()
+        self._cancel_module_two_row_drag()
         target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
         if target_row is None or side not in {'A', 'B'}:
             return
@@ -1329,6 +1343,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
     def _sort_module_two_songs(self, row_id: int, column: SongSortColumn) -> None:
         self._cancel_module_two_song_drag()
+        self._cancel_module_two_row_drag()
         target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
         if target_row is None:
             return
@@ -1358,6 +1373,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
     def _expand_module_two_media_row(self, row_id: int) -> None:
         self._cancel_module_two_song_drag()
+        self._cancel_module_two_row_drag()
         target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
         if target_row is None:
             return
@@ -1380,6 +1396,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.on_project_change()
 
     def _select_module_two_media_row(self, row_id: int, modifiers: RowSelectionModifiers) -> None:
+        self._cancel_module_two_row_drag()
         target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
         if target_row is None:
             return
@@ -1418,6 +1435,54 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self.module_two_selection_anchor_row_id = row_id
         self.module_two_row_list.set_selection_state(self.module_two_selected_row_ids)
 
+    def _begin_module_two_row_drag(self, row_id: int, x_root: int, y_root: int) -> None:
+        if self._module_two_row_drag_session is not None or not hasattr(self, 'module_two_row_list'):
+            return
+        target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
+        if target_row is None or target_row.expanded:
+            return
+        if row_id in self.module_two_selected_row_ids and len(self.module_two_selected_row_ids) > 1:
+            dragged_row_ids = set(self.module_two_selected_row_ids)
+        else:
+            dragged_row_ids = {row_id}
+            self.module_two_selected_row_ids = set(dragged_row_ids)
+            self.module_two_selection_anchor_row_id = row_id
+            self.module_two_row_list.set_selection_state(self.module_two_selected_row_ids)
+        self._module_two_row_drag_session = {
+            'anchor_row_id': row_id,
+            'dragged_row_ids': dragged_row_ids,
+        }
+        self.module_two_row_list.begin_row_drag(dragged_row_ids, row_id, x_root, y_root)
+
+    def _update_module_two_row_drag(self, row_id: int, x_root: int, y_root: int) -> None:
+        if self._module_two_row_drag_session is None or not hasattr(self, 'module_two_row_list'):
+            return
+        if int(self._module_two_row_drag_session.get('anchor_row_id', -1)) != row_id:
+            return
+        self.module_two_row_list.update_row_drag(x_root, y_root)
+
+    def _finish_module_two_row_drag(self, row_id: int, x_root: int, y_root: int) -> None:
+        if self._module_two_row_drag_session is None or not hasattr(self, 'module_two_row_list'):
+            return
+        if int(self._module_two_row_drag_session.get('anchor_row_id', -1)) != row_id:
+            return
+        current_view = self.module_two_content_viewport.yview()
+        insertion_index = self.module_two_row_list.finish_row_drag(x_root, y_root)
+        drag_session = self._module_two_row_drag_session
+        self._module_two_row_drag_session = None
+        if insertion_index is None:
+            return
+        dragged_row_ids = set(drag_session.get('dragged_row_ids', set()))
+        moved_row_ids = self.session.move_media_rows(dragged_row_ids, insertion_index)
+        if not moved_row_ids:
+            return
+        self.module_two_selected_row_ids = set(moved_row_ids)
+        self.module_two_selection_anchor_row_id = moved_row_ids[0] if moved_row_ids else None
+        self._build_module_two_row_list()
+        self.module_two_content_viewport.yview_moveto(current_view[0])
+        self._refresh_module_three_appearance_selector()
+        self.on_project_change()
+
     def _select_module_two_row_range(self, row_id: int) -> None:
         if self.module_two_selection_anchor_row_id is None:
             self.module_two_selected_row_ids = {row_id}
@@ -1439,6 +1504,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
     def _select_module_two_song(self, row_id: int, track_index: int, modifiers: TrackSelectionModifiers) -> None:
         self._cancel_module_two_song_drag()
+        self._cancel_module_two_row_drag()
         target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
         if target_row is None:
             return
@@ -1463,6 +1529,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             expanded_widget.set_song_selection_state(next_selected)
 
     def _begin_module_two_song_drag(self, row_id: int, track_index: int, x_root: int, y_root: int) -> None:
+        self._cancel_module_two_row_drag()
         target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
         if target_row is None:
             return
@@ -1577,6 +1644,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
     def _reset_project_to_defaults(self) -> None:
         self._cancel_module_two_song_drag()
+        self._cancel_module_two_row_drag()
         self.session.reset()
         self._restore_unsaved_phase_two_default()
         self._sync_phase_one_ui_from_project()
@@ -1634,6 +1702,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
     def _load_path(self, path: Path) -> None:
         self._cancel_module_two_song_drag()
+        self._cancel_module_two_row_drag()
         self.session.project = self.project_store.load(path)
         self.session.current_path = str(path)
         self._sync_phase_one_ui_from_project()
