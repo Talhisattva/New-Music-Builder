@@ -497,6 +497,11 @@ class ScaffoldResult:
     log_lines: list[ExportLogLine] = field(default_factory=list)
 
 
+@dataclass(slots=True)
+class TextureExportResult:
+    written_file_count: int = 0
+
+
 def default_media_row(row_id: int) -> MediaRow:
     row = MediaRow(row_id=row_id, media_name=f"Media Mix {row_id}", expanded=(row_id == 1))
     row.ensure_appearances()

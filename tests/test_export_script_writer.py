@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from PIL import Image
+
 from new_music_builder.domain.models import ProjectConfig, TrackEntry, default_media_row
 from new_music_builder.services.asset_catalog import AssetCatalog
 from new_music_builder.services.export_planning import build_export_plan
@@ -16,6 +18,12 @@ def _track(source_path: str, label: str, duration: str) -> TrackEntry:
         duration=duration,
         conversion_status="source_ogg" if source_path.endswith(".ogg") else "needs_convert",
     )
+
+
+def _write_image(path: Path, size: tuple[int, int], color: tuple[int, int, int, int]) -> str:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    Image.new("RGBA", size, color).save(path)
+    return str(path)
 
 
 def test_write_export_scaffold_generates_script_files_for_registered_media(tmp_path: Path) -> None:
@@ -107,20 +115,20 @@ def test_write_export_scaffold_generates_full_mode_lua_and_custom_texture_refs(t
     row.tracks_b = []
 
     row.appearances["cassette"].source = "custom"
-    row.appearances["cassette"].inventory_full = "C:/custom/Item_NM_Cassette_Custom.png"
-    row.appearances["cassette"].world_full = "C:/custom/World_NM_Cassette_Custom.png"
+    row.appearances["cassette"].inventory_full = _write_image(tmp_path / "custom" / "Item_NM_Cassette_Custom.png", (40, 20), (255, 0, 0, 255))
+    row.appearances["cassette"].world_full = _write_image(tmp_path / "custom" / "World_NM_Cassette_Custom.png", (160, 80), (255, 0, 0, 255))
     row.appearances["case"].source = "custom"
-    row.appearances["case"].inventory_full = "C:/custom/Item_NM_Case_Custom.png"
-    row.appearances["case"].world_full = "C:/custom/World_NM_CassetteCover_Custom.png"
+    row.appearances["case"].inventory_full = _write_image(tmp_path / "custom" / "Item_NM_Case_Custom.png", (20, 40), (0, 255, 0, 255))
+    row.appearances["case"].world_full = _write_image(tmp_path / "custom" / "World_NM_CassetteCover_Custom.png", (200, 100), (0, 255, 0, 255))
     row.appearances["vinyl"].source = "custom"
-    row.appearances["vinyl"].inventory_full = "C:/custom/Item_NM_Vinyl_Custom.png"
-    row.appearances["vinyl"].world_full = "C:/custom/World_NM_Cover_Custom.png"
+    row.appearances["vinyl"].inventory_full = _write_image(tmp_path / "custom" / "Item_NM_Vinyl_Custom.png", (30, 60), (0, 0, 255, 255))
+    row.appearances["vinyl"].world_full = _write_image(tmp_path / "custom" / "World_NM_Vinyl_Custom.png", (180, 120), (0, 0, 255, 255))
     row.appearances["jacket"].source = "custom"
     row.appearances["jacket"].sprite_mode = "dual"
-    row.appearances["jacket"].inventory_full = "C:/custom/Item_NM_Jacket_Custom.png"
-    row.appearances["jacket"].world_full = "C:/custom/World_NM_Cover_Custom.png"
-    row.appearances["jacket"].inventory_empty = "C:/custom/Item_NM_Jacket_Custom_Empty.png"
-    row.appearances["jacket"].world_empty = "C:/custom/World_NM_Cover_Custom_Empty.png"
+    row.appearances["jacket"].inventory_full = _write_image(tmp_path / "custom" / "Item_NM_Jacket_Custom.png", (60, 30), (255, 0, 255, 255))
+    row.appearances["jacket"].world_full = _write_image(tmp_path / "custom" / "World_NM_Cover_Custom.png", (320, 200), (255, 0, 255, 255))
+    row.appearances["jacket"].inventory_empty = _write_image(tmp_path / "custom" / "Item_NM_Jacket_Custom_Empty.png", (30, 60), (255, 128, 255, 255))
+    row.appearances["jacket"].world_empty = _write_image(tmp_path / "custom" / "World_NM_Cover_Custom_Empty.png", (200, 320), (255, 128, 255, 255))
     project.media_rows = [row]
 
     catalog = AssetCatalog(ASSETS_ROOT).scan()
@@ -139,16 +147,18 @@ def test_write_export_scaffold_generates_full_mode_lua_and_custom_texture_refs(t
     assert "DisplayName = Night Drive (Cassette)" in items_text
     assert "item NightDriveVinyl" in items_text
     assert "item NightDriveJacketEmpty" in items_text
+    assert "Icon = NM_Cassette_NightDrive_NightDrive" in items_text
+    assert "Icon = NM_Jacket_NightDrive_NightDrive_Empty" in items_text
 
     assert 'mode = "full"' in album_text
     assert 'full = "NightDriveCassette"' in album_text
     assert 'full = "NightDriveVinyl"' in album_text
     assert "ranges = {" not in album_text
     assert 'cd = {' not in album_text
-    assert 'texture = "WorldItems/Cassette/World_NM_Cassette_NightDrive"' in album_text
-    assert 'texture = "WorldItems/Cassette/World_NM_CassetteCover_NightDrive"' in album_text
-    assert 'texture = "WorldItems/Vinyl/World_NM_Cover_NightDrive"' in album_text
-    assert 'texture = "WorldItems/Vinyl/World_NM_Cover_NightDrive_Empty"' in album_text
+    assert 'texture = "WorldItems/Cassette/World_NM_Cassette_NightDrive_NightDrive"' in album_text
+    assert 'texture = "WorldItems/Cassette/World_NM_CassetteCover_NightDrive_NightDrive"' in album_text
+    assert 'texture = "WorldItems/Vinyl/World_NM_Cover_NightDrive_NightDrive"' in album_text
+    assert 'texture = "WorldItems/Vinyl/World_NM_Cover_NightDrive_NightDrive_Empty"' in album_text
     assert 'includePlayable = { "cassette" }' in album_text
     assert 'includePlayable = { "vinyl" }' in album_text
     assert 'includeContainers = { "vinyl" }' in album_text

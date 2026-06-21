@@ -19,6 +19,12 @@ from new_music_builder.domain.models import (
     ResolvedAppearance,
 )
 from new_music_builder.services.export_ids import sanitize_export_id
+from new_music_builder.services.export_texture_contract import (
+    exported_inventory_texture_stem,
+    exported_world_texture_stem,
+    has_distinct_empty_inventory,
+    has_distinct_empty_world,
+)
 
 
 _PLAYABLE_APPEARANCE_KIND: dict[MediaKind, AppearanceKind] = {
@@ -74,8 +80,8 @@ def _build_registered_album(module_id: str, row: PlannedMediaRow) -> RegisteredA
         mode=mode,
         sound_prefix=sound_prefix,
         sides=registered_sides,
-        media_variants=_build_media_variants(row, mode),
-        container_variants=_build_container_variants(row),
+        media_variants=_build_media_variants(module_id, row, mode),
+        container_variants=_build_container_variants(module_id, row),
     )
 
 
@@ -106,7 +112,7 @@ def _build_registered_side(
     )
 
 
-def _build_media_variants(row: PlannedMediaRow, mode: RegistrationMode) -> list[RegisteredMediaVariant]:
+def _build_media_variants(module_id: str, row: PlannedMediaRow, mode: RegistrationMode) -> list[RegisteredMediaVariant]:
     variants: list[RegisteredMediaVariant] = []
     available_sides = tuple(side.side for side in sorted(row.sides, key=lambda item: 0 if item.side == "A" else 1))
     for media_kind in ("cassette", "vinyl", "cd"):
@@ -141,11 +147,14 @@ def _build_media_variants(row: PlannedMediaRow, mode: RegistrationMode) -> list[
             selected_asset_key=appearance.selected_asset_key,
             asset_source=appearance.source,
         )
+        if appearance.source == "custom":
+            variant.icon_reference = exported_inventory_texture_stem(media_kind, module_id, row.export_id)
+            variant.model_reference = exported_world_texture_stem(media_kind, module_id, row.export_id)
         variants.append(variant)
     return variants
 
 
-def _build_container_variants(row: PlannedMediaRow) -> list[RegisteredContainerVariant]:
+def _build_container_variants(module_id: str, row: PlannedMediaRow) -> list[RegisteredContainerVariant]:
     variants: list[RegisteredContainerVariant] = []
     for media_kind in ("cassette", "vinyl", "cd"):
         if not row.enabled_media.get(media_kind, False):
@@ -153,22 +162,34 @@ def _build_container_variants(row: PlannedMediaRow) -> list[RegisteredContainerV
         appearance_kind = _CONTAINER_APPEARANCE_KIND[media_kind]
         appearance = row.appearances.for_kind(appearance_kind)
         container_label = _CONTAINER_SUFFIX[media_kind].replace("CD", "CD ").replace("CassetteCase", "Cassette Case")
-        variants.append(
-            RegisteredContainerVariant(
-                media_kind=media_kind,
-                container_kind=appearance_kind,
-                empty_item_id=f"{row.export_id}{_CONTAINER_SUFFIX[media_kind]}Empty",
-                full_item_id=f"{row.export_id}{_CONTAINER_SUFFIX[media_kind]}Full",
-                empty_display_name=f"{row.media_name} {container_label} (Empty)",
-                full_display_name=f"{row.media_name} {container_label} (Full)",
-                empty_icon_reference=_appearance_icon_reference(appearance.inventory_empty_path or appearance.inventory_path),
-                full_icon_reference=_appearance_icon_reference(appearance.inventory_path),
-                empty_model_reference=_appearance_model_reference(appearance.world_empty_path or appearance.world_path),
-                full_model_reference=_appearance_model_reference(appearance.world_path),
-                selected_asset_key=appearance.selected_asset_key,
-                asset_source=appearance.source,
-            )
+        variant = RegisteredContainerVariant(
+            media_kind=media_kind,
+            container_kind=appearance_kind,
+            empty_item_id=f"{row.export_id}{_CONTAINER_SUFFIX[media_kind]}Empty",
+            full_item_id=f"{row.export_id}{_CONTAINER_SUFFIX[media_kind]}Full",
+            empty_display_name=f"{row.media_name} {container_label} (Empty)",
+            full_display_name=f"{row.media_name} {container_label} (Full)",
+            empty_icon_reference=_appearance_icon_reference(appearance.inventory_empty_path or appearance.inventory_path),
+            full_icon_reference=_appearance_icon_reference(appearance.inventory_path),
+            empty_model_reference=_appearance_model_reference(appearance.world_empty_path or appearance.world_path),
+            full_model_reference=_appearance_model_reference(appearance.world_path),
+            selected_asset_key=appearance.selected_asset_key,
+            asset_source=appearance.source,
         )
+        if appearance.source == "custom":
+            variant.full_icon_reference = exported_inventory_texture_stem(appearance_kind, module_id, row.export_id)
+            variant.empty_icon_reference = (
+                exported_inventory_texture_stem(appearance_kind, module_id, row.export_id, empty=True)
+                if has_distinct_empty_inventory(appearance)
+                else variant.full_icon_reference
+            )
+            variant.full_model_reference = exported_world_texture_stem(appearance_kind, module_id, row.export_id)
+            variant.empty_model_reference = (
+                exported_world_texture_stem(appearance_kind, module_id, row.export_id, empty=True)
+                if has_distinct_empty_world(appearance)
+                else variant.full_model_reference
+            )
+        variants.append(variant)
     return variants
 
 

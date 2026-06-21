@@ -20,6 +20,11 @@ from new_music_builder.domain.models import (
     ResolvedAppearance,
 )
 from new_music_builder.services.export_registration_plan import build_export_registration_plan
+from new_music_builder.services.export_texture_contract import (
+    build_cover_texture_decision,
+    exported_world_texture_reference,
+    has_distinct_empty_world,
+)
 
 _PLAYABLE_APPEARANCE_KIND: dict[MediaKind, AppearanceKind] = {
     "cassette": "cassette",
@@ -100,6 +105,8 @@ def _build_lua_media(album: RegisteredAlbum) -> list[LuaAlbumMediaRegistration]:
 def _build_cover_groups(album: RegisteredAlbum, row: PlannedMediaRow) -> list[LuaCoverGroup]:
     grouped: OrderedDict[str, dict[str, set[MediaKind]]] = OrderedDict()
     container_by_kind = {variant.media_kind: variant for variant in album.container_variants}
+    cover_decision = build_cover_texture_decision(album.module_id, album.album_id, row)
+    has_custom_cover_art = _row_uses_custom_cover_art(row)
 
     for kind in _MEDIA_ORDER:
         if not row.enabled_media.get(kind, False):
@@ -108,16 +115,28 @@ def _build_cover_groups(album: RegisteredAlbum, row: PlannedMediaRow) -> list[Lu
         container_appearance = row.appearances.for_kind(_CONTAINER_APPEARANCE_KIND[kind])
         container_variant = container_by_kind[kind]
 
-        _append_cover_group(grouped, _playable_texture_reference(album.album_id, kind, playable_appearance), "playable", kind)
         _append_cover_group(
             grouped,
-            _container_texture_reference(album.album_id, kind, container_appearance, empty=False, container_variant=container_variant),
+            _playable_texture_reference(
+                album.module_id,
+                album.album_id,
+                kind,
+                playable_appearance,
+                cover_decision.playable_texture_reference,
+                use_custom_cover=has_custom_cover_art,
+            ),
+            "playable",
+            kind,
+        )
+        _append_cover_group(
+            grouped,
+            _container_texture_reference(album.module_id, album.album_id, kind, container_appearance, empty=False, container_variant=container_variant),
             "containers",
             kind,
         )
         _append_cover_group(
             grouped,
-            _container_texture_reference(album.album_id, kind, container_appearance, empty=True, container_variant=container_variant),
+            _container_texture_reference(album.module_id, album.album_id, kind, container_appearance, empty=True, container_variant=container_variant),
             "empty_containers",
             kind,
         )
@@ -156,15 +175,24 @@ def _append_cover_group(
     record[bucket].add(media_kind)
 
 
-def _playable_texture_reference(album_id: str, media_kind: MediaKind, appearance: ResolvedAppearance) -> str:
-    if appearance.source == "custom":
-        if media_kind == "cassette":
-            return f"WorldItems/Cassette/World_NM_Cassette_{album_id}"
-        return f"WorldItems/Vinyl/World_NM_Cover_{album_id}"
+def _playable_texture_reference(
+    module_id: str,
+    album_id: str,
+    media_kind: MediaKind,
+    appearance: ResolvedAppearance,
+    cover_texture_reference: str,
+    *,
+    use_custom_cover: bool,
+) -> str:
+    if media_kind == "cassette" and appearance.source == "custom":
+        return exported_world_texture_reference("cassette", module_id, album_id)
+    if media_kind in {"vinyl", "cd"} and use_custom_cover and cover_texture_reference:
+        return cover_texture_reference
     return _world_texture_reference_from_path(appearance.world_path, fallback_dir=_world_items_dir_for_playable(media_kind))
 
 
 def _container_texture_reference(
+    module_id: str,
     album_id: str,
     media_kind: MediaKind,
     appearance: ResolvedAppearance,
@@ -173,14 +201,10 @@ def _container_texture_reference(
     container_variant: RegisteredContainerVariant,
 ) -> str:
     if appearance.source == "custom":
-        if media_kind == "cassette":
-            base = f"WorldItems/Cassette/World_NM_CassetteCover_{album_id}"
-        elif media_kind == "vinyl":
-            base = f"WorldItems/Vinyl/World_NM_Cover_{album_id}"
-        else:
-            base = f"WorldItems/CD/World_NM_CDCover_{album_id}"
+        appearance_kind: AppearanceKind = _CONTAINER_APPEARANCE_KIND[media_kind]
+        base = exported_world_texture_reference(appearance_kind, module_id, album_id)
         if empty and _has_distinct_empty_container_texture(appearance, container_variant):
-            return f"{base}_Empty"
+            return exported_world_texture_reference(appearance_kind, module_id, album_id, empty=True)
         return base
 
     path = appearance.world_empty_path if empty and appearance.world_empty_path else appearance.world_path
@@ -192,8 +216,7 @@ def _has_distinct_empty_container_texture(
     container_variant: RegisteredContainerVariant,
 ) -> bool:
     return bool(
-        appearance.world_empty_path
-        and appearance.world_empty_path != appearance.world_path
+        has_distinct_empty_world(appearance)
         and container_variant.empty_model_reference != container_variant.full_model_reference
     )
 
@@ -223,3 +246,10 @@ def _world_items_dir_for_container(media_kind: MediaKind) -> str:
     if media_kind == "vinyl":
         return "WorldItems/Vinyl"
     return "WorldItems/CD"
+
+
+def _row_uses_custom_cover_art(row: PlannedMediaRow) -> bool:
+    return any(
+        row.appearances.for_kind(kind).source == "custom"
+        for kind in ("vinyl", "cd", "jacket", "cd_cover")
+    )

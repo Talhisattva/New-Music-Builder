@@ -17,6 +17,7 @@ from new_music_builder.services.asset_catalog import AssetEntry
 from new_music_builder.services.export_lua_writer import write_export_lua
 from new_music_builder.services.export_naming import sanitize_filesystem_component
 from new_music_builder.services.export_script_writer import write_export_scripts
+from new_music_builder.services.export_texture_writer import write_export_textures
 
 
 def validate_export_request(project: ProjectConfig, plan: ExportPlan) -> list[str]:
@@ -99,8 +100,9 @@ def write_export_scaffold(
         _write_images(project, plan, targets, asset_catalog)
         write_export_scripts(project, plan, targets)
         write_export_lua(project, plan, targets)
+        texture_result = write_export_textures(project, plan, targets)
         result.mod_size_text = _format_size_text(_directory_size_bytes(root))
-        result.log_lines = _success_log_lines(root, result.mod_size_text)
+        result.log_lines = _success_log_lines(root, result.mod_size_text, texture_result.written_file_count)
     except Exception as exc:
         result.errors.append(str(exc))
         result.log_lines = _error_log_lines(root, result.errors)
@@ -382,18 +384,29 @@ def _format_size_text(size_bytes: int) -> str:
     return f"{size_bytes} B"
 
 
-def _success_log_lines(output_root: Path, mod_size_text: str) -> list[ExportLogLine]:
+def _success_log_lines(output_root: Path, mod_size_text: str, texture_file_count: int) -> list[ExportLogLine]:
     timestamp = datetime.now().strftime("%H:%M:%S")
-    return [
+    lines = [
         ExportLogLine(timestamp=timestamp, prefix_text="Exporting scaffold to:", color_role="neutral"),
         ExportLogLine(timestamp="", prefix_text=str(output_root), color_role="neutral"),
+    ]
+    if texture_file_count:
+        lines.append(
+            ExportLogLine(
+                timestamp="",
+                prefix_text=f"Custom textures exported: {texture_file_count}",
+                color_role="neutral",
+            )
+        )
+    lines.append(
         ExportLogLine(
             timestamp=datetime.now().strftime("%H:%M:%S"),
             prefix_text="Export scaffold complete.",
             trailing_text=f"Size: {mod_size_text}",
             color_role="done",
-        ),
-    ]
+        )
+    )
+    return lines
 
 
 def _error_log_lines(output_root: Path, errors: list[str]) -> list[ExportLogLine]:
