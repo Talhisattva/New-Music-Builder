@@ -2417,14 +2417,10 @@ class MainWindow(_DnDCompat, ctk.CTk):
             )
             if hasattr(self, 'module_six_panel'):
                 self.module_six_panel.set_stats(stats)
-            self.build_log = [self._module_four_log_line_text(line) for line in getattr(self.module_four_panel.state, 'current_run_log_lines', [])] if hasattr(self, 'module_four_panel') else []
+            self._snapshot_current_build_log()
             self.preview_entries = []
-            if hasattr(self, 'build_summary'):
-                self.build_summary.refresh()
-            self._set_build_locked(False)
-            self._build_abort_event = None
-            self._active_build_final_targets = None
-            self._active_build_run_id = None
+            self._refresh_build_summary()
+            self._clear_active_build_run_state()
             return
         if result.fatal_error:
             output_path = Path(final_targets.root) if final_targets is not None else Path(result.output_path)
@@ -2444,14 +2440,10 @@ class MainWindow(_DnDCompat, ctk.CTk):
             )
             if hasattr(self, 'module_six_panel'):
                 self.module_six_panel.set_stats(stats)
-            self.build_log = [self._module_four_log_line_text(line) for line in getattr(self.module_four_panel.state, 'current_run_log_lines', [])] if hasattr(self, 'module_four_panel') else []
+            self._snapshot_current_build_log()
             self.preview_entries = []
-            if hasattr(self, 'build_summary'):
-                self.build_summary.refresh()
-            self._set_build_locked(False)
-            self._build_abort_event = None
-            self._active_build_final_targets = None
-            self._active_build_run_id = None
+            self._refresh_build_summary()
+            self._clear_active_build_run_state()
             return
 
         output_path = Path(final_targets.root) if final_targets is not None else Path(result.output_path)
@@ -2490,14 +2482,10 @@ class MainWindow(_DnDCompat, ctk.CTk):
         )
         if hasattr(self, 'module_six_panel'):
             self.module_six_panel.set_stats(stats)
-        self.build_log = [self._module_four_log_line_text(line) for line in getattr(self.module_four_panel.state, 'current_run_log_lines', [])] if hasattr(self, 'module_four_panel') else []
+        self._snapshot_current_build_log()
         self.preview_entries = [f"{row.inventory_cell.label_text}" for row in preview_rows]
-        if hasattr(self, 'build_summary'):
-            self.build_summary.refresh()
-        self._set_build_locked(False)
-        self._build_abort_event = None
-        self._active_build_final_targets = None
-        self._active_build_run_id = None
+        self._refresh_build_summary()
+        self._clear_active_build_run_state()
 
     def _finalize_audio_run_failure(self, plan, output_root: str, error_message: str) -> None:
         LOGGER.error("[run=%s] finalize_audio_run_failure root=%s error=%s", self._active_build_run_id or "-", output_root, error_message)
@@ -2528,14 +2516,10 @@ class MainWindow(_DnDCompat, ctk.CTk):
         )
         if hasattr(self, 'module_six_panel'):
             self.module_six_panel.set_stats(stats)
-        self.build_log = [self._module_four_log_line_text(line) for line in getattr(self.module_four_panel.state, 'current_run_log_lines', [])] if hasattr(self, 'module_four_panel') else []
+        self._snapshot_current_build_log()
         self.preview_entries = []
-        if hasattr(self, 'build_summary'):
-            self.build_summary.refresh()
-        self._set_build_locked(False)
-        self._build_abort_event = None
-        self._active_build_final_targets = None
-        self._active_build_run_id = None
+        self._refresh_build_summary()
+        self._clear_active_build_run_state()
 
     def _directory_size_text(self, root: Path) -> str:
         if not root.exists():
@@ -2569,6 +2553,25 @@ class MainWindow(_DnDCompat, ctk.CTk):
         if line.size_text:
             parts.append(line.size_text)
         return ' '.join(parts)
+
+    def _snapshot_current_build_log(self) -> None:
+        if not hasattr(self, 'module_four_panel'):
+            self.build_log = []
+            return
+        self.build_log = [
+            self._module_four_log_line_text(line)
+            for line in self.module_four_panel.state.current_run_log_lines
+        ]
+
+    def _refresh_build_summary(self) -> None:
+        if hasattr(self, 'build_summary'):
+            self.build_summary.refresh()
+
+    def _clear_active_build_run_state(self) -> None:
+        self._set_build_locked(False)
+        self._build_abort_event = None
+        self._active_build_final_targets = None
+        self._active_build_run_id = None
 
     def _module_five_preview_rows(self) -> list[GeneratedPreviewRow]:
         return self._build_preview_scenario('').preview_rows

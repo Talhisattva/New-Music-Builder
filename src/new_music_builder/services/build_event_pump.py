@@ -1,17 +1,14 @@
 from __future__ import annotations
 
 from collections import OrderedDict
-from collections.abc import Callable
 from dataclasses import dataclass, field
 import queue
 import time
-from typing import Literal
 
 from new_music_builder.domain.models import AudioRunEvent
 
 
 QueuedBuildItem = tuple[str, object]
-LoggerFn = Callable[[str], None] | None
 
 
 @dataclass(slots=True)
@@ -27,7 +24,6 @@ class BuildEventPumpStats:
 class BuildEventPumpBatch:
     items: list[QueuedBuildItem]
     queue_empty: bool
-    terminal_received: bool
     stats: BuildEventPumpStats
 
 
@@ -46,7 +42,6 @@ class BuildEventPump:
         started = time.perf_counter()
         emitted: list[QueuedBuildItem] = []
         pending_progress: OrderedDict[tuple[int, str, int], AudioRunEvent] = OrderedDict()
-        terminal_received = False
 
         while stats.raw_items_processed < self._max_raw_items_per_tick:
             elapsed_ms = (time.perf_counter() - started) * 1000.0
@@ -69,7 +64,6 @@ class BuildEventPump:
             self._flush_pending_progress(pending_progress, emitted)
             emitted.append((kind, payload))
             if kind in {"result", "fatal"}:
-                terminal_received = True
                 break
 
         self._flush_pending_progress(pending_progress, emitted)
@@ -78,7 +72,6 @@ class BuildEventPump:
         return BuildEventPumpBatch(
             items=emitted,
             queue_empty=stats.queue_size_after == 0,
-            terminal_received=terminal_received,
             stats=stats,
         )
 
