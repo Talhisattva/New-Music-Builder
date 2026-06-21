@@ -499,8 +499,6 @@ class MediaRowList(tk.Frame):
             return
         self._last_width = width
         self.configure(width=width)
-        for row_widget in self.row_widgets:
-            row_widget.resize(width - spec.MEDIA_ROW_INSET_X)
         self.refresh_row_layouts()
 
     def _normalized_rows(self, rows: list[MediaRow]) -> list[MediaRow]:
@@ -587,7 +585,8 @@ class MediaRowList(tk.Frame):
         current_y = spec.MEDIA_ROW_INSET_Y
         row_width = int(self.cget('width')) - spec.MEDIA_ROW_INSET_X
         for row, row_widget in zip(self.rows, self.row_widgets):
-            row_widget.set_expanded(row.expanded)
+            if row_widget._expanded != row.expanded:
+                row_widget.set_expanded(row.expanded)
             row_widget.resize(row_width)
             row_widget.place(x=spec.MEDIA_ROW_INSET_X, y=current_y)
             current_y += row_widget.winfo_reqheight() + spec.MEDIA_ROW_GAP_Y

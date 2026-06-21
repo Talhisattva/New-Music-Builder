@@ -93,8 +93,6 @@ class ModuleFourPanel(tk.Frame):
             height=spec.PHASE_THREE_MODULE_FOUR_LOG_PANE_SIZE[1],
         )
         self.log_view.resize(log_viewport_width)
-        self.queue_scroll.refresh_scroll_region()
-        self.log_scroll.refresh_scroll_region()
 
     def set_queue_groups(self, groups: list[ConversionSideGroup]) -> None:
         self.state.ordered_groups = deepcopy(groups)

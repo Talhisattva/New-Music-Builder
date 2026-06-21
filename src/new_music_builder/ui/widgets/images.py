@@ -8,7 +8,7 @@ from PIL import Image, ImageTk
 _RAW_IMAGE_CACHE: dict[tuple[str, tuple[int, int] | None], ImageTk.PhotoImage] = {}
 _CONTAINED_IMAGE_CACHE: dict[tuple[str, tuple[int, int], tuple[int, int, int, int]], ImageTk.PhotoImage] = {}
 _PIL_CONTAINED_CACHE: dict[tuple[str, tuple[int, int], tuple[int, int, int, int]], Image.Image] = {}
-_HORIZONTAL_FILL_IMAGE_CACHE: dict[tuple[str, tuple[int, int], int], ImageTk.PhotoImage] = {}
+_HORIZONTAL_FILL_IMAGE_CACHE: dict[tuple[object, ...], ImageTk.PhotoImage] = {}
 
 
 def _normalize_path(path: str | Path | None) -> Path | None:
@@ -96,12 +96,13 @@ def load_tk_photoimage_horizontal_fill(
     size: tuple[int, int],
     *,
     opacity_percent: int = 100,
+    composite_background: tuple[int, int, int] | None = None,
 ) -> ImageTk.PhotoImage | None:
     img_path = _normalize_path(path)
     if img_path is None:
         return None
     opacity_percent = max(0, min(100, opacity_percent))
-    cache_key = (str(img_path), size, opacity_percent)
+    cache_key = (str(img_path), size, opacity_percent, *(composite_background or ()))
     cached = _HORIZONTAL_FILL_IMAGE_CACHE.get(cache_key)
     if cached is not None:
         return cached
@@ -120,7 +121,8 @@ def load_tk_photoimage_horizontal_fill(
         alpha = alpha.point(lambda value: int(value * (opacity_percent / 100.0)))
         scaled.putalpha(alpha)
 
-    composed = Image.new('RGBA', size, (0, 0, 0, 0))
+    base_fill = (*composite_background, 255) if composite_background is not None else (0, 0, 0, 0)
+    composed = Image.new('RGBA', size, base_fill)
     if scaled_height <= target_height:
         offset_y = (target_height - scaled_height) // 2
         composed.paste(scaled, (0, offset_y), scaled)

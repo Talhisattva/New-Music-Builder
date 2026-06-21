@@ -50,3 +50,15 @@ class AppHeader(ctk.CTkFrame):
             font=ctk.CTkFont(family='Orbitron', size=spec.HEADER_VERSION_SIZE, weight='normal'),
         )
         self.version_label.pack(side='left', pady=14)
+
+        self.byline_label = ctk.CTkLabel(
+            self,
+            text=spec.HEADER_BYLINE,
+            text_color=spec.HEADER_BYLINE_TEXT_COLOR,
+            font=ctk.CTkFont(
+                family=spec.HEADER_BYLINE_FONT_FAMILY,
+                size=spec.HEADER_BYLINE_FONT_SIZE,
+                weight='normal',
+            ),
+        )
+        self.byline_label.pack(side='right', padx=(0, spec.HEADER_BYLINE_RIGHT_INSET), pady=14)

@@ -204,7 +204,12 @@ class SampleRateDialog(tk.Toplevel):
             font=(spec.SAMPLE_RATE_DIALOG_LABEL_FONT_FAMILY, spec.SAMPLE_RATE_DIALOG_LABEL_FONT_SIZE),
             anchor='w',
         )
-        self.label.place(x=30, y=20, width=300, height=20)
+        self.label.place(
+            x=spec.SAMPLE_RATE_DIALOG_LABEL_POS[0],
+            y=spec.SAMPLE_RATE_DIALOG_LABEL_POS[1],
+            width=spec.SAMPLE_RATE_DIALOG_LABEL_SIZE[0],
+            height=spec.SAMPLE_RATE_DIALOG_LABEL_SIZE[1],
+        )
 
         self.dropdown = _SampleRateDropdown(
             panel_inner,

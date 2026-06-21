@@ -63,18 +63,18 @@ class ModuleFourQueueTable(tk.Canvas):
         self._done_icon = self._load_icon(check_icon_path)
         self._converting_icon = self._load_icon(converting_icon_path)
         self._queued_icon = self._load_icon(queued_icon_path)
-        self._last_media_column_width = self._column_widths[0]
+        self._last_song_column_width = self._column_widths[1]
         self.redraw()
 
     def resize(self, width: int) -> None:
         extra_width = max(0, width - spec.PHASE_THREE_MODULE_FOUR_QUEUE_VIEWPORT_SIZE[0])
         columns = list(self._base_column_widths)
-        columns[0] = self._base_column_widths[0] + extra_width
-        if columns[0] == self._last_media_column_width:
+        columns[1] = self._base_column_widths[1] + extra_width
+        if columns[1] == self._last_song_column_width:
             return
         self._column_widths = tuple(columns)
         self._width = sum(self._column_widths)
-        self._last_media_column_width = columns[0]
+        self._last_song_column_width = columns[1]
         self.redraw()
 
     def _load_icon(self, path: str | None) -> ImageTk.PhotoImage | None:

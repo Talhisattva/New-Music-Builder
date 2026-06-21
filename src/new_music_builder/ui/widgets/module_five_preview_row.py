@@ -12,6 +12,7 @@ from new_music_builder.ui.widgets.images import (
 )
 
 _SLOT_KEYS = ('cassette', 'vinyl', 'cd', 'case', 'jacket', 'cd_cover')
+_MODULE_FIVE_CELL_BG_RGB = (44, 42, 45)
 
 
 class ModuleFivePreviewRow(tk.Canvas):
@@ -90,6 +91,7 @@ class ModuleFivePreviewRow(tk.Canvas):
             cell.cover_path,
             spec.PHASE_THREE_MODULE_FIVE_CELL_SIZE,
             opacity_percent=spec.PHASE_THREE_MODULE_FIVE_COVER_OPACITY_PERCENT,
+            composite_background=_MODULE_FIVE_CELL_BG_RGB,
         )
         self._cover_images.append(cover_image)
         if cover_image is not None:
@@ -97,10 +99,16 @@ class ModuleFivePreviewRow(tk.Canvas):
 
         title_x = cell_x + spec.PHASE_THREE_MODULE_FIVE_TITLE_POS[0]
         title_y = spec.PHASE_THREE_MODULE_FIVE_TITLE_POS[1]
+        right_x = cell_x + cell_width - spec.PHASE_THREE_MODULE_FIVE_META_RIGHT_INSET
+        songs_meta_left = self._meta_left_x(right_x, prefix='Songs:', value=f'{cell.song_count} Songs')
+        duration_meta_left = self._meta_left_x(right_x, prefix='Duration:', value=cell.duration_text)
+        title_max_right = min(songs_meta_left, duration_meta_left) - spec.PHASE_THREE_MODULE_FIVE_TITLE_TO_META_GAP_X
+        available_title_width = max(1, title_max_right - title_x)
+        title_text = self._truncate_text(cell.label_text, available_title_width, self._header_font)
         self.create_text(
             title_x,
             title_y,
-            text=cell.label_text,
+            text=title_text,
             fill=spec.PHASE_THREE_MODULE_FIVE_TITLE_COLOR,
             font=self._header_font,
             anchor='nw',
@@ -114,7 +122,6 @@ class ModuleFivePreviewRow(tk.Canvas):
             anchor='nw',
         )
 
-        right_x = cell_x + cell_width - spec.PHASE_THREE_MODULE_FIVE_META_RIGHT_INSET
         self._draw_meta_line(
             right_x,
             title_y,
@@ -180,6 +187,24 @@ class ModuleFivePreviewRow(tk.Canvas):
             font=self._meta_font,
             anchor='ne',
         )
+
+    def _meta_left_x(self, right_x: int, *, prefix: str, value: str) -> int:
+        value_width = self._meta_font.measure(value)
+        prefix_width = self._meta_font.measure(prefix)
+        gap_width = self._meta_font.measure(' ')
+        return int(right_x - value_width - gap_width - prefix_width)
+
+    def _truncate_text(self, text: str, max_width: int, font: tkfont.Font) -> str:
+        if font.measure(text) <= max_width:
+            return text
+        ellipsis = '...'
+        ellipsis_width = font.measure(ellipsis)
+        if ellipsis_width >= max_width:
+            return ellipsis
+        truncated = text
+        while truncated and font.measure(truncated) + ellipsis_width > max_width:
+            truncated = truncated[:-1]
+        return f'{truncated}{ellipsis}'
 
     def _on_world_enter(self, path: str | None, event: tk.Event) -> None:
         if not path:
