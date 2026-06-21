@@ -186,6 +186,83 @@ class BuildPreviewScenario:
     stats: BuildSummaryStats = field(default_factory=BuildSummaryStats)
 
 
+@dataclass(slots=True)
+class ResolvedAppearance:
+    kind: AppearanceKind
+    selected_asset_key: str = ""
+    source: Literal["default", "custom"] = "default"
+    inventory_path: str = ""
+    world_path: str = ""
+
+
+@dataclass(slots=True)
+class ResolvedAppearanceSet:
+    cassette: ResolvedAppearance = field(default_factory=lambda: ResolvedAppearance(kind="cassette"))
+    vinyl: ResolvedAppearance = field(default_factory=lambda: ResolvedAppearance(kind="vinyl"))
+    cd: ResolvedAppearance = field(default_factory=lambda: ResolvedAppearance(kind="cd"))
+    case: ResolvedAppearance = field(default_factory=lambda: ResolvedAppearance(kind="case"))
+    jacket: ResolvedAppearance = field(default_factory=lambda: ResolvedAppearance(kind="jacket"))
+    cd_cover: ResolvedAppearance = field(default_factory=lambda: ResolvedAppearance(kind="cd_cover"))
+
+    def for_kind(self, kind: AppearanceKind) -> ResolvedAppearance:
+        return getattr(self, kind)
+
+
+@dataclass(slots=True)
+class PlannedTrack:
+    source_path: str
+    display_label: str
+    duration_text: str
+    duration_seconds: int
+    needs_conversion: bool
+
+
+@dataclass(slots=True)
+class PlannedSide:
+    row_id: int
+    side: Literal["A", "B"]
+    media_name: str
+    cover_path: str
+    tracks: list[PlannedTrack] = field(default_factory=list)
+
+    @property
+    def song_count(self) -> int:
+        return len(self.tracks)
+
+    @property
+    def duration_seconds(self) -> int:
+        return sum(track.duration_seconds for track in self.tracks)
+
+    @property
+    def duration_text(self) -> str:
+        total_seconds = self.duration_seconds
+        hours = total_seconds // 3600
+        minutes = (total_seconds % 3600) // 60
+        seconds = total_seconds % 60
+        return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+
+    @property
+    def display_label(self) -> str:
+        return f"{self.media_name}\n{self.side}-SIDE"
+
+
+@dataclass(slots=True)
+class PlannedMediaRow:
+    row_id: int
+    media_name: str
+    cover_path: str
+    enabled_media: dict[MediaKind, bool] = field(default_factory=dict)
+    appearances: ResolvedAppearanceSet = field(default_factory=ResolvedAppearanceSet)
+    sides: list[PlannedSide] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class ExportPlan:
+    rows: list[PlannedMediaRow] = field(default_factory=list)
+    sides: list[PlannedSide] = field(default_factory=list)
+    stats: BuildSummaryStats = field(default_factory=BuildSummaryStats)
+
+
 def default_media_row(row_id: int) -> MediaRow:
     row = MediaRow(row_id=row_id, media_name=f"Media Mix {row_id}", expanded=(row_id == 1))
     row.ensure_appearances()
