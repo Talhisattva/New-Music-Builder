@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
+import os
 import sys
 import time
 import tkinter as tk
@@ -15,6 +16,8 @@ from PIL import Image, ImageTk
 from new_music_builder import __version__
 from new_music_builder.domain.models import (
     AppearanceKind,
+    BuildPreviewScenario,
+    BuildSummaryStats,
     ConversionSideGroup,
     ConversionSongProgress,
     ExportLogLine,
@@ -54,13 +57,16 @@ from new_music_builder.ui.widgets.main_button import MainButton
 from new_music_builder.ui.widgets.media_creation_header import MediaCreationHeader
 from new_music_builder.ui.widgets.media_row_list import MediaRowList, RowSelectionModifiers
 from new_music_builder.ui.widgets.media_songlist_table import TrackSelectionModifiers
-from new_music_builder.ui.widgets.menu_strip import MenuStrip
+from new_music_builder.ui.widgets.menu_strip import MenuAction, MenuStrip
 from new_music_builder.ui.widgets.module_four_panel import ModuleFourPanel
 from new_music_builder.ui.widgets.module_five_panel import ModuleFivePanel
+from new_music_builder.ui.widgets.module_six_panel import ModuleSixPanel
+from new_music_builder.ui.widgets.module_six_stats_table import ModuleSixStatsTable
 from new_music_builder.ui.widgets.module_action_header import ModuleActionHeader
 from new_music_builder.ui.widgets.module_header import ModuleHeader
 from new_music_builder.ui.widgets.module_shell import ModuleShell
 from new_music_builder.ui.widgets.output_folder_field import OutputFolderField
+from new_music_builder.ui.widgets.sample_rate_dialog import SampleRateDialog
 from new_music_builder.ui.widgets.scroll_area import ScrollViewport
 
 try:
@@ -161,6 +167,9 @@ class MainWindow(_DnDCompat, ctk.CTk):
     def _phase_four_icon_path(self) -> Path:
         return app_root() / 'assets' / 'PhaseFourIcon.png'
 
+    def _phase_five_icon_path(self) -> Path:
+        return app_root() / 'assets' / 'PhaseFiveIcon.png'
+
     def _check_icon_path(self) -> Path:
         return app_root() / 'assets' / 'Check.png'
 
@@ -206,6 +215,15 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
     def _status_queued_icon_path(self) -> Path:
         return app_root() / 'assets' / 'StatusQueuedIcon.png'
+
+    def _build_complete_check_icon_path(self) -> Path:
+        return app_root() / 'assets' / 'BuildCompleteCheckIcon.png'
+
+    def _open_folder_check_icon_path(self) -> Path:
+        return app_root() / 'assets' / 'OpenFolderCheckIcon.png'
+
+    def _reset_icon_path(self) -> Path:
+        return app_root() / 'assets' / 'ResetIcon.png'
 
     def _module_two_preview_entry(self, row, kind: AppearanceKind) -> AppearanceGridEntry | None:
         row.ensure_appearances()
@@ -257,8 +275,28 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.header.pack(fill='x')
 
     def _build_menu_strip(self) -> None:
-        self.menu_strip = MenuStrip(self)
+        self.menu_strip = MenuStrip(
+            self,
+            menu_actions={
+                'FILE': [
+                    MenuAction(label='New', command=self.new_project),
+                    MenuAction(label='Load', command=self.load_project),
+                    MenuAction(label='Save', command=self.save_project),
+                    MenuAction(label='Save As...', command=self.save_project_as),
+                    MenuAction(label='Exit', command=self.on_close),
+                ],
+                'PREFERENCES': [
+                    MenuAction(label='Sample Rate', command=self._show_sample_rate_dialog),
+                ],
+                'HELP': [
+                    MenuAction(label='Tutorial', command=self._show_tutorial_placeholder),
+                ],
+            },
+        )
         self.menu_strip.pack(fill='x')
+
+    def _show_tutorial_placeholder(self) -> None:
+        messagebox.showinfo('Tutorial', 'Tutorial coming soon.')
 
     def _build_layout(self) -> None:
         self.stage = ctk.CTkFrame(self, fg_color=spec.APP_BG, corner_radius=0)
@@ -337,6 +375,24 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.phase_three_combo_midground_border = self.phase_three_combo_shell.midground_border
         self.phase_three_combo_midground = self.phase_three_combo_shell.midground_surface
 
+        self.module_six_shell = ModuleShell(
+            self.content_frame,
+            size=spec.MODULE_SIX_SIZE,
+            midground_size=spec.MODULE_SIX_MIDGROUND_SIZE,
+            midground_offset=spec.MODULE_SIX_MIDGROUND_OFFSET,
+        )
+        self.module_six_shell.grid(
+            row=1,
+            column=2,
+            sticky='nw',
+            padx=(spec.MODULE_GAP_X, 0),
+            pady=(spec.MODULE_SIX_TOP_GAP, 0),
+        )
+        self.module_six_shell.grid_propagate(False)
+        self.module_six_background = self.module_six_shell.background_surface
+        self.module_six_midground_border = self.module_six_shell.midground_border
+        self.module_six_midground = self.module_six_shell.midground_surface
+
         self.module_two_header = ModuleHeader(
             self.module_two_background,
             text='PHASE 2 : MEDIA CREATION',
@@ -368,6 +424,27 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.phase_three_combo_header.place(x=0, y=0)
         self.phase_three_combo_phase_icon = self.phase_three_combo_header.icon_label
         self.phase_three_combo_phase_label = self.phase_three_combo_header.text_label
+
+        self.module_six_header = ModuleHeader(
+            self.module_six_background,
+            text='BUILD SUMMARY',
+            icon_path=self._phase_five_icon_path(),
+            bg_color=spec.MODULE_BACKGROUND_BG,
+            text_color=spec.MODULE_HEADER_TEXT_COLOR,
+            x=spec.MODULE_SIX_HEADER_X,
+            y=spec.MODULE_SIX_HEADER_Y,
+        )
+        self.module_six_phase_icon = self.module_six_header.icon_label
+        self.module_six_phase_label = self.module_six_header.text_label
+        self.module_six_panel = ModuleSixPanel(
+            self.module_six_midground,
+            build_complete_icon_path=str(self._build_complete_check_icon_path()),
+            open_folder_icon_path=str(self._open_folder_check_icon_path()),
+            reset_icon_path=str(self._reset_icon_path()),
+            on_open_output_folder=self._open_output_folder,
+            on_reset=self.reset_transient_state,
+        )
+        self.module_six_panel.place(x=0, y=0)
 
         self.phase_three_combo_content_area = tk.Frame(
             self.phase_three_combo_midground,
@@ -577,15 +654,15 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.module_one_load_button.place(x=load_button_x, y=action_button_y)
 
     def _show_sample_rate_dialog(self) -> None:
-        popup = ctk.CTkInputDialog(text='Enter project sample rate', title='Sample Rate')
-        value = popup.get_input()
-        if not value:
+        popup = SampleRateDialog(
+            self,
+            icon_path=self._native_icon_path(),
+            initial_value=self.session.project.sample_rate,
+        )
+        value = popup.show()
+        if value is None:
             return
-        try:
-            self.session.project.sample_rate = int(value)
-        except ValueError:
-            messagebox.showerror('Invalid sample rate', 'Sample rate must be a number.')
-            return
+        self.session.project.sample_rate = int(value)
         self.on_project_change()
 
     def _build_module_two_row_list(self) -> None:
@@ -1478,6 +1555,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self.module_four_panel.reset_current_run()
         if hasattr(self, 'module_five_panel'):
             self.module_five_panel.reset_preview_rows()
+        if hasattr(self, 'module_six_panel'):
+            self.module_six_panel.reset()
         self.refresh_all()
 
     def reset_phase_one_fields(self) -> None:
@@ -1524,18 +1603,18 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self.module_four_panel.reset_current_run()
             if hasattr(self, 'module_five_panel'):
                 self.module_five_panel.reset_preview_rows()
-            preview_groups = self._module_four_preview_groups()
-            if preview_groups:
-                self.module_four_panel.set_queue_groups(preview_groups)
-            preview_rows = self._module_five_preview_rows()
-            if hasattr(self, 'module_five_panel') and preview_rows:
-                self.module_five_panel.set_preview_rows(preview_rows)
             output_path = self.session.project.workshop_output_folder or str(app_root())
+            scenario = self._build_preview_scenario(output_path)
+            if scenario.queue_groups:
+                self.module_four_panel.set_queue_groups(scenario.queue_groups)
+            if hasattr(self, 'module_five_panel') and scenario.preview_rows:
+                self.module_five_panel.set_preview_rows(scenario.preview_rows)
             self.module_four_panel.set_output_path(output_path)
-            preview_lines = self._module_four_preview_log_lines(preview_groups, output_path)
-            self.module_four_panel.set_log_lines(preview_lines)
-            self.build_log = [self._module_four_log_line_text(line) for line in preview_lines]
-            self.preview_entries = [group.display_label.replace('\n', ' ') for group in preview_groups]
+            self.module_four_panel.set_log_lines(scenario.log_lines)
+            if hasattr(self, 'module_six_panel'):
+                self.module_six_panel.set_stats(scenario.stats)
+            self.build_log = [self._module_four_log_line_text(line) for line in scenario.log_lines]
+            self.preview_entries = [group.display_label.replace('\n', ' ') for group in scenario.queue_groups]
         else:
             self.build_log = [f"[{datetime.now().strftime('%H:%M:%S')}] Build started - {len(self.session.project.media_rows) * 2} sides queued."]
             self.preview_entries = []
@@ -1549,120 +1628,17 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self.module_four_panel.reset_current_run()
         if hasattr(self, 'module_five_panel'):
             self.module_five_panel.reset_preview_rows()
+        if hasattr(self, 'module_six_panel'):
+            self.module_six_panel.reset()
         if hasattr(self, 'build_export'):
             self.build_export.refresh(self.build_log, self.preview_entries)
 
     def _module_four_preview_groups(self) -> list[ConversionSideGroup]:
-        groups: list[ConversionSideGroup] = []
-        for row in self.session.project.media_rows:
-            for side_name, tracks in [('A', row.tracks_a), ('B', row.tracks_b)]:
-                if not tracks:
-                    continue
-                songs = [
-                    ConversionSongProgress(
-                        song_label=track.display_label or Path(track.source_path).stem or f'Track {index}',
-                        queue_index=index,
-                        percent=0,
-                        status='queued',
-                        size_label='3.1 KB',
-                    )
-                    for index, track in enumerate(tracks, start=1)
-                ]
-                groups.append(
-                    ConversionSideGroup(
-                        row_id=row.row_id,
-                        side=side_name,
-                        display_label=f'{row.media_name}\n{side_name}-SIDE',
-                        songs=songs,
-                    )
-                )
-
-        if not groups:
-            sample_groups = [
-                (
-                    1,
-                    'Single Song Media Name That Is Very Long For Marquee Testing',
-                    {
-                        'A': ['Only Track'],
-                        'B': ['Only Track Reprise'],
-                    },
-                ),
-                (
-                    2,
-                    'Sample Media Mix With An Extraordinarily Long Name 2',
-                    {
-                        'A': [f'Long Sample Song {index}' for index in range(1, 11)],
-                    },
-                ),
-                (
-                    3,
-                    'Sample Media Mix With A Very Long Closing Name 3',
-                    {
-                        'A': ['Closing Track 1', 'Closing Track 2', 'Closing Track 3', 'Closing Track 4'],
-                    },
-                ),
-            ]
-            for row_id, media_name, sides in sample_groups:
-                for side_name, song_names in sides.items():
-                    groups.append(
-                        ConversionSideGroup(
-                            row_id=row_id,
-                            side=side_name,
-                            display_label=f'{media_name}\n{side_name}-SIDE',
-                            songs=[
-                                ConversionSongProgress(
-                                    song_label=song_name,
-                                    queue_index=song_index,
-                                    percent=0,
-                                    status='queued',
-                                    size_label='3.1 KB',
-                                )
-                                for song_index, song_name in enumerate(song_names, start=1)
-                            ],
-                        )
-                    )
-
-        if groups and groups[0].songs:
-            groups[0].songs[0].percent = 60
-            groups[0].songs[0].status = 'converting'
-
-        multi_song_group = next((group for group in groups if len(group.songs) > 1), None)
-        if multi_song_group is not None:
-            for song_index, song in enumerate(multi_song_group.songs):
-                if song_index == 0:
-                    song.percent = 100
-                    song.status = 'done'
-                elif song_index == 1:
-                    song.percent = 60
-                    song.status = 'converting'
-                else:
-                    song.percent = 0
-                    song.status = 'queued'
-
-        return groups
+        return self._build_preview_scenario('').queue_groups
 
     def _module_four_preview_log_lines(self, groups: list[ConversionSideGroup], output_path: str) -> list[ExportLogLine]:
-        current_time = datetime.now()
-        done_one = current_time.strftime('%H:%M:%S')
-        done_two = (current_time.replace(second=(current_time.second + 1) % 60)).strftime('%H:%M:%S')
-        done_three = (current_time.replace(second=(current_time.second + 2) % 60)).strftime('%H:%M:%S')
-        active_time = (current_time.replace(second=(current_time.second + 3) % 60)).strftime('%H:%M:%S')
-
-        song_names: list[str] = []
-        for group in groups:
-            for song in group.songs:
-                song_names.append(f'{song.song_label}.ogg')
-        while len(song_names) < 4:
-            song_names.append(f'Sample Track {len(song_names) + 1}.ogg')
-
-        return [
-            ExportLogLine(timestamp=done_one, prefix_text='Converting:', subject_text=song_names[0], trailing_text='....DONE', size_text='(3.1 KB)', color_role='done'),
-            ExportLogLine(timestamp=done_two, prefix_text='Converting:', subject_text=song_names[1], trailing_text='....DONE', size_text='(3.1 KB)', color_role='done'),
-            ExportLogLine(timestamp=done_three, prefix_text='Converting:', subject_text=song_names[2], trailing_text='....DONE', size_text='(3.1 KB)', color_role='done'),
-            ExportLogLine(timestamp=active_time, prefix_text='Converting:', subject_text=song_names[3], trailing_text='....60%', size_text='(3.1 KB)', color_role='converting'),
-            ExportLogLine(timestamp=active_time, prefix_text='All files will be saved to:', color_role='neutral'),
-            ExportLogLine(timestamp='', prefix_text=output_path, color_role='neutral'),
-        ]
+        scenario = self._build_preview_scenario(output_path)
+        return scenario.log_lines
 
     def _module_four_log_line_text(self, line: ExportLogLine) -> str:
         parts: list[str] = []
@@ -1679,6 +1655,50 @@ class MainWindow(_DnDCompat, ctk.CTk):
         return ' '.join(parts)
 
     def _module_five_preview_rows(self) -> list[GeneratedPreviewRow]:
+        return self._build_preview_scenario('').preview_rows
+
+    def _build_preview_scenario(self, output_path: str) -> BuildPreviewScenario:
+        queue_groups = self._queue_groups_from_project()
+        preview_rows = self._preview_rows_from_project()
+        if not queue_groups or not preview_rows:
+            queue_groups, preview_rows = self._dummy_preview_data()
+
+        self._apply_preview_progress_states(queue_groups)
+        log_lines = self._build_preview_log_lines_from_groups(queue_groups, output_path)
+        stats = self._build_summary_stats(queue_groups)
+        return BuildPreviewScenario(
+            queue_groups=queue_groups,
+            log_lines=log_lines,
+            preview_rows=preview_rows,
+            stats=stats,
+        )
+
+    def _queue_groups_from_project(self) -> list[ConversionSideGroup]:
+        groups: list[ConversionSideGroup] = []
+        for row in self.session.project.media_rows:
+            for side_name, tracks in [('A', row.tracks_a), ('B', row.tracks_b)]:
+                if not tracks:
+                    continue
+                groups.append(
+                    ConversionSideGroup(
+                        row_id=row.row_id,
+                        side=side_name,
+                        display_label=f'{row.media_name}\n{side_name}-SIDE',
+                        songs=[
+                            ConversionSongProgress(
+                                song_label=track.display_label or Path(track.source_path).stem or f'Track {index}',
+                                queue_index=index,
+                                percent=0,
+                                status='queued',
+                                size_label='3.1 KB',
+                            )
+                            for index, track in enumerate(tracks, start=1)
+                        ],
+                    )
+                )
+        return groups
+
+    def _preview_rows_from_project(self) -> list[GeneratedPreviewRow]:
         preview_rows: list[GeneratedPreviewRow] = []
         for row in self.session.project.media_rows:
             for side_name, tracks in (('A', row.tracks_a), ('B', row.tracks_b)):
@@ -1692,58 +1712,102 @@ class MainWindow(_DnDCompat, ctk.CTk):
                         world_cell=self._build_generated_preview_cell(row, side_name, mode='world', tracks=tracks),
                     )
                 )
+        return preview_rows
 
-        if preview_rows:
-            return preview_rows
-
-        sample_cover = str(app_root() / 'assets' / 'World' / 'VinylJacket' / 'World_NM_Cover1.png')
+    def _dummy_preview_data(self) -> tuple[list[ConversionSideGroup], list[GeneratedPreviewRow]]:
+        root = app_root() / 'assets'
         sample_rows = [
             (
                 1,
-                'Tali Sample Mix',
+                'Single Track Test Mix',
                 'A',
+                str(root / 'World' / 'Vinyl' / 'HR' / 'World_NM_MainCover_Zomboid.png'),
                 ['Only Track'],
                 (
-                    str(app_root() / 'assets' / 'Inventory' / 'Cassette' / 'Item_NM_Cassette1.png'),
-                    str(app_root() / 'assets' / 'Inventory' / 'Vinyl' / 'Item_NM_Vinyl1.png'),
-                    str(app_root() / 'assets' / 'Inventory' / 'CD' / 'Item_NM_CD.png'),
-                    str(app_root() / 'assets' / 'Inventory' / 'CassetteCase' / 'Item_NM_Case1.png'),
-                    str(app_root() / 'assets' / 'Inventory' / 'VinylJacket' / 'Item_NM_Jacket1.png'),
-                    str(app_root() / 'assets' / 'Inventory' / 'CDCover' / 'Item_NM_CDCover1.png'),
+                    str(root / 'Inventory' / 'Cassette' / 'Item_NM_Cassette1.png'),
+                    str(root / 'Inventory' / 'Vinyl' / 'Item_NM_Vinyl1.png'),
+                    str(root / 'Inventory' / 'CD' / 'Item_NM_CD.png'),
+                    str(root / 'Inventory' / 'CassetteCase' / 'Item_NM_Case1.png'),
+                    str(root / 'Inventory' / 'VinylJacket' / 'Item_NM_Jacket1.png'),
+                    str(root / 'Inventory' / 'CDCover' / 'Item_NM_CDCover1.png'),
                 ),
                 (
-                    str(app_root() / 'assets' / 'World' / 'Cassette' / 'World_NM_Cassette01.png'),
-                    str(app_root() / 'assets' / 'World' / 'Vinyl' / 'World_NM_Vinyl1.png'),
-                    str(app_root() / 'assets' / 'World' / 'CD' / 'World_NM_CD.png'),
-                    str(app_root() / 'assets' / 'World' / 'CassetteCase' / 'World_NM_CassetteCover1.png'),
-                    str(app_root() / 'assets' / 'World' / 'VinylJacket' / 'World_NM_Cover1.png'),
-                    str(app_root() / 'assets' / 'World' / 'CDCover' / 'World_NM_CDCover1.png'),
+                    str(root / 'World' / 'Cassette' / 'World_NM_Cassette01.png'),
+                    str(root / 'World' / 'Vinyl' / 'World_NM_Vinyl1.png'),
+                    str(root / 'World' / 'CD' / 'World_NM_CD.png'),
+                    str(root / 'World' / 'CassetteCase' / 'World_NM_CassetteCover1.png'),
+                    str(root / 'World' / 'VinylJacket' / 'World_NM_Cover1.png'),
+                    str(root / 'World' / 'CDCover' / 'World_NM_CDCover1.png'),
                 ),
             ),
             (
-                1,
-                'Tali Sample Mix',
-                'B',
-                ['Closing One', 'Closing Two', 'Closing Three'],
+                2,
+                'A Few Songs Mix',
+                'A',
+                str(root / 'World' / 'VinylJacket' / 'World_NM_Cover7.png'),
+                ['Sample One', 'Sample Two', 'Sample Three'],
                 (
-                    str(app_root() / 'assets' / 'Inventory' / 'Cassette' / 'Item_NM_Cassette1.png'),
-                    str(app_root() / 'assets' / 'Inventory' / 'Vinyl' / 'Item_NM_Vinyl1.png'),
-                    str(app_root() / 'assets' / 'Inventory' / 'CD' / 'Item_NM_CD.png'),
-                    str(app_root() / 'assets' / 'Inventory' / 'CassetteCase' / 'Item_NM_Case1.png'),
-                    str(app_root() / 'assets' / 'Inventory' / 'VinylJacket' / 'Item_NM_Jacket1.png'),
-                    str(app_root() / 'assets' / 'Inventory' / 'CDCover' / 'Item_NM_CDCover1.png'),
+                    str(root / 'Inventory' / 'Cassette' / 'Item_NM_Cassette4.png'),
+                    str(root / 'Inventory' / 'Vinyl' / 'Item_NM_Vinyl7.png'),
+                    str(root / 'Inventory' / 'CD' / 'Item_NM_CD.png'),
+                    str(root / 'Inventory' / 'CassetteCase' / 'Item_NM_Case4.png'),
+                    str(root / 'Inventory' / 'VinylJacket' / 'Item_NM_Jacket7.png'),
+                    str(root / 'Inventory' / 'CDCover' / 'Item_NM_CDCover7.png'),
                 ),
                 (
-                    str(app_root() / 'assets' / 'World' / 'Cassette' / 'World_NM_Cassette01.png'),
-                    str(app_root() / 'assets' / 'World' / 'Vinyl' / 'World_NM_Vinyl1.png'),
-                    str(app_root() / 'assets' / 'World' / 'CD' / 'World_NM_CD.png'),
-                    str(app_root() / 'assets' / 'World' / 'CassetteCase' / 'World_NM_CassetteCover1.png'),
-                    str(app_root() / 'assets' / 'World' / 'VinylJacket' / 'World_NM_Cover1.png'),
-                    str(app_root() / 'assets' / 'World' / 'CDCover' / 'World_NM_CDCover1.png'),
+                    str(root / 'World' / 'Cassette' / 'World_NM_Cassette07.png'),
+                    str(root / 'World' / 'Vinyl' / 'World_NM_Vinyl7.png'),
+                    str(root / 'World' / 'CD' / 'World_NM_CD.png'),
+                    str(root / 'World' / 'CassetteCase' / 'World_NM_CassetteCover7.png'),
+                    str(root / 'World' / 'VinylJacket' / 'World_NM_Cover7.png'),
+                    str(root / 'World' / 'CDCover' / 'World_NM_CDCover7.png'),
+                ),
+            ),
+            (
+                3,
+                'This Is A Very Long Sample Media Name To Stress The Full Shared Preview Pipeline',
+                'A',
+                str(root / 'World' / 'VinylJacket' / 'World_NM_Cover14.png'),
+                [f'Long Sample Song {index}' for index in range(1, 11)],
+                (
+                    str(root / 'Inventory' / 'Cassette' / 'Item_NM_Cassette10.png'),
+                    str(root / 'Inventory' / 'Vinyl' / 'Item_NM_Vinyl10.png'),
+                    str(root / 'Inventory' / 'CD' / 'Item_NM_CD.png'),
+                    str(root / 'Inventory' / 'CassetteCase' / 'Item_NM_Case10.png'),
+                    str(root / 'Inventory' / 'VinylJacket' / 'Item_NM_Jacket10.png'),
+                    str(root / 'Inventory' / 'CDCover' / 'Item_NM_CDCover10.png'),
+                ),
+                (
+                    str(root / 'World' / 'Cassette' / 'World_NM_Cassette10.png'),
+                    str(root / 'World' / 'Vinyl' / 'World_NM_Vinyl10.png'),
+                    str(root / 'World' / 'CD' / 'World_NM_CD.png'),
+                    str(root / 'World' / 'CassetteCase' / 'World_NM_CassetteCover10.png'),
+                    str(root / 'World' / 'VinylJacket' / 'World_NM_Cover10.png'),
+                    str(root / 'World' / 'CDCover' / 'World_NM_CDCover10.png'),
                 ),
             ),
         ]
-        for row_id, media_name, side_name, song_names, inventory_paths, world_paths in sample_rows:
+
+        queue_groups: list[ConversionSideGroup] = []
+        preview_rows: list[GeneratedPreviewRow] = []
+        for row_id, media_name, side_name, cover_path, song_names, inventory_paths, world_paths in sample_rows:
+            queue_groups.append(
+                ConversionSideGroup(
+                    row_id=row_id,
+                    side=side_name,
+                    display_label=f'{media_name}\n{side_name}-SIDE',
+                    songs=[
+                        ConversionSongProgress(
+                            song_label=song_name,
+                            queue_index=index,
+                            percent=0,
+                            status='queued',
+                            size_label='3.1 KB',
+                        )
+                        for index, song_name in enumerate(song_names, start=1)
+                    ],
+                )
+            )
             preview_rows.append(
                 GeneratedPreviewRow(
                     row_id=row_id,
@@ -1753,7 +1817,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
                         section_text='INVENTORY',
                         song_count=len(song_names),
                         duration_text=self._duration_text_for_track_durations(['00:03:20' for _ in song_names]),
-                        cover_path=sample_cover,
+                        cover_path=cover_path,
                         slot_paths=inventory_paths,
                     ),
                     world_cell=GeneratedPreviewCell(
@@ -1761,12 +1825,78 @@ class MainWindow(_DnDCompat, ctk.CTk):
                         section_text='WORLD',
                         song_count=len(song_names),
                         duration_text=self._duration_text_for_track_durations(['00:03:20' for _ in song_names]),
-                        cover_path=sample_cover,
+                        cover_path=cover_path,
                         slot_paths=world_paths,
                     ),
                 )
             )
-        return preview_rows
+        return queue_groups, preview_rows
+
+    def _apply_preview_progress_states(self, groups: list[ConversionSideGroup]) -> None:
+        if not groups:
+            return
+        groups[0].songs[0].percent = 100
+        groups[0].songs[0].status = 'done'
+        if len(groups) > 1:
+            for song_index, song in enumerate(groups[1].songs):
+                if song_index == 0:
+                    song.percent = 100
+                    song.status = 'done'
+                elif song_index == 1:
+                    song.percent = 60
+                    song.status = 'converting'
+                else:
+                    song.percent = 0
+                    song.status = 'queued'
+
+    def _build_preview_log_lines_from_groups(self, groups: list[ConversionSideGroup], output_path: str) -> list[ExportLogLine]:
+        current_time = datetime.now()
+        log_lines: list[ExportLogLine] = []
+        offset_seconds = 0
+        active_written = False
+        for group in groups:
+            for song in group.songs:
+                timestamp = (current_time.replace(second=(current_time.second + offset_seconds) % 60)).strftime('%H:%M:%S')
+                offset_seconds += 1
+                trailing = '....DONE'
+                color_role = 'done'
+                if song.status == 'converting' and not active_written:
+                    trailing = f'....{song.percent}%'
+                    color_role = 'converting'
+                    active_written = True
+                elif song.status != 'done':
+                    continue
+                log_lines.append(
+                    ExportLogLine(
+                        timestamp=timestamp,
+                        prefix_text='Converting:',
+                        subject_text=f'{song.song_label}.ogg',
+                        trailing_text=trailing,
+                        size_text=f'({song.size_label})' if song.size_label else '',
+                        color_role=color_role,  # type: ignore[arg-type]
+                    )
+                )
+
+        final_time = (current_time.replace(second=(current_time.second + offset_seconds) % 60)).strftime('%H:%M:%S')
+        log_lines.append(ExportLogLine(timestamp=final_time, prefix_text='All files will be saved to:', color_role='neutral'))
+        log_lines.append(ExportLogLine(timestamp='', prefix_text=output_path or str(app_root()), color_role='neutral'))
+        return log_lines
+
+    def _build_summary_stats(self, groups: list[ConversionSideGroup]) -> BuildSummaryStats:
+        media_rows = len({group.row_id for group in groups})
+        total_sides = len(groups)
+        total_songs = sum(len(group.songs) for group in groups)
+        converted = sum(1 for group in groups for song in group.songs if song.status == 'done')
+        total_kb = sum(self._size_label_to_kb(song.size_label) for group in groups for song in group.songs)
+        return BuildSummaryStats(
+            media_rows=media_rows,
+            exported_media_rows=media_rows,
+            total_sides=total_sides,
+            total_songs=total_songs,
+            converted=converted,
+            mod_size_text=self._format_kb(total_kb),
+            errors=0,
+        )
 
     def _build_generated_preview_cell(self, row, side_name: str, *, mode: str, tracks: list) -> GeneratedPreviewCell:
         slot_kinds: tuple[tuple[AppearanceKind, MediaKind], ...] = (
@@ -1811,6 +1941,35 @@ class MainWindow(_DnDCompat, ctk.CTk):
         except ValueError:
             return 0
         return max(0, hours) * 3600 + max(0, minutes) * 60 + max(0, seconds)
+
+    def _size_label_to_kb(self, value: str) -> float:
+        cleaned = value.strip().upper().replace(' ', '')
+        if not cleaned:
+            return 0.0
+        for suffix, multiplier in (('GB', 1024 * 1024), ('MB', 1024), ('KB', 1)):
+            if cleaned.endswith(suffix):
+                try:
+                    return float(cleaned[:-len(suffix)]) * multiplier
+                except ValueError:
+                    return 0.0
+        return 0.0
+
+    def _format_kb(self, total_kb: float) -> str:
+        if total_kb >= 1024 * 1024:
+            return f'{total_kb / (1024 * 1024):.1f} GB'
+        if total_kb >= 1024:
+            return f'{total_kb / 1024:.1f} MB'
+        return f'{total_kb:.1f} KB'
+
+    def _open_output_folder(self) -> None:
+        output_path = Path(self.session.project.workshop_output_folder or app_root())
+        if output_path.exists():
+            try:
+                os.startfile(str(output_path))  # type: ignore[attr-defined]
+                return
+            except OSError:
+                pass
+        messagebox.showinfo('Output Folder', str(output_path))
 
     def on_close(self) -> None:
         self.session_store.save(self.session.project, self.session.current_path)
