@@ -25,6 +25,72 @@ class RowSelectionModifiers:
     additive: bool = False
 
 
+class _CollapsedRowRemoveButton(tk.Label):
+    def __init__(self, parent: tk.Misc, *, bg_color: str, command: Callable[[], None] | None = None) -> None:
+        super().__init__(
+            parent,
+            text=spec.MEDIA_ROW_COLLAPSED_REMOVE_TEXT,
+            bg=bg_color,
+            fg=spec.MEDIA_ROW_COLLAPSED_REMOVE_TEXT_COLOR,
+            font=(spec.MEDIA_ROW_COLLAPSED_REMOVE_FONT_FAMILY, spec.MEDIA_ROW_COLLAPSED_REMOVE_FONT_SIZE),
+            bd=0,
+            highlightthickness=0,
+            cursor='hand2',
+        )
+        self._bg_color = bg_color
+        self._command = command
+        self._hovered = False
+        self._pressed = False
+        for sequence, handler in (
+            ('<Enter>', self._on_enter),
+            ('<Leave>', self._on_leave),
+            ('<ButtonPress-1>', self._on_press),
+            ('<ButtonRelease-1>', self._on_release),
+        ):
+            self.bind(sequence, handler, add='+')
+
+    def set_bg_color(self, color: str) -> None:
+        self._bg_color = color
+        self.configure(bg=color)
+
+    def _current_fg(self) -> str:
+        if self._pressed:
+            return spec.MEDIA_ROW_COLLAPSED_REMOVE_PRESSED_COLOR
+        if self._hovered:
+            return spec.MEDIA_ROW_COLLAPSED_REMOVE_HOVER_COLOR
+        return spec.MEDIA_ROW_COLLAPSED_REMOVE_TEXT_COLOR
+
+    def _redraw(self) -> None:
+        self.configure(bg=self._bg_color, fg=self._current_fg())
+
+    def _on_enter(self, _event: tk.Event | None = None) -> str:
+        self._hovered = True
+        self._redraw()
+        return 'break'
+
+    def _on_leave(self, _event: tk.Event | None = None) -> str:
+        self._hovered = False
+        self._pressed = False
+        self._redraw()
+        return 'break'
+
+    def _on_press(self, _event: tk.Event | None = None) -> str:
+        self._pressed = True
+        self._redraw()
+        return 'break'
+
+    def _on_release(self, event: tk.Event | None = None) -> str:
+        was_pressed = self._pressed
+        self._pressed = False
+        inside = False
+        if event is not None:
+            inside = 0 <= event.x <= self.winfo_width() and 0 <= event.y <= self.winfo_height()
+        self._redraw()
+        if was_pressed and inside and self._command is not None:
+            self._command()
+        return 'break'
+
+
 class MediaRowShell(tk.Frame):
     def __init__(
         self,
@@ -50,6 +116,7 @@ class MediaRowShell(tk.Frame):
         on_side_selected: Callable[[int, str], None] | None = None,
         on_preview_mode_selected: Callable[[int, str], None] | None = None,
         on_cover_selected: Callable[[int], None] | None = None,
+        on_remove_row: Callable[[int], None] | None = None,
         on_add_song: Callable[[int], None] | None = None,
         on_remove_song: Callable[[int], None] | None = None,
         selected_song_indices: set[int] | None = None,
@@ -220,6 +287,11 @@ class MediaRowShell(tk.Frame):
             x=spec.MEDIA_ROW_COLLAPSED_DETAILS_POS[0],
             y=spec.MEDIA_ROW_COLLAPSED_DETAILS_POS[1],
         )
+        self.collapsed_remove_button = _CollapsedRowRemoveButton(
+            self.collapsed_container,
+            bg_color=spec.MEDIA_ROW_BG,
+            command=(lambda: on_remove_row(row.row_id)) if on_remove_row is not None else None,
+        )
         for background_widget in (
             self.collapsed_cover,
             self.collapsed_media_type_strip,
@@ -283,6 +355,11 @@ class MediaRowShell(tk.Frame):
                 self._last_live_preview_x = live_preview_x
         else:
             self.collapsed_container.place_configure(x=0, y=0, width=inner_width, height=inner_height)
+            self.collapsed_remove_button.place_configure(
+                x=inner_width - spec.MEDIA_ROW_COLLAPSED_REMOVE_RIGHT_INSET,
+                y=inner_height / 2,
+                anchor='center',
+            )
 
     def _bind_background_interactions(self) -> None:
         for sequence, handler in (
@@ -330,6 +407,7 @@ class MediaRowShell(tk.Frame):
         self.live_preview.set_bg_color(fill_color)
         self.collapsed_chevron.set_bg_color(fill_color)
         self.collapsed_details.set_bg_color(fill_color)
+        self.collapsed_remove_button.set_bg_color(fill_color)
 
     def set_selection_state(self, *, selected: bool, selected_count: int) -> None:
         self._selected = selected
@@ -390,6 +468,11 @@ class MediaRowShell(tk.Frame):
         else:
             self.expanded_container.place_forget()
             self.collapsed_container.place(x=0, y=0, width=inner_width, height=inner_height)
+            self.collapsed_remove_button.place(
+                x=inner_width - spec.MEDIA_ROW_COLLAPSED_REMOVE_RIGHT_INSET,
+                y=inner_height / 2,
+                anchor='center',
+            )
             self.badge = self.collapsed_badge
             self.cover = self.collapsed_cover
             self.media_type_strip = self.collapsed_media_type_strip
@@ -430,6 +513,7 @@ class MediaRowList(tk.Frame):
         on_side_selected: Callable[[int, str], None] | None = None,
         on_preview_mode_selected: Callable[[int, str], None] | None = None,
         on_cover_selected: Callable[[int], None] | None = None,
+        on_remove_row: Callable[[int], None] | None = None,
         on_add_song: Callable[[int], None] | None = None,
         on_remove_song: Callable[[int], None] | None = None,
         selected_song_indices_by_key: dict[tuple[int, str], set[int]] | None = None,
@@ -474,6 +558,7 @@ class MediaRowList(tk.Frame):
         self._on_side_selected = on_side_selected
         self._on_preview_mode_selected = on_preview_mode_selected
         self._on_cover_selected = on_cover_selected
+        self._on_remove_row = on_remove_row
         self._on_add_song = on_add_song
         self._on_remove_song = on_remove_song
         self._selected_song_indices_by_key = {
@@ -545,6 +630,7 @@ class MediaRowList(tk.Frame):
                 on_side_selected=self._on_side_selected,
                 on_preview_mode_selected=self._on_preview_mode_selected,
                 on_cover_selected=self._on_cover_selected,
+                on_remove_row=self._on_remove_row,
                 on_add_song=self._on_add_song,
                 on_remove_song=self._on_remove_song,
                 selected_song_indices=self._selected_song_indices_by_key.get((row.row_id, row.selected_side), set()),

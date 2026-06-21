@@ -701,6 +701,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             on_side_selected=self._set_module_two_media_side,
             on_preview_mode_selected=self._set_module_two_preview_mode,
             on_cover_selected=self._select_module_two_media_cover,
+            on_remove_row=self._remove_module_two_media_row,
             on_add_song=self._add_module_two_songs,
             on_remove_song=self._remove_module_two_selected_songs,
             selected_song_indices_by_key=self.module_two_song_selected_indices,
@@ -1241,27 +1242,37 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.on_project_change()
 
     def _remove_module_two_media_rows(self) -> None:
+        self._remove_module_two_media_row_set(
+            set(self.module_two_selected_row_ids) if self.module_two_selected_row_ids else None
+        )
+
+    def _remove_module_two_media_row(self, row_id: int) -> None:
+        self._remove_module_two_media_row_set({row_id})
+
+    def _remove_module_two_media_row_set(self, row_ids_to_remove: set[int] | None) -> None:
         self._cancel_module_two_song_drag()
-        if self.module_two_selected_row_ids:
-            row_ids_to_remove = set(self.module_two_selected_row_ids)
+        if row_ids_to_remove:
+            target_row_ids = set(row_ids_to_remove)
         elif self.session.project.media_rows:
-            row_ids_to_remove = {self.session.project.media_rows[-1].row_id}
+            target_row_ids = {self.session.project.media_rows[-1].row_id}
         else:
             return
 
         current_view = self.module_two_content_viewport.yview()
-        self.session.remove_media_rows(row_ids_to_remove)
-        self.module_two_selected_row_ids.clear()
+        self.session.remove_media_rows(target_row_ids)
+        self.module_two_selected_row_ids = {
+            row_id for row_id in self.module_two_selected_row_ids if row_id not in target_row_ids
+        }
         self.module_two_selection_anchor_row_id = None
         self.module_two_song_selected_indices = {
             key: value
             for key, value in self.module_two_song_selected_indices.items()
-            if key[0] not in row_ids_to_remove
+            if key[0] not in target_row_ids
         }
         self.module_two_song_selection_anchor_indices = {
             key: value
             for key, value in self.module_two_song_selection_anchor_indices.items()
-            if key[0] not in row_ids_to_remove
+            if key[0] not in target_row_ids
         }
         self._build_module_two_row_list()
         self.module_two_content_viewport.yview_moveto(current_view[0])
