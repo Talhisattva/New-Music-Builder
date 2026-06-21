@@ -52,6 +52,7 @@ class MediaRowBadge(tk.Canvas):
         return spec.MEDIA_ROW_BADGE_FONT_SIZE
 
     def _draw(self) -> None:
+        self.delete('all')
         inset = self._outline_width
         self.create_rectangle(
             0,
@@ -77,6 +78,13 @@ class MediaRowBadge(tk.Canvas):
             font=(spec.MEDIA_ROW_BADGE_FONT_FAMILY, self._font_size_for_number(self._row_number)),
             anchor='c',
         )
+
+    def set_row_number(self, row_number: int) -> None:
+        if row_number == self._row_number:
+            return
+        self._row_number = row_number
+        self._draw()
+        self._apply_visual_state()
 
     def _bind_interactions(self) -> None:
         for sequence, handler in (

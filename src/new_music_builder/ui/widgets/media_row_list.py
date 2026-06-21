@@ -803,6 +803,11 @@ class MediaRowList(tk.Frame):
             row_widget._row = row
         self.refresh_row_layouts()
 
+    def refresh_badge_numbers(self) -> None:
+        for index, row_widget in enumerate(self.row_widgets, start=1):
+            row_widget.expanded_badge.set_row_number(index)
+            row_widget.collapsed_badge.set_row_number(index)
+
     def refresh_media_type_strips_for_row(self, row_id: int) -> None:
         for row_widget in self.row_widgets:
             if row_widget._row_id == row_id:
@@ -821,9 +826,11 @@ class MediaRowList(tk.Frame):
         for row, row_widget in zip(self.rows, self.row_widgets):
             row.expanded = row.row_id == row_id if row_id is not None else False
             row_widget.set_expanded(row.expanded)
+        self.refresh_badge_numbers()
         self.refresh_row_layouts()
 
     def refresh_row_layouts(self) -> None:
+        self.refresh_badge_numbers()
         if self._row_drag_active:
             self._layout_during_row_drag()
             return
