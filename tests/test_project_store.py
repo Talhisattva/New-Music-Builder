@@ -1,0 +1,124 @@
+import json
+from pathlib import Path
+
+from new_music_builder.domain.models import ProjectConfig, TrackEntry, default_media_row
+from new_music_builder.services.project_store import ProjectStore
+from new_music_builder.services.session_store import SessionStore
+
+
+def test_project_roundtrip(tmp_path: Path) -> None:
+    project = ProjectConfig(mod_name='Test Pack', mod_id='TestPack')
+    row = default_media_row(1)
+    row.media_name = 'Example Album'
+    row.tracks_a.append(TrackEntry(display_label='01 Artist - Song'))
+    row.appearances['cassette'].selected_asset_key = 'cassette:1'
+    project.media_rows = [row]
+
+    target = tmp_path / 'test.nmbproj.json'
+    store = ProjectStore()
+    store.save(project, target)
+    loaded = store.load(target)
+
+    assert loaded.mod_name == 'Test Pack'
+    assert loaded.mod_id == 'TestPack'
+    assert loaded.media_rows[0].media_name == 'Example Album'
+    assert loaded.media_rows[0].tracks_a[0].display_label == '01 Artist - Song'
+    assert loaded.media_rows[0].appearances['cassette'].selected_asset_key == 'cassette:1'
+
+
+def test_project_roundtrip_preserves_stateful_row_fields(tmp_path: Path) -> None:
+    project = ProjectConfig(mod_name='Stateful Pack', mod_id='StatefulPack', sample_rate=48000)
+    first = default_media_row(1)
+    first.media_name = 'First Album'
+    first.selected_side = 'B'
+    first.preview_mode = 'world'
+    first.enabled_media['cd'] = False
+    first.expanded = False
+    first.tracks_b.append(
+        TrackEntry(
+            source_path='C:/music/track.wav',
+            cached_ogg_path='C:/cache/track.ogg',
+            display_label='Track One',
+            duration='00:03:21',
+            conversion_status='cached_ogg',
+        )
+    )
+    first.song_sort_b.column = 'length'
+    first.song_sort_b.direction = 'desc'
+    first.appearances['cassette'].source = 'custom'
+    first.appearances['cassette'].selected_asset_key = 'custom:cassette:1'
+    first.appearances['cassette'].inventory_full = 'C:/art/inventory.png'
+    first.appearances['cassette'].world_full = 'C:/art/world.png'
+    project.custom_assets = {
+        'cassette': [
+            {
+                'key': 'custom:cassette:1',
+                'label': 'Custom Tape',
+                'inventory_full': 'C:/art/inventory.png',
+                'world_full': 'C:/art/world.png',
+                'sprite_mode': 'single',
+            }
+        ]
+    }
+    second = default_media_row(2)
+    second.media_name = 'Second Album'
+    second.expanded = True
+    project.media_rows = [first, second]
+
+    target = tmp_path / 'stateful.nmbproj.json'
+    store = ProjectStore()
+    store.save(project, target)
+    loaded = store.load(target)
+
+    assert loaded.sample_rate == 48000
+    assert [row.media_name for row in loaded.media_rows] == ['First Album', 'Second Album']
+    assert loaded.media_rows[0].selected_side == 'B'
+    assert loaded.media_rows[0].preview_mode == 'world'
+    assert loaded.media_rows[0].enabled_media['cd'] is False
+    assert loaded.media_rows[0].tracks_b[0].cached_ogg_path == 'C:/cache/track.ogg'
+    assert loaded.media_rows[0].song_sort_b.column == 'length'
+    assert loaded.media_rows[0].song_sort_b.direction == 'desc'
+    assert loaded.media_rows[0].appearances['cassette'].selected_asset_key == 'custom:cassette:1'
+    assert loaded.custom_assets['cassette'][0]['label'] == 'Custom Tape'
+    assert loaded.media_rows[1].expanded is True
+
+
+def test_project_load_coerces_invalid_sample_rate_and_custom_assets(tmp_path: Path) -> None:
+    payload = {
+        'schema_version': 1,
+        'mod_name': 'Coerce Me',
+        'mod_id': 'CoerceMe',
+        'sample_rate': 'bad-value',
+        'custom_assets': {
+            'cassette': [
+                {
+                    'inventory_full': 'C:/custom/tape_inventory.png',
+                    'world_full': 'C:/custom/tape_world.png',
+                    'sprite_mode': 'weird',
+                }
+            ],
+            'unknown': [{'key': 'ignored'}],
+        },
+        'media_rows': [],
+    }
+    target = tmp_path / 'coerce.nmbproj.json'
+    target.write_text(json.dumps(payload), encoding='utf-8')
+
+    loaded = ProjectStore().load(target)
+
+    assert loaded.sample_rate == 44100
+    assert 'unknown' not in loaded.custom_assets
+    assert loaded.custom_assets['cassette'][0]['key'] == 'custom:cassette:1'
+    assert loaded.custom_assets['cassette'][0]['label'] == 'tape_inventory'
+    assert loaded.custom_assets['cassette'][0]['sprite_mode'] == 'single'
+
+
+def test_session_store_load_returns_default_project_for_invalid_payload(tmp_path: Path) -> None:
+    target = tmp_path / 'last_session.json'
+    target.write_text('{"project":[]}', encoding='utf-8')
+
+    project, current_path = SessionStore(target).load()
+
+    assert current_path == ''
+    assert project.sample_rate == 44100
+    assert len(project.media_rows) == 1

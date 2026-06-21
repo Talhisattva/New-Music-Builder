@@ -28,6 +28,8 @@ AudioRunEventKind = Literal[
     "run_completed",
 ]
 
+_APPEARANCE_KINDS: tuple[AppearanceKind, ...] = ("cassette", "vinyl", "cd", "case", "jacket", "cd_cover")
+
 
 @dataclass(slots=True)
 class TrackEntry:
@@ -98,6 +100,8 @@ class ProjectConfig:
     custom_assets: dict[str, list[dict[str, str]]] = field(default_factory=dict)
 
     def ensure_defaults(self) -> None:
+        self.sample_rate = _coerce_int(self.sample_rate, 44100, minimum=1)
+        self.custom_assets = _coerce_custom_assets(self.custom_assets)
         if not self.media_rows:
             self.media_rows = [default_media_row(1)]
         for row in self.media_rows:
@@ -482,11 +486,48 @@ def _coerce_song_sort(data: dict[str, Any] | None) -> SongSortState:
     )
 
 
+def _coerce_int(value: Any, default: int, *, minimum: int | None = None) -> int:
+    try:
+        resolved = int(value)
+    except (TypeError, ValueError):
+        return default
+    if minimum is not None and resolved < minimum:
+        return default
+    return resolved
+
+
+def _coerce_custom_assets(data: Any) -> dict[str, list[dict[str, str]]]:
+    raw_assets = data if isinstance(data, dict) else {}
+    normalized: dict[str, list[dict[str, str]]] = {}
+    for kind in _APPEARANCE_KINDS:
+        entries = raw_assets.get(kind, [])
+        if not isinstance(entries, list):
+            continue
+        normalized_entries: list[dict[str, str]] = []
+        for index, entry in enumerate(entries, start=1):
+            if not isinstance(entry, dict):
+                continue
+            inventory_full = str(entry.get("inventory_full", ""))
+            asset = {
+                "key": str(entry.get("key", "")).strip() or f"custom:{kind}:{index}",
+                "label": str(entry.get("label", "")).strip() or Path(inventory_full).stem or f"Custom {index}",
+                "inventory_full": inventory_full,
+                "world_full": str(entry.get("world_full", "")),
+                "inventory_empty": str(entry.get("inventory_empty", "")),
+                "world_empty": str(entry.get("world_empty", "")),
+                "sprite_mode": str(entry.get("sprite_mode", "single")) if str(entry.get("sprite_mode", "single")) in {"single", "dual"} else "single",
+            }
+            normalized_entries.append(asset)
+        if normalized_entries:
+            normalized[kind] = normalized_entries
+    return normalized
+
+
 def project_from_dict(data: dict[str, Any]) -> ProjectConfig:
     rows: list[MediaRow] = []
     for raw_row in data.get("media_rows", []):
         row = MediaRow(
-            row_id=int(raw_row.get("row_id", len(rows) + 1)),
+            row_id=_coerce_int(raw_row.get("row_id", len(rows) + 1), len(rows) + 1, minimum=1),
             media_name=str(raw_row.get("media_name", f"Media Row {len(rows) + 1}")),
             selected_side=str(raw_row.get("selected_side", "A")) if str(raw_row.get("selected_side", "A")) in {"A", "B"} else "A",
             preview_mode=(
@@ -513,7 +554,7 @@ def project_from_dict(data: dict[str, Any]) -> ProjectConfig:
         rows.append(row)
 
     project = ProjectConfig(
-        schema_version=int(data.get("schema_version", 1)),
+        schema_version=_coerce_int(data.get("schema_version", 1), 1, minimum=1),
         mod_name=str(data.get("mod_name", "")),
         mod_id=str(data.get("mod_id", "")),
         parent_mod_id=str(data.get("parent_mod_id", "NewMusic")),
@@ -522,9 +563,9 @@ def project_from_dict(data: dict[str, Any]) -> ProjectConfig:
         write_mod_name_on_poster=bool(data.get("write_mod_name_on_poster", False)),
         ogg_output_folder=str(data.get("ogg_output_folder", "")),
         workshop_output_folder=str(data.get("workshop_output_folder", "")),
-        sample_rate=int(data.get("sample_rate", 44100)),
+        sample_rate=_coerce_int(data.get("sample_rate", 44100), 44100, minimum=1),
         media_rows=rows,
-        custom_assets=dict(data.get("custom_assets", {})),
+        custom_assets=_coerce_custom_assets(data.get("custom_assets", {})),
     )
     project.ensure_defaults()
     return project

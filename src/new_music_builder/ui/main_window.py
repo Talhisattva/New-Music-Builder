@@ -129,6 +129,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.author_var = tk.StringVar(value=self.session.project.author)
         self.ogg_output_folder_var = tk.StringVar(value=self.session.project.ogg_output_folder)
         self.workshop_output_folder_var = tk.StringVar(value=self.session.project.workshop_output_folder)
+        self._phase_one_sync_after_id: str | None = None
+        self._phase_one_sync_suspended = False
         self._window_icon_image = None
         self._last_export_output_path: str = ""
         self._build_event_queue: queue.Queue[object] | None = None
@@ -160,6 +162,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._build_header()
         self._build_menu_strip()
         self._build_layout()
+        self._register_phase_one_field_traces()
         self._sync_phase_one_ui_from_project()
         self.content_frame.bind('<Configure>', self._on_content_frame_configure, add='+')
         self.bind('<Delete>', self._on_delete_selected_songs, add='+')
@@ -700,6 +703,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             icon_path=self._check_icon_path(),
             bg_color=spec.MODULE_MIDGROUND_BG,
             checked=bool(self.session.project.write_mod_name_on_poster),
+            command=lambda _checked: self._schedule_phase_one_project_sync(),
         )
         self.poster_name_checkbox.place(x=checkbox_x, y=checkbox_y)
 
@@ -1799,6 +1803,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.appearance.set_active_row(row_id)
 
     def on_project_change(self) -> None:
+        self._commit_phase_one_project_state()
         if hasattr(self, 'module_two_row_list'):
             self.module_two_row_list.refresh_collapsed_details()
         if hasattr(self, 'build_summary'):
@@ -1887,6 +1892,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
     def save_project(self) -> None:
         if self._is_build_locked():
             return
+        self._commit_phase_one_project_state()
         if self.session.current_path:
             self.project_store.save(self.session.project, Path(self.session.current_path))
             self.recent_store.push(Path(self.session.current_path))
@@ -1913,7 +1919,13 @@ class MainWindow(_DnDCompat, ctk.CTk):
     def _load_path(self, path: Path) -> None:
         self._cancel_module_two_song_drag()
         self._cancel_module_two_row_drag()
-        self.session.project = self.project_store.load(path)
+        try:
+            project = self.project_store.load(path)
+        except Exception as exc:
+            LOGGER.exception("Failed to load project from %s: %s", path, exc)
+            messagebox.showerror('Load Project Failed', f'Could not load project.\n\n{path}\n\n{exc}')
+            return
+        self.session.project = project
         self.session.current_path = str(path)
         self._sync_phase_one_ui_from_project()
         self.recent_store.push(path)
@@ -1932,6 +1944,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._build_module_two_row_list()
         self._refresh_module_three_appearance_selector()
         self.refresh_all()
+        self.session_store.save(self.session.project, self.session.current_path)
 
     def run_build_preview(self) -> None:
         overall_started = time.perf_counter()
@@ -2613,23 +2626,59 @@ class MainWindow(_DnDCompat, ctk.CTk):
         if hasattr(self, 'poster_name_checkbox'):
             self.session.project.write_mod_name_on_poster = self.poster_name_checkbox.is_checked()
 
+    def _register_phase_one_field_traces(self) -> None:
+        for var in (
+            self.mod_name_var,
+            self.mod_id_var,
+            self.parent_mod_id_var,
+            self.author_var,
+            self.ogg_output_folder_var,
+            self.workshop_output_folder_var,
+        ):
+            var.trace_add('write', self._schedule_phase_one_project_sync)
+
+    def _schedule_phase_one_project_sync(self, *_args) -> None:
+        if self._phase_one_sync_suspended:
+            return
+        if self._phase_one_sync_after_id is not None:
+            self.after_cancel(self._phase_one_sync_after_id)
+        self._phase_one_sync_after_id = self.after(200, self._flush_phase_one_project_sync)
+
+    def _flush_phase_one_project_sync(self) -> None:
+        self._phase_one_sync_after_id = None
+        self._commit_phase_one_project_state()
+        self.session_store.save(self.session.project, self.session.current_path)
+        if hasattr(self, 'build_summary'):
+            self.build_summary.refresh()
+
+    def _commit_phase_one_project_state(self) -> None:
+        if self._phase_one_sync_after_id is not None:
+            self.after_cancel(self._phase_one_sync_after_id)
+            self._phase_one_sync_after_id = None
+        self._sync_phase_one_project_state()
+
     def _sync_phase_one_ui_from_project(self) -> None:
-        if not self.session.project.workshop_output_folder:
-            detected = detect_workshop_dir()
-            if detected is not None:
-                self.session.project.workshop_output_folder = str(detected)
-        self.mod_name_var.set(self.session.project.mod_name)
-        self.mod_id_var.set(self.session.project.mod_id)
-        self.parent_mod_id_var.set(self.session.project.parent_mod_id)
-        self.author_var.set(self.session.project.author)
-        self.ogg_output_folder_var.set(self.session.project.ogg_output_folder)
-        self.workshop_output_folder_var.set(self.session.project.workshop_output_folder)
-        if hasattr(self, 'poster_name_checkbox'):
-            self.poster_name_checkbox.set_checked(bool(self.session.project.write_mod_name_on_poster))
+        self._phase_one_sync_suspended = True
+        try:
+            if not self.session.project.workshop_output_folder:
+                detected = detect_workshop_dir()
+                if detected is not None:
+                    self.session.project.workshop_output_folder = str(detected)
+            self.mod_name_var.set(self.session.project.mod_name)
+            self.mod_id_var.set(self.session.project.mod_id)
+            self.parent_mod_id_var.set(self.session.project.parent_mod_id)
+            self.author_var.set(self.session.project.author)
+            self.ogg_output_folder_var.set(self.session.project.ogg_output_folder)
+            self.workshop_output_folder_var.set(self.session.project.workshop_output_folder)
+            if hasattr(self, 'poster_name_checkbox'):
+                self.poster_name_checkbox.set_checked(bool(self.session.project.write_mod_name_on_poster))
+        finally:
+            self._phase_one_sync_suspended = False
 
     def on_close(self) -> None:
         if self._is_build_locked():
             return
+        self._commit_phase_one_project_state()
         self.session_store.save(self.session.project, self.session.current_path)
         self.destroy()
 
