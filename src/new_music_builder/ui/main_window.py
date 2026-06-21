@@ -1478,7 +1478,9 @@ class MainWindow(_DnDCompat, ctk.CTk):
             return
         self.module_two_selected_row_ids = set(moved_row_ids)
         self.module_two_selection_anchor_row_id = moved_row_ids[0] if moved_row_ids else None
-        self._build_module_two_row_list()
+        self.module_two_row_list.reorder_rows(self.session.project.media_rows)
+        self.module_two_row_list.set_selection_state(self.module_two_selected_row_ids)
+        self.module_two_scroll_area.refresh_scroll_region()
         self.module_two_content_viewport.yview_moveto(current_view[0])
         self._refresh_module_three_appearance_selector()
         self.on_project_change()

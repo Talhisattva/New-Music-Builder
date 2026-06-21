@@ -795,6 +795,14 @@ class MediaRowList(tk.Frame):
                 selected_count=self._selected_count,
             )
 
+    def reorder_rows(self, rows: list[MediaRow]) -> None:
+        self.rows = list(rows)
+        widget_by_id = {widget._row_id: widget for widget in self.row_widgets}
+        self.row_widgets = [widget_by_id[row.row_id] for row in self.rows if row.row_id in widget_by_id]
+        for row, row_widget in zip(self.rows, self.row_widgets):
+            row_widget._row = row
+        self.refresh_row_layouts()
+
     def refresh_media_type_strips_for_row(self, row_id: int) -> None:
         for row_widget in self.row_widgets:
             if row_widget._row_id == row_id:
