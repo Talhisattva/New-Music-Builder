@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-import re
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
@@ -15,8 +14,7 @@ from new_music_builder.domain.models import (
     ScaffoldResult,
 )
 from new_music_builder.services.asset_catalog import AssetEntry
-
-_INVALID_FS_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1F]')
+from new_music_builder.services.export_naming import sanitize_filesystem_component
 
 
 def validate_export_request(project: ProjectConfig, plan: ExportPlan) -> list[str]:
@@ -55,6 +53,8 @@ def resolve_export_target(plan: ExportPlan, workshop_root: str | Path, *, mod_na
     mod_base = mods_root / inner_folder_name
     common = mod_base / "common"
     v42 = mod_base / "42"
+    audio_root = common / "media" / "sound"
+    audio_pack_root = audio_root / inner_folder_name
     return ExportTargetPaths(
         workshop_root=str(workshop_path),
         outer_folder_name=outer_folder_name,
@@ -65,6 +65,8 @@ def resolve_export_target(plan: ExportPlan, workshop_root: str | Path, *, mod_na
         mod_base=str(mod_base),
         common=str(common),
         v42=str(v42),
+        audio_root=str(audio_root),
+        audio_pack_root=str(audio_pack_root),
     )
 
 
@@ -92,13 +94,6 @@ def write_export_scaffold(
         result.log_lines = _error_log_lines(root, result.errors)
 
     return result
-
-
-def sanitize_filesystem_component(value: str, *, fallback: str) -> str:
-    cleaned = _INVALID_FS_CHARS.sub("_", (value or "").strip())
-    cleaned = cleaned.rstrip(" .")
-    cleaned = re.sub(r"\s+", " ", cleaned)
-    return cleaned or fallback
 
 
 def _ensure_layout(root: Path, common: Path, v42: Path) -> None:

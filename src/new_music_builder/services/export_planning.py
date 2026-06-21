@@ -23,6 +23,12 @@ from new_music_builder.domain.models import (
     TrackEntry,
 )
 from new_music_builder.services.asset_catalog import AssetEntry
+from new_music_builder.services.export_naming import (
+    build_audio_row_folder_name,
+    build_audio_side_folder_name,
+    build_audio_track_file_name,
+    build_audio_track_relative_path,
+)
 
 _SLOT_KINDS: tuple[tuple[AppearanceKind, MediaKind], ...] = (
     ("cassette", "cassette"),
@@ -41,16 +47,29 @@ def build_export_plan(project: ProjectConfig, asset_catalog: dict[str, list[Asse
     for row in project.media_rows:
         row.ensure_appearances()
         sides: list[PlannedSide] = []
+        row_folder_name = build_audio_row_folder_name(row.media_name, row.row_id)
         for side_name, tracks in (("A", row.tracks_a), ("B", row.tracks_b)):
             if not tracks:
                 continue
+            side_folder_name = build_audio_side_folder_name(side_name)
             sides.append(
                 PlannedSide(
                     row_id=row.row_id,
                     side=side_name,
                     media_name=row.media_name,
                     cover_path=row.cover_path,
-                    tracks=[_build_planned_track(track) for track in tracks],
+                    export_folder_name=side_folder_name,
+                    export_relative_dir=str(Path(row_folder_name) / side_folder_name),
+                    tracks=[
+                        _build_planned_track(
+                            row_id=row.row_id,
+                            media_name=row.media_name,
+                            side_name=side_name,
+                            track=track,
+                            track_number=index,
+                        )
+                        for index, track in enumerate(tracks, start=1)
+                    ],
                 )
             )
 
@@ -92,15 +111,31 @@ def build_preview_scenario(plan: ExportPlan, output_path: str) -> BuildPreviewSc
     )
 
 
-def _build_planned_track(track: TrackEntry) -> PlannedTrack:
+def _build_planned_track(
+    *,
+    row_id: int,
+    media_name: str,
+    side_name: str,
+    track: TrackEntry,
+    track_number: int,
+) -> PlannedTrack:
     source_path = str(track.source_path or "")
     display_label = track.display_label or Path(source_path).stem or "Track"
     return PlannedTrack(
+        track_number=track_number,
         source_path=source_path,
         display_label=display_label,
         duration_text=str(track.duration or ""),
         duration_seconds=_seconds_from_duration_text(str(track.duration or "")),
         needs_conversion=Path(source_path).suffix.lower() != ".ogg",
+        export_file_name=build_audio_track_file_name(display_label, track_number),
+        export_relative_path=build_audio_track_relative_path(
+            media_name=media_name,
+            row_id=row_id,
+            side=side_name,
+            display_label=display_label,
+            track_number=track_number,
+        ),
     )
 
 

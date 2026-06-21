@@ -210,11 +210,14 @@ class ResolvedAppearanceSet:
 
 @dataclass(slots=True)
 class PlannedTrack:
+    track_number: int
     source_path: str
     display_label: str
     duration_text: str
     duration_seconds: int
     needs_conversion: bool
+    export_file_name: str
+    export_relative_path: str
 
 
 @dataclass(slots=True)
@@ -223,6 +226,8 @@ class PlannedSide:
     side: Literal["A", "B"]
     media_name: str
     cover_path: str
+    export_folder_name: str = ""
+    export_relative_dir: str = ""
     tracks: list[PlannedTrack] = field(default_factory=list)
 
     @property
@@ -274,6 +279,8 @@ class ExportTargetPaths:
     mod_base: str
     common: str
     v42: str
+    audio_root: str
+    audio_pack_root: str
 
 
 @dataclass(slots=True)
