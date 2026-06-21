@@ -23,18 +23,33 @@ def logs_root() -> Path:
 
 
 def detect_workshop_dir() -> Path | None:
-    home = Path.home()
-    candidates = [
-        home / 'Zomboid',
-        home / 'Documents' / 'Zomboid',
-        home / 'OneDrive' / 'Documents' / 'Zomboid',
-        home / 'Saved Games' / 'Zomboid',
-    ]
-    for candidate in candidates:
+    for candidate in _zomboid_root_candidates():
         workshop = candidate / 'Workshop'
         if workshop.exists() and workshop.is_dir():
             return workshop
     return None
+
+
+def _zomboid_root_candidates() -> list[Path]:
+    home = Path.home()
+    raw_candidates = [
+        home / 'Zomboid',
+        home / 'Documents' / 'Zomboid',
+        home / 'OneDrive' / 'Documents' / 'Zomboid',
+        home / 'OneDrive' / 'Zomboid',
+        home / 'Saved Games' / 'Zomboid',
+        home / 'My Documents' / 'Zomboid',
+    ]
+
+    candidates: list[Path] = []
+    seen: set[str] = set()
+    for candidate in raw_candidates:
+        normalized = str(candidate.resolve(strict=False))
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        candidates.append(candidate)
+    return candidates
 
 
 def open_folder(path: str | Path) -> None:

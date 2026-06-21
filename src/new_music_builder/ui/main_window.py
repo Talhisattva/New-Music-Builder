@@ -135,6 +135,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._build_header()
         self._build_menu_strip()
         self._build_layout()
+        self._sync_phase_one_ui_from_project()
         self.content_frame.bind('<Configure>', self._on_content_frame_configure, add='+')
         self.bind('<Delete>', self._on_delete_selected_songs, add='+')
         self.refresh_all()
