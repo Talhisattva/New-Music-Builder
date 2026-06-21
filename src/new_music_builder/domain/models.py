@@ -263,6 +263,27 @@ class ExportPlan:
     stats: BuildSummaryStats = field(default_factory=BuildSummaryStats)
 
 
+@dataclass(slots=True)
+class ExportTargetPaths:
+    workshop_root: str
+    outer_folder_name: str
+    inner_folder_name: str
+    root: str
+    contents: str
+    mods_root: str
+    mod_base: str
+    common: str
+    v42: str
+
+
+@dataclass(slots=True)
+class ScaffoldResult:
+    output_path: str = ""
+    mod_size_text: str = "0 KB"
+    errors: list[str] = field(default_factory=list)
+    log_lines: list[ExportLogLine] = field(default_factory=list)
+
+
 def default_media_row(row_id: int) -> MediaRow:
     row = MediaRow(row_id=row_id, media_name=f"Media Mix {row_id}", expanded=(row_id == 1))
     row.ensure_appearances()

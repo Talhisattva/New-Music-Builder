@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-import os
 import sys
 import time
 import tkinter as tk
@@ -19,13 +18,22 @@ from new_music_builder.domain.models import (
     ExportLogLine,
     GeneratedPreviewRow,
     MediaKind,
+    ScaffoldResult,
     SongSortColumn,
     default_media_row,
 )
 from new_music_builder.platform.paths import app_root
+from new_music_builder.platform.paths import open_folder
 from new_music_builder.services.asset_catalog import AssetCatalog
 from new_music_builder.services.audio_workspace import AudioWorkspaceService
 from new_music_builder.services.export_planning import build_export_plan, build_preview_scenario
+from new_music_builder.services.export_scaffold import (
+    build_scaffold_stats,
+    build_validation_log_lines,
+    resolve_export_target,
+    validate_export_request,
+    write_export_scaffold,
+)
 from new_music_builder.services.index_selection import apply_index_selection
 from new_music_builder.services.project_session import ProjectSession
 from new_music_builder.services.project_store import ProjectStore
@@ -108,6 +116,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.ogg_output_folder_var = tk.StringVar(value=self.session.project.ogg_output_folder)
         self.workshop_output_folder_var = tk.StringVar(value=self.session.project.workshop_output_folder)
         self._window_icon_image = None
+        self._last_export_output_path: str = ""
 
         self.asset_catalog_service = AssetCatalog(app_root() / 'assets')
         self.asset_catalog = self.asset_catalog_service.scan()
@@ -567,6 +576,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self.module_one_midground,
             icon_path=self._check_icon_path(),
             bg_color=spec.MODULE_MIDGROUND_BG,
+            checked=bool(self.session.project.write_mod_name_on_poster),
         )
         self.poster_name_checkbox.place(x=checkbox_x, y=checkbox_y)
 
@@ -1540,11 +1550,13 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._cancel_module_two_song_drag()
         self.session.reset()
         self._restore_unsaved_phase_two_default()
+        self._sync_phase_one_ui_from_project()
         self.module_three_staged_custom_images.clear()
         self.module_two_selected_row_ids.clear()
         self.module_two_selection_anchor_row_id = None
         self.module_two_song_selected_indices.clear()
         self.module_two_song_selection_anchor_indices.clear()
+        self._last_export_output_path = ''
         self.build_log = []
         self.preview_entries = []
         if hasattr(self, 'module_four_panel'):
@@ -1583,33 +1595,58 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._cancel_module_two_song_drag()
         self.session.project = self.project_store.load(path)
         self.session.current_path = str(path)
+        self._sync_phase_one_ui_from_project()
         self.recent_store.push(path)
         self.module_three_staged_custom_images.clear()
         self.module_two_selected_row_ids.clear()
         self.module_two_selection_anchor_row_id = None
         self.module_two_song_selected_indices.clear()
         self.module_two_song_selection_anchor_indices.clear()
+        self._last_export_output_path = ''
         if hasattr(self, 'module_four_panel'):
             self.module_four_panel.reset_current_run()
         self.refresh_all()
 
     def run_build_preview(self) -> None:
+        self._sync_phase_one_project_state()
+        plan = build_export_plan(self.session.project, self.asset_catalog)
+        validation_errors = validate_export_request(self.session.project, plan)
         if hasattr(self, 'module_four_panel'):
             self.module_four_panel.archive_current_run()
             self.module_four_panel.reset_current_run()
             if hasattr(self, 'module_five_panel'):
                 self.module_five_panel.reset_preview_rows()
-            output_path = self.session.project.workshop_output_folder or str(app_root())
-            scenario = self._build_preview_scenario(output_path)
+            output_path = ''
+            if not validation_errors:
+                targets = resolve_export_target(
+                    plan,
+                    self.session.project.workshop_output_folder,
+                    mod_name=self.session.project.mod_name,
+                    mod_id=self.session.project.mod_id,
+                )
+                output_path = targets.root
+            scenario = build_preview_scenario(plan, output_path)
             if scenario.queue_groups:
                 self.module_four_panel.set_queue_groups(scenario.queue_groups)
             if hasattr(self, 'module_five_panel') and scenario.preview_rows:
                 self.module_five_panel.set_preview_rows(scenario.preview_rows)
-            self.module_four_panel.set_output_path(output_path)
-            self.module_four_panel.set_log_lines(scenario.log_lines)
+            if validation_errors:
+                stats = build_scaffold_stats(
+                    plan,
+                    ScaffoldResult(mod_size_text='0 KB', errors=validation_errors),
+                )
+                log_lines = build_validation_log_lines(validation_errors)
+                self._last_export_output_path = ''
+            else:
+                scaffold_result = write_export_scaffold(self.session.project, plan, targets, self.asset_catalog)
+                stats = build_scaffold_stats(plan, scaffold_result)
+                log_lines = scaffold_result.log_lines
+                self._last_export_output_path = scaffold_result.output_path if not scaffold_result.errors else ''
+            self.module_four_panel.set_output_path(self._last_export_output_path or output_path)
+            self.module_four_panel.set_log_lines(log_lines)
             if hasattr(self, 'module_six_panel'):
-                self.module_six_panel.set_stats(scenario.stats)
-            self.build_log = [self._module_four_log_line_text(line) for line in scenario.log_lines]
+                self.module_six_panel.set_stats(stats)
+            self.build_log = [self._module_four_log_line_text(line) for line in log_lines]
             self.preview_entries = [group.display_label.replace('\n', ' ') for group in scenario.queue_groups]
         else:
             self.build_log = [f"[{datetime.now().strftime('%H:%M:%S')}] Build started - {len(self.session.project.media_rows) * 2} sides queued."]
@@ -1618,6 +1655,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self.build_summary.refresh()
 
     def reset_transient_state(self) -> None:
+        self._last_export_output_path = ''
         self.build_log = []
         self.preview_entries = []
         if hasattr(self, 'module_four_panel'):
@@ -1651,14 +1689,32 @@ class MainWindow(_DnDCompat, ctk.CTk):
         return build_preview_scenario(plan, output_path)
 
     def _open_output_folder(self) -> None:
-        output_path = Path(self.session.project.workshop_output_folder or app_root())
+        preferred = self._last_export_output_path or self.session.project.workshop_output_folder or str(app_root())
+        output_path = Path(preferred)
         if output_path.exists():
-            try:
-                os.startfile(str(output_path))  # type: ignore[attr-defined]
-                return
-            except OSError:
-                pass
+            open_folder(output_path)
+            return
         messagebox.showinfo('Output Folder', str(output_path))
+
+    def _sync_phase_one_project_state(self) -> None:
+        self.session.project.mod_name = self.mod_name_var.get().strip()
+        self.session.project.mod_id = self.mod_id_var.get().strip()
+        self.session.project.parent_mod_id = self.parent_mod_id_var.get().strip()
+        self.session.project.author = self.author_var.get().strip()
+        self.session.project.ogg_output_folder = self.ogg_output_folder_var.get().strip()
+        self.session.project.workshop_output_folder = self.workshop_output_folder_var.get().strip()
+        if hasattr(self, 'poster_name_checkbox'):
+            self.session.project.write_mod_name_on_poster = self.poster_name_checkbox.is_checked()
+
+    def _sync_phase_one_ui_from_project(self) -> None:
+        self.mod_name_var.set(self.session.project.mod_name)
+        self.mod_id_var.set(self.session.project.mod_id)
+        self.parent_mod_id_var.set(self.session.project.parent_mod_id)
+        self.author_var.set(self.session.project.author)
+        self.ogg_output_folder_var.set(self.session.project.ogg_output_folder)
+        self.workshop_output_folder_var.set(self.session.project.workshop_output_folder)
+        if hasattr(self, 'poster_name_checkbox'):
+            self.poster_name_checkbox.set_checked(bool(self.session.project.write_mod_name_on_poster))
 
     def on_close(self) -> None:
         self.session_store.save(self.session.project, self.session.current_path)
