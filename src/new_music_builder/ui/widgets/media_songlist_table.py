@@ -271,7 +271,6 @@ class MediaSonglistTable(tk.Canvas):
             self._draw_grab_icon(row_center_y)
             self._draw_ogg_status(track, row_center_y)
             self._draw_song_name(track, row_center_y)
-            self._draw_preview_icon(row_center_y)
             self._draw_duration(track, row_center_y)
             self._draw_remove_marker(row_center_y)
 
@@ -281,9 +280,7 @@ class MediaSonglistTable(tk.Canvas):
         for index, column_width in enumerate(self._column_widths):
             center_x = current_x + (column_width / 2)
             center_y = self._header_height / 2
-            if index == 3:
-                self._draw_ear_icon(center_x, center_y)
-            elif labels[index]:
+            if labels[index]:
                 anchor = 'c'
                 text_x = center_x
                 if index in self._sortable_header_columns():
@@ -312,7 +309,6 @@ class MediaSonglistTable(tk.Canvas):
             self._draw_grab_icon(row_center_y)
             self._draw_ogg_status(track, row_center_y)
             self._draw_song_name(track, row_center_y)
-            self._draw_preview_icon(row_center_y)
             self._draw_duration(track, row_center_y)
             self._draw_remove_marker(row_center_y)
 
@@ -360,15 +356,10 @@ class MediaSonglistTable(tk.Canvas):
     def _draw_duration(self, track: TrackEntry, row_center_y: float) -> None:
         if not track.duration:
             return
-        self.create_text(self._column_center_x(4), row_center_y, text=track.duration, fill=spec.MEDIA_ROW_SONGLIST_TABLE_ROW_TEXT_COLOR, font=self._row_font, anchor='c')
-
-    def _draw_preview_icon(self, row_center_y: float) -> None:
-        if self._preview_audio_icon_image is None:
-            return
-        self.create_image(self._column_center_x(3), row_center_y, image=self._preview_audio_icon_image, anchor='c')
+        self.create_text(self._column_center_x(3), row_center_y, text=track.duration, fill=spec.MEDIA_ROW_SONGLIST_TABLE_ROW_TEXT_COLOR, font=self._row_font, anchor='c')
 
     def _draw_remove_marker(self, row_center_y: float) -> None:
-        self.create_text(self._column_center_x(5), row_center_y, text='X', fill=spec.MEDIA_ROW_SONGLIST_TABLE_ROW_TEXT_COLOR, font=self._remove_font, anchor='c')
+        self.create_text(self._column_center_x(4), row_center_y, text='X', fill=spec.MEDIA_ROW_SONGLIST_TABLE_ROW_TEXT_COLOR, font=self._remove_font, anchor='c')
 
     def _bind_interactions(self) -> None:
         self.bind('<Motion>', self._on_motion, add='+')
@@ -468,7 +459,7 @@ class MediaSonglistTable(tk.Canvas):
             return 'break'
         if row_index is None or row_index >= len(self._tracks):
             return 'break'
-        if column_index == 5 and self._on_track_remove_requested is not None:
+        if column_index == 4 and self._on_track_remove_requested is not None:
             self._on_track_remove_requested(row_index)
             return 'break'
         if self._on_track_selected is not None:
@@ -555,7 +546,7 @@ class MediaSonglistTable(tk.Canvas):
         return TrackSelectionModifiers(shift=bool(state & 0x0001), additive=bool(state & 0x0004))
 
     def _sortable_header_columns(self) -> tuple[int, ...]:
-        return (1, 2, 4)
+        return (1, 2, 3)
 
     def _header_sort_column_at(self, x: int) -> SongSortColumn | None:
         column_index = self._column_index_at(x)
@@ -563,7 +554,7 @@ class MediaSonglistTable(tk.Canvas):
             return 'ogg'
         if column_index == 2:
             return 'song_name'
-        if column_index == 4:
+        if column_index == 3:
             return 'length'
         return None
 
