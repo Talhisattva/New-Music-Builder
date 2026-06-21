@@ -36,6 +36,7 @@ class ImageCheckbox(tk.Canvas):
         self._image = load_tk_photoimage(icon_path, size)
         self._checked = checked
         self._command = command
+        self._enabled = True
         self._check_image_id: int | None = None
 
         self._draw()
@@ -76,13 +77,28 @@ class ImageCheckbox(tk.Canvas):
         return self._checked
 
     def toggle(self) -> None:
+        if not self._enabled:
+            return
         self.set_checked(not self._checked)
         if self._command is not None:
             self._command(self._checked)
 
     def _on_click(self, _event: tk.Event | None = None) -> str:
+        if not self._enabled:
+            return 'break'
         self.toggle()
         return 'break'
+
+    def set_enabled(self, enabled: bool) -> None:
+        self._enabled = enabled
+        fill = self._bg_color if enabled else '#4a474c'
+        outline = self._outline_color if enabled else '#706b73'
+        self.delete('all')
+        self._outline_color = outline
+        original_bg = self._bg_color
+        self._bg_color = fill
+        self._draw()
+        self._bg_color = original_bg if enabled else fill
 
 
 class LabeledCheckbox(tk.Frame):
@@ -124,6 +140,8 @@ class LabeledCheckbox(tk.Frame):
         widget.bind('<Button-1>', self._toggle, add='+')
 
     def _toggle(self, _event: tk.Event | None = None) -> str:
+        if not self.checkbox._enabled:
+            return 'break'
         self.checkbox.toggle()
         return 'break'
 
@@ -132,3 +150,8 @@ class LabeledCheckbox(tk.Frame):
 
     def is_checked(self) -> bool:
         return self.checkbox.is_checked()
+
+    def set_enabled(self, enabled: bool) -> None:
+        self.checkbox.set_enabled(enabled)
+        text_color = spec.POSTER_NAME_LABEL_COLOR if enabled else '#8f8a92'
+        self.text_label.configure(fg=text_color)

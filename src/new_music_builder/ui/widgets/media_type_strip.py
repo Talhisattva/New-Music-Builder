@@ -103,6 +103,10 @@ class MediaTypeStrip(tk.Frame):
         for label in self.icon_labels.values():
             label.configure(bg=bg_color)
 
+    def set_enabled(self, enabled: bool) -> None:
+        for checkbox in self.checkboxes.values():
+            checkbox.set_enabled(enabled)
+
     def refresh_content(self) -> None:
         mode = self._preview_mode()
         for kind, label in self.icon_labels.items():

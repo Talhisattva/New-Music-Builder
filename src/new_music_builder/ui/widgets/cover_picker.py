@@ -61,3 +61,6 @@ class CoverPicker(tk.Frame):
             (self._cover_size[0] - 2, self._cover_size[1] - 2),
         )
         self.cover_surface.configure(image=self._cover_image)
+
+    def set_enabled(self, enabled: bool) -> None:
+        self.folder_button.set_enabled(enabled)

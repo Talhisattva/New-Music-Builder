@@ -12,6 +12,11 @@ from new_music_builder.domain.models import PlannedAudioWorkItem
 
 
 ProgressCallback = Callable[[int, str], None]
+CancelCheck = Callable[[], bool]
+
+
+class ExportAbortedError(RuntimeError):
+    pass
 
 
 def ensure_cached_ogg(
@@ -19,21 +24,29 @@ def ensure_cached_ogg(
     cache_path: Path,
     *,
     emit_progress: ProgressCallback,
+    cancel_requested: CancelCheck | None = None,
 ) -> bool:
+    _raise_if_cancelled(cancel_requested)
     if item.action == "copy_ogg":
-        _copy_source_to_cache(Path(item.source_path), cache_path)
+        _copy_source_to_cache(Path(item.source_path), cache_path, cancel_requested=cancel_requested)
         emit_progress(100, "Copied source .ogg.")
         return False
     if item.action != "convert_to_ogg":
         raise RuntimeError(item.reason or "Unsupported audio action.")
-    _convert_to_cached_ogg(item, cache_path, emit_progress=emit_progress)
+    _convert_to_cached_ogg(item, cache_path, emit_progress=emit_progress, cancel_requested=cancel_requested)
     return True
 
 
-def _copy_source_to_cache(source_path: Path, cache_path: Path) -> None:
+def _copy_source_to_cache(
+    source_path: Path,
+    cache_path: Path,
+    *,
+    cancel_requested: CancelCheck | None = None,
+) -> None:
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     if cache_path.exists():
         return
+    _raise_if_cancelled(cancel_requested)
     shutil.copy2(source_path, cache_path)
 
 
@@ -42,16 +55,24 @@ def _convert_to_cached_ogg(
     cache_path: Path,
     *,
     emit_progress: ProgressCallback,
+    cancel_requested: CancelCheck | None = None,
 ) -> None:
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     if cache_path.exists():
         emit_progress(100, "Using cached conversion.")
         return
 
+    _raise_if_cancelled(cancel_requested)
     emit_progress(5, "Decoding source audio...")
     pcm = _decode_audio(Path(item.source_path), target_rate=item.sample_rate, target_channels=2)
     emit_progress(35, "Preparing PCM data...")
-    _write_ogg_vorbis(cache_path, pcm, item.sample_rate, emit_progress=emit_progress)
+    _write_ogg_vorbis(
+        cache_path,
+        pcm,
+        item.sample_rate,
+        emit_progress=emit_progress,
+        cancel_requested=cancel_requested,
+    )
 
 
 def _decode_audio(source: Path, *, target_rate: int, target_channels: int) -> np.ndarray:
@@ -143,22 +164,36 @@ def _write_ogg_vorbis(
     sample_rate: int,
     *,
     emit_progress: ProgressCallback,
+    cancel_requested: CancelCheck | None = None,
 ) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
     total_frames = max(1, pcm.shape[0])
     frame_step = 16384
-    with sf.SoundFile(
-        str(target),
-        mode="w",
-        samplerate=sample_rate,
-        channels=2,
-        format="OGG",
-        subtype="VORBIS",
-    ) as out_sf:
-        for frame_index in range(0, pcm.shape[0], frame_step):
-            chunk = np.ascontiguousarray(pcm[frame_index : frame_index + frame_step], dtype=np.int16)
-            out_sf.buffer_write(chunk.tobytes(), dtype="int16")
-            written_frames = min(total_frames, frame_index + chunk.shape[0])
-            percent = 35 + int(round((written_frames / total_frames) * 65))
-            emit_progress(min(100, max(35, percent)), "Converting song...")
+    try:
+        with sf.SoundFile(
+            str(target),
+            mode="w",
+            samplerate=sample_rate,
+            channels=2,
+            format="OGG",
+            subtype="VORBIS",
+        ) as out_sf:
+            for frame_index in range(0, pcm.shape[0], frame_step):
+                _raise_if_cancelled(cancel_requested)
+                chunk = np.ascontiguousarray(pcm[frame_index : frame_index + frame_step], dtype=np.int16)
+                out_sf.buffer_write(chunk.tobytes(), dtype="int16")
+                written_frames = min(total_frames, frame_index + chunk.shape[0])
+                percent = 35 + int(round((written_frames / total_frames) * 65))
+                emit_progress(min(100, max(35, percent)), "Converting song...")
+    except ExportAbortedError:
+        try:
+            target.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise
     emit_progress(100, "Conversion complete.")
+
+
+def _raise_if_cancelled(cancel_requested: CancelCheck | None) -> None:
+    if cancel_requested is not None and cancel_requested():
+        raise ExportAbortedError("Build aborted by user.")

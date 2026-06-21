@@ -41,6 +41,7 @@ class _CollapsedRowRemoveButton(tk.Label):
         self._command = command
         self._hovered = False
         self._pressed = False
+        self._enabled = True
         for sequence, handler in (
             ('<Enter>', self._on_enter),
             ('<Leave>', self._on_leave),
@@ -64,22 +65,30 @@ class _CollapsedRowRemoveButton(tk.Label):
         self.configure(bg=self._bg_color, fg=self._current_fg())
 
     def _on_enter(self, _event: tk.Event | None = None) -> str:
+        if not self._enabled:
+            return 'break'
         self._hovered = True
         self._redraw()
         return 'break'
 
     def _on_leave(self, _event: tk.Event | None = None) -> str:
+        if not self._enabled:
+            return 'break'
         self._hovered = False
         self._pressed = False
         self._redraw()
         return 'break'
 
     def _on_press(self, _event: tk.Event | None = None) -> str:
+        if not self._enabled:
+            return 'break'
         self._pressed = True
         self._redraw()
         return 'break'
 
     def _on_release(self, event: tk.Event | None = None) -> str:
+        if not self._enabled:
+            return 'break'
         was_pressed = self._pressed
         self._pressed = False
         inside = False
@@ -89,6 +98,12 @@ class _CollapsedRowRemoveButton(tk.Label):
         if was_pressed and inside and self._command is not None:
             self._command()
         return 'break'
+
+    def set_enabled(self, enabled: bool) -> None:
+        self._enabled = enabled
+        self._hovered = False
+        self._pressed = False
+        self.configure(fg=spec.MEDIA_ROW_COLLAPSED_REMOVE_TEXT_COLOR if enabled else '#8f8a92')
 
 
 class MediaRowShell(tk.Frame):
@@ -156,6 +171,7 @@ class MediaRowShell(tk.Frame):
         self._on_row_drag_finished = on_row_drag_finished
         self._pending_collapsed_drag = False
         self._collapsed_drag_active = False
+        self._locked = False
         self._collapsed_drag_press_x_root = 0
         self._collapsed_drag_press_y_root = 0
         self._collapsed_drag_modifiers = RowSelectionModifiers()
@@ -403,14 +419,20 @@ class MediaRowShell(tk.Frame):
             self._bind_widget_to_background_interactions(child)
 
     def _on_background_enter(self, _event: tk.Event) -> None:
+        if self._locked:
+            return
         self._hovered = True
         self._apply_background_state()
 
     def _on_background_leave(self, _event: tk.Event) -> None:
+        if self._locked:
+            return
         self._hovered = False
         self._apply_background_state()
 
     def _on_background_release(self, event: tk.Event) -> None:
+        if self._locked:
+            return
         if not self._expanded:
             x_root = int(getattr(event, 'x_root', 0))
             y_root = int(getattr(event, 'y_root', 0))
@@ -428,6 +450,8 @@ class MediaRowShell(tk.Frame):
         self._emit_background_selection(modifiers)
 
     def _on_collapsed_background_press(self, event: tk.Event) -> str:
+        if self._locked:
+            return 'break'
         if self._expanded:
             return 'break'
         self._pending_collapsed_drag = True
@@ -438,6 +462,8 @@ class MediaRowShell(tk.Frame):
         return 'break'
 
     def _on_collapsed_background_motion(self, event: tk.Event) -> str:
+        if self._locked:
+            return 'break'
         if self._expanded or not self._pending_collapsed_drag:
             return 'break'
         x_root = int(getattr(event, 'x_root', 0))
@@ -499,6 +525,21 @@ class MediaRowShell(tk.Frame):
 
     def set_song_selection_state(self, selected_song_indices: set[int]) -> None:
         self.songlist_viewport.set_selection_state(selected_song_indices)
+
+    def set_locked(self, locked: bool) -> None:
+        self._locked = locked
+        self.expanded_badge.set_enabled(not locked)
+        self.collapsed_badge.set_enabled(not locked)
+        self.collapsed_remove_button.set_enabled(not locked)
+        self.rename_field.set_enabled(not locked)
+        self.side_toggle.set_enabled(not locked)
+        self.song_actions.set_enabled(not locked)
+        self.expanded_media_type_strip.set_enabled(not locked)
+        self.collapsed_media_type_strip.set_enabled(not locked)
+        self.expanded_cover.set_enabled(not locked)
+        if locked:
+            self._hovered = False
+        self._apply_background_state()
 
     def begin_song_drag(self, dragged_indices: set[int], x_root: int, y_root: int) -> None:
         self.songlist_viewport.begin_drag(dragged_indices, x_root, y_root)
@@ -714,6 +755,7 @@ class MediaRowList(tk.Frame):
         )
 
         self._build_rows()
+        self._locked = False
 
     def resize(self, width: int) -> None:
         if self._last_width == width:
@@ -794,6 +836,11 @@ class MediaRowList(tk.Frame):
                 selected=(row_widget._row_id in self._selected_row_ids),
                 selected_count=self._selected_count,
             )
+
+    def set_locked(self, locked: bool) -> None:
+        self._locked = locked
+        for row_widget in self.row_widgets:
+            row_widget.set_locked(locked)
 
     def reorder_rows(self, rows: list[MediaRow]) -> None:
         self.rows = list(rows)

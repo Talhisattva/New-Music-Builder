@@ -40,6 +40,9 @@ class FolderIconButton(tk.Canvas):
         self._pressed_bg_color = pressed_bg_color
         self._outline_color = outline_color
         self._is_pressed = False
+        self._enabled = True
+        self._disabled_fill_color = '#4a474c'
+        self._disabled_outline_color = '#706b73'
         self._icon_id: int | None = None
 
         self._draw()
@@ -83,21 +86,29 @@ class FolderIconButton(tk.Canvas):
         self.coords(self._icon_id, (self._size[0] // 2) + offset, (self._size[1] // 2) + offset)
 
     def _on_enter(self, _event: tk.Event | None = None) -> None:
+        if not self._enabled:
+            return
         if not self._is_pressed:
             self._set_fill(self._hover_bg_color)
 
     def _on_leave(self, _event: tk.Event | None = None) -> None:
+        if not self._enabled:
+            return
         self._is_pressed = False
         self._set_fill(self._bg_color)
         self._set_icon_pressed(False)
 
     def _on_press(self, _event: tk.Event | None = None) -> str:
+        if not self._enabled:
+            return 'break'
         self._is_pressed = True
         self._set_fill(self._pressed_bg_color)
         self._set_icon_pressed(True)
         return 'break'
 
     def _on_release(self, event: tk.Event | None = None) -> str:
+        if not self._enabled:
+            return 'break'
         if self._is_pressed:
             self._is_pressed = False
             self._set_icon_pressed(False)
@@ -111,3 +122,14 @@ class FolderIconButton(tk.Canvas):
             else:
                 self._set_fill(self._bg_color)
         return 'break'
+
+    def set_enabled(self, enabled: bool) -> None:
+        self._enabled = enabled
+        self._is_pressed = False
+        self._set_icon_pressed(False)
+        if enabled:
+            self.itemconfigure(self._outline_id, fill=self._outline_color)
+            self._set_fill(self._bg_color)
+        else:
+            self.itemconfigure(self._outline_id, fill=self._disabled_outline_color)
+            self._set_fill(self._disabled_fill_color)

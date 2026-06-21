@@ -91,6 +91,7 @@ class _SmallCheckBox(tk.Frame):
         self.pack_propagate(False)
         self._command = command
         self._checked = False
+        self._enabled = True
         self._check_image = load_tk_photoimage_contained(check_icon_path, spec.MODULE_THREE_DUAL_SPRITE_CHECKBOX_SIZE)
         self._image_label = tk.Label(self, bg=spec.MODULE_THREE_DUAL_SPRITE_CHECKBOX_BG, bd=0, highlightthickness=0)
         self._image_label.place(x=0, y=0, width=spec.MODULE_THREE_DUAL_SPRITE_CHECKBOX_SIZE[0], height=spec.MODULE_THREE_DUAL_SPRITE_CHECKBOX_SIZE[1])
@@ -104,8 +105,13 @@ class _SmallCheckBox(tk.Frame):
         self._image_label.image = self._check_image if checked else None
 
     def _on_press(self, _event: tk.Event) -> str:
+        if not self._enabled:
+            return 'break'
         self._command()
         return 'break'
+
+    def set_enabled(self, enabled: bool) -> None:
+        self._enabled = enabled
 
 
 class _AppearanceTab(_BorderSurface):
@@ -158,6 +164,7 @@ class _AppearanceTab(_BorderSurface):
 
         self._hovered = False
         self._selected = False
+        self._locked = False
         for widget in (self, self.icon_label, self.text_label, self.content):
             widget.bind('<Enter>', self._on_enter, add='+')
             widget.bind('<Leave>', self._on_leave, add='+')
@@ -173,22 +180,38 @@ class _AppearanceTab(_BorderSurface):
         self._apply_colors()
 
     def _apply_colors(self) -> None:
-        fill = spec.MODULE_THREE_TAB_SELECTED_BG if self._selected else spec.MODULE_THREE_TAB_HOVER_BG if self._hovered else spec.MODULE_THREE_TAB_BG
-        self.set_colors(fill_color=fill, border_color=spec.MODULE_THREE_TAB_BORDER_COLOR)
+        if self._locked:
+            fill = '#565258' if self._selected else spec.MODULE_THREE_TAB_BG
+            border = '#9c98a0' if self._selected else spec.MODULE_THREE_TAB_BORDER_COLOR
+        else:
+            fill = spec.MODULE_THREE_TAB_SELECTED_BG if self._selected else spec.MODULE_THREE_TAB_HOVER_BG if self._hovered else spec.MODULE_THREE_TAB_BG
+            border = spec.MODULE_THREE_TAB_BORDER_COLOR
+        self.set_colors(fill_color=fill, border_color=border)
         self.icon_label.configure(bg=fill)
         self.text_label.configure(bg=fill)
 
     def _on_enter(self, _event: tk.Event) -> None:
+        if self._locked:
+            return
         self._hovered = True
         self._apply_colors()
 
     def _on_leave(self, _event: tk.Event) -> None:
+        if self._locked:
+            return
         self._hovered = False
         self._apply_colors()
 
     def _on_press(self, _event: tk.Event) -> str:
+        if self._locked:
+            return 'break'
         self._on_selected(self.kind)
         return 'break'
+
+    def set_locked(self, locked: bool) -> None:
+        self._locked = locked
+        self._hovered = False
+        self._apply_colors()
 
 class _AppearanceGridTile(_BorderSurface):
     def __init__(
@@ -218,6 +241,7 @@ class _AppearanceGridTile(_BorderSurface):
         self._on_hover_ended = on_hover_ended
         self._hovered = False
         self._selected = False
+        self._locked = False
         self._show_empty = False
         self._display_mode: PreviewMode = display_mode
         self._image_cache: dict[tuple[int, PreviewMode, bool], object | None] = {}
@@ -309,7 +333,10 @@ class _AppearanceGridTile(_BorderSurface):
             self._image_cache[(size, 'world', True)] = load_tk_photoimage_contained(self.entry.world_empty_path, (size, size))
 
     def _apply_colors(self) -> None:
-        if self._selected:
+        if self._locked:
+            fill = '#565258' if self._selected else spec.MODULE_THREE_GRID_TILE_BG
+            border = '#9c98a0' if self._selected else spec.MODULE_THREE_GRID_TILE_BORDER_COLOR
+        elif self._selected:
             fill = spec.MODULE_THREE_GRID_TILE_SELECTED_BG
             border = spec.MODULE_THREE_GRID_TILE_SELECTED_BORDER_COLOR
         elif self._hovered:
@@ -323,25 +350,40 @@ class _AppearanceGridTile(_BorderSurface):
         self.delete_label.configure(bg=fill)
 
     def _on_enter(self, event: tk.Event) -> None:
+        if self._locked:
+            return
         self._hovered = True
         self._apply_colors()
         self._on_hover_started(self.entry, int(event.x_root), int(event.y_root))
 
     def _on_leave(self, _event: tk.Event) -> None:
+        if self._locked:
+            return
         self._hovered = False
         self._apply_colors()
         self._on_hover_ended(self.entry)
 
     def _on_motion(self, event: tk.Event) -> None:
+        if self._locked:
+            return
         self._on_hover_moved(self.entry, int(event.x_root), int(event.y_root))
 
     def _on_press(self, _event: tk.Event) -> str:
+        if self._locked:
+            return 'break'
         self._on_selected(self.entry.key)
         return 'break'
 
     def _on_delete_press(self, _event: tk.Event) -> str:
+        if self._locked:
+            return 'break'
         self._on_remove_custom(self.entry.key)
         return 'break'
+
+    def set_locked(self, locked: bool) -> None:
+        self._locked = locked
+        self._hovered = False
+        self._apply_colors()
 
 
 class AppearanceSelector:
@@ -377,6 +419,7 @@ class AppearanceSelector:
         self._on_change = on_change
         self._active_row: MediaRow | None = None
         self._active_kind: AppearanceKind | None = 'cassette'
+        self._locked = False
         self._tab_widgets: dict[AppearanceKind, _AppearanceTab] = {}
         self._grid_tiles: dict[str, _AppearanceGridTile] = {}
         self._current_entries_by_kind: dict[AppearanceKind, list[AppearanceGridEntry]] = {}
@@ -440,6 +483,7 @@ class AppearanceSelector:
                 continue
             self._ensure_valid_selection(row, kind)
             self._tab_widgets[kind].set_selected(kind == self._active_kind)
+            self._tab_widgets[kind].set_locked(self._locked)
             entry = self._entry_for_kind(row, kind)
             self._tab_widgets[kind].set_image(entry.displayed_path(self._preview_mode(), show_empty=False) if entry else None)
         self._refresh_dual_sprite_row()
@@ -516,6 +560,7 @@ class AppearanceSelector:
         row = self._active_row
         if row is None:
             return
+        self.dual_checkbox.set_enabled(True)
         if self._preview_mode_toggle is not None:
             self._preview_mode_toggle.set_mode(self._preview_mode())
         if self._active_kind is None:
@@ -583,6 +628,7 @@ class AppearanceSelector:
                 world_empty=staged.get('world_empty', ''),
             )
             self.dual_custom_footer.set_commit_enabled(can_commit_dual_custom(staged))
+            self.dual_custom_footer.set_enabled(not self._locked)
         else:
             self.dual_custom_footer.place_forget()
             self.single_custom_footer.place(x=0, y=0)
@@ -591,6 +637,7 @@ class AppearanceSelector:
                 world_path=staged.get('world_full', ''),
             )
             self.single_custom_footer.set_commit_enabled(can_commit_single_custom(staged))
+            self.single_custom_footer.set_enabled(not self._locked)
 
     def _rebuild_grid(self) -> None:
         self._cancel_dual_phase_loop()
@@ -630,9 +677,13 @@ class AppearanceSelector:
         )
 
     def _handle_tab_selected(self, kind: AppearanceKind) -> None:
+        if self._locked:
+            return
         self.set_active_kind(kind)
 
     def _handle_grid_selected(self, key: str) -> None:
+        if self._locked:
+            return
         row = self._active_row
         if row is None or self._active_kind is None:
             return
@@ -653,6 +704,8 @@ class AppearanceSelector:
         self._on_change()
 
     def _handle_remove_custom(self, key: str) -> None:
+        if self._locked:
+            return
         if self._active_kind is None:
             return
         self._on_delete_custom(self._active_kind, key)
@@ -848,6 +901,7 @@ class AppearanceSelector:
                 y=(index // 4) * spec.MODULE_THREE_GRID_TILE_SIZE[1],
             )
             tile.set_selected(entry.key == selected_key)
+            tile.set_locked(self._locked)
             self._grid_tiles[entry.key] = tile
         self.shell.grid_viewport.refresh_scroll_region()
         if end_index < len(entries):
@@ -884,3 +938,11 @@ class AppearanceSelector:
         self.shell.grid_viewport.viewport_canvas.yview_moveto(target_fraction)
         first, last = self.shell.grid_viewport.viewport_canvas.yview()
         self.shell.grid_viewport.scrollbar.set_view(first, last)
+
+    def set_locked(self, locked: bool) -> None:
+        self._locked = locked
+        for tab in self._tab_widgets.values():
+            tab.set_locked(locked)
+        for tile in self._grid_tiles.values():
+            tile.set_locked(locked)
+        self._refresh_footer()

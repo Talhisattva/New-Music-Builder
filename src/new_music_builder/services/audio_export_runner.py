@@ -6,7 +6,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from new_music_builder.domain.models import AudioRunEvent, AudioRunResult, AudioWorkPlan, PlannedAudioWorkItem
-from new_music_builder.services.audio_conversion import ensure_cached_ogg
+from new_music_builder.services.audio_conversion import ExportAbortedError, ensure_cached_ogg
 
 
 def run_audio_export(
@@ -15,6 +15,7 @@ def run_audio_export(
     cache_root: str | Path,
     output_root: str | Path,
     emit: Callable[[AudioRunEvent], None] | None = None,
+    cancel_requested: Callable[[], bool] | None = None,
 ) -> AudioRunResult:
     cache_dir = Path(cache_root).resolve()
     cache_dir.mkdir(parents=True, exist_ok=True)
@@ -25,11 +26,13 @@ def run_audio_export(
     grouped_items = _group_items(work_plan)
 
     for (row_id, side), items in grouped_items:
+        _raise_if_cancelled(cancel_requested, result)
         emit_side = _emit_wrapper(emit, row_id, side)
         emit_side("side_started", message=f"Starting {side}-Side")
 
         side_built_any = False
         for song_index, item in enumerate(items):
+            _raise_if_cancelled(cancel_requested, result)
             emit_side(
                 "song_started",
                 song_index=song_index,
@@ -69,10 +72,12 @@ def run_audio_export(
                         message=message,
                         size_text=_format_size_text(cache_path.stat().st_size) if cache_path.exists() else "",
                     ),
+                    cancel_requested=cancel_requested,
                 )
                 if converted:
                     result.converted_count += 1
 
+                _raise_if_cancelled(cancel_requested, result)
                 shutil.copy2(cache_path, target_path)
                 size_text = _format_size_text(target_path.stat().st_size)
                 result.built_song_count += 1
@@ -86,6 +91,12 @@ def run_audio_export(
                     message="Exported song.",
                     size_text=size_text,
                 )
+            except ExportAbortedError as exc:
+                result.aborted = True
+                result.abort_message = str(exc)
+                result.fatal_error = str(exc)
+                result.mod_size_text = _format_size_text(_directory_size_bytes(output_dir))
+                return result
             except Exception as exc:
                 result.failed_song_count += 1
                 error_message = f"{item.display_label}: {exc}"
@@ -114,6 +125,14 @@ def run_audio_export(
     )
     result.mod_size_text = _format_size_text(_directory_size_bytes(output_dir))
     return result
+
+
+def _raise_if_cancelled(cancel_requested: Callable[[], bool] | None, result: AudioRunResult) -> None:
+    if cancel_requested is not None and cancel_requested():
+        result.aborted = True
+        result.abort_message = "Build aborted by user."
+        result.fatal_error = result.abort_message
+        raise ExportAbortedError(result.abort_message)
 
 
 def _group_items(work_plan: AudioWorkPlan) -> list[tuple[tuple[int, str], list[PlannedAudioWorkItem]]]:

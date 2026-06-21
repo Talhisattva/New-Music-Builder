@@ -30,6 +30,7 @@ class _SelectorBox(tk.Canvas):
         self._plus_color = spec.MODULE_THREE_CUSTOM_SELECTOR_PLUS_COLOR
         self._hovered = False
         self._pressed = False
+        self._enabled = True
         self._bind_events()
         self._redraw()
 
@@ -105,23 +106,31 @@ class _SelectorBox(tk.Canvas):
             )
 
     def _on_enter(self, _event: tk.Event) -> None:
+        if not self._enabled:
+            return
         self._hovered = True
         if not self._preview_path:
             self._redraw()
 
     def _on_leave(self, _event: tk.Event) -> None:
+        if not self._enabled:
+            return
         self._hovered = False
         self._pressed = False
         if not self._preview_path:
             self._redraw()
 
     def _on_press(self, _event: tk.Event) -> str:
+        if not self._enabled:
+            return 'break'
         self._pressed = True
         if not self._preview_path:
             self._redraw()
         return 'break'
 
     def _on_release(self, event: tk.Event) -> str:
+        if not self._enabled:
+            return 'break'
         inside = 0 <= event.x < spec.MODULE_THREE_CUSTOM_SELECTOR_SIZE[0] and 0 <= event.y < spec.MODULE_THREE_CUSTOM_SELECTOR_SIZE[1]
         was_pressed = self._pressed
         self._pressed = False
@@ -130,6 +139,12 @@ class _SelectorBox(tk.Canvas):
         if inside and was_pressed:
             self._command()
         return 'break'
+
+    def set_enabled(self, enabled: bool) -> None:
+        self._enabled = enabled
+        self._hovered = False
+        self._pressed = False
+        self._redraw()
 
 
 class _VerticalStrip(tk.Canvas):
@@ -164,6 +179,7 @@ class _VerticalStrip(tk.Canvas):
         self._font = font
         self._command = command
         self._enabled_getter = enabled_getter
+        self._forced_enabled = True
         self._hovered = False
         self._pressed = False
         self._bind_events()
@@ -176,7 +192,8 @@ class _VerticalStrip(tk.Canvas):
         self.bind('<ButtonRelease-1>', self._on_release, add='+')
 
     def _enabled(self) -> bool:
-        return self._enabled_getter() if self._enabled_getter is not None else True
+        getter_enabled = self._enabled_getter() if self._enabled_getter is not None else True
+        return self._forced_enabled and getter_enabled
 
     def _redraw(self) -> None:
         if self._pressed:
@@ -207,6 +224,8 @@ class _VerticalStrip(tk.Canvas):
             )
 
     def _on_enter(self, _event: tk.Event) -> None:
+        if not self._enabled():
+            return
         self._hovered = True
         self._redraw()
 
@@ -216,6 +235,8 @@ class _VerticalStrip(tk.Canvas):
         self._redraw()
 
     def _on_press(self, _event: tk.Event) -> str:
+        if not self._enabled():
+            return 'break'
         self._pressed = True
         self._redraw()
         return 'break'
@@ -228,6 +249,12 @@ class _VerticalStrip(tk.Canvas):
         if inside and was_pressed and self._enabled():
             self._command()
         return 'break'
+
+    def set_enabled(self, enabled: bool) -> None:
+        self._forced_enabled = enabled
+        self._hovered = False
+        self._pressed = False
+        self._redraw()
 
 
 class _FooterBase(tk.Frame):
@@ -266,6 +293,7 @@ class AppearanceSingleCustomFooter(_FooterBase):
         self._main_hovered = False
         self._main_pressed = False
         self._commit_enabled = False
+        self._enabled = True
 
         main_width = spec.MODULE_THREE_FOOTER_SIZE[0] - spec.MODULE_THREE_CUSTOM_RESET_SIZE[0]
         self.main_surface = tk.Frame(
@@ -342,20 +370,28 @@ class AppearanceSingleCustomFooter(_FooterBase):
         self.world_box.set_background_color(fill)
 
     def _on_main_enter(self, _event: tk.Event) -> None:
+        if not self._enabled:
+            return
         self._main_hovered = True
         self._apply_main_fill()
 
     def _on_main_leave(self, _event: tk.Event) -> None:
+        if not self._enabled:
+            return
         self._main_hovered = False
         self._main_pressed = False
         self._apply_main_fill()
 
     def _on_main_press(self, _event: tk.Event) -> str:
+        if not self._enabled:
+            return 'break'
         self._main_pressed = True
         self._apply_main_fill()
         return 'break'
 
     def _on_main_release(self, event: tk.Event) -> str:
+        if not self._enabled:
+            return 'break'
         widget = event.widget
         root_x = widget.winfo_rootx() + event.x
         root_y = widget.winfo_rooty() + event.y
@@ -374,6 +410,12 @@ class AppearanceSingleCustomFooter(_FooterBase):
             self._on_commit()
         return 'break'
 
+    def set_enabled(self, enabled: bool) -> None:
+        self._enabled = enabled
+        self.inventory_box.set_enabled(enabled)
+        self.world_box.set_enabled(enabled)
+        self.reset_strip.set_enabled(enabled)
+
 
 class AppearanceDualCustomFooter(_FooterBase):
     def __init__(
@@ -391,6 +433,7 @@ class AppearanceDualCustomFooter(_FooterBase):
         self._commit_enabled = False
         self._main_hovered = False
         self._main_pressed = False
+        self._enabled = True
         label_font = (spec.MODULE_THREE_CUSTOM_SELECTOR_LABEL_FONT_FAMILY, spec.MODULE_THREE_CUSTOM_SELECTOR_LABEL_FONT_SIZE)
 
         self.main_surface = tk.Frame(
@@ -497,20 +540,28 @@ class AppearanceDualCustomFooter(_FooterBase):
             box.set_background_color(fill)
 
     def _on_main_enter(self, _event: tk.Event) -> None:
+        if not self._enabled:
+            return
         self._main_hovered = True
         self._apply_main_fill()
 
     def _on_main_leave(self, _event: tk.Event) -> None:
+        if not self._enabled:
+            return
         self._main_hovered = False
         self._main_pressed = False
         self._apply_main_fill()
 
     def _on_main_press(self, _event: tk.Event) -> str:
+        if not self._enabled:
+            return 'break'
         self._main_pressed = True
         self._apply_main_fill()
         return 'break'
 
     def _on_main_release(self, event: tk.Event) -> str:
+        if not self._enabled:
+            return 'break'
         widget = event.widget
         root_x = widget.winfo_rootx() + event.x
         root_y = widget.winfo_rooty() + event.y
@@ -528,3 +579,10 @@ class AppearanceDualCustomFooter(_FooterBase):
         if should_commit:
             self.add_custom_strip._command()
         return 'break'
+
+    def set_enabled(self, enabled: bool) -> None:
+        self._enabled = enabled
+        for box in self.boxes:
+            box.set_enabled(enabled)
+        self.add_custom_strip.set_enabled(enabled)
+        self.reset_strip.set_enabled(enabled)

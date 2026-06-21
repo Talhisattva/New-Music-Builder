@@ -24,6 +24,7 @@ from new_music_builder.domain.models import (
     ConversionSideGroup,
     ConversionSongProgress,
     ExportLogLine,
+    ExportTargetPaths,
     GeneratedPreviewRow,
     MediaKind,
     ScaffoldResult,
@@ -130,6 +131,11 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._build_event_queue: queue.Queue[object] | None = None
         self._build_poll_after_id: str | None = None
         self._active_build_thread: threading.Thread | None = None
+        self._build_locked = False
+        self._build_abort_requested = False
+        self._build_abort_event: threading.Event | None = None
+        self._active_build_final_targets: ExportTargetPaths | None = None
+        self._active_build_staging_targets: ExportTargetPaths | None = None
         self._active_preview_rows_by_side: dict[tuple[int, str], GeneratedPreviewRow] = {}
         self._active_successful_sides: list[tuple[int, str]] = []
 
@@ -188,6 +194,15 @@ class MainWindow(_DnDCompat, ctk.CTk):
     def _phase_four_icon_path(self) -> Path:
         return app_root() / 'assets' / 'PhaseFourIcon.png'
 
+    def _phase_one_disabled_icon_path(self) -> Path:
+        return app_root() / 'assets' / 'PhaseOneIconDisabled.png'
+
+    def _phase_two_disabled_icon_path(self) -> Path:
+        return app_root() / 'assets' / 'PhaseTwoIconDisabled.png'
+
+    def _phase_three_disabled_icon_path(self) -> Path:
+        return app_root() / 'assets' / 'PhaseThreeIconDisabled.png'
+
     def _phase_five_icon_path(self) -> Path:
         return app_root() / 'assets' / 'PhaseFiveIcon.png'
 
@@ -245,6 +260,107 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
     def _reset_icon_path(self) -> Path:
         return app_root() / 'assets' / 'ResetIcon.png'
+
+    def _project_mutation_actions(self) -> tuple[tuple[str, str], ...]:
+        return (
+            ('FILE', 'New'),
+            ('FILE', 'Load'),
+            ('FILE', 'Save'),
+            ('FILE', 'Save As...'),
+            ('FILE', 'Exit'),
+            ('PREFERENCES', 'Sample Rate'),
+        )
+
+    def _is_build_locked(self) -> bool:
+        return self._build_locked
+
+    def _set_build_locked(self, locked: bool) -> None:
+        self._build_locked = locked
+        self.phase_three_combo_header.set_right_text('CLICK TO ABORT EXPORT' if locked else 'CLICK TO EXPORT')
+        self.module_one_header.set_icon_path(self._phase_one_disabled_icon_path() if locked else self._phase_one_icon_path())
+        self.module_two_header.set_icon_path(self._phase_two_disabled_icon_path() if locked else self._phase_two_icon_path())
+        self.module_three_header.set_icon_path(self._phase_three_disabled_icon_path() if locked else self._phase_three_icon_path())
+
+        self.module_one_cover_picker.set_enabled(not locked)
+        self.poster_name_checkbox.set_enabled(not locked)
+        self.module_one_mod_name_field.set_enabled(not locked)
+        self.module_one_mod_id_field.set_enabled(not locked)
+        self.module_one_parent_id_field.set_enabled(not locked)
+        self.module_one_author_field.set_enabled(not locked)
+        self.module_one_ogg_output_folder.set_enabled(not locked)
+        self.module_one_workshop_output_folder.set_enabled(not locked)
+        self.module_one_save_button.set_enabled(not locked)
+        self.module_one_load_button.set_enabled(not locked)
+
+        self.module_two_top_header.set_enabled(not locked)
+        self.module_two_row_list.set_locked(locked)
+
+        self.module_three_appearance_selector.set_locked(locked)
+
+        for menu_name, item_label in self._project_mutation_actions():
+            self.menu_strip.set_action_enabled(menu_name, item_label, not locked)
+
+    def _request_abort_export(self) -> None:
+        if not self._build_locked:
+            return
+        self._build_abort_requested = True
+        if self._build_abort_event is not None:
+            self._build_abort_event.set()
+        if hasattr(self, 'module_four_panel'):
+            self.module_four_panel.append_log_line(
+                ExportLogLine(
+                    timestamp=datetime.now().strftime("%H:%M:%S"),
+                    prefix_text="Abort requested.",
+                    trailing_text="Stopping export at the next safe checkpoint.",
+                    color_role="error",
+                )
+            )
+
+    def _build_abort_pending(self) -> bool:
+        return bool(self._build_abort_event is not None and self._build_abort_event.is_set())
+
+    def _stage_export_targets(self, final_targets: ExportTargetPaths) -> ExportTargetPaths:
+        staging_root = Path(final_targets.workshop_root) / f".nmb_staging_{uuid4().hex}"
+        contents = staging_root / "Contents"
+        mods_root = contents / "mods"
+        mod_base = mods_root / final_targets.inner_folder_name
+        common = mod_base / "common"
+        v42 = mod_base / "42"
+        audio_root = common / "media" / "sound"
+        audio_pack_root = audio_root / final_targets.inner_folder_name
+        return ExportTargetPaths(
+            workshop_root=final_targets.workshop_root,
+            outer_folder_name=final_targets.outer_folder_name,
+            inner_folder_name=final_targets.inner_folder_name,
+            root=str(staging_root),
+            contents=str(contents),
+            mods_root=str(mods_root),
+            mod_base=str(mod_base),
+            common=str(common),
+            v42=str(v42),
+            audio_root=str(audio_root),
+            audio_pack_root=str(audio_pack_root),
+        )
+
+    def _cleanup_staging_export_root(self) -> None:
+        staging_targets = self._active_build_staging_targets
+        if staging_targets is None:
+            return
+        staging_root = Path(staging_targets.root)
+        if staging_root.exists():
+            shutil.rmtree(staging_root, ignore_errors=True)
+        self._active_build_staging_targets = None
+
+    def _promote_staging_export_root(self) -> None:
+        if self._active_build_staging_targets is None or self._active_build_final_targets is None:
+            return
+        staging_root = Path(self._active_build_staging_targets.root)
+        final_root = Path(self._active_build_final_targets.root)
+        if final_root.exists():
+            shutil.rmtree(final_root)
+        if staging_root.exists():
+            shutil.move(str(staging_root), str(final_root))
+        self._active_build_staging_targets = None
 
     def _module_two_preview_entry(self, row, kind: AppearanceKind) -> AppearanceGridEntry | None:
         row.ensure_appearances()
@@ -680,6 +796,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.module_one_load_button.place(x=load_button_x, y=action_button_y)
 
     def _show_sample_rate_dialog(self) -> None:
+        if self._is_build_locked():
+            return
         popup = SampleRateDialog(
             self,
             icon_path=self._native_icon_path(),
@@ -962,9 +1080,13 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._refresh_module_three_appearance_selector()
 
     def _pick_module_three_custom_slot(self, kind: AppearanceKind, slot: str) -> None:
+        if self._is_build_locked():
+            return
         self._pick_module_three_custom_image(kind, slot)
 
     def _reset_module_three_custom_staged(self, kind: AppearanceKind, dual_mode: bool) -> None:
+        if self._is_build_locked():
+            return
         staged = self._module_three_staged_custom_for_kind(kind)
         if dual_mode:
             for key in ('inventory_full', 'world_full', 'inventory_empty', 'world_empty'):
@@ -975,6 +1097,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._refresh_module_three_appearance_selector()
 
     def _commit_module_three_custom(self, kind: AppearanceKind, dual_mode: bool) -> None:
+        if self._is_build_locked():
+            return
         staged = self._module_three_staged_custom_for_kind(kind)
         if dual_mode:
             if not can_commit_dual_custom(staged):
@@ -1020,6 +1144,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.on_project_change()
 
     def _delete_module_three_custom_asset(self, kind: AppearanceKind, key: str) -> None:
+        if self._is_build_locked():
+            return
         assets = self._module_three_custom_assets_for_kind(kind)
         next_assets = [asset for asset in assets if asset.get('key') != key]
         if len(next_assets) == len(assets):
@@ -1133,6 +1259,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         return filtered
 
     def _select_workshop_poster_image(self) -> None:
+        if self._is_build_locked():
+            return
         selected = fd.askopenfilename(
             title='Select Workshop Poster Image',
             filetypes=self._image_filetypes(),
@@ -1146,6 +1274,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.on_project_change()
 
     def _select_module_two_media_cover(self, row_id: int) -> None:
+        if self._is_build_locked():
+            return
         target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
         if target_row is None:
             return
@@ -1174,6 +1304,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         return bool(filter_supported_audio_paths(paths))
 
     def _add_module_two_songs(self, row_id: int) -> None:
+        if self._is_build_locked():
+            return
         selected = fd.askopenfilenames(
             title='Add Song(s)',
             filetypes=self._audio_filetypes(),
@@ -1185,9 +1317,13 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._add_module_two_songs_from_paths(row_id, list(selected))
 
     def _on_module_two_song_drop(self, row_id: int, paths: list[str]) -> None:
+        if self._is_build_locked():
+            return
         self._add_module_two_songs_from_paths(row_id, paths)
 
     def _add_module_two_songs_from_paths(self, row_id: int, paths: list[str]) -> None:
+        if self._is_build_locked():
+            return
         target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
         if target_row is None:
             return
@@ -1211,6 +1347,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         return 'break'
 
     def _remove_module_two_selected_songs(self, row_id: int) -> None:
+        if self._is_build_locked():
+            return
         self._cancel_module_two_song_drag()
         target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
         if target_row is None:
@@ -1231,6 +1369,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.on_project_change()
 
     def _remove_module_two_song_via_row_click(self, row_id: int, track_index: int) -> None:
+        if self._is_build_locked():
+            return
         self._cancel_module_two_song_drag()
         target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
         if target_row is None:
@@ -1254,6 +1394,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.on_project_change()
 
     def _add_module_two_media_row(self) -> None:
+        if self._is_build_locked():
+            return
         self._cancel_module_two_song_drag()
         self._cancel_module_two_row_drag()
         for row in self.session.project.media_rows:
@@ -1271,14 +1413,20 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.on_project_change()
 
     def _remove_module_two_media_rows(self) -> None:
+        if self._is_build_locked():
+            return
         self._remove_module_two_media_row_set(
             set(self.module_two_selected_row_ids) if self.module_two_selected_row_ids else None
         )
 
     def _remove_module_two_media_row(self, row_id: int) -> None:
+        if self._is_build_locked():
+            return
         self._remove_module_two_media_row_set({row_id})
 
     def _remove_module_two_media_row_set(self, row_ids_to_remove: set[int] | None) -> None:
+        if self._is_build_locked():
+            return
         self._cancel_module_two_song_drag()
         self._cancel_module_two_row_drag()
         if row_ids_to_remove:
@@ -1310,6 +1458,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.on_project_change()
 
     def _set_module_two_media_enabled(self, row_id: int, kind: MediaKind, enabled: bool) -> None:
+        if self._is_build_locked():
+            return
         target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
         if target_row is None:
             return
@@ -1328,6 +1478,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.on_project_change()
 
     def _commit_module_two_media_name(self, row_id: int, value: str) -> None:
+        if self._is_build_locked():
+            return
         target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
         if target_row is None:
             return
@@ -1339,6 +1491,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.on_project_change()
 
     def _set_module_two_media_side(self, row_id: int, side: str) -> None:
+        if self._is_build_locked():
+            return
         self._cancel_module_two_song_drag()
         self._cancel_module_two_row_drag()
         target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
@@ -1355,6 +1509,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.on_project_change()
 
     def _sort_module_two_songs(self, row_id: int, column: SongSortColumn) -> None:
+        if self._is_build_locked():
+            return
         self._cancel_module_two_song_drag()
         self._cancel_module_two_row_drag()
         target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
@@ -1385,6 +1541,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.on_project_change()
 
     def _expand_module_two_media_row(self, row_id: int) -> None:
+        if self._is_build_locked():
+            return
         self._cancel_module_two_song_drag()
         self._cancel_module_two_row_drag()
         target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
@@ -1409,6 +1567,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.on_project_change()
 
     def _select_module_two_media_row(self, row_id: int, modifiers: RowSelectionModifiers) -> None:
+        if self._is_build_locked():
+            return
         self._cancel_module_two_row_drag()
         target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
         if target_row is None:
@@ -1449,6 +1609,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.module_two_row_list.set_selection_state(self.module_two_selected_row_ids)
 
     def _begin_module_two_row_drag(self, row_id: int, x_root: int, y_root: int) -> None:
+        if self._is_build_locked():
+            return
         if self._module_two_row_drag_session is not None or not hasattr(self, 'module_two_row_list'):
             return
         target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
@@ -1468,6 +1630,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.module_two_row_list.begin_row_drag(dragged_row_ids, row_id, x_root, y_root)
 
     def _update_module_two_row_drag(self, row_id: int, x_root: int, y_root: int) -> None:
+        if self._is_build_locked():
+            return
         if self._module_two_row_drag_session is None or not hasattr(self, 'module_two_row_list'):
             return
         if int(self._module_two_row_drag_session.get('anchor_row_id', -1)) != row_id:
@@ -1475,6 +1639,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.module_two_row_list.update_row_drag(x_root, y_root)
 
     def _finish_module_two_row_drag(self, row_id: int, x_root: int, y_root: int) -> None:
+        if self._is_build_locked():
+            return
         if self._module_two_row_drag_session is None or not hasattr(self, 'module_two_row_list'):
             return
         if int(self._module_two_row_drag_session.get('anchor_row_id', -1)) != row_id:
@@ -1518,6 +1684,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.module_two_selected_row_ids = set(row_ids[start:end + 1])
 
     def _select_module_two_song(self, row_id: int, track_index: int, modifiers: TrackSelectionModifiers) -> None:
+        if self._is_build_locked():
+            return
         self._cancel_module_two_song_drag()
         self._cancel_module_two_row_drag()
         target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
@@ -1544,6 +1712,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
             expanded_widget.set_song_selection_state(next_selected)
 
     def _begin_module_two_song_drag(self, row_id: int, track_index: int, x_root: int, y_root: int) -> None:
+        if self._is_build_locked():
+            return
         self._cancel_module_two_row_drag()
         target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
         if target_row is None:
@@ -1569,6 +1739,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         expanded_widget.begin_song_drag(dragged_indices, x_root, y_root)
 
     def _update_module_two_song_drag(self, row_id: int, x_root: int, y_root: int) -> None:
+        if self._is_build_locked():
+            return
         if self._module_two_song_drag_session is None:
             return
         if int(self._module_two_song_drag_session.get('row_id', -1)) != row_id:
@@ -1578,6 +1750,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
             expanded_widget.update_song_drag(x_root, y_root)
 
     def _finish_module_two_song_drag(self, row_id: int, x_root: int, y_root: int) -> None:
+        if self._is_build_locked():
+            return
         if self._module_two_song_drag_session is None:
             return
         if int(self._module_two_song_drag_session.get('row_id', -1)) != row_id:
@@ -1648,11 +1822,15 @@ class MainWindow(_DnDCompat, ctk.CTk):
                     row.appearances[kind].sprite_mode = entries[0].sprite_mode
 
     def new_project(self) -> None:
+        if self._is_build_locked():
+            return
         if not self._confirm_reset_to_defaults('Start New Project', 'YES'):
             return
         self._reset_project_to_defaults()
 
     def reset_project_to_defaults(self) -> None:
+        if self._is_build_locked():
+            return
         if not self._confirm_reset_to_defaults('Reset Project', 'RESET'):
             return
         self._reset_project_to_defaults()
@@ -1696,6 +1874,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self.mod_setup.reset_fields()
 
     def save_project(self) -> None:
+        if self._is_build_locked():
+            return
         if self.session.current_path:
             self.project_store.save(self.session.project, Path(self.session.current_path))
             self.recent_store.push(Path(self.session.current_path))
@@ -1704,6 +1884,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.save_project_as()
 
     def save_project_as(self) -> None:
+        if self._is_build_locked():
+            return
         selected = fd.asksaveasfilename(defaultextension='.nmbproj.json', filetypes=[('New Music Builder Project', '*.nmbproj.json')])
         if not selected:
             return
@@ -1711,6 +1893,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.save_project()
 
     def load_project(self) -> None:
+        if self._is_build_locked():
+            return
         selected = fd.askopenfilename(filetypes=[('New Music Builder Project', '*.nmbproj.json'), ('JSON', '*.json')])
         if selected:
             self._load_path(Path(selected))
@@ -1739,6 +1923,9 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.refresh_all()
 
     def run_build_preview(self) -> None:
+        if self._is_build_locked():
+            self._request_abort_export()
+            return
         self._sync_phase_one_project_state()
         plan = build_export_plan(self.session.project, self.asset_catalog)
         validation_errors = validate_export_request(self.session.project, plan)
@@ -1816,10 +2003,14 @@ class MainWindow(_DnDCompat, ctk.CTk):
                 self.build_summary.refresh()
             return
 
-        if output_root.exists():
-            self._remove_existing_export_root(output_root, Path(self.session.project.workshop_output_folder))
+        self._build_abort_requested = False
+        self._build_abort_event = threading.Event()
+        self._active_build_final_targets = targets
+        self._active_build_staging_targets = self._stage_export_targets(targets)
+        self._set_build_locked(True)
+        staging_targets = self._active_build_staging_targets
 
-        scaffold_result = write_export_scaffold(self.session.project, plan, targets, self.asset_catalog)
+        scaffold_result = write_export_scaffold(self.session.project, plan, staging_targets, self.asset_catalog)
         self._last_export_output_path = scaffold_result.output_path if not scaffold_result.errors else ''
         if hasattr(self, 'module_four_panel'):
             self.module_four_panel.set_output_path(targets.root)
@@ -1831,14 +2022,18 @@ class MainWindow(_DnDCompat, ctk.CTk):
             stats = build_scaffold_stats(plan, scaffold_result)
             if hasattr(self, 'module_six_panel'):
                 self.module_six_panel.set_stats(stats)
+            self._cleanup_staging_export_root()
+            self._set_build_locked(False)
+            self._build_abort_event = None
+            self._active_build_final_targets = None
             if hasattr(self, 'build_summary'):
                 self.build_summary.refresh()
             return
 
-        work_plan = build_audio_work_plan(self.session.project, plan, targets)
+        work_plan = build_audio_work_plan(self.session.project, plan, staging_targets)
         self._start_audio_build_run(
             plan=plan,
-            targets=targets.root,
+            targets=staging_targets.root,
             work_plan=work_plan,
             cache_root=self.session.project.ogg_output_folder,
         )
@@ -1866,13 +2061,6 @@ class MainWindow(_DnDCompat, ctk.CTk):
             cancel_text='CANCEL',
         )
         return dialog.show()
-
-    def _remove_existing_export_root(self, output_root: Path, workshop_root: Path) -> None:
-        resolved_output = output_root.resolve()
-        resolved_workshop = workshop_root.resolve()
-        if resolved_output == resolved_workshop or resolved_workshop not in resolved_output.parents:
-            raise RuntimeError("Refusing to overwrite an unsafe export path.")
-        shutil.rmtree(resolved_output)
 
     def _start_audio_build_run(
         self,
@@ -1909,6 +2097,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
                 cache_root=cache_root,
                 output_root=output_root,
                 emit=lambda event: self._build_event_queue.put(("event", event)),
+                cancel_requested=self._build_abort_pending,
             )
             self._build_event_queue.put(("result", result))
         except Exception as exc:
@@ -2023,7 +2212,47 @@ class MainWindow(_DnDCompat, ctk.CTk):
             )
 
     def _finalize_audio_run(self, plan, result: AudioRunResult) -> None:
-        output_path = Path(result.output_path)
+        final_targets = self._active_build_final_targets
+        if result.aborted:
+            self._cleanup_staging_export_root()
+            output_path = Path(final_targets.root) if final_targets is not None else Path(result.output_path)
+            self._last_export_output_path = str(output_path) if output_path.exists() else ''
+            if hasattr(self, 'module_four_panel'):
+                self.module_four_panel.append_log_line(
+                    ExportLogLine(
+                        timestamp=datetime.now().strftime("%H:%M:%S"),
+                        prefix_text="Build aborted.",
+                        trailing_text=result.abort_message or "Build aborted by user.",
+                        color_role="error",
+                    )
+                )
+            stats = BuildSummaryStats(
+                media_rows=0,
+                exported_media_rows=0,
+                total_sides=0,
+                total_songs=0,
+                built_songs=0,
+                planned_media_rows=plan.stats.planned_media_rows,
+                planned_total_sides=plan.stats.planned_total_sides,
+                planned_total_songs=plan.stats.planned_total_songs,
+                converted=0,
+                mod_size_text=self._directory_size_text(output_path),
+                errors=max(1, len(result.errors) or 1),
+            )
+            if hasattr(self, 'module_six_panel'):
+                self.module_six_panel.set_stats(stats)
+            self.build_log = [self._module_four_log_line_text(line) for line in getattr(self.module_four_panel.state, 'current_run_log_lines', [])] if hasattr(self, 'module_four_panel') else []
+            self.preview_entries = []
+            if hasattr(self, 'build_summary'):
+                self.build_summary.refresh()
+            self._set_build_locked(False)
+            self._build_abort_event = None
+            self._active_build_final_targets = None
+            return
+
+        self._promote_staging_export_root()
+        output_path = Path(final_targets.root) if final_targets is not None else Path(result.output_path)
+        result.output_path = str(output_path)
         self._last_export_output_path = str(output_path) if output_path.exists() else ''
         successful_rows = {row_id for row_id, _side in result.successful_sides}
         preview_rows = [
@@ -2062,8 +2291,12 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.preview_entries = [f"{row.inventory_cell.label_text}" for row in preview_rows]
         if hasattr(self, 'build_summary'):
             self.build_summary.refresh()
+        self._set_build_locked(False)
+        self._build_abort_event = None
+        self._active_build_final_targets = None
 
     def _finalize_audio_run_failure(self, plan, output_root: str, error_message: str) -> None:
+        self._cleanup_staging_export_root()
         if hasattr(self, 'module_four_panel'):
             self.module_four_panel.append_log_line(
                 ExportLogLine(
@@ -2073,7 +2306,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
                     color_role="error",
                 )
             )
-        output_path = Path(output_root)
+        final_targets = self._active_build_final_targets
+        output_path = Path(final_targets.root) if final_targets is not None else Path(output_root)
         self._last_export_output_path = str(output_path) if output_path.exists() else ''
         stats = BuildSummaryStats(
             media_rows=0,
@@ -2094,6 +2328,9 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.preview_entries = []
         if hasattr(self, 'build_summary'):
             self.build_summary.refresh()
+        self._set_build_locked(False)
+        self._build_abort_event = None
+        self._active_build_final_targets = None
 
     def _directory_size_text(self, root: Path) -> str:
         if not root.exists():
@@ -2144,6 +2381,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         messagebox.showinfo('Output Folder', str(output_path))
 
     def _pick_ogg_output_folder(self) -> None:
+        if self._is_build_locked():
+            return
         initial_dir = self.session.project.ogg_output_folder or str(Path.home())
         selected = fd.askdirectory(
             title='Select .ogg Output Folder',
@@ -2157,6 +2396,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.on_project_change()
 
     def _pick_workshop_output_folder(self) -> None:
+        if self._is_build_locked():
+            return
         detected = detect_workshop_dir()
         initial_dir = self.session.project.workshop_output_folder or (str(detected) if detected else str(Path.home()))
         selected = fd.askdirectory(
@@ -2195,5 +2436,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self.poster_name_checkbox.set_checked(bool(self.session.project.write_mod_name_on_poster))
 
     def on_close(self) -> None:
+        if self._is_build_locked():
+            return
         self.session_store.save(self.session.project, self.session.current_path)
         self.destroy()

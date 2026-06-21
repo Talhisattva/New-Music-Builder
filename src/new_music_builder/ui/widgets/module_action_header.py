@@ -48,6 +48,7 @@ class ModuleActionHeader(tk.Frame):
         self._pressed_bg_color = pressed_bg_color
         self._pressed = False
         self._hovered = False
+        self._enabled = command is not None
         self._image = load_tk_photoimage(icon_path, icon_size)
 
         if command is not None:
@@ -112,6 +113,18 @@ class ModuleActionHeader(tk.Frame):
                 x=width - spec.MODULE_ACTION_HEADER_RIGHT_INSET_X,
             )
 
+    def set_right_text(self, text: str) -> None:
+        if self.right_text_label is None:
+            return
+        self.right_text_label.configure(text=text)
+
+    def set_enabled(self, enabled: bool) -> None:
+        self._enabled = enabled
+        if not enabled:
+            self._pressed = False
+            self._hovered = False
+            self._set_bg_color(self._bg_color)
+
     def _bind_interaction(self, widget: tk.Widget) -> None:
         widget.bind('<Enter>', self._on_enter, add='+')
         widget.bind('<Leave>', self._on_leave, add='+')
@@ -127,21 +140,29 @@ class ModuleActionHeader(tk.Frame):
             self.right_text_label.configure(bg=color)
 
     def _on_enter(self, _event: tk.Event[tk.Misc]) -> None:
+        if not self._enabled:
+            return
         self._hovered = True
         if not self._pressed:
             self._set_bg_color(self._hover_bg_color)
 
     def _on_leave(self, _event: tk.Event[tk.Misc]) -> None:
+        if not self._enabled:
+            return
         self._hovered = False
         if self._pressed:
             return
         self._set_bg_color(self._bg_color)
 
     def _on_press(self, _event: tk.Event[tk.Misc]) -> None:
+        if not self._enabled:
+            return
         self._pressed = True
         self._set_bg_color(self._pressed_bg_color)
 
     def _on_release(self, event: tk.Event[tk.Misc]) -> None:
+        if not self._enabled:
+            return
         was_pressed = self._pressed
         self._pressed = False
         next_color = self._hover_bg_color if self._hovered else self._bg_color

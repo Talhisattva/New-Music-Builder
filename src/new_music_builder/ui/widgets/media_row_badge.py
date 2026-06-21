@@ -38,6 +38,7 @@ class MediaRowBadge(tk.Canvas):
         self._command = command
         self._hovered = False
         self._pressed = False
+        self._enabled = True
         self._inner_id: int | None = None
 
         self._draw()
@@ -96,19 +97,27 @@ class MediaRowBadge(tk.Canvas):
             self.bind(sequence, handler)
 
     def _on_enter(self, _event: tk.Event) -> None:
+        if not self._enabled:
+            return
         self._hovered = True
         self._apply_visual_state()
 
     def _on_leave(self, _event: tk.Event) -> None:
+        if not self._enabled:
+            return
         self._hovered = False
         self._pressed = False
         self._apply_visual_state()
 
     def _on_press(self, _event: tk.Event) -> None:
+        if not self._enabled:
+            return
         self._pressed = True
         self._apply_visual_state()
 
     def _on_release(self, _event: tk.Event) -> None:
+        if not self._enabled:
+            return
         should_invoke = self._pressed and self._event_within_bounds(_event)
         self._pressed = False
         self._hovered = (0 <= self.winfo_pointerx() - self.winfo_rootx() < self._size[0]) and (
@@ -117,6 +126,12 @@ class MediaRowBadge(tk.Canvas):
         self._apply_visual_state()
         if should_invoke and self._command is not None:
             self._command()
+
+    def set_enabled(self, enabled: bool) -> None:
+        self._enabled = enabled
+        self._hovered = False
+        self._pressed = False
+        self._apply_visual_state()
 
     def _apply_visual_state(self) -> None:
         if self._inner_id is None:

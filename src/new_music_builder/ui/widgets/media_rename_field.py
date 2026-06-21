@@ -44,6 +44,7 @@ class EditIconButton(tk.Canvas):
         self._hover_bg_color = hover_bg_color
         self._pressed_bg_color = pressed_bg_color
         self._command = command
+        self._enabled = True
         self._is_pressed = False
         self._image = load_tk_photoimage(icon_path, size)
         self._fill_id = self.create_rectangle(0, 0, size[0], size[1], outline='', fill=bg_color)
@@ -61,6 +62,8 @@ class EditIconButton(tk.Canvas):
         self.configure(bg=color)
 
     def _on_enter(self, _event: tk.Event | None = None) -> str:
+        if not self._enabled:
+            return 'break'
         if not self._is_pressed:
             self._set_fill(self._hover_bg_color)
         return 'break'
@@ -71,11 +74,15 @@ class EditIconButton(tk.Canvas):
         return 'break'
 
     def _on_press(self, _event: tk.Event | None = None) -> str:
+        if not self._enabled:
+            return 'break'
         self._is_pressed = True
         self._set_fill(self._pressed_bg_color)
         return 'break'
 
     def _on_release(self, event: tk.Event | None = None) -> str:
+        if not self._enabled:
+            return 'break'
         if self._is_pressed:
             self._is_pressed = False
             inside = event is not None and 0 <= event.x <= self._size[0] and 0 <= event.y <= self._size[1]
@@ -86,6 +93,11 @@ class EditIconButton(tk.Canvas):
 
     def _break_event(self, _event: tk.Event | None = None) -> str:
         return 'break'
+
+    def set_enabled(self, enabled: bool) -> None:
+        self._enabled = enabled
+        self._is_pressed = False
+        self._set_fill(self._bg_color)
 
 
 class MediaRenameField(tk.Frame):
@@ -114,6 +126,7 @@ class MediaRenameField(tk.Frame):
         self._display_name = canonical_media_name(row.row_id, row.media_name)
         self._pre_edit_name = self._display_name
         self._editing = False
+        self._enabled = True
         self._outside_click_binding_id: str | None = None
         self._text_area_width = spec.MEDIA_ROW_RENAME_SIZE[0] - (spec.MEDIA_ROW_RENAME_OUTLINE_WIDTH * 2) - spec.MEDIA_ROW_RENAME_EDIT_BUTTON_SIZE[0]
         self._text_width_limit = (
@@ -208,17 +221,21 @@ class MediaRenameField(tk.Frame):
             widget.bind('<Double-Button-1>', self._on_text_double_click, add='+')
 
     def _on_text_double_click(self, _event: tk.Event | None = None) -> str:
+        if not self._enabled:
+            return 'break'
         self._enter_edit_mode()
         return 'break'
 
     def _on_edit_button(self) -> None:
+        if not self._enabled:
+            return
         if self._editing:
             self._commit_name()
             return
         self._enter_edit_mode()
 
     def _enter_edit_mode(self) -> None:
-        if self._editing:
+        if self._editing or not self._enabled:
             return
         self._editing = True
         self._install_outside_click_binding()
@@ -336,3 +353,16 @@ class MediaRenameField(tk.Frame):
 
     def _break_event(self, _event: tk.Event | None = None) -> str:
         return 'break'
+
+    def set_enabled(self, enabled: bool) -> None:
+        self._enabled = enabled
+        if not enabled and self._editing:
+            self._display_name = canonical_media_name(self._row.row_id, self._entry_var.get())
+            self._exit_edit_mode()
+        self.edit_button.set_enabled(enabled)
+        if enabled:
+            self.entry.configure(state='normal')
+            self.display_label.configure(fg=spec.MEDIA_ROW_RENAME_TEXT_COLOR)
+        else:
+            self.entry.configure(state='disabled')
+            self.display_label.configure(fg='#8d8690')

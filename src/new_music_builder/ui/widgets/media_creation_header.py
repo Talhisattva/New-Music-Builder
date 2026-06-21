@@ -71,3 +71,7 @@ class MediaCreationHeader(tk.Frame):
             y=spec.MODULE_TWO_TOP_HEADER_OUTLINE_WIDTH,
             width=inner_width,
         )
+
+    def set_enabled(self, enabled: bool) -> None:
+        self.add_button.set_enabled(enabled)
+        self.remove_button.set_enabled(enabled)

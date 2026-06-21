@@ -126,3 +126,12 @@ class OutputFolderField(tk.Frame):
             size=spec.OUTPUT_FOLDER_BUTTON_SIZE,
         )
         self.folder_button.place(x=button_x, y=row_y)
+
+    def set_enabled(self, enabled: bool) -> None:
+        self.label.configure(fg=spec.TYPEABLE_LABEL_TEXT_COLOR if enabled else '#8f8a92')
+        self.path_display.inner.configure(bg=spec.OUTPUT_FOLDER_DISPLAY_BG if enabled else '#4a474c')
+        self.path_display.text_label.configure(
+            bg=spec.OUTPUT_FOLDER_DISPLAY_BG if enabled else '#4a474c',
+            fg=spec.OUTPUT_FOLDER_DISPLAY_TEXT_COLOR if enabled else '#a9a5ab',
+        )
+        self.folder_button.set_enabled(enabled)

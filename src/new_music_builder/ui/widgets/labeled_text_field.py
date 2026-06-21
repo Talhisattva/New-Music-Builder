@@ -30,6 +30,7 @@ class TextField(tk.Frame):
         self._placeholder_color = placeholder_color
         self._placeholder_text = placeholder_text
         self._placeholder_visible = False
+        self._enabled = True
         self._variable = textvariable or tk.StringVar(master=self)
 
         inner_width = width - (outline_width * 2)
@@ -66,6 +67,29 @@ class TextField(tk.Frame):
         self.entry.bind('<FocusIn>', self._clear_placeholder, add='+')
         self.entry.bind('<FocusOut>', self._restore_placeholder_if_needed, add='+')
         self._restore_placeholder_if_needed()
+
+    def set_enabled(self, enabled: bool) -> None:
+        self._enabled = enabled
+        if enabled:
+            self.inner.configure(bg=self._bg_color)
+            self.entry.configure(
+                state='normal',
+                bg=self._bg_color,
+                disabledbackground=self._bg_color,
+                disabledforeground=self._text_color,
+            )
+            self._restore_placeholder_if_needed()
+            return
+        disabled_bg = '#4a474c'
+        disabled_text = '#a9a5ab'
+        self.inner.configure(bg=disabled_bg)
+        self.entry.configure(
+            state='disabled',
+            bg=disabled_bg,
+            disabledbackground=disabled_bg,
+            disabledforeground=disabled_text,
+            insertbackground=disabled_text,
+        )
 
     def _clear_placeholder(self, _event: tk.Event | None = None) -> None:
         if not self._placeholder_visible:
@@ -155,3 +179,7 @@ class LabeledTextField(tk.Frame):
             textvariable=textvariable,
         )
         self.field.place(x=label_width, y=(total_height - field_height) // 2)
+
+    def set_enabled(self, enabled: bool) -> None:
+        self.label.configure(fg=spec.TYPEABLE_LABEL_TEXT_COLOR if enabled else '#8f8a92')
+        self.field.set_enabled(enabled)

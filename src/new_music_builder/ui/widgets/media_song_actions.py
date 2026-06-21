@@ -50,3 +50,7 @@ class MediaSongActions(tk.Frame):
 
     def set_bg_color(self, color: str) -> None:
         self.configure(bg=color)
+
+    def set_enabled(self, enabled: bool) -> None:
+        self.add_button.set_enabled(enabled)
+        self.remove_button.set_enabled(enabled)

@@ -69,3 +69,7 @@ class MediaSideToggle(tk.Frame):
     def set_bg_color(self, color: str) -> None:
         self._bg_color = color
         self.configure(bg=color)
+
+    def set_enabled(self, enabled: bool) -> None:
+        self.a_button.set_enabled(enabled)
+        self.b_button.set_enabled(enabled)

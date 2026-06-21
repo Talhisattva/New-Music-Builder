@@ -28,6 +28,7 @@ class _DropdownItem(ctk.CTkFrame):
         hover_color: str,
         text_color: str,
         font: ctk.CTkFont,
+        enabled_getter: Callable[[], bool] | None = None,
     ) -> None:
         super().__init__(
             parent,
@@ -40,6 +41,9 @@ class _DropdownItem(ctk.CTkFrame):
         self._default_bg = bg_color
         self._hover_bg = hover_color
         self._command = command
+        self._enabled_getter = enabled_getter
+        self._text_color = text_color
+        self._disabled_text_color = '#8f8a92'
         self.label = ctk.CTkLabel(
             self,
             text=text,
@@ -51,14 +55,26 @@ class _DropdownItem(ctk.CTkFrame):
             widget.bind('<Enter>', self._on_enter, add='+')
             widget.bind('<Leave>', self._on_leave, add='+')
             widget.bind('<ButtonPress-1>', self._on_press, add='+')
+        self._apply_enabled_state()
+
+    def _enabled(self) -> bool:
+        return self._enabled_getter() if self._enabled_getter is not None else True
+
+    def _apply_enabled_state(self) -> None:
+        self.label.configure(text_color=self._text_color if self._enabled() else self._disabled_text_color)
 
     def _on_enter(self, _event: tk.Event | None = None) -> None:
+        if not self._enabled():
+            self.configure(fg_color=self._default_bg)
+            return
         self.configure(fg_color=self._hover_bg)
 
     def _on_leave(self, _event: tk.Event | None = None) -> None:
         self.configure(fg_color=self._default_bg)
 
     def _on_press(self, _event: tk.Event | None = None) -> str:
+        if not self._enabled():
+            return 'break'
         self._command()
         return 'break'
 
@@ -74,6 +90,7 @@ class _DropdownMenu(tk.Frame):
         bg_color: str,
         hover_color: str,
         font: ctk.CTkFont,
+        enabled_getter: Callable[[str], bool] | None = None,
     ) -> None:
         border_width = spec.MENU_DROPDOWN_BORDER_WIDTH
         super().__init__(
@@ -104,6 +121,7 @@ class _DropdownMenu(tk.Frame):
                 hover_color=hover_color,
                 text_color=text_color,
                 font=font,
+                enabled_getter=(lambda label=item.label: enabled_getter(label)) if enabled_getter is not None else None,
             )
             menu_item.place(
                 x=0,
@@ -128,6 +146,7 @@ class MenuStrip(ctk.CTkFrame):
         self._hover_color = hover_color
         self._text_color = text_color
         self._menu_actions = menu_actions or {}
+        self._action_enabled: dict[tuple[str, str], bool] = {}
         self._item_widgets: dict[str, tuple[ctk.CTkFrame, ctk.CTkLabel]] = {}
         self._open_menu_name: str | None = None
         self._dropdown: _DropdownMenu | None = None
@@ -204,7 +223,7 @@ class MenuStrip(ctk.CTkFrame):
         self._dropdown = _DropdownMenu(
             self.winfo_toplevel(),
             items=[
-                MenuAction(label=item.label, command=lambda action=item.command: self._run_action(action))
+                MenuAction(label=item.label, command=lambda action=item.command, label=item.label, name=menu_name: self._run_action(name, label, action))
                 for item in actions
             ],
             width=dropdown_width,
@@ -212,15 +231,25 @@ class MenuStrip(ctk.CTkFrame):
             bg_color=spec.MENU_DROPDOWN_BG,
             hover_color=spec.MENU_DROPDOWN_HOVER_BG,
             font=self._top_font,
+            enabled_getter=lambda label: self.is_action_enabled(menu_name, label),
         )
         x, y = self._dropdown_position(menu_name)
         self._dropdown.place(x=x, y=y)
         self._dropdown.lift()
         self._bind_global_handlers()
 
-    def _run_action(self, command: Callable[[], None]) -> None:
+    def _run_action(self, menu_name: str, item_label: str, command: Callable[[], None]) -> None:
+        if not self.is_action_enabled(menu_name, item_label):
+            self.close_menu()
+            return
         self.close_menu()
         command()
+
+    def is_action_enabled(self, menu_name: str, item_label: str) -> bool:
+        return self._action_enabled.get((menu_name, item_label), True)
+
+    def set_action_enabled(self, menu_name: str, item_label: str, enabled: bool) -> None:
+        self._action_enabled[(menu_name, item_label)] = enabled
 
     def _dropdown_width_for_actions(self, actions: list[MenuAction]) -> int:
         widest_text = max((self._measure_font.measure(action.label) for action in actions), default=0)

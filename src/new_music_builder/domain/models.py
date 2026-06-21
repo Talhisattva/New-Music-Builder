@@ -404,6 +404,8 @@ class AudioRunResult:
     converted_count: int = 0
     errors: list[str] = field(default_factory=list)
     fatal_error: str = ""
+    aborted: bool = False
+    abort_message: str = ""
     mod_size_text: str = "0 KB"
 
 
