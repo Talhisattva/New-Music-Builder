@@ -23,7 +23,7 @@ from new_music_builder.domain.models import (
     default_media_row,
 )
 from new_music_builder.platform.paths import app_root
-from new_music_builder.platform.paths import open_folder
+from new_music_builder.platform.paths import detect_workshop_dir, open_folder
 from new_music_builder.services.asset_catalog import AssetCatalog
 from new_music_builder.services.audio_workspace import AudioWorkspaceService
 from new_music_builder.services.export_planning import build_export_plan, build_preview_scenario
@@ -620,6 +620,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             label_text='.ogg Output Folder',
             folder_icon_path=self._folder_button_icon_path(),
             textvariable=self.ogg_output_folder_var,
+            command=self._pick_ogg_output_folder,
             bg_color=spec.MODULE_MIDGROUND_BG,
         )
         self.module_one_ogg_output_folder.place(
@@ -637,6 +638,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             label_text='Zomboid Workshop Folder',
             folder_icon_path=self._folder_button_icon_path(),
             textvariable=self.workshop_output_folder_var,
+            command=self._pick_workshop_output_folder,
             bg_color=spec.MODULE_MIDGROUND_BG,
         )
         self.module_one_workshop_output_folder.place(
@@ -1696,6 +1698,33 @@ class MainWindow(_DnDCompat, ctk.CTk):
             return
         messagebox.showinfo('Output Folder', str(output_path))
 
+    def _pick_ogg_output_folder(self) -> None:
+        initial_dir = self.session.project.ogg_output_folder or str(Path.home())
+        selected = fd.askdirectory(
+            title='Select .ogg Output Folder',
+            initialdir=initial_dir,
+            parent=self,
+        )
+        if not selected:
+            return
+        self.ogg_output_folder_var.set(selected)
+        self.session.project.ogg_output_folder = selected
+        self.on_project_change()
+
+    def _pick_workshop_output_folder(self) -> None:
+        detected = detect_workshop_dir()
+        initial_dir = self.session.project.workshop_output_folder or (str(detected) if detected else str(Path.home()))
+        selected = fd.askdirectory(
+            title='Select Zomboid Workshop Folder',
+            initialdir=initial_dir,
+            parent=self,
+        )
+        if not selected:
+            return
+        self.workshop_output_folder_var.set(selected)
+        self.session.project.workshop_output_folder = selected
+        self.on_project_change()
+
     def _sync_phase_one_project_state(self) -> None:
         self.session.project.mod_name = self.mod_name_var.get().strip()
         self.session.project.mod_id = self.mod_id_var.get().strip()
@@ -1707,6 +1736,10 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self.session.project.write_mod_name_on_poster = self.poster_name_checkbox.is_checked()
 
     def _sync_phase_one_ui_from_project(self) -> None:
+        if not self.session.project.workshop_output_folder:
+            detected = detect_workshop_dir()
+            if detected is not None:
+                self.session.project.workshop_output_folder = str(detected)
         self.mod_name_var.set(self.session.project.mod_name)
         self.mod_id_var.set(self.session.project.mod_id)
         self.parent_mod_id_var.set(self.session.project.parent_mod_id)

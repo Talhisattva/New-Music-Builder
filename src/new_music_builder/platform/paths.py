@@ -25,13 +25,15 @@ def logs_root() -> Path:
 def detect_workshop_dir() -> Path | None:
     home = Path.home()
     candidates = [
-        home / 'Zomboid' / 'Workshop',
-        home / 'Documents' / 'Zomboid' / 'Workshop',
-        home / 'OneDrive' / 'Documents' / 'Zomboid' / 'Workshop',
+        home / 'Zomboid',
+        home / 'Documents' / 'Zomboid',
+        home / 'OneDrive' / 'Documents' / 'Zomboid',
+        home / 'Saved Games' / 'Zomboid',
     ]
     for candidate in candidates:
-        if candidate.exists():
-            return candidate
+        workshop = candidate / 'Workshop'
+        if workshop.exists() and workshop.is_dir():
+            return workshop
     return None
 
 
