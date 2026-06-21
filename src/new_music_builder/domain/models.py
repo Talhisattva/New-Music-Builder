@@ -322,6 +322,8 @@ class RegisteredSide:
 class RegisteredMediaVariant:
     media_kind: MediaKind
     mode: RegistrationMode
+    full_item_id: str = ""
+    full_display_name: str = ""
     item_ids: dict[Literal["A", "B"], str] = field(default_factory=dict)
     display_names: dict[Literal["A", "B"], str] = field(default_factory=dict)
     icon_reference: str = ""
@@ -363,6 +365,53 @@ class RegisteredAlbum:
 class ExportRegistrationPlan:
     module_id: str
     albums: list[RegisteredAlbum] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class LuaAlbumMediaItems:
+    full: str = ""
+    a: str = ""
+    b: str = ""
+    container_empty: str = ""
+    container_full: str = ""
+
+
+@dataclass(slots=True)
+class LuaAlbumMediaRegistration:
+    media_kind: MediaKind
+    mode: Literal["full", "split"]
+    items: LuaAlbumMediaItems = field(default_factory=LuaAlbumMediaItems)
+    range_a: tuple[int, int] | None = None
+    range_b: tuple[int, int] | None = None
+
+
+@dataclass(slots=True)
+class LuaCoverGroup:
+    texture: str
+    include_playable: tuple[MediaKind, ...] = ()
+    include_containers: tuple[MediaKind, ...] = ()
+    include_empty_containers: tuple[MediaKind, ...] = ()
+
+
+@dataclass(slots=True)
+class LuaAlbumRegistration:
+    album_id: str
+    title: str
+    module_id: str
+    sound_prefix: str
+    table_name: str
+    require_name: str
+    track_labels: list[str] = field(default_factory=list)
+    media: list[LuaAlbumMediaRegistration] = field(default_factory=list)
+    cover_groups: list[LuaCoverGroup] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class LuaPackRegistration:
+    module_id: str
+    bootstrap_require_names: list[str] = field(default_factory=list)
+    album_table_names: list[str] = field(default_factory=list)
+    albums: list[LuaAlbumRegistration] = field(default_factory=list)
 
 
 @dataclass(slots=True)

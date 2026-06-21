@@ -45,9 +45,12 @@ def test_write_export_scaffold_generates_script_files_for_registered_media(tmp_p
 
     assert not result.errors
     scripts_root = Path(targets.v42) / "media" / "scripts"
+    lua_root = Path(targets.v42) / "media" / "lua" / "shared"
     sounds_text = (scripts_root / "NMB_RoadTripMix_Sounds.txt").read_text(encoding="utf-8")
     items_text = (scripts_root / "NMB_RoadTripMix_Items.txt").read_text(encoding="utf-8")
     models_text = (scripts_root / "NMB_RoadTripMix_Models.txt").read_text(encoding="utf-8")
+    bootstrap_text = (lua_root / "RoadTripMix_PackBootstrap.lua").read_text(encoding="utf-8")
+    album_text = (lua_root / "RoadTripMix_Album_RoadTripVol1.lua").read_text(encoding="utf-8")
 
     assert "module RoadTripMix" in sounds_text
     assert "sound RoadTripMixRoadTripVol101" in sounds_text
@@ -63,3 +66,90 @@ def test_write_export_scaffold_generates_script_files_for_registered_media(tmp_p
     assert "model RoadTripVol1JacketEmpty" in models_text
     assert "model RoadTripVol1JacketFull" in models_text
     assert "mesh = WorldItems/NM_Jacket" in models_text
+
+    assert 'require "NMAlbumPackBuilder"' in bootstrap_text
+    assert 'require "RoadTripMix_Album_RoadTripVol1"' in bootstrap_text
+    assert "NMAlbumPackBuilder.registerAlbumPack({" in bootstrap_text
+    assert "NMRoadTripMixAlbum_RoadTripVol1" in bootstrap_text
+
+    assert 'NMRoadTripMixAlbum_RoadTripVol1 = {' in album_text
+    assert 'soundPrefix = "RoadTripMixRoadTripVol1"' in album_text
+    assert '"01 Intro"' in album_text
+    assert '"02 Finale"' in album_text
+    assert 'cassette = {' in album_text
+    assert 'mode = "split"' in album_text
+    assert 'a = "RoadTripVol1CassetteA"' in album_text
+    assert 'b = "RoadTripVol1CassetteB"' in album_text
+    assert 'ranges = {' in album_text
+    assert 'a = { 1, 1 }' in album_text
+    assert 'b = { 2, 2 }' in album_text
+    assert 'texture = "WorldItems/Cassette/World_NM_Cassette01"' in album_text
+    assert 'texture = "WorldItems/Vinyl/World_NM_Cover18_Vinyl"' in album_text
+    assert 'texture = "WorldItems/Vinyl/World_NM_Cover18_Vinyl_Empty"' in album_text
+    assert 'texture = "WorldItems/CD/World_NM_CD"' in album_text
+
+
+def test_write_export_scaffold_generates_full_mode_lua_and_custom_texture_refs(tmp_path: Path) -> None:
+    workshop_root = tmp_path / "Workshop"
+    workshop_root.mkdir()
+    project = ProjectConfig(
+        mod_name="Night Drive",
+        mod_id="NightDrive",
+        workshop_output_folder=str(workshop_root),
+    )
+    row = default_media_row(1)
+    row.media_name = "Night Drive"
+    row.enabled_media["cd"] = False
+    row.tracks_a = [
+        _track("C:/music/one.ogg", "One More Song", "00:01:00"),
+        _track("C:/music/two.ogg", "Two More Song", "00:02:00"),
+    ]
+    row.tracks_b = []
+
+    row.appearances["cassette"].source = "custom"
+    row.appearances["cassette"].inventory_full = "C:/custom/Item_NM_Cassette_Custom.png"
+    row.appearances["cassette"].world_full = "C:/custom/World_NM_Cassette_Custom.png"
+    row.appearances["case"].source = "custom"
+    row.appearances["case"].inventory_full = "C:/custom/Item_NM_Case_Custom.png"
+    row.appearances["case"].world_full = "C:/custom/World_NM_CassetteCover_Custom.png"
+    row.appearances["vinyl"].source = "custom"
+    row.appearances["vinyl"].inventory_full = "C:/custom/Item_NM_Vinyl_Custom.png"
+    row.appearances["vinyl"].world_full = "C:/custom/World_NM_Cover_Custom.png"
+    row.appearances["jacket"].source = "custom"
+    row.appearances["jacket"].sprite_mode = "dual"
+    row.appearances["jacket"].inventory_full = "C:/custom/Item_NM_Jacket_Custom.png"
+    row.appearances["jacket"].world_full = "C:/custom/World_NM_Cover_Custom.png"
+    row.appearances["jacket"].inventory_empty = "C:/custom/Item_NM_Jacket_Custom_Empty.png"
+    row.appearances["jacket"].world_empty = "C:/custom/World_NM_Cover_Custom_Empty.png"
+    project.media_rows = [row]
+
+    catalog = AssetCatalog(ASSETS_ROOT).scan()
+    plan = build_export_plan(project, catalog)
+    targets = resolve_export_target(plan, project.workshop_output_folder, mod_name=project.mod_name, mod_id=project.mod_id)
+
+    result = write_export_scaffold(project, plan, targets, catalog)
+
+    assert not result.errors
+    scripts_root = Path(targets.v42) / "media" / "scripts"
+    lua_root = Path(targets.v42) / "media" / "lua" / "shared"
+    items_text = (scripts_root / "NMB_NightDrive_Items.txt").read_text(encoding="utf-8")
+    album_text = (lua_root / "NightDrive_Album_NightDrive.lua").read_text(encoding="utf-8")
+
+    assert "item NightDriveCassette" in items_text
+    assert "DisplayName = Night Drive (Cassette)" in items_text
+    assert "item NightDriveVinyl" in items_text
+    assert "item NightDriveJacketEmpty" in items_text
+
+    assert 'mode = "full"' in album_text
+    assert 'full = "NightDriveCassette"' in album_text
+    assert 'full = "NightDriveVinyl"' in album_text
+    assert "ranges = {" not in album_text
+    assert 'cd = {' not in album_text
+    assert 'texture = "WorldItems/Cassette/World_NM_Cassette_NightDrive"' in album_text
+    assert 'texture = "WorldItems/Cassette/World_NM_CassetteCover_NightDrive"' in album_text
+    assert 'texture = "WorldItems/Vinyl/World_NM_Cover_NightDrive"' in album_text
+    assert 'texture = "WorldItems/Vinyl/World_NM_Cover_NightDrive_Empty"' in album_text
+    assert 'includePlayable = { "cassette" }' in album_text
+    assert 'includePlayable = { "vinyl" }' in album_text
+    assert 'includeContainers = { "vinyl" }' in album_text
+    assert 'includeEmptyContainers = { "vinyl" }' in album_text

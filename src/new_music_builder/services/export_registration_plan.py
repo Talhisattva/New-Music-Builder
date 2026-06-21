@@ -113,17 +113,29 @@ def _build_media_variants(row: PlannedMediaRow, mode: RegistrationMode) -> list[
         if not row.enabled_media.get(media_kind, False):
             continue
         appearance = row.appearances.for_kind(_PLAYABLE_APPEARANCE_KIND[media_kind])
+        full_item_id = ""
+        full_display_name = ""
+        item_ids: dict[str, str] = {}
+        display_names: dict[str, str] = {}
+        if mode == "single":
+            full_item_id = f"{row.export_id}{_MEDIA_SUFFIX[media_kind]}"
+            full_display_name = _playable_display_name(row.media_name, media_kind, "A", mode)
+        else:
+            item_ids = {
+                side_name: f"{row.export_id}{_MEDIA_SUFFIX[media_kind]}{side_name}"
+                for side_name in available_sides
+            }
+            display_names = {
+                side_name: _playable_display_name(row.media_name, media_kind, side_name, mode)
+                for side_name in available_sides
+            }
         variant = RegisteredMediaVariant(
             media_kind=media_kind,
             mode=mode,
-            item_ids={
-                side_name: f"{row.export_id}{_MEDIA_SUFFIX[media_kind]}{side_name}"
-                for side_name in available_sides
-            },
-            display_names={
-                side_name: _playable_display_name(row.media_name, media_kind, side_name, mode)
-                for side_name in available_sides
-            },
+            full_item_id=full_item_id,
+            full_display_name=full_display_name,
+            item_ids=item_ids,
+            display_names=display_names,
             icon_reference=_appearance_icon_reference_from_appearance(appearance),
             model_reference=_appearance_model_reference_from_appearance(appearance),
             selected_asset_key=appearance.selected_asset_key,

@@ -122,17 +122,29 @@ def _render_items(registration) -> str:
     for album in registration.albums:
         for variant in album.media_variants:
             model_name = _playable_model_name(album, variant)
-            for side_name in sorted(variant.item_ids):
+            if variant.mode == "single":
                 lines.extend(
                     _render_item_block(
-                        item_id=variant.item_ids[side_name],
-                        display_name=variant.display_names[side_name],
+                        item_id=variant.full_item_id,
+                        display_name=variant.full_display_name,
                         icon_reference=variant.icon_reference,
                         model_name=model_name,
                         module_name=module_name,
                         weight=_PLAYABLE_WEIGHT[variant.media_kind],
                     )
                 )
+            else:
+                for side_name in sorted(variant.item_ids):
+                    lines.extend(
+                        _render_item_block(
+                            item_id=variant.item_ids[side_name],
+                            display_name=variant.display_names[side_name],
+                            icon_reference=variant.icon_reference,
+                            model_name=model_name,
+                            module_name=module_name,
+                            weight=_PLAYABLE_WEIGHT[variant.media_kind],
+                        )
+                    )
         for variant in album.container_variants:
             lines.extend(
                 _render_item_block(
