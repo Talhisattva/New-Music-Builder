@@ -184,6 +184,9 @@ class BuildSummaryStats:
     total_sides: int = 0
     total_songs: int = 0
     built_songs: int = 0
+    planned_media_rows: int = 0
+    planned_total_sides: int = 0
+    planned_total_songs: int = 0
     converted: int = 0
     mod_size_text: str = "0 KB"
     errors: int = 0

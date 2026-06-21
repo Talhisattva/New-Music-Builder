@@ -1794,11 +1794,14 @@ class MainWindow(_DnDCompat, ctk.CTk):
                 color_role="error",
             )
             cancelled_stats = BuildSummaryStats(
-                media_rows=plan.stats.media_rows,
+                media_rows=0,
                 exported_media_rows=0,
-                total_sides=plan.stats.total_sides,
-                total_songs=plan.stats.total_songs,
+                total_sides=0,
+                total_songs=0,
                 built_songs=0,
+                planned_media_rows=plan.stats.planned_media_rows,
+                planned_total_sides=plan.stats.planned_total_sides,
+                planned_total_songs=plan.stats.planned_total_songs,
                 converted=0,
                 mod_size_text="0 KB",
                 errors=1,
@@ -1847,11 +1850,14 @@ class MainWindow(_DnDCompat, ctk.CTk):
                 )
             )
             stats = BuildSummaryStats(
-                media_rows=plan.stats.media_rows,
+                media_rows=0,
                 exported_media_rows=0,
-                total_sides=plan.stats.total_sides,
-                total_songs=plan.stats.total_songs,
+                total_sides=0,
+                total_songs=0,
                 built_songs=0,
+                planned_media_rows=plan.stats.planned_media_rows,
+                planned_total_sides=plan.stats.planned_total_sides,
+                planned_total_songs=plan.stats.planned_total_songs,
                 converted=0,
                 mod_size_text=scaffold_result.mod_size_text,
                 errors=1,
@@ -2076,11 +2082,14 @@ class MainWindow(_DnDCompat, ctk.CTk):
                 )
             )
         stats = BuildSummaryStats(
-            media_rows=plan.stats.media_rows,
+            media_rows=len(successful_rows),
             exported_media_rows=len(successful_rows),
-            total_sides=plan.stats.total_sides,
-            total_songs=plan.stats.total_songs,
+            total_sides=len(result.successful_sides),
+            total_songs=result.built_song_count,
             built_songs=result.built_song_count,
+            planned_media_rows=plan.stats.planned_media_rows,
+            planned_total_sides=plan.stats.planned_total_sides,
+            planned_total_songs=plan.stats.planned_total_songs,
             converted=result.converted_count,
             mod_size_text=result.mod_size_text,
             errors=len(result.errors),
@@ -2103,11 +2112,14 @@ class MainWindow(_DnDCompat, ctk.CTk):
                 )
             )
         stats = BuildSummaryStats(
-            media_rows=plan.stats.media_rows,
+            media_rows=0,
             exported_media_rows=0,
-            total_sides=plan.stats.total_sides,
-            total_songs=plan.stats.total_songs,
+            total_sides=0,
+            total_songs=0,
             built_songs=0,
+            planned_media_rows=plan.stats.planned_media_rows,
+            planned_total_sides=plan.stats.planned_total_sides,
+            planned_total_songs=plan.stats.planned_total_songs,
             converted=0,
             mod_size_text="0 KB",
             errors=1,
