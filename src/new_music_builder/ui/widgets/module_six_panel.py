@@ -21,8 +21,9 @@ class _BuildStatusCard(tk.Canvas):
             highlightthickness=0,
         )
         self._icon = load_tk_photoimage(icon_path, spec.MODULE_SIX_BUTTON_COMPLETE_ICON_SIZE)
+        self._title_text = 'BUILD COMPLETE'
         self._summary_text = '0/0 Media - 0 Songs'
-        self._show_complete_state = False
+        self._state: str = 'idle'
         self._title_font = tkfont.Font(
             family=spec.MODULE_SIX_BUTTON_COMPLETE_TITLE_FONT_FAMILY,
             size=spec.MODULE_SIX_BUTTON_COMPLETE_TITLE_FONT_SIZE,
@@ -34,13 +35,15 @@ class _BuildStatusCard(tk.Canvas):
         self._draw()
 
     def set_stats(self, stats: BuildSummaryStats) -> None:
+        self._title_text = 'BUILD BLOCKED' if stats.errors else 'BUILD COMPLETE'
         self._summary_text = f'{stats.exported_media_rows}/{stats.media_rows} Media - {stats.total_songs} Songs'
-        self._show_complete_state = True
+        self._state = 'error' if stats.errors else 'complete'
         self._draw()
 
     def reset(self) -> None:
+        self._title_text = 'BUILD COMPLETE'
         self._summary_text = '0/0 Media - 0 Songs'
-        self._show_complete_state = False
+        self._state = 'idle'
         self._draw()
 
     def _draw(self) -> None:
@@ -53,13 +56,27 @@ class _BuildStatusCard(tk.Canvas):
         group_top = (height - group_height) / 2
         title_y = group_top + (title_height / 2)
         subtitle_y = group_top + title_height + gap_height + (subtitle_height / 2)
+        is_complete = self._state == 'complete'
+        is_error = self._state == 'error'
+        border_fill = spec.MODULE_SIX_BUTTON_RESET_BORDER_COLOR
+        card_fill = spec.MODULE_SIX_BUTTON_RESET_BG
+        title_fill = spec.MODULE_SIX_BUTTON_COMPLETE_TEXT_COLOR
+        subtitle_fill = spec.MODULE_SIX_BUTTON_COMPLETE_SUBTITLE_COLOR
+        if is_complete:
+            border_fill = spec.MODULE_SIX_BUTTON_COMPLETE_BORDER_COLOR
+            card_fill = spec.MODULE_SIX_BUTTON_COMPLETE_BG
+        elif is_error:
+            border_fill = spec.MAIN_BUTTON_NEGATIVE_OUTLINE
+            card_fill = spec.MAIN_BUTTON_NEGATIVE_BG
+            title_fill = spec.MODULE_SIX_STATS_ERROR_TEXT_COLOR
+
         self.create_rectangle(
             0,
             0,
             width,
             height,
             outline='',
-            fill=spec.MODULE_SIX_BUTTON_COMPLETE_BORDER_COLOR if self._show_complete_state else spec.MODULE_SIX_BUTTON_RESET_BORDER_COLOR,
+            fill=border_fill,
         )
         self.create_rectangle(
             1,
@@ -67,21 +84,21 @@ class _BuildStatusCard(tk.Canvas):
             width - 1,
             height - 1,
             outline='',
-            fill=spec.MODULE_SIX_BUTTON_COMPLETE_BG if self._show_complete_state else spec.MODULE_SIX_BUTTON_RESET_BG,
+            fill=card_fill,
         )
-        if self._show_complete_state and self._icon is not None:
+        if is_complete and self._icon is not None:
             self.create_image(
                 spec.MODULE_SIX_BUTTON_COMPLETE_ICON_CENTER_X,
                 height / 2,
                 image=self._icon,
                 anchor='c',
             )
-        if self._show_complete_state:
+        if self._state != 'idle':
             self.create_text(
                 width / 2,
                 title_y,
-                text='BUILD COMPLETE',
-                fill=spec.MODULE_SIX_BUTTON_COMPLETE_TEXT_COLOR,
+                text=self._title_text,
+                fill=title_fill,
                 font=self._title_font,
                 anchor='c',
                 justify='center',
@@ -90,7 +107,7 @@ class _BuildStatusCard(tk.Canvas):
                 width / 2,
                 subtitle_y,
                 text=self._summary_text,
-                fill=spec.MODULE_SIX_BUTTON_COMPLETE_SUBTITLE_COLOR,
+                fill=subtitle_fill,
                 font=self._subtitle_font,
                 anchor='c',
                 justify='center',
