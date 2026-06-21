@@ -60,18 +60,19 @@ class _SelectorBox(tk.Canvas):
         self.delete('all')
         inset = 1
         width, height = spec.MODULE_THREE_CUSTOM_SELECTOR_SIZE
+        border_color = spec.MODULE_THREE_CUSTOM_SELECTOR_BORDER_COLOR if self._enabled else spec.MODULE_THREE_CUSTOM_SELECTOR_DISABLED_BORDER_COLOR
         self.create_rectangle(
             inset,
             inset,
             width - inset,
             height - inset,
-            outline=spec.MODULE_THREE_CUSTOM_SELECTOR_BORDER_COLOR,
+            outline=border_color,
             width=1,
             dash=spec.MODULE_THREE_CUSTOM_SELECTOR_DASH_PATTERN,
         )
         if self._preview_image is not None:
             self.create_image(width // 2, height // 2, image=self._preview_image)
-        else:
+        elif self._enabled:
             self._set_plus_color()
             _plus_width, plus_height = spec.MODULE_THREE_CUSTOM_SELECTOR_PLUS_SIZE
             bar_width = spec.MODULE_THREE_CUSTOM_SELECTOR_PLUS_THICKNESS
@@ -100,7 +101,7 @@ class _SelectorBox(tk.Canvas):
                 (width - 1) / 2,
                 spec.MODULE_THREE_CUSTOM_SELECTOR_CAPTION_Y,
                 text=self._caption,
-                fill=spec.MODULE_THREE_CUSTOM_SELECTOR_CAPTION_COLOR,
+                fill=spec.MODULE_THREE_CUSTOM_DISABLED_TEXT_COLOR if not self._enabled else spec.MODULE_THREE_CUSTOM_SELECTOR_CAPTION_COLOR,
                 font=(spec.MODULE_THREE_CUSTOM_SELECTOR_LABEL_FONT_FAMILY, spec.MODULE_THREE_CUSTOM_SELECTOR_CAPTION_FONT_SIZE),
                 anchor='center',
             )
@@ -196,12 +197,18 @@ class _VerticalStrip(tk.Canvas):
         return self._forced_enabled and getter_enabled
 
     def _redraw(self) -> None:
-        if self._pressed:
+        if not self._enabled():
+            fill = self._default_bg
+            text_color = spec.MODULE_THREE_CUSTOM_DISABLED_TEXT_COLOR
+        elif self._pressed:
             fill = self._pressed_bg
+            text_color = self._text_color
         elif self._hovered:
             fill = self._hover_bg
+            text_color = self._text_color
         else:
             fill = self._default_bg
+            text_color = self._text_color
         self.configure(bg=fill)
         self.delete('all')
         try:
@@ -210,7 +217,7 @@ class _VerticalStrip(tk.Canvas):
                 self._size[1] // 2,
                 text=self._text,
                 angle=90,
-                fill=self._text_color,
+                fill=text_color,
                 font=self._font,
             )
         except tk.TclError:
@@ -218,7 +225,7 @@ class _VerticalStrip(tk.Canvas):
                 self._size[0] // 2,
                 self._size[1] // 2,
                 text='\n'.join(self._text),
-                fill=self._text_color,
+                fill=text_color,
                 font=self._font,
                 justify='center',
             )
@@ -415,6 +422,12 @@ class AppearanceSingleCustomFooter(_FooterBase):
         self.inventory_box.set_enabled(enabled)
         self.world_box.set_enabled(enabled)
         self.reset_strip.set_enabled(enabled)
+        label_color = spec.MODULE_THREE_CUSTOM_DISABLED_TEXT_COLOR if not enabled else spec.MODULE_THREE_CUSTOM_SELECTOR_LABEL_COLOR
+        action_color = spec.MODULE_THREE_CUSTOM_DISABLED_TEXT_COLOR if not enabled else spec.MODULE_THREE_CUSTOM_ACTION_LABEL_COLOR
+        self.inventory_label.configure(fg=label_color)
+        self.world_label.configure(fg=label_color)
+        self.main_label.configure(fg=action_color)
+        self._apply_main_fill()
 
 
 class AppearanceDualCustomFooter(_FooterBase):
@@ -586,3 +599,7 @@ class AppearanceDualCustomFooter(_FooterBase):
             box.set_enabled(enabled)
         self.add_custom_strip.set_enabled(enabled)
         self.reset_strip.set_enabled(enabled)
+        label_color = spec.MODULE_THREE_CUSTOM_DISABLED_TEXT_COLOR if not enabled else spec.MODULE_THREE_CUSTOM_SELECTOR_LABEL_COLOR
+        for label in self.box_labels:
+            label.configure(fg=label_color)
+        self._apply_main_fill()

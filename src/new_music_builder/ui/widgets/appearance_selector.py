@@ -334,8 +334,8 @@ class _AppearanceGridTile(_BorderSurface):
 
     def _apply_colors(self) -> None:
         if self._locked:
-            fill = '#565258' if self._selected else spec.MODULE_THREE_GRID_TILE_BG
-            border = '#9c98a0' if self._selected else spec.MODULE_THREE_GRID_TILE_BORDER_COLOR
+            fill = spec.MODULE_THREE_GRID_TILE_LOCKED_SELECTED_BG if self._selected else spec.MODULE_THREE_GRID_TILE_BG
+            border = spec.MODULE_THREE_GRID_TILE_LOCKED_SELECTED_BORDER_COLOR if self._selected else spec.MODULE_THREE_GRID_TILE_BORDER_COLOR
         elif self._selected:
             fill = spec.MODULE_THREE_GRID_TILE_SELECTED_BG
             border = spec.MODULE_THREE_GRID_TILE_SELECTED_BORDER_COLOR

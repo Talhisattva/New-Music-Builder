@@ -528,8 +528,6 @@ class MediaRowShell(tk.Frame):
 
     def set_locked(self, locked: bool) -> None:
         self._locked = locked
-        self.expanded_badge.set_enabled(not locked)
-        self.collapsed_badge.set_enabled(not locked)
         self.collapsed_remove_button.set_enabled(not locked)
         self.rename_field.set_enabled(not locked)
         self.side_toggle.set_enabled(not locked)

@@ -14,6 +14,11 @@ ConversionSongStatus = Literal["queued", "converting", "done", "failed"]
 ExportLogColorRole = Literal["neutral", "queued", "converting", "done", "error"]
 AudioBuildAction = Literal["copy_ogg", "convert_to_ogg", "error"]
 AudioRunEventKind = Literal[
+    "run_preparing",
+    "scaffold_started",
+    "scaffold_completed",
+    "run_aborted",
+    "run_failed",
     "side_started",
     "song_started",
     "song_progress",

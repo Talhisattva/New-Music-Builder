@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
 import queue
-import shutil
 import sys
 import threading
 import time
@@ -34,15 +34,13 @@ from new_music_builder.domain.models import (
 from new_music_builder.platform.paths import app_root
 from new_music_builder.platform.paths import detect_workshop_dir, open_folder
 from new_music_builder.services.asset_catalog import AssetCatalog
-from new_music_builder.services.audio_export_runner import run_audio_export
-from new_music_builder.services.audio_work_plan import build_audio_work_plan
+from new_music_builder.services.export_build_runner import run_staged_export
 from new_music_builder.services.export_planning import build_export_plan, build_preview_scenario
 from new_music_builder.services.export_scaffold import (
     build_scaffold_stats,
     build_validation_log_lines,
     resolve_export_target,
     validate_export_request,
-    write_export_scaffold,
 )
 from new_music_builder.services.index_selection import apply_index_selection
 from new_music_builder.services.project_session import ProjectSession
@@ -135,7 +133,6 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._build_abort_requested = False
         self._build_abort_event: threading.Event | None = None
         self._active_build_final_targets: ExportTargetPaths | None = None
-        self._active_build_staging_targets: ExportTargetPaths | None = None
         self._active_preview_rows_by_side: dict[tuple[int, str], GeneratedPreviewRow] = {}
         self._active_successful_sides: list[tuple[int, str]] = []
 
@@ -280,6 +277,10 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.module_one_header.set_icon_path(self._phase_one_disabled_icon_path() if locked else self._phase_one_icon_path())
         self.module_two_header.set_icon_path(self._phase_two_disabled_icon_path() if locked else self._phase_two_icon_path())
         self.module_three_header.set_icon_path(self._phase_three_disabled_icon_path() if locked else self._phase_three_icon_path())
+        header_text_color = spec.MODULE_HEADER_DISABLED_TEXT_COLOR if locked else spec.MODULE_HEADER_TEXT_COLOR
+        self.module_one_header.set_text_color(header_text_color)
+        self.module_two_header.set_text_color(header_text_color)
+        self.module_three_header.set_text_color(header_text_color)
 
         self.module_one_cover_picker.set_enabled(not locked)
         self.poster_name_checkbox.set_enabled(not locked)
@@ -318,49 +319,6 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
     def _build_abort_pending(self) -> bool:
         return bool(self._build_abort_event is not None and self._build_abort_event.is_set())
-
-    def _stage_export_targets(self, final_targets: ExportTargetPaths) -> ExportTargetPaths:
-        staging_root = Path(final_targets.workshop_root) / f".nmb_staging_{uuid4().hex}"
-        contents = staging_root / "Contents"
-        mods_root = contents / "mods"
-        mod_base = mods_root / final_targets.inner_folder_name
-        common = mod_base / "common"
-        v42 = mod_base / "42"
-        audio_root = common / "media" / "sound"
-        audio_pack_root = audio_root / final_targets.inner_folder_name
-        return ExportTargetPaths(
-            workshop_root=final_targets.workshop_root,
-            outer_folder_name=final_targets.outer_folder_name,
-            inner_folder_name=final_targets.inner_folder_name,
-            root=str(staging_root),
-            contents=str(contents),
-            mods_root=str(mods_root),
-            mod_base=str(mod_base),
-            common=str(common),
-            v42=str(v42),
-            audio_root=str(audio_root),
-            audio_pack_root=str(audio_pack_root),
-        )
-
-    def _cleanup_staging_export_root(self) -> None:
-        staging_targets = self._active_build_staging_targets
-        if staging_targets is None:
-            return
-        staging_root = Path(staging_targets.root)
-        if staging_root.exists():
-            shutil.rmtree(staging_root, ignore_errors=True)
-        self._active_build_staging_targets = None
-
-    def _promote_staging_export_root(self) -> None:
-        if self._active_build_staging_targets is None or self._active_build_final_targets is None:
-            return
-        staging_root = Path(self._active_build_staging_targets.root)
-        final_root = Path(self._active_build_final_targets.root)
-        if final_root.exists():
-            shutil.rmtree(final_root)
-        if staging_root.exists():
-            shutil.move(str(staging_root), str(final_root))
-        self._active_build_staging_targets = None
 
     def _module_two_preview_entry(self, row, kind: AppearanceKind) -> AppearanceGridEntry | None:
         row.ensure_appearances()
@@ -1927,17 +1885,18 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self._request_abort_export()
             return
         self._sync_phase_one_project_state()
-        plan = build_export_plan(self.session.project, self.asset_catalog)
-        validation_errors = validate_export_request(self.session.project, plan)
+        project_snapshot = deepcopy(self.session.project)
+        plan = build_export_plan(project_snapshot, self.asset_catalog)
+        validation_errors = validate_export_request(project_snapshot, plan)
         self._active_preview_rows_by_side = {}
         self._active_successful_sides = []
         scenario_output_path = ''
         if not validation_errors:
             targets = resolve_export_target(
                 plan,
-                self.session.project.workshop_output_folder,
-                mod_name=self.session.project.mod_name,
-                mod_id=self.session.project.mod_id,
+                project_snapshot.workshop_output_folder,
+                mod_name=project_snapshot.mod_name,
+                mod_id=project_snapshot.mod_id,
             )
             scenario_output_path = targets.root
         scenario = build_preview_scenario(plan, scenario_output_path)
@@ -2006,36 +1965,26 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._build_abort_requested = False
         self._build_abort_event = threading.Event()
         self._active_build_final_targets = targets
-        self._active_build_staging_targets = self._stage_export_targets(targets)
         self._set_build_locked(True)
-        staging_targets = self._active_build_staging_targets
-
-        scaffold_result = write_export_scaffold(self.session.project, plan, staging_targets, self.asset_catalog)
-        self._last_export_output_path = scaffold_result.output_path if not scaffold_result.errors else ''
         if hasattr(self, 'module_four_panel'):
             self.module_four_panel.set_output_path(targets.root)
-            self.module_four_panel.set_log_lines(scaffold_result.log_lines)
-        self.build_log = [self._module_four_log_line_text(line) for line in scaffold_result.log_lines]
+            self.module_four_panel.set_log_lines(
+                [
+                    ExportLogLine(
+                        timestamp=datetime.now().strftime("%H:%M:%S"),
+                        prefix_text="Preparing export...",
+                        subject_text=str(output_root),
+                        color_role="queued",
+                    )
+                ]
+            )
+        self.build_log = []
         self.preview_entries = []
 
-        if scaffold_result.errors:
-            stats = build_scaffold_stats(plan, scaffold_result)
-            if hasattr(self, 'module_six_panel'):
-                self.module_six_panel.set_stats(stats)
-            self._cleanup_staging_export_root()
-            self._set_build_locked(False)
-            self._build_abort_event = None
-            self._active_build_final_targets = None
-            if hasattr(self, 'build_summary'):
-                self.build_summary.refresh()
-            return
-
-        work_plan = build_audio_work_plan(self.session.project, plan, staging_targets)
         self._start_audio_build_run(
             plan=plan,
-            targets=staging_targets.root,
-            work_plan=work_plan,
-            cache_root=self.session.project.ogg_output_folder,
+            project_snapshot=project_snapshot,
+            final_targets=targets,
         )
 
     def reset_transient_state(self) -> None:
@@ -2066,17 +2015,16 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self,
         *,
         plan,
-        targets: str,
-        work_plan,
-        cache_root: str,
+        project_snapshot,
+        final_targets: ExportTargetPaths,
     ) -> None:
         self._build_event_queue = queue.Queue()
         self._active_build_thread = threading.Thread(
             target=self._run_audio_build_worker,
             kwargs={
-                "work_plan": work_plan,
-                "output_root": targets,
-                "cache_root": cache_root,
+                "project_snapshot": project_snapshot,
+                "plan": plan,
+                "final_targets": final_targets,
             },
             daemon=True,
         )
@@ -2086,22 +2034,24 @@ class MainWindow(_DnDCompat, ctk.CTk):
     def _run_audio_build_worker(
         self,
         *,
-        work_plan,
-        output_root: str,
-        cache_root: str,
+        project_snapshot,
+        plan,
+        final_targets: ExportTargetPaths,
     ) -> None:
         assert self._build_event_queue is not None
         try:
-            result = run_audio_export(
-                work_plan,
-                cache_root=cache_root,
-                output_root=output_root,
+            result = run_staged_export(
+                project_snapshot,
+                plan,
+                final_targets,
+                asset_catalog=self.asset_catalog,
+                cache_root=project_snapshot.ogg_output_folder,
                 emit=lambda event: self._build_event_queue.put(("event", event)),
                 cancel_requested=self._build_abort_pending,
             )
             self._build_event_queue.put(("result", result))
         except Exception as exc:
-            self._build_event_queue.put(("fatal", (output_root, str(exc))))
+            self._build_event_queue.put(("fatal", (final_targets.root, str(exc))))
 
     def _schedule_build_event_poll(self, plan) -> None:
         if self._build_poll_after_id is not None:
@@ -2136,6 +2086,59 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
     def _handle_audio_run_event(self, event: AudioRunEvent) -> None:
         if not hasattr(self, 'module_four_panel'):
+            return
+        if event.kind == "run_preparing":
+            line = ExportLogLine(
+                timestamp=datetime.now().strftime("%H:%M:%S"),
+                prefix_text="Preparing export...",
+                trailing_text=event.message,
+                color_role="queued",
+            )
+            if self.module_four_panel.state.current_run_log_lines:
+                self.module_four_panel.update_active_log_line(line)
+            else:
+                self.module_four_panel.append_log_line(line)
+            return
+        if event.kind == "scaffold_started":
+            self.module_four_panel.append_log_line(
+                ExportLogLine(
+                    timestamp=datetime.now().strftime("%H:%M:%S"),
+                    prefix_text="Starting scaffold:",
+                    trailing_text=event.message,
+                    color_role="queued",
+                )
+            )
+            return
+        if event.kind == "scaffold_completed":
+            self.module_four_panel.append_log_line(
+                ExportLogLine(
+                    timestamp=datetime.now().strftime("%H:%M:%S"),
+                    prefix_text="Export scaffold complete.",
+                    trailing_text=event.message,
+                    size_text=event.size_text,
+                    color_role="done",
+                )
+            )
+            return
+        if event.kind == "run_aborted":
+            self.module_four_panel.append_log_line(
+                ExportLogLine(
+                    timestamp=datetime.now().strftime("%H:%M:%S"),
+                    prefix_text="Build aborted.",
+                    trailing_text=event.message,
+                    color_role="error",
+                )
+            )
+            return
+        if event.kind == "run_failed":
+            self.module_four_panel.append_log_line(
+                ExportLogLine(
+                    timestamp=datetime.now().strftime("%H:%M:%S"),
+                    prefix_text="Build failed.",
+                    trailing_text=event.message,
+                    color_role="error",
+                )
+            )
             return
         key = (event.row_id, event.side)
         if event.kind == "side_started":
@@ -2214,18 +2217,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
     def _finalize_audio_run(self, plan, result: AudioRunResult) -> None:
         final_targets = self._active_build_final_targets
         if result.aborted:
-            self._cleanup_staging_export_root()
             output_path = Path(final_targets.root) if final_targets is not None else Path(result.output_path)
             self._last_export_output_path = str(output_path) if output_path.exists() else ''
-            if hasattr(self, 'module_four_panel'):
-                self.module_four_panel.append_log_line(
-                    ExportLogLine(
-                        timestamp=datetime.now().strftime("%H:%M:%S"),
-                        prefix_text="Build aborted.",
-                        trailing_text=result.abort_message or "Build aborted by user.",
-                        color_role="error",
-                    )
-                )
             stats = BuildSummaryStats(
                 media_rows=0,
                 exported_media_rows=0,
@@ -2237,6 +2230,32 @@ class MainWindow(_DnDCompat, ctk.CTk):
                 planned_total_songs=plan.stats.planned_total_songs,
                 converted=0,
                 mod_size_text=self._directory_size_text(output_path),
+                errors=max(1, len(result.errors) + 1),
+            )
+            if hasattr(self, 'module_six_panel'):
+                self.module_six_panel.set_stats(stats)
+            self.build_log = [self._module_four_log_line_text(line) for line in getattr(self.module_four_panel.state, 'current_run_log_lines', [])] if hasattr(self, 'module_four_panel') else []
+            self.preview_entries = []
+            if hasattr(self, 'build_summary'):
+                self.build_summary.refresh()
+            self._set_build_locked(False)
+            self._build_abort_event = None
+            self._active_build_final_targets = None
+            return
+        if result.fatal_error:
+            output_path = Path(final_targets.root) if final_targets is not None else Path(result.output_path)
+            self._last_export_output_path = str(output_path) if output_path.exists() else ''
+            stats = BuildSummaryStats(
+                media_rows=0,
+                exported_media_rows=0,
+                total_sides=0,
+                total_songs=0,
+                built_songs=0,
+                planned_media_rows=plan.stats.planned_media_rows,
+                planned_total_sides=plan.stats.planned_total_sides,
+                planned_total_songs=plan.stats.planned_total_songs,
+                converted=0,
+                mod_size_text=result.mod_size_text or self._directory_size_text(output_path),
                 errors=max(1, len(result.errors) or 1),
             )
             if hasattr(self, 'module_six_panel'):
@@ -2250,7 +2269,6 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self._active_build_final_targets = None
             return
 
-        self._promote_staging_export_root()
         output_path = Path(final_targets.root) if final_targets is not None else Path(result.output_path)
         result.output_path = str(output_path)
         self._last_export_output_path = str(output_path) if output_path.exists() else ''
@@ -2296,16 +2314,6 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._active_build_final_targets = None
 
     def _finalize_audio_run_failure(self, plan, output_root: str, error_message: str) -> None:
-        self._cleanup_staging_export_root()
-        if hasattr(self, 'module_four_panel'):
-            self.module_four_panel.append_log_line(
-                ExportLogLine(
-                    timestamp=datetime.now().strftime("%H:%M:%S"),
-                    prefix_text="Build failed.",
-                    trailing_text=error_message,
-                    color_role="error",
-                )
-            )
         final_targets = self._active_build_final_targets
         output_path = Path(final_targets.root) if final_targets is not None else Path(output_root)
         self._last_export_output_path = str(output_path) if output_path.exists() else ''

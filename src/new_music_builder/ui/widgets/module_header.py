@@ -26,6 +26,7 @@ class ModuleHeader(tk.Frame):
         super().__init__(parent, bg=bg_color, bd=0, highlightthickness=0)
         self._icon_size = icon_size
         self._bg_color = bg_color
+        self._text_color = text_color
         self._image = load_tk_photoimage(icon_path, icon_size)
 
         label_x = x + icon_size[0] + icon_gap
@@ -60,3 +61,7 @@ class ModuleHeader(tk.Frame):
         if self.icon_label is not None:
             self.icon_label.configure(image=self._image if self._image is not None else '')
             self.icon_label.image = self._image
+
+    def set_text_color(self, text_color: str) -> None:
+        self._text_color = text_color
+        self.text_label.configure(fg=text_color)
