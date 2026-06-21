@@ -2398,7 +2398,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
                 planned_media_rows=plan.stats.planned_media_rows,
                 planned_total_sides=plan.stats.planned_total_sides,
                 planned_total_songs=plan.stats.planned_total_songs,
-                converted=0,
+                converted=result.converted_count,
                 mod_size_text=self._directory_size_text(output_path),
                 errors=max(1, len(result.errors) + 1),
             )
@@ -2425,7 +2425,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
                 planned_media_rows=plan.stats.planned_media_rows,
                 planned_total_sides=plan.stats.planned_total_sides,
                 planned_total_songs=plan.stats.planned_total_songs,
-                converted=0,
+                converted=result.converted_count,
                 mod_size_text=result.mod_size_text or self._directory_size_text(output_path),
                 errors=max(1, len(result.errors) or 1),
             )
