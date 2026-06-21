@@ -61,4 +61,4 @@ class AppHeader(ctk.CTkFrame):
                 weight='normal',
             ),
         )
-        self.byline_label.pack(side='right', padx=(0, spec.HEADER_BYLINE_RIGHT_INSET), pady=14)
+        self.byline_label.pack(side='right', padx=(0, spec.HEADER_BYLINE_RIGHT_INSET), pady=spec.HEADER_BYLINE_PAD_Y)
