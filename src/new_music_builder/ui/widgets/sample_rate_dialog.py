@@ -26,7 +26,7 @@ class _SampleRateDropdown(tk.Frame):
             height=spec.SAMPLE_RATE_DIALOG_DROPDOWN_SIZE[1],
         )
         self.pack_propagate(False)
-        self._options = options
+        self._choices = options
         self._value = initial_value if any(value == initial_value for _label, value in options) else options[1][1]
         self._menu: tk.Toplevel | None = None
         self._outside_bind_id: str | None = None
@@ -85,7 +85,7 @@ class _SampleRateDropdown(tk.Frame):
         super().destroy()
 
     def _refresh_label(self) -> None:
-        self.label.configure(text=next(label for label, value in self._options if value == self._value))
+        self.label.configure(text=next(label for label, value in self._choices if value == self._value))
 
     def _toggle_menu(self, _event: tk.Event | None = None) -> str:
         if self._menu is None:
@@ -97,14 +97,14 @@ class _SampleRateDropdown(tk.Frame):
     def _open_menu(self) -> None:
         self._close_menu()
         width = spec.SAMPLE_RATE_DIALOG_DROPDOWN_SIZE[0]
-        height = len(self._options) * spec.SAMPLE_RATE_DIALOG_DROPDOWN_ROW_HEIGHT
+        height = len(self._choices) * spec.SAMPLE_RATE_DIALOG_DROPDOWN_ROW_HEIGHT
         self._menu = tk.Toplevel(self.winfo_toplevel())
         self._menu.overrideredirect(True)
         self._menu.configure(bg=spec.SAMPLE_RATE_DIALOG_DROPDOWN_OUTLINE)
         self._menu.geometry(f'{width}x{height}+{self.winfo_rootx()}+{self.winfo_rooty() + self.winfo_height()}')
         inner = tk.Frame(self._menu, bg=spec.SAMPLE_RATE_DIALOG_DROPDOWN_BG, bd=0, highlightthickness=0)
         inner.place(x=1, y=1, width=width - 2, height=height - 2)
-        for index, (label, value) in enumerate(self._options):
+        for index, (label, value) in enumerate(self._choices):
             row = tk.Label(
                 inner,
                 text=label,
