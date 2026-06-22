@@ -1,0 +1,105 @@
+{
+  "current_path": "",
+  "project": {
+    "schema_version": 1,
+    "mod_name": "",
+    "mod_id": "",
+    "parent_mod_id": "NewMusic",
+    "author": "",
+    "workshop_poster_path": "",
+    "write_mod_name_on_poster": false,
+    "ogg_output_folder": "",
+    "workshop_output_folder": "",
+    "sample_rate": 44100,
+    "compression_quality": 0.5,
+    "reencode_existing_ogg": true,
+    "media_rows": [
+      {
+        "row_id": 1,
+        "media_name": "Media Mix 1",
+        "selected_side": "A",
+        "preview_mode": "inventory",
+        "enabled_media": {
+          "cassette": true,
+          "vinyl": true,
+          "cd": true
+        },
+        "cover_path": "",
+        "tracks_a": [],
+        "tracks_b": [],
+        "song_sort_a": {
+          "column": null,
+          "direction": "asc"
+        },
+        "song_sort_b": {
+          "column": null,
+          "direction": "asc"
+        },
+        "appearances": {
+          "cassette": {
+            "kind": "cassette",
+            "selected_asset_key": "",
+            "source": "default",
+            "sprite_mode": "single",
+            "inventory_full": "",
+            "world_full": "",
+            "inventory_empty": "",
+            "world_empty": ""
+          },
+          "vinyl": {
+            "kind": "vinyl",
+            "selected_asset_key": "",
+            "source": "default",
+            "sprite_mode": "single",
+            "inventory_full": "",
+            "world_full": "",
+            "inventory_empty": "",
+            "world_empty": ""
+          },
+          "cd": {
+            "kind": "cd",
+            "selected_asset_key": "",
+            "source": "default",
+            "sprite_mode": "single",
+            "inventory_full": "",
+            "world_full": "",
+            "inventory_empty": "",
+            "world_empty": ""
+          },
+          "case": {
+            "kind": "case",
+            "selected_asset_key": "",
+            "source": "default",
+            "sprite_mode": "single",
+            "inventory_full": "",
+            "world_full": "",
+            "inventory_empty": "",
+            "world_empty": ""
+          },
+          "jacket": {
+            "kind": "jacket",
+            "selected_asset_key": "",
+            "source": "default",
+            "sprite_mode": "single",
+            "inventory_full": "",
+            "world_full": "",
+            "inventory_empty": "",
+            "world_empty": ""
+          },
+          "cd_cover": {
+            "kind": "cd_cover",
+            "selected_asset_key": "",
+            "source": "default",
+            "sprite_mode": "single",
+            "inventory_full": "",
+            "world_full": "",
+            "inventory_empty": "",
+            "world_empty": ""
+          }
+        },
+        "expanded": true
+      }
+    ],
+    "custom_assets": {}
+  }
+}

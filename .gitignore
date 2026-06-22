@@ -12,9 +12,7 @@ htmlcov/
 
 # Builder state
 .cache/
-workspace/
 output/
-logs/
 
 # Packaging artifacts
 build/

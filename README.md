@@ -2,7 +2,9 @@
 
 # New Music Builder
 
-New Music Builder is the desktop authoring tool for generating Project Zomboid song packs from a structured project file.
+New Music Builder is the builder software for [Tali's New Music](https://steamcommunity.com/sharedfiles/filedetails/?id=3739256725).
+
+It is specifically designed to create multitrack media for Project Zomboid with as little friction as possible, including authoring, cover setup, audio conversion, previewing, and export into workshop-ready song packs.
 
 ## Platform Support
 
@@ -14,16 +16,17 @@ New Music Builder is the desktop authoring tool for generating Project Zomboid s
 
 - Song pack export is working end to end.
 - Covers, compression, naming, organization, Lua/bootstrap output, and texture export are in place.
-- Current work is focused on cleanup, release shaping, and packaging rather than new feature churn.
+- The current repo shape is focused on release readiness and maintainable source distribution.
 
 ## Repo Layout
 
 - `src/new_music_builder/` contains the application code.
 - `assets/` contains runtime assets that ship with the app.
 - `tests/` contains automated validation coverage.
-- `docs/` contains source documentation worth keeping in the repo.
+- `workspace/` contains default local app state files.
+- `logs/` contains local log files that the app writes into at runtime.
 - `_references/` is local reference material and is intentionally ignored from Git.
-- `workspace/`, `logs/`, `build/`, `dist/`, and `release/` are runtime or packaging outputs and are intentionally ignored from Git.
+- `build/`, `dist/`, and `release/` are packaging outputs and are intentionally ignored from Git.
 
 ## Development
 
@@ -41,6 +44,11 @@ python -m compileall src
 pytest -q
 ```
 
-## Packaging
+## Windows Packaging
 
-Release packaging is documented in [docs/release_packaging.md](docs/release_packaging.md).
+```powershell
+pip install -r requirements-packaging.txt
+powershell -ExecutionPolicy Bypass -File .\tools\package_release.ps1
+```
+
+That produces the Windows release zip in `release/`.
