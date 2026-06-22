@@ -94,7 +94,8 @@ def test_write_export_scaffold_generates_script_files_for_registered_media(tmp_p
     assert 'texture = "WorldItems/Cassette/World_NM_Cassette01"' in album_text
     assert 'texture = "WorldItems/Vinyl/World_NM_Cover18_Vinyl"' in album_text
     assert 'texture = "WorldItems/Vinyl/World_NM_Cover18_Vinyl_Empty"' in album_text
-    assert 'texture = "WorldItems/CD/World_NM_CD"' in album_text
+    assert 'texture = "WorldItems/Vinyl/World_NM_Cover18_Vinyl"' in album_text
+    assert 'texture = "WorldItems/CD/World_NM_CDCover1"' in album_text
 
 
 def test_write_export_scaffold_generates_full_mode_lua_and_custom_texture_refs(tmp_path: Path) -> None:

@@ -180,7 +180,7 @@ def test_write_export_scaffold_exports_custom_media_textures_with_expected_sizes
     assert Image.open(textures_root / 'WorldItems' / 'CD' / f'World_NM_CD_{module_id}_{album_id}.png').size == (256, 256)
     assert Image.open(textures_root / 'WorldItems' / 'CD' / f'World_NM_CDCover_{module_id}_{album_id}.png').size == (256, 256)
     assert Image.open(textures_root / 'WorldItems' / 'CD' / f'World_NM_CDCover_{module_id}_{album_id}_Empty.png').size == (256, 256)
-    assert (textures_root / 'WorldItems' / 'Vinyl' / 'HR' / f'World_NM_Cover_{module_id}_{album_id}.png').exists()
+    assert not (textures_root / 'WorldItems' / 'Vinyl' / 'HR' / f'World_NM_Cover_{module_id}_{album_id}.png').exists()
 
 
 def test_write_export_scaffold_exports_hr_cover_only_when_row_cover_differs(tmp_path: Path) -> None:
