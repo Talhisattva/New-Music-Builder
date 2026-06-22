@@ -33,7 +33,7 @@ from new_music_builder.domain.models import (
     SongSortColumn,
     default_media_row,
 )
-from new_music_builder.platform.paths import app_root
+from new_music_builder.platform.paths import app_root, assets_root
 from new_music_builder.platform.paths import detect_workshop_dir, open_folder
 from new_music_builder.services.asset_catalog import AssetCatalog
 from new_music_builder.services.build_event_pump import BuildEventPump
@@ -262,7 +262,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._active_successful_sides_by_row: dict[int, set[str]] = {}
         self._active_emitted_preview_rows: set[tuple[int, str]] = set()
 
-        self.asset_catalog_service = AssetCatalog(app_root() / 'assets')
+        self.asset_catalog_service = AssetCatalog(assets_root())
         self.asset_catalog = self.asset_catalog_service.scan()
         self.module_three_staged_custom_images: dict[str, dict[str, str]] = {}
         self.build_log: list[str] = []
@@ -296,95 +296,95 @@ class MainWindow(_DnDCompat, ctk.CTk):
             pass
 
     def _main_icon_path(self) -> Path:
-        return app_root().parent / 'Talis New Music' / 'Contents' / 'mods' / 'Talis New Music' / 'common' / 'media' / 'textures' / 'Item_NM_Cassette4.png'
+        return self._cassette_item_icon_path()
 
     def _header_logo_path(self) -> Path:
         return self._native_icon_path()
 
     def _native_icon_path(self) -> Path:
-        return app_root() / 'assets' / 'new_music_builder.ico'
+        return assets_root() / 'new_music_builder.ico'
 
     def _folder_button_icon_path(self) -> Path:
-        return app_root() / 'assets' / 'NMB_Folder2.png'
+        return assets_root() / 'NMB_Folder2.png'
 
     def _phase_one_icon_path(self) -> Path:
-        return app_root() / 'assets' / 'PhaseOneIcon.png'
+        return assets_root() / 'PhaseOneIcon.png'
 
     def _phase_two_icon_path(self) -> Path:
-        return app_root() / 'assets' / 'PhaseTwoIcon.png'
+        return assets_root() / 'PhaseTwoIcon.png'
 
     def _phase_three_icon_path(self) -> Path:
-        return app_root() / 'assets' / 'PhaseThreeIcon.png'
+        return assets_root() / 'PhaseThreeIcon.png'
 
     def _phase_four_icon_path(self) -> Path:
-        return app_root() / 'assets' / 'PhaseFourIcon.png'
+        return assets_root() / 'PhaseFourIcon.png'
 
     def _phase_one_disabled_icon_path(self) -> Path:
-        return app_root() / 'assets' / 'PhaseOneIconDisabled.png'
+        return assets_root() / 'PhaseOneIconDisabled.png'
 
     def _phase_two_disabled_icon_path(self) -> Path:
-        return app_root() / 'assets' / 'PhaseTwoIconDisabled.png'
+        return assets_root() / 'PhaseTwoIconDisabled.png'
 
     def _phase_three_disabled_icon_path(self) -> Path:
-        return app_root() / 'assets' / 'PhaseThreeIconDisabled.png'
+        return assets_root() / 'PhaseThreeIconDisabled.png'
 
     def _phase_five_icon_path(self) -> Path:
-        return app_root() / 'assets' / 'PhaseFiveIcon.png'
+        return assets_root() / 'PhaseFiveIcon.png'
 
     def _check_icon_path(self) -> Path:
-        return app_root() / 'assets' / 'Check.png'
+        return assets_root() / 'Check.png'
 
     def _small_check_icon_path(self) -> Path:
-        return app_root() / 'assets' / 'SmallCheck.png'
+        return assets_root() / 'SmallCheck.png'
 
     def _loading_icon_path(self) -> Path:
-        assets_root = app_root() / 'assets'
-        preferred = assets_root / 'LoadingIcon.png'
+        root = assets_root()
+        preferred = root / 'LoadingIcon.png'
         if preferred.exists():
             return preferred
-        return assets_root / 'LoadingImage.png'
+        return root / 'LoadingImage.png'
 
     def _cassette_item_icon_path(self) -> Path:
-        return app_root() / 'assets' / 'Inventory' / 'Cassette' / 'Item_NM_Cassette4.png'
+        return assets_root() / 'Inventory' / 'Cassette' / 'Item_NM_Cassette4.png'
 
     def _vinyl_item_icon_path(self) -> Path:
-        return app_root() / 'assets' / 'Inventory' / 'Vinyl' / 'Item_NM_Vinyl7.png'
+        return assets_root() / 'Inventory' / 'Vinyl' / 'Item_NM_Vinyl7.png'
 
     def _cd_item_icon_path(self) -> Path:
-        return app_root() / 'assets' / 'Inventory' / 'CD' / 'Item_NM_CD.png'
+        return assets_root() / 'Inventory' / 'CD' / 'Item_NM_CD.png'
 
     def _edit_icon_path(self) -> Path:
-        return app_root() / 'assets' / 'EditIcon.png'
+        return assets_root() / 'EditIcon.png'
 
     def _ear_icon_path(self) -> Path:
-        return app_root() / 'assets' / 'EarIcon.png'
+        return assets_root() / 'EarIcon.png'
 
     def _grab_icon_path(self) -> Path:
-        return app_root() / 'assets' / 'GrabIcon.png'
+        return assets_root() / 'GrabIcon.png'
 
     def _table_check_icon_path(self) -> Path:
-        return app_root() / 'assets' / 'TableCheckIcon.png'
+        return assets_root() / 'TableCheckIcon.png'
 
     def _preview_audio_icon_path(self) -> Path:
-        return app_root() / 'assets' / 'PreviewAudioIcon.png'
+        return assets_root() / 'PreviewAudioIcon.png'
 
     def _status_check_icon_path(self) -> Path:
-        return app_root() / 'assets' / 'StatusCheckIcon.png'
+        return assets_root() / 'StatusCheckIcon.png'
 
     def _status_converting_icon_path(self) -> Path:
-        return app_root() / 'assets' / 'StatusConvertingIcon.png'
+        return assets_root() / 'StatusConvertingIcon.png'
 
     def _status_queued_icon_path(self) -> Path:
-        return app_root() / 'assets' / 'StatusQueuedIcon.png'
+        return assets_root() / 'StatusQueuedIcon.png'
 
     def _build_complete_check_icon_path(self) -> Path:
-        return app_root() / 'assets' / 'BuildCompleteCheckIcon.png'
+        return assets_root() / 'BuildCompleteCheckIcon.png'
 
     def _open_folder_check_icon_path(self) -> Path:
-        return app_root() / 'assets' / 'OpenFolderCheckIcon.png'
+        return assets_root() / 'OpenFolderCheckIcon.png'
 
     def _reset_icon_path(self) -> Path:
-        return app_root() / 'assets' / 'ResetIcon.png'
+        return assets_root() / 'ResetIcon.png'
 
     def _project_mutation_actions(self) -> tuple[tuple[str, str], ...]:
         return build_project_mutation_actions()

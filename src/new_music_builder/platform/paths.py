@@ -4,20 +4,38 @@ import os
 import platform
 import subprocess
 from pathlib import Path
+import sys
 
 
 def app_root() -> Path:
+    return runtime_root()
+
+
+def runtime_root() -> Path:
+    if getattr(sys, 'frozen', False):
+        return Path(sys.executable).resolve().parent
     return Path(__file__).resolve().parents[3]
 
 
+def resource_root() -> Path:
+    bundled_root = getattr(sys, '_MEIPASS', None)
+    if bundled_root:
+        return Path(bundled_root)
+    return Path(__file__).resolve().parents[3]
+
+
+def assets_root() -> Path:
+    return resource_root() / 'assets'
+
+
 def data_root() -> Path:
-    root = app_root() / 'workspace'
+    root = runtime_root() / 'workspace'
     root.mkdir(parents=True, exist_ok=True)
     return root
 
 
 def logs_root() -> Path:
-    root = app_root() / 'logs'
+    root = runtime_root() / 'logs'
     root.mkdir(parents=True, exist_ok=True)
     return root
 
