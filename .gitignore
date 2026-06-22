@@ -19,6 +19,7 @@ logs/
 # Packaging artifacts
 build/
 dist/
+release/
 
 # Reference / generated
 _references/

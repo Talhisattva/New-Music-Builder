@@ -1,34 +1,23 @@
 # New Music Builder
 
-New Music Builder is a ground-up Python desktop rewrite of the old Simple Moozic Builder.
+New Music Builder is the desktop authoring tool for generating Project Zomboid song packs from a structured project file.
 
-## Intent
+## Status
 
-- Keep the old builder's reliable cross-platform mechanics
-- Target the current New Music Example Pack authoring model
-- Stay decomposed and maintainable
-- Use the Figma / Illustrator output as reference only, not production code
+- Song pack export is working end to end.
+- Covers, compression, naming, organization, Lua/bootstrap output, and texture export are in place.
+- Current work is focused on cleanup, release shaping, and packaging rather than new feature churn.
 
-## Reference Material
+## Repo Layout
 
-- `_references/figma_export/` contains the exported Figma React code and assets
-- `NewMusicBuilder.png` and `NewMusicBuilder.ai` are visual references
-- `Builder Test.zip` is preserved as the original export artifact
+- `src/new_music_builder/` contains the application code.
+- `assets/` contains runtime assets that ship with the app.
+- `tests/` contains automated validation coverage.
+- `docs/` contains source documentation worth keeping in the repo.
+- `_references/` is local reference material and is intentionally ignored from Git.
+- `workspace/`, `logs/`, `build/`, `dist/`, and `release/` are runtime or packaging outputs and are intentionally ignored from Git.
 
-## Runtime Stack
-
-- Python 3.12+
-- customtkinter + tkinter/ttk
-- Pillow
-- miniaudio preview backend
-- soundfile / numpy audio backend
-- ffmpeg fallback
-
-## Current Status
-
-This repo now contains the functional shell, project persistence, split-pane desktop layout, base texture catalog scanner, and the first runnable UI modules. Export/build generation will be layered in on top of this foundation.
-
-## Run
+## Development
 
 ```powershell
 python -m venv .venv
@@ -36,3 +25,14 @@ python -m venv .venv
 pip install -r requirements.txt
 python main.py
 ```
+
+## Validation
+
+```powershell
+python -m compileall src
+pytest -q
+```
+
+## Packaging
+
+Release packaging is documented in [docs/release_packaging.md](docs/release_packaging.md).
