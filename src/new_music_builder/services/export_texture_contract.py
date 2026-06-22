@@ -36,6 +36,7 @@ _WORLD_DIR: dict[str, str] = {
 @dataclass(slots=True)
 class CoverTextureDecision:
     base_source_path: str = ""
+    comparison_source_path: str = ""
     row_cover_source_path: str = ""
     base_texture_reference: str = ""
     hr_texture_reference: str = ""
@@ -77,10 +78,10 @@ def exported_world_texture_directory(kind: str, *, hr: bool = False) -> str:
 
 
 def build_cover_texture_decision(module_id: str, album_id: str, row: PlannedMediaRow) -> CoverTextureDecision:
-    jacket = row.appearances.jacket
-    cd_cover = row.appearances.cd_cover
     vinyl = row.appearances.vinyl
+    jacket = row.appearances.jacket
     cd = row.appearances.cd
+    cd_cover = row.appearances.cd_cover
 
     base_source_path = (
         _preferred_custom_world_path(jacket)
@@ -89,16 +90,24 @@ def build_cover_texture_decision(module_id: str, album_id: str, row: PlannedMedi
         or _preferred_custom_world_path(cd)
         or row.cover_path
     )
+    comparison_source_path = (
+        _preferred_custom_world_path(vinyl)
+        or _preferred_custom_world_path(jacket)
+        or _preferred_custom_world_path(cd)
+        or _preferred_custom_world_path(cd_cover)
+        or base_source_path
+    )
     row_cover_source_path = row.cover_path or base_source_path
     base_texture_reference = exported_world_texture_reference("jacket", module_id, album_id)
     hr_texture_reference = exported_world_texture_reference("jacket", module_id, album_id, hr=True)
     export_hr_cover = bool(
         row_cover_source_path
-        and base_source_path
-        and _normalized_source_identity(row_cover_source_path) != _normalized_source_identity(base_source_path)
+        and comparison_source_path
+        and _normalized_source_identity(row_cover_source_path) != _normalized_source_identity(comparison_source_path)
     )
     return CoverTextureDecision(
         base_source_path=base_source_path,
+        comparison_source_path=comparison_source_path,
         row_cover_source_path=row_cover_source_path,
         base_texture_reference=base_texture_reference,
         hr_texture_reference=hr_texture_reference,

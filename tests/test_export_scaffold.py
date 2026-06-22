@@ -180,7 +180,7 @@ def test_write_export_scaffold_exports_custom_media_textures_with_expected_sizes
     assert Image.open(textures_root / 'WorldItems' / 'CD' / f'World_NM_CD_{module_id}_{album_id}.png').size == (256, 256)
     assert Image.open(textures_root / 'WorldItems' / 'CD' / f'World_NM_CDCover_{module_id}_{album_id}.png').size == (256, 256)
     assert Image.open(textures_root / 'WorldItems' / 'CD' / f'World_NM_CDCover_{module_id}_{album_id}_Empty.png').size == (256, 256)
-    assert not (textures_root / 'WorldItems' / 'Vinyl' / 'HR' / f'World_NM_Cover_{module_id}_{album_id}.png').exists()
+    assert (textures_root / 'WorldItems' / 'Vinyl' / 'HR' / f'World_NM_Cover_{module_id}_{album_id}.png').exists()
 
 
 def test_write_export_scaffold_exports_hr_cover_only_when_row_cover_differs(tmp_path: Path) -> None:
@@ -210,3 +210,35 @@ def test_write_export_scaffold_exports_hr_cover_only_when_row_cover_differs(tmp_
     assert hr_cover.exists()
     assert Image.open(hr_cover).size == (1024, 1024)
     assert 'texture = "WorldItems/Vinyl/HR/World_NM_Cover_MyFunMix_AlbumBeta"' in album_text
+
+
+def test_write_export_scaffold_emits_hr_cover_when_row_cover_differs_from_custom_vinyl_world(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    row = project.media_rows[0]
+    row.media_name = 'Album Gamma'
+    row.enabled_media['cassette'] = False
+    row.enabled_media['cd'] = False
+    row.tracks_a.append(_track())
+    row.cover_path = str(_write_image(tmp_path / 'cover-row.png', (640, 420), (255, 255, 0, 255)))
+
+    row.appearances['vinyl'].source = 'custom'
+    row.appearances['vinyl'].inventory_full = str(_write_image(tmp_path / 'custom' / 'vinyl-gamma-inv.png', (30, 60), (0, 0, 255, 255)))
+    row.appearances['vinyl'].world_full = str(_write_image(tmp_path / 'custom' / 'vinyl-world-gamma.png', (500, 900), (0, 0, 0, 255)))
+
+    row.appearances['jacket'].source = 'custom'
+    row.appearances['jacket'].inventory_full = str(_write_image(tmp_path / 'custom' / 'jacket-gamma-inv.png', (30, 60), (255, 0, 255, 255)))
+    row.appearances['jacket'].world_full = str(_write_image(tmp_path / 'custom' / 'jacket-world-gamma.png', (700, 500), (255, 0, 255, 255)))
+
+    catalog = AssetCatalog(ASSETS_ROOT).scan()
+    plan = build_export_plan(project, catalog)
+    targets = resolve_export_target(plan, project.workshop_output_folder, mod_name=project.mod_name, mod_id=project.mod_id)
+
+    result = write_export_scaffold(project, plan, targets, catalog)
+
+    assert not result.errors
+    textures_root = Path(targets.common) / 'media' / 'textures'
+    hr_cover = textures_root / 'WorldItems' / 'Vinyl' / 'HR' / 'World_NM_Cover_MyFunMix_AlbumGamma.png'
+    album_text = (Path(targets.v42) / 'media' / 'lua' / 'shared' / 'MyFunMix_Album_AlbumGamma.lua').read_text(encoding='utf-8')
+
+    assert hr_cover.exists()
+    assert 'texture = "WorldItems/Vinyl/HR/World_NM_Cover_MyFunMix_AlbumGamma"' in album_text
