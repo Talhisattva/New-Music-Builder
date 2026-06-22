@@ -14,6 +14,19 @@ from new_music_builder.ui import spec
 class MenuAction:
     label: str
     command: Callable[[], None]
+    shortcut_label: str = ""
+
+
+def measure_menu_action_width(
+    action: MenuAction,
+    *,
+    label_measure: Callable[[str], int],
+    accelerator_measure: Callable[[str], int],
+) -> int:
+    width = label_measure(action.label)
+    if action.shortcut_label:
+        width += spec.MENU_DROPDOWN_INLINE_GAP_X + accelerator_measure(action.shortcut_label)
+    return width
 
 
 class _DropdownItem(ctk.CTkFrame):
@@ -28,6 +41,9 @@ class _DropdownItem(ctk.CTkFrame):
         hover_color: str,
         text_color: str,
         font: ctk.CTkFont,
+        accelerator_text: str = "",
+        accelerator_color: str = spec.MENU_DROPDOWN_ACCELERATOR_COLOR,
+        accelerator_font: ctk.CTkFont | None = None,
         enabled_getter: Callable[[], bool] | None = None,
     ) -> None:
         super().__init__(
@@ -44,14 +60,40 @@ class _DropdownItem(ctk.CTkFrame):
         self._enabled_getter = enabled_getter
         self._text_color = text_color
         self._disabled_text_color = '#8f8a92'
-        self.label = ctk.CTkLabel(
+        self._accelerator_color = accelerator_color
+        self._accelerator_font = accelerator_font or font
+        self._content = tk.Frame(
             self,
+            bg=bg_color,
+            bd=0,
+            highlightthickness=0,
+        )
+        self._content.pack(fill='both', expand=True, padx=spec.MENU_DROPDOWN_PAD_X, pady=0)
+        self.label = ctk.CTkLabel(
+            self._content,
             text=text,
             text_color=text_color,
             font=font,
         )
-        self.label.pack(fill='both', expand=True, padx=spec.MENU_DROPDOWN_PAD_X, pady=0)
-        for widget in (self, self.label):
+        self.label.pack(side='left', pady=0)
+        self.accelerator_label: tk.Label | None = None
+        if accelerator_text:
+            self.accelerator_label = tk.Label(
+                self._content,
+                text=accelerator_text,
+                bg=bg_color,
+                fg=accelerator_color,
+                bd=0,
+                highlightthickness=0,
+                font=(self._accelerator_font.cget('family'), self._accelerator_font.cget('size')),
+                anchor='w',
+                justify='left',
+            )
+            self.accelerator_label.pack(side='left', padx=(spec.MENU_DROPDOWN_INLINE_GAP_X, 0), pady=0)
+        widgets = [self, self._content, self.label]
+        if self.accelerator_label is not None:
+            widgets.append(self.accelerator_label)
+        for widget in widgets:
             widget.bind('<Enter>', self._on_enter, add='+')
             widget.bind('<Leave>', self._on_leave, add='+')
             widget.bind('<ButtonPress-1>', self._on_press, add='+')
@@ -62,6 +104,8 @@ class _DropdownItem(ctk.CTkFrame):
 
     def _apply_enabled_state(self) -> None:
         self.label.configure(text_color=self._text_color if self._enabled() else self._disabled_text_color)
+        if self.accelerator_label is not None:
+            self.accelerator_label.configure(fg=self._accelerator_color if self._enabled() else self._disabled_text_color)
 
     def _on_enter(self, _event: tk.Event | None = None) -> None:
         if not self._enabled():
@@ -90,6 +134,7 @@ class _DropdownMenu(tk.Frame):
         bg_color: str,
         hover_color: str,
         font: ctk.CTkFont,
+        accelerator_font: ctk.CTkFont,
         enabled_getter: Callable[[str], bool] | None = None,
     ) -> None:
         border_width = spec.MENU_DROPDOWN_BORDER_WIDTH
@@ -121,6 +166,8 @@ class _DropdownMenu(tk.Frame):
                 hover_color=hover_color,
                 text_color=text_color,
                 font=font,
+                accelerator_text=item.shortcut_label,
+                accelerator_font=accelerator_font,
                 enabled_getter=(lambda label=item.label: enabled_getter(label)) if enabled_getter is not None else None,
             )
             menu_item.place(
@@ -155,6 +202,8 @@ class MenuStrip(ctk.CTkFrame):
         self._toplevel_escape_bind_id: str | None = None
         self._top_font = ctk.CTkFont(family='Orbitron', size=spec.MENU_FONT_SIZE, weight='normal')
         self._measure_font = tkfont.Font(family='Orbitron', size=spec.MENU_FONT_SIZE, weight='normal')
+        self._accelerator_font = ctk.CTkFont(family='Perfect DOS VGA 437 Win', size=spec.MENU_FONT_SIZE)
+        self._accelerator_measure_font = tkfont.Font(family='Perfect DOS VGA 437 Win', size=spec.MENU_FONT_SIZE)
 
         items_frame = ctk.CTkFrame(self, fg_color='transparent')
         items_frame.pack(side='left')
@@ -223,7 +272,11 @@ class MenuStrip(ctk.CTkFrame):
         self._dropdown = _DropdownMenu(
             self.winfo_toplevel(),
             items=[
-                MenuAction(label=item.label, command=lambda action=item.command, label=item.label, name=menu_name: self._run_action(name, label, action))
+                MenuAction(
+                    label=item.label,
+                    command=lambda action=item.command, label=item.label, name=menu_name: self._run_action(name, label, action),
+                    shortcut_label=item.shortcut_label,
+                )
                 for item in actions
             ],
             width=dropdown_width,
@@ -231,6 +284,7 @@ class MenuStrip(ctk.CTkFrame):
             bg_color=spec.MENU_DROPDOWN_BG,
             hover_color=spec.MENU_DROPDOWN_HOVER_BG,
             font=self._top_font,
+            accelerator_font=self._accelerator_font,
             enabled_getter=lambda label: self.is_action_enabled(menu_name, label),
         )
         x, y = self._dropdown_position(menu_name)
@@ -252,7 +306,14 @@ class MenuStrip(ctk.CTkFrame):
         self._action_enabled[(menu_name, item_label)] = enabled
 
     def _dropdown_width_for_actions(self, actions: list[MenuAction]) -> int:
-        widest_text = max((self._measure_font.measure(action.label) for action in actions), default=0)
+        widest_text = 0
+        for action in actions:
+            width = measure_menu_action_width(
+                action,
+                label_measure=self._measure_font.measure,
+                accelerator_measure=self._accelerator_measure_font.measure,
+            )
+            widest_text = max(widest_text, width)
         return widest_text + (spec.MENU_DROPDOWN_PAD_X * 2) + (spec.MENU_DROPDOWN_BORDER_WIDTH * 2)
 
     def _dropdown_position(self, menu_name: str) -> tuple[int, int]:

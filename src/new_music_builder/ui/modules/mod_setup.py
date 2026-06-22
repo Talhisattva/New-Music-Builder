@@ -97,7 +97,7 @@ class ModSetupModule(ModulePanel):
         action_row.grid_columnconfigure(1, weight=1)
         action_row.grid_columnconfigure(2, weight=1)
         make_builder_button(action_row, 'SAVE', self.save_callback, size='compact').grid(row=0, column=0, sticky='ew', padx=(0, 3))
-        make_builder_button(action_row, 'LOAD', self.load_callback, size='compact').grid(row=0, column=1, sticky='ew', padx=3)
+        make_builder_button(action_row, 'OPEN', self.load_callback, size='compact').grid(row=0, column=1, sticky='ew', padx=3)
         make_builder_button(action_row, 'RESET', self.reset_callback, variant='secondary', size='compact').grid(row=0, column=2, sticky='ew', padx=(3, 0))
 
     def _folder_row(self, master, label_text: str, key: str, command, detected: bool = False) -> None:

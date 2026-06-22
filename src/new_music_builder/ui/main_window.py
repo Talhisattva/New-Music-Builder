@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from dataclasses import dataclass
 from datetime import datetime
 import logging
 from pathlib import Path
@@ -98,6 +99,97 @@ else:
 
 LOGGER = logging.getLogger('new_music_builder')
 
+
+@dataclass(frozen=True, slots=True)
+class ShortcutMenuSpec:
+    menu_name: str
+    label: str
+    handler_name: str
+    shortcut_label: str = ""
+    shortcut_sequences: tuple[str, ...] = ()
+    disabled_during_build: bool = False
+
+
+MENU_SHORTCUT_SPECS: tuple[ShortcutMenuSpec, ...] = (
+    ShortcutMenuSpec(
+        menu_name='FILE',
+        label='New',
+        handler_name='new_project',
+        shortcut_label='(Ctrl + N)',
+        shortcut_sequences=('<Control-KeyPress-n>', '<Control-KeyPress-N>'),
+        disabled_during_build=True,
+    ),
+    ShortcutMenuSpec(
+        menu_name='FILE',
+        label='Open',
+        handler_name='load_project',
+        shortcut_label='(Ctrl + O)',
+        shortcut_sequences=('<Control-KeyPress-o>', '<Control-KeyPress-O>'),
+        disabled_during_build=True,
+    ),
+    ShortcutMenuSpec(
+        menu_name='FILE',
+        label='Save',
+        handler_name='save_project',
+        shortcut_label='(Ctrl + S)',
+        shortcut_sequences=('<Control-KeyPress-s>',),
+        disabled_during_build=True,
+    ),
+    ShortcutMenuSpec(
+        menu_name='FILE',
+        label='Save As...',
+        handler_name='save_project_as',
+        shortcut_label='(Ctrl + Shift + S)',
+        shortcut_sequences=('<Control-KeyPress-S>', '<Control-Shift-KeyPress-S>'),
+        disabled_during_build=True,
+    ),
+    ShortcutMenuSpec(
+        menu_name='FILE',
+        label='Exit',
+        handler_name='on_close',
+        shortcut_label='(Ctrl + Q)',
+        shortcut_sequences=('<Control-KeyPress-q>', '<Control-KeyPress-Q>'),
+        disabled_during_build=True,
+    ),
+    ShortcutMenuSpec(
+        menu_name='PREFERENCES',
+        label='Audio Settings',
+        handler_name='_show_audio_settings_dialog',
+        shortcut_label='(Ctrl + P)',
+        shortcut_sequences=('<Control-KeyPress-p>', '<Control-KeyPress-P>'),
+        disabled_during_build=True,
+    ),
+    ShortcutMenuSpec(
+        menu_name='HELP',
+        label='Tutorial',
+        handler_name='_show_tutorial_placeholder',
+        shortcut_label='(Ctrl + H)',
+        shortcut_sequences=('<Control-KeyPress-h>', '<Control-KeyPress-H>'),
+    ),
+)
+
+
+def build_menu_action_map(window: object) -> dict[str, list[MenuAction]]:
+    menu_actions: dict[str, list[MenuAction]] = {}
+    for spec in MENU_SHORTCUT_SPECS:
+        menu_actions.setdefault(spec.menu_name, []).append(
+            MenuAction(
+                label=spec.label,
+                command=getattr(window, spec.handler_name),
+                shortcut_label=spec.shortcut_label,
+            )
+        )
+    return menu_actions
+
+
+def build_project_mutation_actions() -> tuple[tuple[str, str], ...]:
+    return tuple(
+        (spec.menu_name, spec.label)
+        for spec in MENU_SHORTCUT_SPECS
+        if spec.disabled_during_build
+    )
+
+
 class MainWindow(_DnDCompat, ctk.CTk):
 
     def __init__(self) -> None:
@@ -170,6 +262,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.bind('<Delete>', self._on_delete_selected_songs, add='+')
         self.refresh_all()
         self._schedule_responsive_layout()
+        self._bind_app_shortcuts()
         self.protocol('WM_DELETE_WINDOW', self.on_close)
 
     def _initialize_drag_and_drop(self) -> None:
@@ -272,14 +365,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         return app_root() / 'assets' / 'ResetIcon.png'
 
     def _project_mutation_actions(self) -> tuple[tuple[str, str], ...]:
-        return (
-            ('FILE', 'New'),
-            ('FILE', 'Load'),
-            ('FILE', 'Save'),
-            ('FILE', 'Save As...'),
-            ('FILE', 'Exit'),
-            ('PREFERENCES', 'Audio Settings'),
-        )
+        return build_project_mutation_actions()
 
     def _is_build_locked(self) -> bool:
         return self._build_locked
@@ -408,25 +494,22 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.header.pack(fill='x')
 
     def _build_menu_strip(self) -> None:
-        self.menu_strip = MenuStrip(
-            self,
-            menu_actions={
-                'FILE': [
-                    MenuAction(label='New', command=self.new_project),
-                    MenuAction(label='Load', command=self.load_project),
-                    MenuAction(label='Save', command=self.save_project),
-                    MenuAction(label='Save As...', command=self.save_project_as),
-                    MenuAction(label='Exit', command=self.on_close),
-                ],
-                'PREFERENCES': [
-                    MenuAction(label='Audio Settings', command=self._show_audio_settings_dialog),
-                ],
-                'HELP': [
-                    MenuAction(label='Tutorial', command=self._show_tutorial_placeholder),
-                ],
-            },
-        )
+        self.menu_strip = MenuStrip(self, menu_actions=build_menu_action_map(self))
         self.menu_strip.pack(fill='x')
+
+    def _bind_app_shortcuts(self) -> None:
+        for spec in MENU_SHORTCUT_SPECS:
+            callback = getattr(self, spec.handler_name)
+            for sequence in spec.shortcut_sequences:
+                self.bind_all(
+                    sequence,
+                    lambda _event, action=callback: self._handle_app_shortcut(action),
+                    add='+',
+                )
+
+    def _handle_app_shortcut(self, action: Callable[[], None]) -> str:
+        action()
+        return 'break'
 
     def _show_tutorial_placeholder(self) -> None:
         messagebox.showinfo('Tutorial', 'Tutorial coming soon.')
@@ -787,7 +870,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         load_button_x = action_button_x + spec.MAIN_BUTTON_SIZE[0] + spec.PHASE_ONE_ACTION_BUTTON_GAP_X
         self.module_one_load_button = MainButton(
             self.module_one_midground_border,
-            text='LOAD',
+            text='OPEN',
             command=self.load_project,
         )
         self.module_one_load_button.place(x=load_button_x, y=action_button_y)
