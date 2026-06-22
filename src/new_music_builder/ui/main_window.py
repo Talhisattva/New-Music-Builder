@@ -190,6 +190,19 @@ def build_project_mutation_actions() -> tuple[tuple[str, str], ...]:
     )
 
 
+def resolve_song_removal_indices(
+    selected_indices: set[int],
+    *,
+    track_count: int,
+    fallback_to_last: bool,
+) -> set[int]:
+    if selected_indices:
+        return set(selected_indices)
+    if fallback_to_last and track_count > 0:
+        return {track_count - 1}
+    return set()
+
+
 class MainWindow(_DnDCompat, ctk.CTk):
 
     def __init__(self) -> None:
@@ -925,7 +938,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             on_cover_selected=self._select_module_two_media_cover,
             on_remove_row=self._remove_module_two_media_row,
             on_add_song=self._add_module_two_songs,
-            on_remove_song=self._remove_module_two_selected_songs,
+            on_remove_song=self._remove_module_two_selected_songs_or_last,
             selected_song_indices_by_key=self.module_two_song_selected_indices,
             on_song_selected=self._select_module_two_song,
             on_song_remove_requested=self._remove_module_two_song_via_row_click,
@@ -1439,6 +1452,12 @@ class MainWindow(_DnDCompat, ctk.CTk):
         return 'break'
 
     def _remove_module_two_selected_songs(self, row_id: int) -> None:
+        self._remove_module_two_songs(row_id, fallback_to_last=False)
+
+    def _remove_module_two_selected_songs_or_last(self, row_id: int) -> None:
+        self._remove_module_two_songs(row_id, fallback_to_last=True)
+
+    def _remove_module_two_songs(self, row_id: int, *, fallback_to_last: bool) -> None:
         if self._is_build_locked():
             return
         self._cancel_module_two_song_drag()
@@ -1447,9 +1466,15 @@ class MainWindow(_DnDCompat, ctk.CTk):
             return
         key = (row_id, target_row.selected_side)
         selected_indices = self._module_two_song_selection_for_row(row_id, target_row.selected_side)
-        if not selected_indices:
+        tracks = target_row.tracks_a if target_row.selected_side == 'A' else target_row.tracks_b
+        removal_indices = resolve_song_removal_indices(
+            selected_indices,
+            track_count=len(tracks),
+            fallback_to_last=fallback_to_last,
+        )
+        if not removal_indices:
             return
-        removed = self.session.remove_tracks_from_media_row(row_id, target_row.selected_side, selected_indices)
+        removed = self.session.remove_tracks_from_media_row(row_id, target_row.selected_side, removal_indices)
         if not removed:
             return
         self.module_two_song_selected_indices[key] = set()
