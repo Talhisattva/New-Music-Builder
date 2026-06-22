@@ -39,8 +39,11 @@ class CoverTextureDecision:
     comparison_source_path: str = ""
     row_cover_source_path: str = ""
     base_texture_reference: str = ""
+    base_texture_relative_path: str = ""
+    base_transform_kind: str = ""
     hr_texture_reference: str = ""
     playable_texture_reference: str = ""
+    base_source_is_custom: bool = False
     export_hr_cover: bool = False
 
 
@@ -78,40 +81,34 @@ def exported_world_texture_directory(kind: str, *, hr: bool = False) -> str:
 
 
 def build_cover_texture_decision(module_id: str, album_id: str, row: PlannedMediaRow) -> CoverTextureDecision:
-    vinyl = row.appearances.vinyl
-    jacket = row.appearances.jacket
-    cd = row.appearances.cd
-    cd_cover = row.appearances.cd_cover
-
-    base_source_path = (
-        _preferred_custom_world_path(jacket)
-        or _preferred_custom_world_path(cd_cover)
-        or _preferred_custom_world_path(vinyl)
-        or _preferred_custom_world_path(cd)
-        or row.cover_path
-    )
-    comparison_source_path = (
-        _preferred_custom_world_path(vinyl)
-        or _preferred_custom_world_path(jacket)
-        or _preferred_custom_world_path(cd)
-        or _preferred_custom_world_path(cd_cover)
-        or base_source_path
-    )
-    row_cover_source_path = row.cover_path or base_source_path
-    base_texture_reference = exported_world_texture_reference("jacket", module_id, album_id)
+    cover_appearance = _preferred_cover_appearance(row)
+    comparison_source_path = cover_appearance.world_path if cover_appearance is not None else ""
+    row_cover_source_path = row.cover_path or ""
+    base_source_is_custom = bool(cover_appearance is not None and cover_appearance.source == "custom")
+    base_source_path = comparison_source_path if base_source_is_custom else ""
+    base_texture_reference = _cover_texture_reference(cover_appearance, module_id, album_id)
+    base_texture_relative_path = _cover_texture_relative_path(cover_appearance, module_id, album_id)
+    base_transform_kind = _cover_transform_kind(cover_appearance)
     hr_texture_reference = exported_world_texture_reference("jacket", module_id, album_id, hr=True)
-    export_hr_cover = bool(
-        row_cover_source_path
-        and comparison_source_path
-        and _normalized_source_identity(row_cover_source_path) != _normalized_source_identity(comparison_source_path)
-    )
+    export_hr_cover = False
+    playable_texture_reference = base_texture_reference
+    if row_cover_source_path:
+        if not comparison_source_path:
+            export_hr_cover = True
+        else:
+            export_hr_cover = _normalized_source_identity(row_cover_source_path) != _normalized_source_identity(comparison_source_path)
+    if export_hr_cover:
+        playable_texture_reference = hr_texture_reference
     return CoverTextureDecision(
         base_source_path=base_source_path,
         comparison_source_path=comparison_source_path,
         row_cover_source_path=row_cover_source_path,
         base_texture_reference=base_texture_reference,
+        base_texture_relative_path=base_texture_relative_path,
+        base_transform_kind=base_transform_kind,
         hr_texture_reference=hr_texture_reference,
-        playable_texture_reference=hr_texture_reference if export_hr_cover else base_texture_reference,
+        playable_texture_reference=playable_texture_reference,
+        base_source_is_custom=base_source_is_custom,
         export_hr_cover=export_hr_cover,
     )
 
@@ -138,6 +135,53 @@ def _preferred_custom_world_path(appearance: ResolvedAppearance) -> str:
     if appearance.source == "custom" and appearance.world_path:
         return appearance.world_path
     return ""
+
+
+def _preferred_cover_appearance(row: PlannedMediaRow) -> ResolvedAppearance | None:
+    for kind in ("jacket", "cd_cover", "vinyl", "cd"):
+        appearance = row.appearances.for_kind(kind)
+        if appearance.world_path:
+            return appearance
+    return None
+
+
+def _cover_texture_reference(appearance: ResolvedAppearance | None, module_id: str, album_id: str) -> str:
+    if appearance is None:
+        return ""
+    if appearance.source == "custom":
+        return exported_world_texture_reference(appearance.kind, module_id, album_id)
+    return _world_texture_reference_from_path(appearance.world_path, fallback_dir=_world_items_dir_for_kind(appearance.kind))
+
+
+def _cover_texture_relative_path(appearance: ResolvedAppearance | None, module_id: str, album_id: str) -> str:
+    if appearance is None or appearance.source != "custom":
+        return ""
+    return exported_world_texture_relative_path(appearance.kind, module_id, album_id)
+
+
+def _cover_transform_kind(appearance: ResolvedAppearance | None) -> str:
+    if appearance is None:
+        return ""
+    return "world_square_1024" if appearance.kind == "jacket" else "world_square_256"
+
+
+def _world_texture_reference_from_path(path: str, *, fallback_dir: str) -> str:
+    if not path:
+        return ""
+    candidate = Path(path)
+    parts = candidate.parts
+    if "WorldItems" in parts:
+        start_index = parts.index("WorldItems")
+        return "/".join(parts[start_index:]).removesuffix(candidate.suffix)
+    return f"{fallback_dir}/{candidate.stem}"
+
+
+def _world_items_dir_for_kind(kind: str) -> str:
+    if kind in {"cassette", "case"}:
+        return "WorldItems/Cassette"
+    if kind in {"vinyl", "jacket"}:
+        return "WorldItems/Vinyl"
+    return "WorldItems/CD"
 
 
 def _normalized_source_identity(path: str) -> str:

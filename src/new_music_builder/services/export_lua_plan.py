@@ -106,7 +106,6 @@ def _build_cover_groups(album: RegisteredAlbum, row: PlannedMediaRow) -> list[Lu
     grouped: OrderedDict[str, dict[str, set[MediaKind]]] = OrderedDict()
     container_by_kind = {variant.media_kind: variant for variant in album.container_variants}
     cover_decision = build_cover_texture_decision(album.module_id, album.album_id, row)
-    has_custom_cover_art = _row_uses_custom_cover_art(row)
 
     for kind in _MEDIA_ORDER:
         if not row.enabled_media.get(kind, False):
@@ -123,7 +122,6 @@ def _build_cover_groups(album: RegisteredAlbum, row: PlannedMediaRow) -> list[Lu
                 kind,
                 playable_appearance,
                 cover_decision.playable_texture_reference,
-                use_custom_cover=has_custom_cover_art,
             ),
             "playable",
             kind,
@@ -181,12 +179,10 @@ def _playable_texture_reference(
     media_kind: MediaKind,
     appearance: ResolvedAppearance,
     cover_texture_reference: str,
-    *,
-    use_custom_cover: bool,
 ) -> str:
     if media_kind == "cassette" and appearance.source == "custom":
         return exported_world_texture_reference("cassette", module_id, album_id)
-    if media_kind in {"vinyl", "cd"} and use_custom_cover and cover_texture_reference:
+    if media_kind in {"vinyl", "cd"} and cover_texture_reference:
         return cover_texture_reference
     return _world_texture_reference_from_path(appearance.world_path, fallback_dir=_world_items_dir_for_playable(media_kind))
 
@@ -246,10 +242,3 @@ def _world_items_dir_for_container(media_kind: MediaKind) -> str:
     if media_kind == "vinyl":
         return "WorldItems/Vinyl"
     return "WorldItems/CD"
-
-
-def _row_uses_custom_cover_art(row: PlannedMediaRow) -> bool:
-    return any(
-        row.appearances.for_kind(kind).source == "custom"
-        for kind in ("vinyl", "cd", "jacket", "cd_cover")
-    )

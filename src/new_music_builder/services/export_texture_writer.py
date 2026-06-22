@@ -6,7 +6,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from new_music_builder.domain.models import ExportPlan, ExportTargetPaths, PlannedMediaRow, ProjectConfig, TextureExportResult
+from new_music_builder.domain.models import ExportPlan, ExportTargetPaths, ProjectConfig, TextureExportResult
 from new_music_builder.services.export_ids import sanitize_export_id
 from new_music_builder.services.export_texture_contract import (
     build_cover_texture_decision,
@@ -112,15 +112,15 @@ def _append_row_texture_tasks(tasks: OrderedDict[str, _TextureWriteTask], module
             )
 
     cover_decision = build_cover_texture_decision(module_id, album_id, row)
-    if _row_uses_custom_cover_art(row) and cover_decision.base_source_path:
+    if cover_decision.base_source_is_custom and cover_decision.base_source_path:
         _add_task(
             tasks,
             source_path=cover_decision.base_source_path,
-            target_relative_path=exported_world_texture_relative_path("jacket", module_id, album_id),
-            transform_kind="world_square_1024",
+            target_relative_path=cover_decision.base_texture_relative_path,
+            transform_kind=cover_decision.base_transform_kind,
             description=f"{row.media_name} cover",
         )
-    if _row_uses_custom_cover_art(row) and cover_decision.export_hr_cover:
+    if cover_decision.export_hr_cover and cover_decision.row_cover_source_path:
         _add_task(
             tasks,
             source_path=cover_decision.row_cover_source_path,
@@ -186,10 +186,3 @@ def _render_cassette_world_image(source: Path) -> Image.Image:
     square = _render_square_canvas(source, 256)
     top = (256 - 156) // 2
     return square.crop((0, top, 256, top + 156))
-
-
-def _row_uses_custom_cover_art(row: PlannedMediaRow) -> bool:
-    return any(
-        row.appearances.for_kind(kind).source == "custom"
-        for kind in ("vinyl", "cd", "jacket", "cd_cover")
-    )
