@@ -112,13 +112,13 @@ def _append_row_texture_tasks(tasks: OrderedDict[str, _TextureWriteTask], module
             )
 
     cover_decision = build_cover_texture_decision(module_id, album_id, row)
-    if cover_decision.base_source_is_custom and cover_decision.base_source_path:
+    if cover_decision.fallback_source_is_custom and cover_decision.fallback_source_path:
         _add_task(
             tasks,
-            source_path=cover_decision.base_source_path,
-            target_relative_path=cover_decision.base_texture_relative_path,
-            transform_kind=cover_decision.base_transform_kind,
-            description=f"{row.media_name} cover",
+            source_path=cover_decision.fallback_source_path,
+            target_relative_path=cover_decision.fallback_texture_relative_path,
+            transform_kind=cover_decision.fallback_transform_kind,
+            description=f"{row.media_name} fallback cover",
         )
     if cover_decision.export_hr_cover and cover_decision.row_cover_source_path:
         _add_task(

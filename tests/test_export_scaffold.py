@@ -215,6 +215,9 @@ def test_write_export_scaffold_exports_hr_cover_only_when_row_cover_differs(tmp_
     assert hr_cover.exists()
     assert Image.open(hr_cover).size == (1024, 1024)
     assert 'texture = "WorldItems/Vinyl/HR/World_NM_Cover_MyFunMix_AlbumBeta"' in album_text
+    assert 'includePlayable = { "vinyl" }' in album_text
+    assert 'includeContainers = { "vinyl" }' in album_text
+    assert 'includeEmptyContainers = { "vinyl" }' in album_text
 
 
 def test_write_export_scaffold_emits_hr_cover_when_row_cover_differs_from_custom_vinyl_world(tmp_path: Path) -> None:
@@ -247,6 +250,61 @@ def test_write_export_scaffold_emits_hr_cover_when_row_cover_differs_from_custom
 
     assert hr_cover.exists()
     assert 'texture = "WorldItems/Vinyl/HR/World_NM_Cover_MyFunMix_AlbumGamma"' in album_text
+
+
+def test_write_export_scaffold_uses_one_shared_cover_group_for_all_enabled_media(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    row = project.media_rows[0]
+    row.media_name = 'Album Shared'
+    row.tracks_a.append(_track())
+    row.cover_path = str(_write_image(tmp_path / 'cover-row-shared.png', (800, 600), (255, 255, 0, 255)))
+
+    row.appearances['jacket'].source = 'custom'
+    row.appearances['jacket'].inventory_full = str(_write_image(tmp_path / 'custom' / 'jacket-shared-inv.png', (30, 60), (255, 0, 255, 255)))
+    row.appearances['jacket'].world_full = str(_write_image(tmp_path / 'custom' / 'jacket-shared-world.png', (500, 900), (0, 0, 0, 255)))
+
+    catalog = AssetCatalog(ASSETS_ROOT).scan()
+    plan = build_export_plan(project, catalog)
+    targets = resolve_export_target(plan, project.workshop_output_folder, mod_name=project.mod_name, mod_id=project.mod_id)
+
+    result = write_export_scaffold(project, plan, targets, catalog)
+
+    assert not result.errors
+    album_text = (Path(targets.v42) / 'media' / 'lua' / 'shared' / 'MyFunMix_Album_AlbumShared.lua').read_text(encoding='utf-8')
+
+    assert album_text.count('texture = "') == 1
+    assert 'texture = "WorldItems/Vinyl/HR/World_NM_Cover_MyFunMix_AlbumShared"' in album_text
+    assert 'includePlayable = { "cassette", "vinyl", "cd" }' in album_text
+    assert 'includeContainers = { "cassette", "vinyl", "cd" }' in album_text
+    assert 'includeEmptyContainers = { "cassette", "vinyl", "cd" }' in album_text
+
+
+def test_write_export_scaffold_falls_back_to_jacket_cover_when_row_cover_blank(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    row = project.media_rows[0]
+    row.media_name = 'Album Fallback'
+    row.enabled_media['cassette'] = False
+    row.enabled_media['cd'] = False
+    row.tracks_a.append(_track())
+    row.cover_path = ''
+
+    row.appearances['jacket'].source = 'custom'
+    row.appearances['jacket'].inventory_full = str(_write_image(tmp_path / 'custom' / 'jacket-fallback-inv.png', (30, 60), (255, 0, 255, 255)))
+    row.appearances['jacket'].world_full = str(_write_image(tmp_path / 'custom' / 'jacket-fallback-world.png', (700, 500), (255, 0, 255, 255)))
+
+    catalog = AssetCatalog(ASSETS_ROOT).scan()
+    plan = build_export_plan(project, catalog)
+    targets = resolve_export_target(plan, project.workshop_output_folder, mod_name=project.mod_name, mod_id=project.mod_id)
+
+    result = write_export_scaffold(project, plan, targets, catalog)
+
+    assert not result.errors
+    textures_root = Path(targets.common) / 'media' / 'textures'
+    album_text = (Path(targets.v42) / 'media' / 'lua' / 'shared' / 'MyFunMix_Album_AlbumFallback.lua').read_text(encoding='utf-8')
+
+    assert not (textures_root / 'WorldItems' / 'Vinyl' / 'HR' / 'World_NM_Cover_MyFunMix_AlbumFallback.png').exists()
+    assert album_text.count('texture = "') == 1
+    assert 'texture = "WorldItems/Vinyl/World_NM_Cover_MyFunMix_AlbumFallback"' in album_text
 
 
 def test_write_export_scaffold_emits_one_workshop_table_per_split_side(tmp_path: Path) -> None:

@@ -35,15 +35,16 @@ _WORLD_DIR: dict[str, str] = {
 
 @dataclass(slots=True)
 class CoverTextureDecision:
-    base_source_path: str = ""
-    comparison_source_path: str = ""
+    shared_cover_source_path: str = ""
+    fallback_source_path: str = ""
     row_cover_source_path: str = ""
-    base_texture_reference: str = ""
-    base_texture_relative_path: str = ""
-    base_transform_kind: str = ""
+    fallback_texture_reference: str = ""
+    fallback_texture_relative_path: str = ""
+    fallback_transform_kind: str = ""
     hr_texture_reference: str = ""
-    playable_texture_reference: str = ""
-    base_source_is_custom: bool = False
+    shared_cover_texture_reference: str = ""
+    fallback_source_is_custom: bool = False
+    reuse_existing_cover_texture: bool = False
     export_hr_cover: bool = False
 
 
@@ -82,33 +83,34 @@ def exported_world_texture_directory(kind: str, *, hr: bool = False) -> str:
 
 def build_cover_texture_decision(module_id: str, album_id: str, row: PlannedMediaRow) -> CoverTextureDecision:
     cover_appearance = _preferred_cover_appearance(row)
-    comparison_source_path = cover_appearance.world_path if cover_appearance is not None else ""
+    fallback_source_path = cover_appearance.world_path if cover_appearance is not None else ""
     row_cover_source_path = row.cover_path or ""
-    base_source_is_custom = bool(cover_appearance is not None and cover_appearance.source == "custom")
-    base_source_path = comparison_source_path if base_source_is_custom else ""
-    base_texture_reference = _cover_texture_reference(cover_appearance, module_id, album_id)
-    base_texture_relative_path = _cover_texture_relative_path(cover_appearance, module_id, album_id)
-    base_transform_kind = _cover_transform_kind(cover_appearance)
+    fallback_source_is_custom = bool(cover_appearance is not None and cover_appearance.source == "custom")
+    fallback_texture_reference = _cover_texture_reference(cover_appearance, module_id, album_id)
+    fallback_texture_relative_path = _cover_texture_relative_path(cover_appearance, module_id, album_id)
+    fallback_transform_kind = _cover_transform_kind(cover_appearance)
     hr_texture_reference = exported_world_texture_reference("jacket", module_id, album_id, hr=True)
+    shared_cover_source_path = row_cover_source_path or fallback_source_path
     export_hr_cover = False
-    playable_texture_reference = base_texture_reference
+    reuse_existing_cover_texture = False
     if row_cover_source_path:
-        if not comparison_source_path:
-            export_hr_cover = True
+        if fallback_source_path:
+            reuse_existing_cover_texture = _normalized_source_identity(row_cover_source_path) == _normalized_source_identity(fallback_source_path)
+            export_hr_cover = not reuse_existing_cover_texture
         else:
-            export_hr_cover = _normalized_source_identity(row_cover_source_path) != _normalized_source_identity(comparison_source_path)
-    if export_hr_cover:
-        playable_texture_reference = hr_texture_reference
+            export_hr_cover = True
+    shared_cover_texture_reference = hr_texture_reference if export_hr_cover else fallback_texture_reference
     return CoverTextureDecision(
-        base_source_path=base_source_path,
-        comparison_source_path=comparison_source_path,
+        shared_cover_source_path=shared_cover_source_path,
+        fallback_source_path=fallback_source_path,
         row_cover_source_path=row_cover_source_path,
-        base_texture_reference=base_texture_reference,
-        base_texture_relative_path=base_texture_relative_path,
-        base_transform_kind=base_transform_kind,
+        fallback_texture_reference=fallback_texture_reference,
+        fallback_texture_relative_path=fallback_texture_relative_path,
+        fallback_transform_kind=fallback_transform_kind,
         hr_texture_reference=hr_texture_reference,
-        playable_texture_reference=playable_texture_reference,
-        base_source_is_custom=base_source_is_custom,
+        shared_cover_texture_reference=shared_cover_texture_reference,
+        fallback_source_is_custom=fallback_source_is_custom,
+        reuse_existing_cover_texture=reuse_existing_cover_texture,
         export_hr_cover=export_hr_cover,
     )
 

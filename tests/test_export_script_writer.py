@@ -91,11 +91,10 @@ def test_write_export_scaffold_generates_script_files_for_registered_media(tmp_p
     assert 'ranges = {' in album_text
     assert 'a = { 1, 1 }' in album_text
     assert 'b = { 2, 2 }' in album_text
-    assert 'texture = "WorldItems/Cassette/World_NM_Cassette01"' in album_text
     assert 'texture = "WorldItems/Vinyl/World_NM_Cover18_Vinyl"' in album_text
-    assert 'texture = "WorldItems/Vinyl/World_NM_Cover18_Vinyl_Empty"' in album_text
-    assert 'texture = "WorldItems/Vinyl/World_NM_Cover18_Vinyl"' in album_text
-    assert 'texture = "WorldItems/CD/World_NM_CDCover1"' in album_text
+    assert 'includePlayable = { "cassette", "vinyl", "cd" }' in album_text
+    assert 'includeContainers = { "cassette", "vinyl", "cd" }' in album_text
+    assert 'includeEmptyContainers = { "cassette", "vinyl", "cd" }' in album_text
 
 
 def test_write_export_scaffold_generates_full_mode_lua_and_custom_texture_refs(tmp_path: Path) -> None:
@@ -156,11 +155,7 @@ def test_write_export_scaffold_generates_full_mode_lua_and_custom_texture_refs(t
     assert 'full = "NightDriveVinyl"' in album_text
     assert "ranges = {" not in album_text
     assert 'cd = {' not in album_text
-    assert 'texture = "WorldItems/Cassette/World_NM_Cassette_NightDrive_NightDrive"' in album_text
-    assert 'texture = "WorldItems/Cassette/World_NM_CassetteCover_NightDrive_NightDrive"' in album_text
     assert 'texture = "WorldItems/Vinyl/World_NM_Cover_NightDrive_NightDrive"' in album_text
-    assert 'texture = "WorldItems/Vinyl/World_NM_Cover_NightDrive_NightDrive_Empty"' in album_text
-    assert 'includePlayable = { "cassette" }' in album_text
-    assert 'includePlayable = { "vinyl" }' in album_text
-    assert 'includeContainers = { "vinyl" }' in album_text
-    assert 'includeEmptyContainers = { "vinyl" }' in album_text
+    assert 'includePlayable = { "cassette", "vinyl" }' in album_text
+    assert 'includeContainers = { "cassette", "vinyl" }' in album_text
+    assert 'includeEmptyContainers = { "cassette", "vinyl" }' in album_text

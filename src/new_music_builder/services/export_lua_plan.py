@@ -1,10 +1,6 @@
 from __future__ import annotations
 
-from collections import OrderedDict
-from pathlib import Path
-
 from new_music_builder.domain.models import (
-    AppearanceKind,
     ExportPlan,
     LuaAlbumMediaItems,
     LuaAlbumMediaRegistration,
@@ -15,28 +11,9 @@ from new_music_builder.domain.models import (
     PlannedMediaRow,
     ProjectConfig,
     RegisteredAlbum,
-    RegisteredContainerVariant,
-    RegisteredMediaVariant,
-    ResolvedAppearance,
 )
 from new_music_builder.services.export_registration_plan import build_export_registration_plan
-from new_music_builder.services.export_texture_contract import (
-    build_cover_texture_decision,
-    exported_world_texture_reference,
-    has_distinct_empty_world,
-)
-
-_PLAYABLE_APPEARANCE_KIND: dict[MediaKind, AppearanceKind] = {
-    "cassette": "cassette",
-    "vinyl": "vinyl",
-    "cd": "cd",
-}
-
-_CONTAINER_APPEARANCE_KIND: dict[MediaKind, AppearanceKind] = {
-    "cassette": "case",
-    "vinyl": "jacket",
-    "cd": "cd_cover",
-}
+from new_music_builder.services.export_texture_contract import build_cover_texture_decision
 
 _MEDIA_ORDER: tuple[MediaKind, ...] = ("cassette", "vinyl", "cd")
 
@@ -103,142 +80,15 @@ def _build_lua_media(album: RegisteredAlbum) -> list[LuaAlbumMediaRegistration]:
 
 
 def _build_cover_groups(album: RegisteredAlbum, row: PlannedMediaRow) -> list[LuaCoverGroup]:
-    grouped: OrderedDict[str, dict[str, set[MediaKind]]] = OrderedDict()
-    container_by_kind = {variant.media_kind: variant for variant in album.container_variants}
     cover_decision = build_cover_texture_decision(album.module_id, album.album_id, row)
-
-    for kind in _MEDIA_ORDER:
-        if not row.enabled_media.get(kind, False):
-            continue
-        playable_appearance = row.appearances.for_kind(_PLAYABLE_APPEARANCE_KIND[kind])
-        container_appearance = row.appearances.for_kind(_CONTAINER_APPEARANCE_KIND[kind])
-        container_variant = container_by_kind[kind]
-
-        _append_cover_group(
-            grouped,
-            _playable_texture_reference(
-                album.module_id,
-                album.album_id,
-                kind,
-                playable_appearance,
-                cover_decision.playable_texture_reference,
-            ),
-            "playable",
-            kind,
+    enabled_media = tuple(kind for kind in _MEDIA_ORDER if row.enabled_media.get(kind, False))
+    if not enabled_media or not cover_decision.shared_cover_texture_reference:
+        return []
+    return [
+        LuaCoverGroup(
+            texture=cover_decision.shared_cover_texture_reference,
+            include_playable=enabled_media,
+            include_containers=enabled_media,
+            include_empty_containers=enabled_media,
         )
-        _append_cover_group(
-            grouped,
-            _container_texture_reference(album.module_id, album.album_id, kind, container_appearance, empty=False, container_variant=container_variant),
-            "containers",
-            kind,
-        )
-        _append_cover_group(
-            grouped,
-            _container_texture_reference(album.module_id, album.album_id, kind, container_appearance, empty=True, container_variant=container_variant),
-            "empty_containers",
-            kind,
-        )
-
-    cover_groups: list[LuaCoverGroup] = []
-    for texture, buckets in grouped.items():
-        if not texture:
-            continue
-        cover_groups.append(
-            LuaCoverGroup(
-                texture=texture,
-                include_playable=tuple(kind for kind in _MEDIA_ORDER if kind in buckets["playable"]),
-                include_containers=tuple(kind for kind in _MEDIA_ORDER if kind in buckets["containers"]),
-                include_empty_containers=tuple(kind for kind in _MEDIA_ORDER if kind in buckets["empty_containers"]),
-            )
-        )
-    return cover_groups
-
-
-def _append_cover_group(
-    grouped: OrderedDict[str, dict[str, set[MediaKind]]],
-    texture: str,
-    bucket: str,
-    media_kind: MediaKind,
-) -> None:
-    if not texture:
-        return
-    record = grouped.setdefault(
-        texture,
-        {
-            "playable": set(),
-            "containers": set(),
-            "empty_containers": set(),
-        },
-    )
-    record[bucket].add(media_kind)
-
-
-def _playable_texture_reference(
-    module_id: str,
-    album_id: str,
-    media_kind: MediaKind,
-    appearance: ResolvedAppearance,
-    cover_texture_reference: str,
-) -> str:
-    if media_kind == "cassette" and appearance.source == "custom":
-        return exported_world_texture_reference("cassette", module_id, album_id)
-    if media_kind in {"vinyl", "cd"} and cover_texture_reference:
-        return cover_texture_reference
-    return _world_texture_reference_from_path(appearance.world_path, fallback_dir=_world_items_dir_for_playable(media_kind))
-
-
-def _container_texture_reference(
-    module_id: str,
-    album_id: str,
-    media_kind: MediaKind,
-    appearance: ResolvedAppearance,
-    *,
-    empty: bool,
-    container_variant: RegisteredContainerVariant,
-) -> str:
-    if appearance.source == "custom":
-        appearance_kind: AppearanceKind = _CONTAINER_APPEARANCE_KIND[media_kind]
-        base = exported_world_texture_reference(appearance_kind, module_id, album_id)
-        if empty and _has_distinct_empty_container_texture(appearance, container_variant):
-            return exported_world_texture_reference(appearance_kind, module_id, album_id, empty=True)
-        return base
-
-    path = appearance.world_empty_path if empty and appearance.world_empty_path else appearance.world_path
-    return _world_texture_reference_from_path(path, fallback_dir=_world_items_dir_for_container(media_kind))
-
-
-def _has_distinct_empty_container_texture(
-    appearance: ResolvedAppearance,
-    container_variant: RegisteredContainerVariant,
-) -> bool:
-    return bool(
-        has_distinct_empty_world(appearance)
-        and container_variant.empty_model_reference != container_variant.full_model_reference
-    )
-
-
-def _world_texture_reference_from_path(path: str, *, fallback_dir: str) -> str:
-    if not path:
-        return ""
-    candidate = Path(path)
-    parts = candidate.parts
-    if "WorldItems" in parts:
-        start_index = parts.index("WorldItems")
-        return "/".join(parts[start_index:]).removesuffix(candidate.suffix)
-    return f"{fallback_dir}/{candidate.stem}"
-
-
-def _world_items_dir_for_playable(media_kind: MediaKind) -> str:
-    if media_kind == "cassette":
-        return "WorldItems/Cassette"
-    if media_kind == "vinyl":
-        return "WorldItems/Vinyl"
-    return "WorldItems/CD"
-
-
-def _world_items_dir_for_container(media_kind: MediaKind) -> str:
-    if media_kind == "cassette":
-        return "WorldItems/Cassette"
-    if media_kind == "vinyl":
-        return "WorldItems/Vinyl"
-    return "WorldItems/CD"
+    ]
