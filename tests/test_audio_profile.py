@@ -25,5 +25,5 @@ def test_compression_profile_id_and_bucket_name_are_readable() -> None:
 
 
 def test_effective_export_compression_quality_is_temporarily_fixed() -> None:
-    assert effective_export_compression_quality(0.20) == 0.5
-    assert effective_export_compression_quality(0.80) == 0.5
+    assert effective_export_compression_quality(0.20) == 0.2
+    assert effective_export_compression_quality(0.80) == 0.8
