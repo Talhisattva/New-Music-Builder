@@ -16,11 +16,10 @@ New Music Builder helps you assemble workshop-ready music packs with:
 - preview and organization tools while authoring
 - export into Project Zomboid mod/workshop folder structure
 
-## Who It Is For
+## About the App
 
-Use this if you want to build custom music media for Project Zomboid without hand-authoring all of the supporting files yourself.
-
-It is especially aimed at packs built in the style of Tali's New Music, where multiple tracks and media appearances need to be managed together.
+Use this if you want to build custom music media for Tali's New Music in Project Zomboid without hand-authoring all of the supporting files yourself.
+Created specifically for media packs where multiple tracks and media appearances need to be managed together.
 
 ## Platform Support
 
