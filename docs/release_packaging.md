@@ -2,17 +2,17 @@
 
 ## Release Shape
 
-Use two release artifacts:
+Use GitHub as the source distribution and ship one packaged Windows release artifact:
 
+- GitHub repository
+  Source distribution for Windows, Linux, and macOS users running the app with Python 3.12+.
 - `NewMusicBuilder-v<version>-win64.zip`
   Windows packaged app built with PyInstaller.
-- `NewMusicBuilder-v<version>-source.zip`
-  Source release for Windows, Linux, and macOS users running the app with Python 3.12+.
 
-This keeps the release model honest:
+This keeps the release model simple and honest:
 
-- Windows gets the convenient packaged build.
-- Linux and macOS get the portable source release instead of a fake universal binary.
+- Windows users get the convenient packaged build.
+- Linux and macOS users pull the source from GitHub and run it directly.
 
 ## Source Repo Rules
 
@@ -38,31 +38,17 @@ That script:
 - runs `pytest -q`
 - builds the PyInstaller Windows app from `NewMusicBuilder.spec`
 - creates `release/NewMusicBuilder-v<version>-win64.zip`
-- creates `release/NewMusicBuilder-v<version>-source.zip`
 
-## Source Release Notes
+## GitHub Release Guidance
 
-The source release should include repo files needed to run and validate the app:
-
-- `src/`
-- `assets/`
-- `tests/`
-- `docs/`
-- `tools/`
-- top-level run and requirements files
-
-It should not include generated runtime or packaging output:
-
-- `_references/`
-- `workspace/`
-- `logs/`
-- `build/`
-- `dist/`
-- `release/`
+- Push the source repo to GitHub.
+- Create a GitHub release for the version tag you want to publish.
+- Attach only `release/NewMusicBuilder-v<version>-win64.zip` as the manual release asset.
+- Let GitHub’s normal source browsing and auto-generated source archives serve Linux and macOS users.
 
 ## Linux and macOS Run Expectations
 
-Users running the source release should be able to:
+Users running from source should be able to:
 
 ```bash
 python -m venv .venv

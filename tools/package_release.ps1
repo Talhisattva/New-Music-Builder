@@ -9,7 +9,6 @@ $distRoot = Join-Path $repoRoot 'dist'
 $releaseRoot = Join-Path $repoRoot 'release'
 $specPath = Join-Path $repoRoot 'NewMusicBuilder.spec'
 $appDistRoot = Join-Path $distRoot 'NewMusicBuilder'
-$sourcePackScript = Join-Path $repoRoot 'tools\build_source_release.py'
 
 function Invoke-Step {
     param(
@@ -60,11 +59,7 @@ try {
 
     Compress-Archive -Path $appDistRoot -DestinationPath $zipPath -CompressionLevel Optimal
 
-    $sourceZipPath = Join-Path $releaseRoot "NewMusicBuilder-v$version-source.zip"
-    Invoke-Step -Action { python $sourcePackScript --repo-root $repoRoot --output $sourceZipPath | Out-Null } -FailureMessage 'Source release packaging failed.'
-
     Write-Host "Windows release package created: $zipPath"
-    Write-Host "Source release package created: $sourceZipPath"
 }
 finally {
     Pop-Location
