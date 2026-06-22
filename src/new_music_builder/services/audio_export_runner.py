@@ -5,7 +5,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from new_music_builder.domain.models import AudioRunEvent, AudioRunResult, AudioWorkPlan, PlannedAudioWorkItem
-from new_music_builder.services.audio_conversion import ensure_cached_ogg
+from new_music_builder.services.audio_conversion import OGG_PROFILE_ID, ensure_cached_ogg
 from new_music_builder.services.cancelable_file_copy import copy_file_with_cancel
 from new_music_builder.services.export_cancellation import ExportAbortedError
 
@@ -215,6 +215,7 @@ def _cache_path_for_item(cache_root: Path, item: PlannedAudioWorkItem) -> Path:
             str(stat.st_mtime_ns),
             str(stat.st_size),
             str(item.sample_rate),
+            OGG_PROFILE_ID,
         )
     )
     digest = hashlib.sha1(key.encode("utf-8")).hexdigest()[:12]

@@ -14,6 +14,9 @@ from new_music_builder.services.export_cancellation import ExportAbortedError
 
 ProgressCallback = Callable[[int, str], None]
 CancelCheck = Callable[[], bool]
+OGG_BITRATE_MODE = "VARIABLE"
+OGG_COMPRESSION_LEVEL = 0.5
+OGG_PROFILE_ID = f"vorbis-{OGG_BITRATE_MODE.lower()}-{int(OGG_COMPRESSION_LEVEL * 100):02d}"
 
 
 def ensure_cached_ogg(
@@ -187,6 +190,8 @@ def _write_ogg_vorbis(
             channels=2,
             format="OGG",
             subtype="VORBIS",
+            compression_level=OGG_COMPRESSION_LEVEL,
+            bitrate_mode=OGG_BITRATE_MODE,
         ) as out_sf:
             for frame_index in range(0, pcm.shape[0], frame_step):
                 _raise_if_cancelled(cancel_requested)
