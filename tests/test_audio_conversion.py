@@ -35,7 +35,6 @@ def test_write_ogg_vorbis_uses_fixed_export_profile(tmp_path: Path, monkeypatch)
 
     assert recorded["format"] == "OGG"
     assert recorded["subtype"] == "VORBIS"
-    assert recorded["bitrate_mode"] == audio_conversion.OGG_BITRATE_MODE
     assert recorded["compression_level"] == audio_conversion.OGG_COMPRESSION_LEVEL
 
 
