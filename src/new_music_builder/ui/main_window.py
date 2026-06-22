@@ -1882,6 +1882,9 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self.module_five_panel.reset_preview_rows()
         if hasattr(self, 'module_six_panel'):
             self.module_six_panel.reset()
+        if hasattr(self, 'module_two_row_list'):
+            self._build_module_two_row_list()
+        self._refresh_module_three_appearance_selector()
         self.refresh_all()
         self.on_project_change()
 
