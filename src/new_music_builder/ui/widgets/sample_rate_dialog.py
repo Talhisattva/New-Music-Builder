@@ -8,7 +8,7 @@ from new_music_builder.ui.widgets.dialog_shell import DialogShell
 from new_music_builder.ui.widgets.main_button import MainButton
 
 
-class _SampleRateDropdown(tk.Frame):
+class SampleRateDropdown(tk.Frame):
     def __init__(
         self,
         parent: tk.Misc,
@@ -172,7 +172,7 @@ class SampleRateDialog(DialogShell):
             height=spec.SAMPLE_RATE_DIALOG_LABEL_SIZE[1],
         )
 
-        self.dropdown = _SampleRateDropdown(
+        self.dropdown = SampleRateDropdown(
             self.panel_inner,
             options=[
                 ('32000 Hz', 32000),

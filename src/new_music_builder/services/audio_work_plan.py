@@ -14,7 +14,7 @@ def build_audio_work_plan(project: ProjectConfig, plan: ExportPlan, targets: Exp
     for side in plan.sides:
         for track in side.tracks:
             source_path = Path(track.source_path) if track.source_path else None
-            action, reason = _classify_audio_action(source_path)
+            action, reason = _classify_audio_action(source_path, project.reencode_existing_ogg)
             target_relative_path = track.export_relative_path.replace("\\", "/")
             target_path = audio_pack_root / Path(track.export_relative_path)
             items.append(
@@ -37,7 +37,7 @@ def build_audio_work_plan(project: ProjectConfig, plan: ExportPlan, targets: Exp
     return AudioWorkPlan(items=items)
 
 
-def _classify_audio_action(source_path: Path | None) -> tuple[str, str]:
+def _classify_audio_action(source_path: Path | None, reencode_existing_ogg: bool = True) -> tuple[str, str]:
     if source_path is None or not str(source_path).strip():
         return "error", "Missing source path."
     if not source_path.exists() or not source_path.is_file():
@@ -45,6 +45,8 @@ def _classify_audio_action(source_path: Path | None) -> tuple[str, str]:
 
     suffix = source_path.suffix.lower()
     if suffix == ".ogg":
+        if reencode_existing_ogg:
+            return "convert_to_ogg", "Re-encoding existing .ogg to match audio settings."
         return "copy_ogg", "Source audio is already .ogg."
     if suffix in SUPPORTED_AUDIO_SUFFIXES:
         return "convert_to_ogg", "Source audio requires conversion."

@@ -27,7 +27,13 @@ def test_project_roundtrip(tmp_path: Path) -> None:
 
 
 def test_project_roundtrip_preserves_stateful_row_fields(tmp_path: Path) -> None:
-    project = ProjectConfig(mod_name='Stateful Pack', mod_id='StatefulPack', sample_rate=48000, compression_quality=0.65)
+    project = ProjectConfig(
+        mod_name='Stateful Pack',
+        mod_id='StatefulPack',
+        sample_rate=48000,
+        compression_quality=0.65,
+        reencode_existing_ogg=False,
+    )
     first = default_media_row(1)
     first.media_name = 'First Album'
     first.selected_side = 'B'
@@ -72,6 +78,7 @@ def test_project_roundtrip_preserves_stateful_row_fields(tmp_path: Path) -> None
 
     assert loaded.sample_rate == 48000
     assert loaded.compression_quality == 0.65
+    assert loaded.reencode_existing_ogg is False
     assert [row.media_name for row in loaded.media_rows] == ['First Album', 'Second Album']
     assert loaded.media_rows[0].selected_side == 'B'
     assert loaded.media_rows[0].preview_mode == 'world'
@@ -91,6 +98,7 @@ def test_project_load_coerces_invalid_sample_rate_and_custom_assets(tmp_path: Pa
         'mod_id': 'CoerceMe',
         'sample_rate': 'bad-value',
         'compression_quality': 0.57,
+        'reencode_existing_ogg': False,
         'custom_assets': {
             'cassette': [
                 {
@@ -110,6 +118,7 @@ def test_project_load_coerces_invalid_sample_rate_and_custom_assets(tmp_path: Pa
 
     assert loaded.sample_rate == 44100
     assert loaded.compression_quality == 0.5
+    assert loaded.reencode_existing_ogg is False
     assert 'unknown' not in loaded.custom_assets
     assert loaded.custom_assets['cassette'][0]['key'] == 'custom:cassette:1'
     assert loaded.custom_assets['cassette'][0]['label'] == 'tape_inventory'
@@ -125,4 +134,5 @@ def test_session_store_load_returns_default_project_for_invalid_payload(tmp_path
     assert current_path == ''
     assert project.sample_rate == 44100
     assert project.compression_quality == 0.5
+    assert project.reencode_existing_ogg is True
     assert len(project.media_rows) == 1

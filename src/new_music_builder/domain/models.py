@@ -99,6 +99,7 @@ class ProjectConfig:
     workshop_output_folder: str = ""
     sample_rate: int = 44100
     compression_quality: float = DEFAULT_COMPRESSION_QUALITY
+    reencode_existing_ogg: bool = True
     media_rows: list[MediaRow] = field(default_factory=list)
     custom_assets: dict[str, list[dict[str, str]]] = field(default_factory=dict)
 
@@ -630,6 +631,7 @@ def project_from_dict(data: dict[str, Any]) -> ProjectConfig:
         workshop_output_folder=str(data.get("workshop_output_folder", "")),
         sample_rate=_coerce_int(data.get("sample_rate", 44100), 44100, minimum=1),
         compression_quality=snap_compression_quality(data.get("compression_quality", DEFAULT_COMPRESSION_QUALITY)),
+        reencode_existing_ogg=bool(data.get("reencode_existing_ogg", True)),
         media_rows=rows,
         custom_assets=_coerce_custom_assets(data.get("custom_assets", {})),
     )

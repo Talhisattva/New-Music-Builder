@@ -52,7 +52,7 @@ from new_music_builder.services.session_store import SessionStore
 from new_music_builder.services.track_import import filter_supported_audio_paths
 from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.app_header import AppHeader
-from new_music_builder.ui.widgets.audio_compression_dialog import AudioCompressionDialog
+from new_music_builder.ui.widgets.audio_settings_dialog import AudioSettingsDialog
 from new_music_builder.ui.widgets.appearance_entries import entry_for_selected_key
 from new_music_builder.ui.widgets.appearance_panel_shell import AppearancePanelShell
 from new_music_builder.ui.widgets.appearance_selector import (
@@ -82,7 +82,6 @@ from new_music_builder.ui.widgets.module_action_header import ModuleActionHeader
 from new_music_builder.ui.widgets.module_header import ModuleHeader
 from new_music_builder.ui.widgets.module_shell import ModuleShell
 from new_music_builder.ui.widgets.output_folder_field import OutputFolderField
-from new_music_builder.ui.widgets.sample_rate_dialog import SampleRateDialog
 from new_music_builder.ui.widgets.scroll_area import ScrollViewport
 
 try:
@@ -279,8 +278,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             ('FILE', 'Save'),
             ('FILE', 'Save As...'),
             ('FILE', 'Exit'),
-            ('PREFERENCES', 'Sample Rate'),
-            ('PREFERENCES', 'Audio Compression Quality'),
+            ('PREFERENCES', 'Audio Settings'),
         )
 
     def _is_build_locked(self) -> bool:
@@ -421,8 +419,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
                     MenuAction(label='Exit', command=self.on_close),
                 ],
                 'PREFERENCES': [
-                    MenuAction(label='Sample Rate', command=self._show_sample_rate_dialog),
-                    MenuAction(label='Audio Compression Quality', command=self._show_audio_compression_dialog),
+                    MenuAction(label='Audio Settings', command=self._show_audio_settings_dialog),
                 ],
                 'HELP': [
                     MenuAction(label='Tutorial', command=self._show_tutorial_placeholder),
@@ -795,32 +792,24 @@ class MainWindow(_DnDCompat, ctk.CTk):
         )
         self.module_one_load_button.place(x=load_button_x, y=action_button_y)
 
-    def _show_sample_rate_dialog(self) -> None:
+    def _show_audio_settings_dialog(self) -> None:
         if self._is_build_locked():
             return
-        popup = SampleRateDialog(
+        popup = AudioSettingsDialog(
             self,
             icon_path=self._native_icon_path(),
-            initial_value=self.session.project.sample_rate,
+            initial_sample_rate=self.session.project.sample_rate,
+            initial_compression_quality=self.session.project.compression_quality,
+            initial_reencode_existing_ogg=self.session.project.reencode_existing_ogg,
+            check_icon_path=self._check_icon_path(),
         )
-        value = popup.show()
-        if value is None:
+        result = popup.show()
+        if result is None:
             return
-        self.session.project.sample_rate = int(value)
-        self.on_project_change()
-
-    def _show_audio_compression_dialog(self) -> None:
-        if self._is_build_locked():
-            return
-        popup = AudioCompressionDialog(
-            self,
-            icon_path=self._native_icon_path(),
-            initial_value=self.session.project.compression_quality,
-        )
-        value = popup.show()
-        if value is None:
-            return
-        self.session.project.compression_quality = float(value)
+        sample_rate, compression_quality, reencode_existing_ogg = result
+        self.session.project.sample_rate = int(sample_rate)
+        self.session.project.compression_quality = float(compression_quality)
+        self.session.project.reencode_existing_ogg = bool(reencode_existing_ogg)
         self.on_project_change()
 
     def _build_module_two_row_list(self) -> None:
