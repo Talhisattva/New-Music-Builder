@@ -296,10 +296,10 @@ class MainWindow(_DnDCompat, ctk.CTk):
             pass
 
     def _main_icon_path(self) -> Path:
-        return self._cassette_item_icon_path()
+        return assets_root() / 'AppIcon' / 'NMB-Ico256.png'
 
     def _header_logo_path(self) -> Path:
-        return self._native_icon_path()
+        return self._main_icon_path()
 
     def _native_icon_path(self) -> Path:
         return assets_root() / 'new_music_builder.ico'
@@ -482,21 +482,41 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
     def _apply_window_icon(self) -> None:
         native_icon = self._native_icon_path()
+        applied_native = False
         if native_icon.exists() and sys.platform.startswith('win'):
             try:
                 self.iconbitmap(default=str(native_icon))
-                return
+                applied_native = True
             except tk.TclError:
                 pass
 
+        icons = self._window_icon_photo_paths()
+        if icons:
+            try:
+                photos = []
+                for path in icons:
+                    image = Image.open(path)
+                    photos.append(ImageTk.PhotoImage(image))
+                self._window_icon_images = photos
+                self.iconphoto(True, *photos)
+                return
+            except Exception:
+                if applied_native:
+                    return
+
         icon = self._main_icon_path()
-        if icon.exists():
+        if icon.exists() and not applied_native:
             try:
                 image = Image.open(icon)
                 self._window_icon_image = ImageTk.PhotoImage(image)
                 self.iconphoto(True, self._window_icon_image)
             except Exception:
                 pass
+
+    def _window_icon_photo_paths(self) -> list[Path]:
+        icon_dir = assets_root() / 'AppIcon'
+        sizes = (16, 24, 32, 48, 64, 128, 256)
+        return [path for size in sizes if (path := icon_dir / f'NMB-Ico{size}.png').exists()]
 
     def _build_menu(self) -> None:
         self.configure(menu='')

@@ -99,18 +99,21 @@ class DialogShell(tk.Toplevel):
         resolved = Path(icon_path)
         if not resolved.exists():
             return
+        applied_native = False
         if resolved.suffix.lower() == '.ico':
             try:
                 self.iconbitmap(default=str(resolved))
-                return
+                applied_native = True
             except tk.TclError:
                 pass
         try:
             image = Image.open(resolved)
             self._window_icon_image = ImageTk.PhotoImage(image)
             self.iconphoto(True, self._window_icon_image)
+            return
         except Exception:
-            pass
+            if applied_native:
+                return
 
     def _try_apply_dark_titlebar(self) -> None:
         if not str(self.tk.call('tk', 'windowingsystem')).startswith('win'):
