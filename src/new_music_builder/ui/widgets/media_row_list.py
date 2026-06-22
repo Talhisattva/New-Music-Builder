@@ -858,6 +858,10 @@ class MediaRowList(tk.Frame):
             if row_widget._row_id == row_id:
                 row_widget.refresh_media_type_strip()
 
+    def refresh_media_type_strips(self) -> None:
+        for row_widget in self.row_widgets:
+            row_widget.refresh_media_type_strip()
+
     def refresh_collapsed_details_for_row(self, row_id: int) -> None:
         for row_widget in self.row_widgets:
             if row_widget._row_id == row_id:

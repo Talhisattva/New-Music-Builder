@@ -1831,6 +1831,9 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self.appearance.refresh()
         if hasattr(self, 'build_export'):
             self.build_export.refresh(self.build_log, self.preview_entries)
+        if hasattr(self, 'module_two_row_list'):
+            self.module_two_row_list.refresh_media_type_strips()
+            self.module_two_row_list.refresh_collapsed_details()
         if hasattr(self, 'module_four_panel'):
             self.module_four_panel.queue_scroll.refresh_scroll_region()
             self.module_four_panel.log_scroll.refresh_scroll_region()
