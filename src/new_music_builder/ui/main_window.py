@@ -2706,6 +2706,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self.author_var.set(self.session.project.author)
             self.ogg_output_folder_var.set(self.session.project.ogg_output_folder)
             self.workshop_output_folder_var.set(self.session.project.workshop_output_folder)
+            if hasattr(self, 'module_one_cover_picker'):
+                self.module_one_cover_picker.set_cover_path(self.session.project.workshop_poster_path)
             if hasattr(self, 'poster_name_checkbox'):
                 self.poster_name_checkbox.set_checked(bool(self.session.project.write_mod_name_on_poster))
         finally:
