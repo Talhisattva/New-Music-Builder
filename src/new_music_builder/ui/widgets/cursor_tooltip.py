@@ -68,6 +68,10 @@ class CursorTooltip:
         self._content_renderer = None
         self._image_path: str | None = None
         self._image = None
+        self._watch_after_id: str | None = None
+        self.owner.bind('<Destroy>', self._hide_from_event, add='+')
+        self.owner.bind('<FocusOut>', self._hide_from_event, add='+')
+        self.owner.bind('<Unmap>', self._hide_from_event, add='+')
 
     @property
     def content_frame(self) -> tk.Frame | None:
@@ -92,6 +96,7 @@ class CursorTooltip:
         if self._window is not None:
             self._window.deiconify()
             self._window.lift()
+        self._watch_visibility()
 
     def move_to_cursor(self, x_root: int, y_root: int) -> None:
         self._last_cursor = (x_root, y_root)
@@ -104,6 +109,7 @@ class CursorTooltip:
         self._redraw(placement)
 
     def hide(self) -> None:
+        self._cancel_watch()
         if self._window is not None:
             self._window.withdraw()
 
@@ -155,6 +161,8 @@ class CursorTooltip:
             self._content_renderer(self._content_frame)
         self._window.withdraw()
         self._window.bind('<Destroy>', self._on_destroy, add='+')
+        self._window.bind('<FocusOut>', self._hide_from_event, add='+')
+        self._window.bind('<Unmap>', self._hide_from_event, add='+')
 
     def _compute_placement(self, x_root: int, y_root: int) -> TooltipPlacement:
         if self._direction != 'left':
@@ -193,7 +201,49 @@ class CursorTooltip:
         )
 
     def _on_destroy(self, _event: tk.Event | None = None) -> None:
+        self._cancel_watch()
         self._window = None
         self._canvas = None
         self._content_frame = None
         self._image_label = None
+
+    def _hide_from_event(self, _event: tk.Event | None = None) -> None:
+        self.hide()
+
+    def _watch_visibility(self) -> None:
+        self._cancel_watch()
+        if self._window is None:
+            return
+        if not self._should_remain_visible():
+            self.hide()
+            return
+        self._watch_after_id = self.owner.after(80, self._watch_visibility)
+
+    def _cancel_watch(self) -> None:
+        if self._watch_after_id is None:
+            return
+        try:
+            self.owner.after_cancel(self._watch_after_id)
+        except tk.TclError:
+            pass
+        self._watch_after_id = None
+
+    def _should_remain_visible(self) -> bool:
+        try:
+            toplevel = self.owner.winfo_toplevel()
+            if toplevel.focus_displayof() is None:
+                return False
+            pointer_x = self.owner.winfo_pointerx()
+            pointer_y = self.owner.winfo_pointery()
+            hovered = self.owner.winfo_containing(pointer_x, pointer_y)
+            return self._is_owner_descendant(hovered)
+        except tk.TclError:
+            return False
+
+    def _is_owner_descendant(self, widget: tk.Misc | None) -> bool:
+        current = widget
+        while current is not None:
+            if current == self.owner:
+                return True
+            current = current.master
+        return False
