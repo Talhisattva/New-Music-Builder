@@ -310,31 +310,48 @@ def _apply_mod_name_overlay(image: Image.Image, mod_name: str) -> Image.Image:
     output = image.convert("RGBA")
     draw = ImageDraw.Draw(output, "RGBA")
     width, height = output.size
-    margin = max(8, width // 32)
+    margin = max(16, width // 24)
+    overlay_height = max(120, height // 4)
     box = (
-        width // 2 + margin // 2,
-        height // 2 + margin // 2,
+        margin,
+        height - overlay_height - margin,
         width - margin,
         height - margin,
     )
-    inner = max(8, margin)
-    max_width = max(24, (box[2] - box[0]) - inner * 2)
-    max_height = max(20, (box[3] - box[1]) - inner * 2)
-    stroke = max(2, height // 170)
-    line_spacing = max(2, height // 128)
+    inner = max(14, width // 40)
+    max_width = max(40, (box[2] - box[0]) - inner * 2)
+    max_height = max(40, (box[3] - box[1]) - inner * 2)
+    stroke = max(2, height // 256)
+    line_spacing = max(4, height // 170)
+
+    # Add a dedicated title band so poster text remains readable over any image.
+    draw.rounded_rectangle(
+        box,
+        radius=max(12, width // 48),
+        fill=(0, 0, 0, 170),
+        outline=(255, 255, 255, 90),
+        width=max(1, width // 256),
+    )
 
     lines: list[str] = [mod_name]
     font: ImageFont.ImageFont = ImageFont.load_default()
-    min_size = max(8, width // 40)
-    for size in range(max(14, width // 9), min_size - 1, -1):
+    min_size = max(14, width // 36)
+    for size in range(max(22, width // 10), min_size - 1, -1):
         trial_font = _load_overlay_font(size)
-        trial_lines = _wrap_text(draw, mod_name, trial_font, max_width)
+        trial_lines = _wrap_text(
+            draw,
+            mod_name,
+            trial_font,
+            max_width,
+            max_lines=3,
+            truncate_with_ellipsis=True,
+        )
         bounds = draw.multiline_textbbox(
             (0, 0),
             "\n".join(trial_lines),
             font=trial_font,
             spacing=line_spacing,
-            align="right",
+            align="center",
             stroke_width=stroke,
         )
         text_width = bounds[2] - bounds[0]
@@ -350,7 +367,7 @@ def _apply_mod_name_overlay(image: Image.Image, mod_name: str) -> Image.Image:
             mod_name,
             font,
             max_width,
-            max_lines=6,
+            max_lines=3,
             truncate_with_ellipsis=True,
         )
 
@@ -360,22 +377,22 @@ def _apply_mod_name_overlay(image: Image.Image, mod_name: str) -> Image.Image:
         rendered,
         font=font,
         spacing=line_spacing,
-        align="right",
+        align="center",
         stroke_width=stroke,
     )
     text_width = bounds[2] - bounds[0]
     text_height = bounds[3] - bounds[1]
-    text_x = box[2] - inner - text_width
-    text_y = max(box[1] + inner, box[3] - inner - text_height - max(4, height // 64))
+    text_x = box[0] + ((box[2] - box[0] - text_width) // 2)
+    text_y = box[1] + ((box[3] - box[1] - text_height) // 2)
     draw.multiline_text(
         (text_x, text_y),
         rendered,
         font=font,
-        fill=(0, 0, 0, 245),
+        fill=(255, 255, 255, 245),
         spacing=line_spacing,
-        align="right",
+        align="center",
         stroke_width=stroke,
-        stroke_fill=(255, 255, 255, 235),
+        stroke_fill=(0, 0, 0, 235),
     )
     return output
 

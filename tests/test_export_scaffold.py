@@ -1,12 +1,13 @@
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageChops
 
 from new_music_builder.domain.models import ProjectConfig, TrackEntry, default_media_row
 from new_music_builder.services.asset_catalog import AssetCatalog
 from new_music_builder.services.export_planning import build_export_plan
 from new_music_builder.services.export_scaffold import (
     _overlay_font_candidate_paths,
+    render_square_image,
     resolve_export_target,
     sanitize_filesystem_component,
     validate_export_request,
@@ -53,6 +54,18 @@ def test_overlay_font_candidates_prefer_explicit_override(monkeypatch) -> None:
     candidates = _overlay_font_candidate_paths()
 
     assert candidates[0] == Path('/tmp/custom-font.ttf')
+
+
+def test_render_square_image_adds_visible_name_overlay(tmp_path: Path) -> None:
+    poster_path = tmp_path / 'poster.png'
+    Image.new('RGBA', (300, 200), (255, 0, 0, 255)).save(poster_path)
+
+    plain = render_square_image(poster_path, 1024, 'My Fun Mix', add_name_overlay=False)
+    overlaid = render_square_image(poster_path, 1024, 'My Fun Mix', add_name_overlay=True)
+
+    diff = ImageChops.difference(plain, overlaid)
+
+    assert diff.getbbox() is not None
 
 
 def test_resolve_export_target_uses_outer_name_and_inner_id(tmp_path: Path) -> None:
