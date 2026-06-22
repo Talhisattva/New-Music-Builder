@@ -283,7 +283,7 @@ class MediaSonglistTable(tk.Canvas):
             if labels[index]:
                 anchor = 'c'
                 text_x = center_x
-                if index in self._sortable_header_columns():
+                if index in self._sortable_header_columns() and index != 3:
                     anchor = 'w'
                     text_x = current_x + 6
                 self.create_text(
