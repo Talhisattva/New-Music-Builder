@@ -3,13 +3,14 @@ from __future__ import annotations
 from pathlib import Path
 
 from new_music_builder.domain.models import AudioWorkPlan, ExportPlan, ExportTargetPaths, PlannedAudioWorkItem, ProjectConfig
-from new_music_builder.services.audio_profile import snap_compression_quality
+from new_music_builder.services.audio_profile import effective_export_compression_quality
 from new_music_builder.services.track_import import SUPPORTED_AUDIO_SUFFIXES
 
 
 def build_audio_work_plan(project: ProjectConfig, plan: ExportPlan, targets: ExportTargetPaths) -> AudioWorkPlan:
     items: list[PlannedAudioWorkItem] = []
     audio_pack_root = Path(targets.audio_pack_root)
+    export_compression_quality = effective_export_compression_quality(project.compression_quality)
 
     for side in plan.sides:
         for track in side.tracks:
@@ -30,7 +31,7 @@ def build_audio_work_plan(project: ProjectConfig, plan: ExportPlan, targets: Exp
                     action=action,
                     reason=reason,
                     sample_rate=int(project.sample_rate),
-                    compression_quality=snap_compression_quality(project.compression_quality),
+                    compression_quality=export_compression_quality,
                 )
             )
 

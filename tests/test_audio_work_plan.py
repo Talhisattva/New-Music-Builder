@@ -55,3 +55,21 @@ def test_build_audio_work_plan_copies_existing_ogg_when_reencode_disabled(tmp_pa
 
     assert work_plan.items[0].action == "copy_ogg"
     assert work_plan.items[0].reason == "Source audio is already .ogg."
+
+
+def test_build_audio_work_plan_uses_fixed_export_compression_quality(tmp_path: Path) -> None:
+    wav_path = tmp_path / "song.wav"
+    wav_path.write_bytes(b"wav")
+    row = default_media_row(1)
+    row.tracks_a = [TrackEntry(source_path=str(wav_path), display_label="Song", duration="00:01:00")]
+    project = ProjectConfig(
+        mod_name="Pack",
+        mod_id="Pack",
+        compression_quality=0.80,
+        media_rows=[row],
+    )
+    plan = build_export_plan(project, AssetCatalog(ASSETS_ROOT).scan())
+
+    work_plan = build_audio_work_plan(project, plan, _targets(tmp_path))
+
+    assert work_plan.items[0].compression_quality == 0.5

@@ -18,6 +18,7 @@ AUDIO_COMPRESSION_PRESETS: tuple[AudioCompressionPreset, ...] = (
 )
 
 DEFAULT_COMPRESSION_QUALITY = 0.50
+FIXED_EXPORT_COMPRESSION_QUALITY = 0.50
 
 
 def snap_compression_quality(value: object) -> float:
@@ -42,6 +43,12 @@ def nearest_compression_preset(value: object) -> AudioCompressionPreset:
 
 def compression_quality_label(value: object) -> str:
     return nearest_compression_preset(value).label
+
+
+def effective_export_compression_quality(_value: object) -> float:
+    # Temporary detach: keep the UI/project setting in place, but pin export
+    # back to the historically stable fixed Vorbis compression profile.
+    return FIXED_EXPORT_COMPRESSION_QUALITY
 
 
 def compression_profile_id(value: object) -> str:
