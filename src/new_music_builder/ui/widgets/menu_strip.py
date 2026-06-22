@@ -216,6 +216,7 @@ class MenuStrip(ctk.CTkFrame):
                 text=item,
                 text_color=text_color,
                 font=self._top_font,
+                fg_color='transparent',
             )
             label.pack(padx=spec.MENU_ITEM_PAD_X, pady=spec.MENU_ITEM_PAD_Y)
             for widget in (item_frame, label):
@@ -325,9 +326,8 @@ class MenuStrip(ctk.CTkFrame):
         return x, y
 
     def _set_top_bg(self, menu_name: str, color: str) -> None:
-        item_frame, label = self._item_widgets[menu_name]
+        item_frame, _label = self._item_widgets[menu_name]
         item_frame.configure(fg_color=color)
-        label.configure(fg_color=color)
 
     def _bind_global_handlers(self) -> None:
         if self._global_bind_active:
