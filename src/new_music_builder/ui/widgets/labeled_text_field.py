@@ -3,6 +3,7 @@ from __future__ import annotations
 import tkinter as tk
 
 from new_music_builder.ui import spec
+from new_music_builder.ui.widgets.text_edit_bindings import bind_standard_text_shortcuts
 
 
 class TextField(tk.Frame):
@@ -66,6 +67,7 @@ class TextField(tk.Frame):
 
         self.entry.bind('<FocusIn>', self._clear_placeholder, add='+')
         self.entry.bind('<FocusOut>', self._restore_placeholder_if_needed, add='+')
+        bind_standard_text_shortcuts(self.entry)
         self._restore_placeholder_if_needed()
 
     def set_enabled(self, enabled: bool) -> None:

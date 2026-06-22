@@ -3,6 +3,7 @@ from __future__ import annotations
 import customtkinter as ctk
 
 from new_music_builder.ui import theme
+from new_music_builder.ui.widgets.text_edit_bindings import bind_standard_text_shortcuts
 
 
 def make_builder_font(*, size: int = 12, weight: str = 'normal') -> ctk.CTkFont:
@@ -52,6 +53,7 @@ def apply_builder_entry_style(
         height=height,
         font=make_builder_font(size=font_size),
     )
+    bind_standard_text_shortcuts(entry)
     return entry
 
 

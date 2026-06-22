@@ -8,6 +8,7 @@ import tkinter.font as tkfont
 from new_music_builder.domain.models import MediaRow
 from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.images import load_tk_photoimage
+from new_music_builder.ui.widgets.text_edit_bindings import bind_standard_text_shortcuts
 
 
 def canonical_media_name(row_id: int, value: str) -> str:
@@ -202,9 +203,9 @@ class MediaRenameField(tk.Frame):
         self.entry.bind('<Escape>', self._cancel_from_event, add='+')
         self.entry.bind('<FocusOut>', self._on_focus_out, add='+')
         self.entry.bind('<KeyPress>', self._on_entry_keypress, add='+')
-        self.entry.bind('<<Paste>>', self._break_event, add='+')
         self.entry.bind('<ButtonRelease-1>', self._break_event, add='+')
         self.entry.bind('<Double-Button-1>', self._break_event, add='+')
+        bind_standard_text_shortcuts(self.entry)
         self._entry_var.trace_add('write', self._on_entry_var_changed)
 
         self.edit_button = EditIconButton(
