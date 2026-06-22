@@ -97,7 +97,12 @@ def test_write_export_scaffold_creates_expected_files(tmp_path: Path) -> None:
     assert Image.open(Path(targets.common) / 'icon.png').size == (32, 32)
     assert Image.open(Path(targets.v42) / 'icon.png').size == (32, 32)
     assert (Path(targets.common) / 'mod.info').read_text(encoding='utf-8').count('require=NewMusic') == 1
-    assert 'title=My Fun Mix' in (root / 'workshop.txt').read_text(encoding='utf-8')
+    workshop_text = (root / 'workshop.txt').read_text(encoding='utf-8')
+    assert 'title=My Fun Mix' in workshop_text
+    assert 'description=[h2]My Fun Mix[/h2]' in workshop_text
+    assert 'description=[table]' in workshop_text
+    assert 'description=[tr][td][b]Full Album[/b][/td][/tr]' in workshop_text
+    assert 'description=[tr][td]01 Song[/td][/tr]' in workshop_text
 
 
 def test_write_export_scaffold_omits_require_when_parent_blank(tmp_path: Path) -> None:
@@ -242,3 +247,53 @@ def test_write_export_scaffold_emits_hr_cover_when_row_cover_differs_from_custom
 
     assert hr_cover.exists()
     assert 'texture = "WorldItems/Vinyl/HR/World_NM_Cover_MyFunMix_AlbumGamma"' in album_text
+
+
+def test_write_export_scaffold_emits_one_workshop_table_per_split_side(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    row = project.media_rows[0]
+    row.media_name = 'Split Album'
+    row.tracks_a = [
+        TrackEntry(source_path='C:/a1.ogg', display_label='A One', duration='00:01:00'),
+        TrackEntry(source_path='C:/a2.ogg', display_label='A Two', duration='00:02:00'),
+    ]
+    row.tracks_b = [
+        TrackEntry(source_path='C:/b1.ogg', display_label='B One', duration='00:03:00'),
+    ]
+    catalog = AssetCatalog(ASSETS_ROOT).scan()
+    plan = build_export_plan(project, catalog)
+    targets = resolve_export_target(plan, project.workshop_output_folder, mod_name=project.mod_name, mod_id=project.mod_id)
+
+    result = write_export_scaffold(project, plan, targets, catalog)
+
+    assert not result.errors
+    workshop_text = (Path(targets.root) / 'workshop.txt').read_text(encoding='utf-8')
+    assert workshop_text.count('description=[table]') == 2
+    assert 'description=[tr][th]Split Album[/th][/tr]' in workshop_text
+    assert 'description=[tr][td][b]Side A[/b][/td][/tr]' in workshop_text
+    assert 'description=[tr][td][b]Side B[/b][/td][/tr]' in workshop_text
+    assert 'description=[tr][td]01 A One[/td][/tr]' in workshop_text
+    assert 'description=[tr][td]02 A Two[/td][/tr]' in workshop_text
+    assert 'description=[tr][td]01 B One[/td][/tr]' in workshop_text
+
+
+def test_write_export_scaffold_keeps_duplicate_album_titles_as_separate_workshop_sections(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    first = project.media_rows[0]
+    first.media_name = 'Same Album'
+    first.tracks_a = [TrackEntry(source_path='C:/first.ogg', display_label='First Song', duration='00:01:00')]
+    second = default_media_row(2)
+    second.media_name = 'Same Album'
+    second.tracks_a = [TrackEntry(source_path='C:/second.ogg', display_label='Second Song', duration='00:02:00')]
+    project.media_rows = [first, second]
+    catalog = AssetCatalog(ASSETS_ROOT).scan()
+    plan = build_export_plan(project, catalog)
+    targets = resolve_export_target(plan, project.workshop_output_folder, mod_name=project.mod_name, mod_id=project.mod_id)
+
+    result = write_export_scaffold(project, plan, targets, catalog)
+
+    assert not result.errors
+    workshop_text = (Path(targets.root) / 'workshop.txt').read_text(encoding='utf-8')
+    assert workshop_text.count('description=[table]') == 2
+    assert workshop_text.count('description=[tr][th]Same Album[/th][/tr]') == 2
+    assert workshop_text.find('description=[tr][td]01 First Song[/td][/tr]') < workshop_text.find('description=[tr][td]01 Second Song[/td][/tr]')
