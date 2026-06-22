@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import math
 import tkinter as tk
 import tkinter.font as tkfont
 
@@ -108,10 +107,16 @@ class ModuleFourLogView(tk.Frame):
         return max(self._min_height, inner_height)
 
     def redraw(self) -> None:
-        height = self.content_height()
+        estimated_height = self.content_height()
+        height = estimated_height
         self.configure(width=self._width, height=height)
         self._surface.place_configure(width=self._width, height=height)
         self._render_text()
+        measured_height = self._measured_content_height()
+        if measured_height != height:
+            height = measured_height
+            self.configure(width=self._width, height=height)
+            self._surface.place_configure(width=self._width, height=height)
 
     def _render_text(self) -> None:
         self._text.configure(state='normal')
@@ -148,19 +153,24 @@ class ModuleFourLogView(tk.Frame):
     def _rendered_line_count(self) -> int:
         if not self._lines:
             return 1
-        available_width = max(
-            1,
-            self._width - (spec.PHASE_THREE_MODULE_FOUR_LOG_TEXT_ORIGIN[0] * 2) - 8,
-        )
-        rendered_lines = 0
-        for line in self._lines:
-            text = self._line_text(line) or ' '
-            line_width = max(1, self._font.measure(text))
-            rendered_lines += max(1, math.ceil(line_width / available_width))
-        return rendered_lines
+        measured = self._text.count('1.0', 'end-1c', 'displaylines')
+        if measured:
+            return max(1, int(measured[0]))
+        return len(self._lines)
 
     def _line_spacing(self) -> int:
         return max(spec.PHASE_THREE_MODULE_FOUR_LOG_LINE_GAP, self._font.metrics('linespace'))
+
+    def _measured_content_height(self) -> int:
+        self.update_idletasks()
+        rendered_lines = self._rendered_line_count()
+        line_spacing = self._line_spacing()
+        inner_height = (
+            (spec.PHASE_THREE_MODULE_FOUR_LOG_TEXT_ORIGIN[1] * 2)
+            + (rendered_lines * line_spacing)
+            + 8
+        )
+        return max(self._min_height, inner_height)
 
     def _block_editing(self, event: tk.Event[tk.Text]) -> str:
         allowed = {
