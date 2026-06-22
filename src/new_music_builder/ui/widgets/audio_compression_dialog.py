@@ -129,6 +129,7 @@ class AudioCompressionDialog(DialogShell):
             width=spec.COMPRESSION_DIALOG_LABEL_SIZE[0],
             height=spec.COMPRESSION_DIALOG_LABEL_SIZE[1],
         )
+        self.label.configure(anchor="center", justify="center")
 
         initial_label = nearest_compression_preset(initial_value).label
         self.status_label = tk.Label(
