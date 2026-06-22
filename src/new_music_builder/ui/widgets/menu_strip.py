@@ -98,6 +98,7 @@ class _DropdownItem(ctk.CTkFrame):
             widget.bind('<Leave>', self._on_leave, add='+')
             widget.bind('<ButtonPress-1>', self._on_press, add='+')
         self._apply_enabled_state()
+        self._set_visual_bg(bg_color)
 
     def _enabled(self) -> bool:
         return self._enabled_getter() if self._enabled_getter is not None else True
@@ -107,14 +108,20 @@ class _DropdownItem(ctk.CTkFrame):
         if self.accelerator_label is not None:
             self.accelerator_label.configure(fg=self._accelerator_color if self._enabled() else self._disabled_text_color)
 
+    def _set_visual_bg(self, color: str) -> None:
+        self.configure(fg_color=color)
+        self._content.configure(bg=color)
+        if self.accelerator_label is not None:
+            self.accelerator_label.configure(bg=color)
+
     def _on_enter(self, _event: tk.Event | None = None) -> None:
         if not self._enabled():
-            self.configure(fg_color=self._default_bg)
+            self._set_visual_bg(self._default_bg)
             return
-        self.configure(fg_color=self._hover_bg)
+        self._set_visual_bg(self._hover_bg)
 
     def _on_leave(self, _event: tk.Event | None = None) -> None:
-        self.configure(fg_color=self._default_bg)
+        self._set_visual_bg(self._default_bg)
 
     def _on_press(self, _event: tk.Event | None = None) -> str:
         if not self._enabled():
