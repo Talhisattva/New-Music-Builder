@@ -27,6 +27,8 @@ _references/
 /NewMusicBuilder.ai
 /NewMusicBuilder.png
 /Figma Prompt - New Music Builder.md
+/docs/*.md
+!/docs/images/
 
 # OS
 .DS_Store
