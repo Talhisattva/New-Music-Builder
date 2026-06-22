@@ -8,14 +8,13 @@ import numpy as np
 import soundfile as sf
 
 from new_music_builder.domain.models import PlannedAudioWorkItem
+from new_music_builder.services.audio_profile import snap_compression_quality
 from new_music_builder.services.cancelable_file_copy import copy_file_with_cancel
 from new_music_builder.services.export_cancellation import ExportAbortedError
 
 
 ProgressCallback = Callable[[int, str], None]
 CancelCheck = Callable[[], bool]
-OGG_COMPRESSION_LEVEL = 0.5
-OGG_PROFILE_ID = f"vorbis-cl{int(OGG_COMPRESSION_LEVEL * 100):02d}"
 
 
 def ensure_cached_ogg(
@@ -82,6 +81,7 @@ def _convert_to_cached_ogg(
         cache_path,
         pcm,
         item.sample_rate,
+        item.compression_quality,
         emit_progress=emit_progress,
         cancel_requested=cancel_requested,
     )
@@ -174,6 +174,7 @@ def _write_ogg_vorbis(
     target: Path,
     pcm: np.ndarray,
     sample_rate: int,
+    compression_quality: float,
     *,
     emit_progress: ProgressCallback,
     cancel_requested: CancelCheck | None = None,
@@ -181,6 +182,7 @@ def _write_ogg_vorbis(
     target.parent.mkdir(parents=True, exist_ok=True)
     total_frames = max(1, pcm.shape[0])
     frame_step = 16384
+    resolved_quality = snap_compression_quality(compression_quality)
     try:
         with sf.SoundFile(
             str(target),
@@ -189,7 +191,7 @@ def _write_ogg_vorbis(
             channels=2,
             format="OGG",
             subtype="VORBIS",
-            compression_level=OGG_COMPRESSION_LEVEL,
+            compression_level=resolved_quality,
         ) as out_sf:
             for frame_index in range(0, pcm.shape[0], frame_step):
                 _raise_if_cancelled(cancel_requested)

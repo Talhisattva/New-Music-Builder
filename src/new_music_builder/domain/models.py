@@ -4,6 +4,8 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
+from new_music_builder.services.audio_profile import DEFAULT_COMPRESSION_QUALITY, snap_compression_quality
+
 MediaKind = Literal["cassette", "vinyl", "cd"]
 AppearanceKind = Literal["cassette", "vinyl", "cd", "case", "jacket", "cd_cover"]
 SpriteMode = Literal["single", "dual"]
@@ -96,11 +98,13 @@ class ProjectConfig:
     ogg_output_folder: str = ""
     workshop_output_folder: str = ""
     sample_rate: int = 44100
+    compression_quality: float = DEFAULT_COMPRESSION_QUALITY
     media_rows: list[MediaRow] = field(default_factory=list)
     custom_assets: dict[str, list[dict[str, str]]] = field(default_factory=dict)
 
     def ensure_defaults(self) -> None:
         self.sample_rate = _coerce_int(self.sample_rate, 44100, minimum=1)
+        self.compression_quality = snap_compression_quality(self.compression_quality)
         self.custom_assets = _coerce_custom_assets(self.custom_assets)
         if not self.media_rows:
             self.media_rows = [default_media_row(1)]
@@ -427,6 +431,7 @@ class PlannedAudioWorkItem:
     action: AudioBuildAction
     reason: str
     sample_rate: int
+    compression_quality: float
 
 
 @dataclass(slots=True)
@@ -624,6 +629,7 @@ def project_from_dict(data: dict[str, Any]) -> ProjectConfig:
         ogg_output_folder=str(data.get("ogg_output_folder", "")),
         workshop_output_folder=str(data.get("workshop_output_folder", "")),
         sample_rate=_coerce_int(data.get("sample_rate", 44100), 44100, minimum=1),
+        compression_quality=snap_compression_quality(data.get("compression_quality", DEFAULT_COMPRESSION_QUALITY)),
         media_rows=rows,
         custom_assets=_coerce_custom_assets(data.get("custom_assets", {})),
     )

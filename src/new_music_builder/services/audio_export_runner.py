@@ -5,7 +5,8 @@ from collections.abc import Callable
 from pathlib import Path
 
 from new_music_builder.domain.models import AudioRunEvent, AudioRunResult, AudioWorkPlan, PlannedAudioWorkItem
-from new_music_builder.services.audio_conversion import OGG_PROFILE_ID, ensure_cached_ogg
+from new_music_builder.services.audio_conversion import ensure_cached_ogg
+from new_music_builder.services.audio_profile import compression_bucket_name, compression_profile_id
 from new_music_builder.services.cancelable_file_copy import copy_file_with_cancel
 from new_music_builder.services.export_cancellation import ExportAbortedError
 
@@ -18,8 +19,8 @@ def run_audio_export(
     emit: Callable[[AudioRunEvent], None] | None = None,
     cancel_requested: Callable[[], bool] | None = None,
 ) -> AudioRunResult:
-    cache_dir = Path(cache_root).resolve()
-    cache_dir.mkdir(parents=True, exist_ok=True)
+    cache_parent_dir = Path(cache_root).resolve()
+    cache_parent_dir.mkdir(parents=True, exist_ok=True)
     output_dir = Path(output_root).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -58,7 +59,7 @@ def run_audio_export(
 
             target_path = Path(item.target_path)
             target_path.parent.mkdir(parents=True, exist_ok=True)
-            cache_path = _cache_path_for_item(cache_dir, item)
+            cache_path = _cache_path_for_item(cache_parent_dir, item)
 
             try:
                 converted = ensure_cached_ogg(
@@ -209,18 +210,19 @@ def _emit_wrapper(
 def _cache_path_for_item(cache_root: Path, item: PlannedAudioWorkItem) -> Path:
     source = Path(item.source_path)
     stat = source.stat()
+    bucket_dir = cache_root / compression_bucket_name(item.sample_rate, item.compression_quality)
     key = "|".join(
         (
             str(source.resolve()),
             str(stat.st_mtime_ns),
             str(stat.st_size),
             str(item.sample_rate),
-            OGG_PROFILE_ID,
+            compression_profile_id(item.compression_quality),
         )
     )
     digest = hashlib.sha1(key.encode("utf-8")).hexdigest()[:12]
     safe_stem = _safe_file_stem(item.display_label or source.stem)
-    return cache_root / f"{safe_stem}-{digest}.ogg"
+    return bucket_dir / f"{safe_stem}-{digest}.ogg"
 
 
 def _safe_file_stem(value: str) -> str:

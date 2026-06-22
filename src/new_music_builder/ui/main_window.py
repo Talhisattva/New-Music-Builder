@@ -52,6 +52,7 @@ from new_music_builder.services.session_store import SessionStore
 from new_music_builder.services.track_import import filter_supported_audio_paths
 from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.app_header import AppHeader
+from new_music_builder.ui.widgets.audio_compression_dialog import AudioCompressionDialog
 from new_music_builder.ui.widgets.appearance_entries import entry_for_selected_key
 from new_music_builder.ui.widgets.appearance_panel_shell import AppearancePanelShell
 from new_music_builder.ui.widgets.appearance_selector import (
@@ -279,6 +280,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             ('FILE', 'Save As...'),
             ('FILE', 'Exit'),
             ('PREFERENCES', 'Sample Rate'),
+            ('PREFERENCES', 'Audio Compression Quality'),
         )
 
     def _is_build_locked(self) -> bool:
@@ -420,6 +422,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
                 ],
                 'PREFERENCES': [
                     MenuAction(label='Sample Rate', command=self._show_sample_rate_dialog),
+                    MenuAction(label='Audio Compression Quality', command=self._show_audio_compression_dialog),
                 ],
                 'HELP': [
                     MenuAction(label='Tutorial', command=self._show_tutorial_placeholder),
@@ -804,6 +807,20 @@ class MainWindow(_DnDCompat, ctk.CTk):
         if value is None:
             return
         self.session.project.sample_rate = int(value)
+        self.on_project_change()
+
+    def _show_audio_compression_dialog(self) -> None:
+        if self._is_build_locked():
+            return
+        popup = AudioCompressionDialog(
+            self,
+            icon_path=self._native_icon_path(),
+            initial_value=self.session.project.compression_quality,
+        )
+        value = popup.show()
+        if value is None:
+            return
+        self.session.project.compression_quality = float(value)
         self.on_project_change()
 
     def _build_module_two_row_list(self) -> None:
