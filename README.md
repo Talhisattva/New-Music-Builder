@@ -1,3 +1,5 @@
+![New Music Builder](docs/images/NewMusicBuilder-320.png)
+
 # New Music Builder
 
 New Music Builder is the desktop authoring tool for generating Project Zomboid song packs from a structured project file.
