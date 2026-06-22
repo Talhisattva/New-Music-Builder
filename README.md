@@ -4,31 +4,37 @@
 
 New Music Builder is the builder software for [Tali's New Music](https://steamcommunity.com/sharedfiles/filedetails/?id=3739256725).
 
-It is specifically designed to create multitrack media for Project Zomboid with as little friction as possible, including authoring, cover setup, audio conversion, previewing, and export into workshop-ready song packs.
+It is made to help Project Zomboid modders create multitrack music media quickly and cleanly, with less manual setup and less trial-and-error during export.
+
+## What It Does
+
+New Music Builder helps you assemble workshop-ready music packs with:
+
+- multitrack cassette, vinyl, and CD media setup
+- cover and appearance selection
+- audio conversion and compression
+- preview and organization tools while authoring
+- export into Project Zomboid mod/workshop folder structure
+
+## Who It Is For
+
+Use this if you want to build custom music media for Project Zomboid without hand-authoring all of the supporting files yourself.
+
+It is especially aimed at packs built in the style of Tali's New Music, where multiple tracks and media appearances need to be managed together.
 
 ## Platform Support
 
-- Windows is the primary packaged release target.
-- Linux and macOS are intended to run from the GitHub source with Python 3.12+.
-- The codebase tries to stay cross-platform where practical, but Windows packaging remains the main shipped binary path.
+- Windows is the main packaged release target.
+- Linux and macOS are expected to run from source with Python 3.12+.
+- The codebase tries to stay cross-platform where practical, but Windows is still the primary supported release environment.
 
-## Status
+## Current State
 
 - Song pack export is working end to end.
 - Covers, compression, naming, organization, Lua/bootstrap output, and texture export are in place.
-- The current repo shape is focused on release readiness and maintainable source distribution.
+- The project is currently in cleanup and release-shaping mode rather than major feature churn.
 
-## Repo Layout
-
-- `src/new_music_builder/` contains the application code.
-- `assets/` contains runtime assets that ship with the app.
-- `tests/` contains automated validation coverage.
-- `workspace/` contains default local app state files.
-- `logs/` contains local log files that the app writes into at runtime.
-- `_references/` is local reference material and is intentionally ignored from Git.
-- `build/`, `dist/`, and `release/` are packaging outputs and are intentionally ignored from Git.
-
-## Development
+## Run From Source
 
 ```powershell
 python -m venv .venv
@@ -37,18 +43,17 @@ pip install -r requirements.txt
 python main.py
 ```
 
-## Validation
+## Validate
 
 ```powershell
 python -m compileall src
 pytest -q
 ```
 
-## Windows Packaging
+## Repo Notes
 
-```powershell
-pip install -r requirements-packaging.txt
-powershell -ExecutionPolicy Bypass -File .\tools\package_release.ps1
-```
-
-That produces the Windows release zip in `release/`.
+- `src/new_music_builder/` contains the application code.
+- `assets/` contains runtime assets used by the builder.
+- `tests/` contains automated validation coverage.
+- `workspace/` and `logs/` contain local app state and log output defaults.
+- `_references/` is kept out of Git and is not part of the public source distribution.
