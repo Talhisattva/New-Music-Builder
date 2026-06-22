@@ -48,16 +48,20 @@ class _CompressionSlider(tk.Canvas):
         return 2
 
     def _handle_pointer(self, event: tk.Event) -> str:
-        x = max(0, min(int(getattr(event, "x", 0)), spec.COMPRESSION_DIALOG_SLIDER_TRACK_WIDTH))
+        margin = spec.COMPRESSION_DIALOG_SLIDER_SIDE_MARGIN
+        track_width = spec.COMPRESSION_DIALOG_SLIDER_TRACK_WIDTH
+        x = max(margin, min(int(getattr(event, "x", 0)), margin + track_width))
         self._set_index_from_x(x)
         return "break"
 
     def _set_index_from_x(self, x: int) -> None:
+        margin = spec.COMPRESSION_DIALOG_SLIDER_SIDE_MARGIN
+        normalized_x = x - margin
         if len(self._presets) == 1:
             index = 0
         else:
             step = spec.COMPRESSION_DIALOG_SLIDER_TRACK_WIDTH / (len(self._presets) - 1)
-            index = int(round(x / step))
+            index = int(round(normalized_x / step))
         index = max(0, min(index, len(self._presets) - 1))
         if index == self._selected_index:
             return
@@ -72,12 +76,13 @@ class _CompressionSlider(tk.Canvas):
         track_height = spec.COMPRESSION_DIALOG_SLIDER_TRACK_HEIGHT
         width = spec.COMPRESSION_DIALOG_SLIDER_TRACK_WIDTH
         height = spec.COMPRESSION_DIALOG_SLIDER_SIZE[1]
+        margin = spec.COMPRESSION_DIALOG_SLIDER_SIDE_MARGIN
         track_top = (height - track_height) // 2
         track_bottom = track_top + track_height
         self.create_rectangle(
-            0,
+            margin,
             track_top,
-            width,
+            margin + width,
             track_bottom,
             fill=spec.COMPRESSION_DIALOG_SLIDER_TRACK_COLOR,
             outline="",
@@ -94,10 +99,11 @@ class _CompressionSlider(tk.Canvas):
         )
 
     def _knob_center_x(self, index: int) -> int:
+        margin = spec.COMPRESSION_DIALOG_SLIDER_SIDE_MARGIN
         if len(self._presets) == 1:
-            return spec.COMPRESSION_DIALOG_SLIDER_TRACK_WIDTH // 2
+            return margin + (spec.COMPRESSION_DIALOG_SLIDER_TRACK_WIDTH // 2)
         step = spec.COMPRESSION_DIALOG_SLIDER_TRACK_WIDTH / (len(self._presets) - 1)
-        return int(round(index * step))
+        return margin + int(round(index * step))
 
 
 class AudioCompressionDialog(DialogShell):
