@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 
 _INVALID_FS_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1F]')
+_SOUND_SCRIPT_UNSAFE_CHARS = re.compile(r"[,]+")
 
 
 def sanitize_filesystem_component(value: str, *, fallback: str) -> str:
@@ -14,7 +15,7 @@ def sanitize_filesystem_component(value: str, *, fallback: str) -> str:
 
 
 def build_audio_row_folder_name(media_name: str, row_id: int) -> str:
-    return sanitize_filesystem_component(media_name, fallback=f"Media Row {row_id}")
+    return sanitize_sound_script_path_component(media_name, fallback=f"Media Row {row_id}")
 
 
 def build_audio_side_folder_name(side: str) -> str:
@@ -23,7 +24,7 @@ def build_audio_side_folder_name(side: str) -> str:
 
 def build_audio_track_file_name(display_label: str, track_number: int) -> str:
     fallback = f"Track {track_number:02d}"
-    cleaned_label = sanitize_filesystem_component(display_label, fallback=fallback)
+    cleaned_label = sanitize_sound_script_path_component(display_label, fallback=fallback)
     return f"{track_number:02d} {cleaned_label}.ogg"
 
 
@@ -39,3 +40,10 @@ def build_audio_track_relative_path(
     side_folder = build_audio_side_folder_name(side)
     file_name = build_audio_track_file_name(display_label, track_number)
     return str(Path(row_folder) / side_folder / file_name)
+
+
+def sanitize_sound_script_path_component(value: str, *, fallback: str) -> str:
+    cleaned = sanitize_filesystem_component(value, fallback=fallback)
+    cleaned = _SOUND_SCRIPT_UNSAFE_CHARS.sub("", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    return cleaned or fallback
