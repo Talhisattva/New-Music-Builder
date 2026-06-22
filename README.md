@@ -2,6 +2,12 @@
 
 New Music Builder is the desktop authoring tool for generating Project Zomboid song packs from a structured project file.
 
+## Platform Support
+
+- Windows is the primary packaged release target.
+- Linux and macOS are intended to run from the source release with Python 3.12+.
+- The codebase tries to stay cross-platform where practical, but Windows packaging remains the main shipped binary path.
+
 ## Status
 
 - Song pack export is working end to end.

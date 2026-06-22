@@ -6,6 +6,7 @@ from new_music_builder.domain.models import ProjectConfig, TrackEntry, default_m
 from new_music_builder.services.asset_catalog import AssetCatalog
 from new_music_builder.services.export_planning import build_export_plan
 from new_music_builder.services.export_scaffold import (
+    _overlay_font_candidate_paths,
     resolve_export_target,
     sanitize_filesystem_component,
     validate_export_request,
@@ -44,6 +45,14 @@ def _write_image(path: Path, size: tuple[int, int], color: tuple[int, int, int, 
 def test_sanitize_filesystem_component_preserves_spaces_and_removes_invalid_chars() -> None:
     assert sanitize_filesystem_component('My: Fun* Mix?', fallback='X') == 'My_ Fun_ Mix_'
     assert sanitize_filesystem_component('   ', fallback='X') == 'X'
+
+
+def test_overlay_font_candidates_prefer_explicit_override(monkeypatch) -> None:
+    monkeypatch.setenv('NMB_OVERLAY_FONT', '/tmp/custom-font.ttf')
+
+    candidates = _overlay_font_candidate_paths()
+
+    assert candidates[0] == Path('/tmp/custom-font.ttf')
 
 
 def test_resolve_export_target_uses_outer_name_and_inner_id(tmp_path: Path) -> None:

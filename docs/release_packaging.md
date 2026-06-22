@@ -1,8 +1,22 @@
 # Release Packaging
 
+## Release Shape
+
+Use two release artifacts:
+
+- `NewMusicBuilder-v<version>-win64.zip`
+  Windows packaged app built with PyInstaller.
+- `NewMusicBuilder-v<version>-source.zip`
+  Source release for Windows, Linux, and macOS users running the app with Python 3.12+.
+
+This keeps the release model honest:
+
+- Windows gets the convenient packaged build.
+- Linux and macOS get the portable source release instead of a fake universal binary.
+
 ## Source Repo Rules
 
-- Keep `src/`, `assets/`, `tests/`, and `docs/` in Git.
+- Keep `src/`, `assets/`, `tests/`, `docs/`, and `tools/` in Git.
 - Keep `_references/` out of Git. It is local reference material only.
 - Keep `workspace/`, `logs/`, `build/`, `dist/`, and `release/` out of Git. They are generated during runtime or packaging.
 
@@ -22,18 +36,40 @@ That script:
 
 - runs `python -m compileall src`
 - runs `pytest -q`
-- builds the PyInstaller app from `NewMusicBuilder.spec`
+- builds the PyInstaller Windows app from `NewMusicBuilder.spec`
 - creates `release/NewMusicBuilder-v<version>-win64.zip`
+- creates `release/NewMusicBuilder-v<version>-source.zip`
 
-## Release Contents
+## Source Release Notes
 
-The zipped release should contain the packaged `NewMusicBuilder/` folder created by PyInstaller and nothing from:
+The source release should include repo files needed to run and validate the app:
 
-- `_references/`
+- `src/`
+- `assets/`
 - `tests/`
 - `docs/`
+- `tools/`
+- top-level run and requirements files
+
+It should not include generated runtime or packaging output:
+
+- `_references/`
 - `workspace/`
 - `logs/`
+- `build/`
+- `dist/`
+- `release/`
+
+## Linux and macOS Run Expectations
+
+Users running the source release should be able to:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python main.py
+```
 
 ## Pre-Push Check
 

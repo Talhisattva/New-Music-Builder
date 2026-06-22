@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+import os
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
@@ -224,15 +225,7 @@ def _square_letterbox(source: Path | None, out_size: int) -> Image.Image:
 
 
 def _load_overlay_font(size: int) -> ImageFont.ImageFont:
-    candidates = [
-        Path(r"C:\Windows\Fonts\segoeuib.ttf"),
-        Path(r"C:\Windows\Fonts\arialbd.ttf"),
-        Path(r"C:\Windows\Fonts\calibrib.ttf"),
-        Path(r"C:\Windows\Fonts\impact.ttf"),
-        Path(r"C:\Windows\Fonts\segoeui.ttf"),
-        Path(r"C:\Windows\Fonts\arial.ttf"),
-    ]
-    for font_path in candidates:
+    for font_path in _overlay_font_candidate_paths():
         if not font_path.exists():
             continue
         try:
@@ -240,6 +233,36 @@ def _load_overlay_font(size: int) -> ImageFont.ImageFont:
         except Exception:
             continue
     return ImageFont.load_default()
+
+
+def _overlay_font_candidate_paths() -> list[Path]:
+    configured = os.getenv("NMB_OVERLAY_FONT", "").strip()
+    candidates: list[Path] = []
+    if configured:
+        candidates.append(Path(configured))
+
+    candidates.extend(
+        [
+            Path(r"C:\Windows\Fonts\segoeuib.ttf"),
+            Path(r"C:\Windows\Fonts\arialbd.ttf"),
+            Path(r"C:\Windows\Fonts\calibrib.ttf"),
+            Path(r"C:\Windows\Fonts\impact.ttf"),
+            Path(r"C:\Windows\Fonts\segoeui.ttf"),
+            Path(r"C:\Windows\Fonts\arial.ttf"),
+            Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),
+            Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+            Path("/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf"),
+            Path("/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf"),
+            Path("/usr/share/fonts/TTF/DejaVuSans-Bold.ttf"),
+            Path("/usr/share/fonts/TTF/DejaVuSans.ttf"),
+            Path("/System/Library/Fonts/Supplemental/Arial Bold.ttf"),
+            Path("/System/Library/Fonts/Supplemental/Arial.ttf"),
+            Path("/System/Library/Fonts/Supplemental/Helvetica.ttc"),
+            Path("/Library/Fonts/Arial Bold.ttf"),
+            Path("/Library/Fonts/Arial.ttf"),
+        ]
+    )
+    return candidates
 
 
 def _wrap_text(
