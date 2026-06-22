@@ -6,7 +6,7 @@ import tkinter as tk
 from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.audio_compression_dialog import _CompressionSlider
 from new_music_builder.ui.widgets.dialog_shell import DialogShell
-from new_music_builder.ui.widgets.labeled_checkbox import LabeledCheckbox
+from new_music_builder.ui.widgets.labeled_checkbox import ImageCheckbox
 from new_music_builder.ui.widgets.main_button import MainButton
 from new_music_builder.ui.widgets.sample_rate_dialog import SampleRateDropdown
 
@@ -113,11 +113,29 @@ class AudioSettingsDialog(DialogShell):
         )
         self._update_status_label(self.compression_slider.get_label())
 
-        self.reencode_checkbox = LabeledCheckbox(
+        self.reencode_label = tk.Label(
+            self.panel_inner,
+            text=spec.AUDIO_SETTINGS_REENCODE_LABEL_TEXT,
+            bg=spec.SAMPLE_RATE_DIALOG_PANEL_BG,
+            fg=spec.SAMPLE_RATE_DIALOG_LABEL_COLOR,
+            bd=0,
+            highlightthickness=0,
+            font=(spec.SAMPLE_RATE_DIALOG_LABEL_FONT_FAMILY, spec.SAMPLE_RATE_DIALOG_LABEL_FONT_SIZE),
+            anchor="w",
+            justify="left",
+        )
+        self.reencode_label.place(
+            x=spec.AUDIO_SETTINGS_REENCODE_LABEL_POS[0],
+            y=spec.AUDIO_SETTINGS_REENCODE_LABEL_POS[1],
+            width=spec.AUDIO_SETTINGS_REENCODE_LABEL_SIZE[0],
+            height=spec.AUDIO_SETTINGS_REENCODE_LABEL_SIZE[1],
+        )
+
+        self.reencode_checkbox = ImageCheckbox(
             self.panel_inner,
             icon_path=check_icon_path,
-            text=spec.AUDIO_SETTINGS_CHECKBOX_LABEL,
-            bg_color=spec.SAMPLE_RATE_DIALOG_PANEL_BG,
+            bg_color=spec.POSTER_NAME_CHECKBOX_BG,
+            outline_color=spec.POSTER_NAME_CHECKBOX_OUTLINE,
             checked=initial_reencode_existing_ogg,
         )
         self.reencode_checkbox.place(
