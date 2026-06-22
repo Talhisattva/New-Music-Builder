@@ -52,23 +52,3 @@ def _classify_audio_action(source_path: Path | None, reencode_existing_ogg: bool
     if suffix in SUPPORTED_AUDIO_SUFFIXES:
         return "convert_to_ogg", "Source audio requires conversion."
     return "error", "Unsupported audio format."
-
-
-def summarize_audio_work_plan(project: ProjectConfig, work_plan: AudioWorkPlan) -> list[str]:
-    settings_summary = (
-        f"Audio settings: sample_rate={int(project.sample_rate)}Hz "
-        f"export_quality={effective_export_compression_quality(project.compression_quality):.2f} "
-        f"reencode_existing_ogg={'true' if project.reencode_existing_ogg else 'false'}"
-    )
-    plan_summary = (
-        f"Audio plan: convert={work_plan.convert_count} "
-        f"copy={work_plan.copy_count} error={work_plan.error_count}"
-    )
-    item_lines = [
-        (
-            f"Planned audio: row={item.row_id} side={item.side} track={item.track_number:02d} "
-            f"{item.display_label} -> {item.action} ({item.reason})"
-        )
-        for item in work_plan.items
-    ]
-    return [settings_summary, plan_summary, *item_lines]
