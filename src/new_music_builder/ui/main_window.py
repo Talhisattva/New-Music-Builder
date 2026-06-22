@@ -36,6 +36,7 @@ from new_music_builder.domain.models import (
 from new_music_builder.platform.paths import app_root
 from new_music_builder.platform.paths import detect_workshop_dir, open_folder
 from new_music_builder.services.asset_catalog import AssetCatalog
+from new_music_builder.services.audio_work_plan import build_audio_work_plan, summarize_audio_work_plan
 from new_music_builder.services.build_event_pump import BuildEventPump
 from new_music_builder.services.export_build_runner import run_staged_export
 from new_music_builder.services.export_planning import build_export_plan, build_preview_scenario
@@ -2212,6 +2213,15 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._build_abort_requested = False
         self._build_abort_event = threading.Event()
         self._active_build_final_targets = targets
+        audio_work_plan = build_audio_work_plan(project_snapshot, plan, targets)
+        audio_debug_log_lines = [
+            ExportLogLine(
+                timestamp=datetime.now().strftime("%H:%M:%S"),
+                prefix_text=line,
+                color_role="neutral",
+            )
+            for line in summarize_audio_work_plan(project_snapshot, audio_work_plan)
+        ]
         LOGGER.info("[run=%s] setting initial module four state", run_id)
         if hasattr(self, 'module_four_panel'):
             self.module_four_panel.set_output_path(targets.root)
@@ -2222,7 +2232,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
                         prefix_text="Preparing export...",
                         subject_text=str(output_root),
                         color_role="queued",
-                    )
+                    ),
+                    *audio_debug_log_lines,
                 ]
             )
         self.update_idletasks()

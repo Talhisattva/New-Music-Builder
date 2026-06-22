@@ -2,7 +2,7 @@ from pathlib import Path
 
 from new_music_builder.domain.models import ExportTargetPaths, ProjectConfig, TrackEntry, default_media_row
 from new_music_builder.services.asset_catalog import AssetCatalog
-from new_music_builder.services.audio_work_plan import build_audio_work_plan
+from new_music_builder.services.audio_work_plan import build_audio_work_plan, summarize_audio_work_plan
 from new_music_builder.services.export_planning import build_export_plan
 
 
@@ -73,3 +73,19 @@ def test_build_audio_work_plan_uses_fixed_export_compression_quality(tmp_path: P
     work_plan = build_audio_work_plan(project, plan, _targets(tmp_path))
 
     assert work_plan.items[0].compression_quality == 0.5
+
+
+def test_summarize_audio_work_plan_reports_settings_and_actions(tmp_path: Path) -> None:
+    ogg_path = tmp_path / "song.ogg"
+    ogg_path.write_bytes(b"ogg")
+    row = default_media_row(1)
+    row.tracks_a = [TrackEntry(source_path=str(ogg_path), display_label="Song", duration="00:01:00")]
+    project = ProjectConfig(mod_name="Pack", mod_id="Pack", reencode_existing_ogg=True, media_rows=[row])
+    plan = build_export_plan(project, AssetCatalog(ASSETS_ROOT).scan())
+    work_plan = build_audio_work_plan(project, plan, _targets(tmp_path))
+
+    summary = summarize_audio_work_plan(project, work_plan)
+
+    assert summary[0] == "Audio settings: sample_rate=44100Hz export_quality=0.50 reencode_existing_ogg=true"
+    assert summary[1] == "Audio plan: convert=1 copy=0 error=0"
+    assert "Song -> convert_to_ogg" in summary[2]
