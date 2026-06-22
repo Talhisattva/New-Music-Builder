@@ -2331,12 +2331,10 @@ class MainWindow(_DnDCompat, ctk.CTk):
     def _schedule_build_event_poll(self, plan, run_id: str) -> None:
         if self._build_poll_after_id is not None:
             self.after_cancel(self._build_poll_after_id)
-        LOGGER.debug("[run=%s] schedule_build_event_poll", run_id)
         self._build_poll_after_id = self.after(16, lambda: self._poll_build_events(plan, run_id))
 
     def _poll_build_events(self, plan, run_id: str) -> None:
         if self._build_event_queue is None:
-            LOGGER.debug("[run=%s] poll_build_events early exit queue missing", run_id)
             self._build_poll_after_id = None
             return
         batch = self._build_event_pump.drain(self._build_event_queue)
@@ -2351,20 +2349,9 @@ class MainWindow(_DnDCompat, ctk.CTk):
                 output_root, error_message = payload
                 self._finalize_audio_run_failure(plan, str(output_root), str(error_message))
                 keep_polling = False
-        if batch.stats.raw_items_processed:
-            LOGGER.debug(
-                "[run=%s] poll_build_events queue_before=%s queue_after=%s raw=%s emitted=%s counts=%s",
-                run_id,
-                batch.stats.queue_size_before,
-                batch.stats.queue_size_after,
-                batch.stats.raw_items_processed,
-                batch.stats.emitted_items_processed,
-                batch.stats.event_kind_counts,
-            )
         if keep_polling:
             self._build_poll_after_id = self.after(16, lambda: self._poll_build_events(plan, run_id))
         else:
-            LOGGER.debug("[run=%s] poll_build_events stop", run_id)
             self._build_poll_after_id = None
             self._build_event_queue = None
             self._active_build_thread = None
@@ -2372,15 +2359,6 @@ class MainWindow(_DnDCompat, ctk.CTk):
     def _handle_audio_run_event(self, event: AudioRunEvent) -> None:
         if not hasattr(self, 'module_four_panel'):
             return
-        if event.kind != "song_progress":
-            LOGGER.debug(
-                "[run=%s] handle_audio_run_event kind=%s row=%s side=%s message=%s",
-                self._active_build_run_id or "-",
-                event.kind,
-                event.row_id,
-                event.side,
-                event.message,
-            )
         if event.kind == "run_preparing":
             line = ExportLogLine(
                 timestamp=datetime.now().strftime("%H:%M:%S"),
