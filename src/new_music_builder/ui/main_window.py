@@ -203,6 +203,15 @@ def resolve_song_removal_indices(
     return set()
 
 
+def build_project_saved_log_line(project_path: str) -> ExportLogLine:
+    return ExportLogLine(
+        timestamp=datetime.now().strftime("%H:%M:%S"),
+        prefix_text="Project saved:",
+        subject_text=project_path,
+        color_role="done",
+    )
+
+
 class MainWindow(_DnDCompat, ctk.CTk):
 
     def __init__(self) -> None:
@@ -2019,6 +2028,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self.project_store.save(self.session.project, Path(self.session.current_path))
             self.recent_store.push(Path(self.session.current_path))
             self.session_store.save(self.session.project, self.session.current_path)
+            self._append_project_saved_log(self.session.current_path)
             return
         self.save_project_as()
 
@@ -2030,6 +2040,11 @@ class MainWindow(_DnDCompat, ctk.CTk):
             return
         self.session.current_path = selected
         self.save_project()
+
+    def _append_project_saved_log(self, project_path: str) -> None:
+        if not project_path or not hasattr(self, 'module_four_panel'):
+            return
+        self.module_four_panel.append_log_line(build_project_saved_log_line(project_path))
 
     def load_project(self) -> None:
         if self._is_build_locked():
