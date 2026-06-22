@@ -161,73 +161,39 @@ class AudioCompressionDialog(DialogShell):
             width=spec.COMPRESSION_DIALOG_SLIDER_SIZE[0],
             height=spec.COMPRESSION_DIALOG_SLIDER_SIZE[1],
         )
-        self.lowest_label = tk.Label(
-            self.panel_inner,
-            text="Lowest",
-            bg=spec.SAMPLE_RATE_DIALOG_PANEL_BG,
-            fg=spec.COMPRESSION_DIALOG_HINT_PRIMARY_TEXT_COLOR,
-            bd=0,
-            highlightthickness=0,
-            font=(spec.COMPRESSION_DIALOG_HINT_PRIMARY_FONT_FAMILY, spec.COMPRESSION_DIALOG_HINT_PRIMARY_FONT_SIZE),
-            anchor="w",
-            justify="left",
-        )
-        self.lowest_label.place(
-            x=spec.COMPRESSION_DIALOG_HINT_LEFT_LABEL_X,
-            y=spec.COMPRESSION_DIALOG_HINT_ROW_Y,
-            width=spec.COMPRESSION_DIALOG_HINT_LEFT_LABEL_WIDTH,
-            height=spec.COMPRESSION_DIALOG_HINT_ROW_HEIGHT,
-        )
         self.lowest_hint_label = tk.Label(
             self.panel_inner,
-            text="(Largest File Size)",
+            text="Lowest (Largest File Size)",
             bg=spec.SAMPLE_RATE_DIALOG_PANEL_BG,
-            fg=spec.COMPRESSION_DIALOG_HINT_SECONDARY_TEXT_COLOR,
+            fg=spec.COMPRESSION_DIALOG_HINT_LABEL_TEXT_COLOR,
             bd=0,
             highlightthickness=0,
-            font=(spec.COMPRESSION_DIALOG_HINT_SECONDARY_FONT_FAMILY, spec.COMPRESSION_DIALOG_HINT_SECONDARY_FONT_SIZE),
+            font=(spec.COMPRESSION_DIALOG_HINT_LABEL_FONT_FAMILY, spec.COMPRESSION_DIALOG_HINT_LABEL_FONT_SIZE),
             anchor="w",
             justify="left",
         )
         self.lowest_hint_label.place(
-            x=spec.COMPRESSION_DIALOG_HINT_LEFT_TEXT_X,
-            y=spec.COMPRESSION_DIALOG_HINT_ROW_Y,
-            width=spec.COMPRESSION_DIALOG_HINT_LEFT_TEXT_WIDTH,
-            height=spec.COMPRESSION_DIALOG_HINT_ROW_HEIGHT,
-        )
-        self.highest_label = tk.Label(
-            self.panel_inner,
-            text="Highest",
-            bg=spec.SAMPLE_RATE_DIALOG_PANEL_BG,
-            fg=spec.COMPRESSION_DIALOG_HINT_PRIMARY_TEXT_COLOR,
-            bd=0,
-            highlightthickness=0,
-            font=(spec.COMPRESSION_DIALOG_HINT_PRIMARY_FONT_FAMILY, spec.COMPRESSION_DIALOG_HINT_PRIMARY_FONT_SIZE),
-            anchor="w",
-            justify="left",
-        )
-        self.highest_label.place(
-            x=spec.COMPRESSION_DIALOG_HINT_RIGHT_LABEL_X,
-            y=spec.COMPRESSION_DIALOG_HINT_ROW_Y,
-            width=spec.COMPRESSION_DIALOG_HINT_RIGHT_LABEL_WIDTH,
-            height=spec.COMPRESSION_DIALOG_HINT_ROW_HEIGHT,
+            x=spec.COMPRESSION_DIALOG_SLIDER_POS[0],
+            y=spec.COMPRESSION_DIALOG_HINT_LABEL_Y,
+            width=spec.COMPRESSION_DIALOG_HINT_LABEL_WIDTH,
+            height=spec.COMPRESSION_DIALOG_HINT_LABEL_HEIGHT,
         )
         self.highest_hint_label = tk.Label(
             self.panel_inner,
-            text="(Smallest File Size)",
+            text="Highest (Smallest File Size)",
             bg=spec.SAMPLE_RATE_DIALOG_PANEL_BG,
-            fg=spec.COMPRESSION_DIALOG_HINT_SECONDARY_TEXT_COLOR,
+            fg=spec.COMPRESSION_DIALOG_HINT_LABEL_TEXT_COLOR,
             bd=0,
             highlightthickness=0,
-            font=(spec.COMPRESSION_DIALOG_HINT_SECONDARY_FONT_FAMILY, spec.COMPRESSION_DIALOG_HINT_SECONDARY_FONT_SIZE),
-            anchor="w",
-            justify="left",
+            font=(spec.COMPRESSION_DIALOG_HINT_LABEL_FONT_FAMILY, spec.COMPRESSION_DIALOG_HINT_LABEL_FONT_SIZE),
+            anchor="e",
+            justify="right",
         )
         self.highest_hint_label.place(
-            x=spec.COMPRESSION_DIALOG_HINT_RIGHT_TEXT_X,
-            y=spec.COMPRESSION_DIALOG_HINT_ROW_Y,
-            width=spec.COMPRESSION_DIALOG_HINT_RIGHT_TEXT_WIDTH,
-            height=spec.COMPRESSION_DIALOG_HINT_ROW_HEIGHT,
+            x=spec.COMPRESSION_DIALOG_SLIDER_POS[0] + spec.COMPRESSION_DIALOG_SLIDER_SIZE[0] - spec.COMPRESSION_DIALOG_HINT_LABEL_WIDTH,
+            y=spec.COMPRESSION_DIALOG_HINT_LABEL_Y,
+            width=spec.COMPRESSION_DIALOG_HINT_LABEL_WIDTH,
+            height=spec.COMPRESSION_DIALOG_HINT_LABEL_HEIGHT,
         )
 
         button_width = spec.MAIN_BUTTON_SIZE[0]
