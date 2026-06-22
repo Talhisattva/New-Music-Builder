@@ -18,6 +18,7 @@ from new_music_builder.services.export_lua_writer import write_export_lua
 from new_music_builder.services.export_naming import sanitize_filesystem_component
 from new_music_builder.services.export_script_writer import write_export_scripts
 from new_music_builder.services.export_texture_writer import write_export_textures
+from new_music_builder.services.export_workshop_writer import build_workshop_txt_lines
 
 
 def validate_export_request(project: ProjectConfig, plan: ExportPlan) -> list[str]:
@@ -96,7 +97,7 @@ def write_export_scaffold(
         _ensure_layout(root, common, v42)
         _write_mod_info(project, common / "mod.info")
         _write_mod_info(project, v42 / "mod.info")
-        _write_workshop_txt(project, root / "workshop.txt")
+        _write_workshop_txt(project, plan, root / "workshop.txt")
         _write_images(project, plan, targets, asset_catalog)
         write_export_scripts(project, plan, targets)
         write_export_lua(project, plan, targets)
@@ -132,18 +133,8 @@ def _write_mod_info(project: ProjectConfig, target: Path) -> None:
     target.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def _write_workshop_txt(project: ProjectConfig, target: Path) -> None:
-    mod_name = (project.mod_name or "").strip()
-    lines = [
-        "version=1",
-        "id=",
-        f"title={mod_name}",
-        "description=[i]Generated with New Music Builder[/i]",
-        f"description=[h2]{mod_name}[/h2]",
-        "tags=Build 42;Audio",
-        "visibility=private",
-        "",
-    ]
+def _write_workshop_txt(project: ProjectConfig, plan: ExportPlan, target: Path) -> None:
+    lines = build_workshop_txt_lines(project, plan)
     target.write_text("\n".join(lines), encoding="utf-8")
 
 
