@@ -56,6 +56,14 @@ def test_overlay_font_candidates_prefer_explicit_override(monkeypatch) -> None:
     assert candidates[0] == Path('/tmp/custom-font.ttf')
 
 
+def test_overlay_font_candidates_prefer_bundled_orbitron_when_not_overridden(monkeypatch) -> None:
+    monkeypatch.delenv('NMB_OVERLAY_FONT', raising=False)
+
+    candidates = _overlay_font_candidate_paths()
+
+    assert candidates[0] == ASSETS_ROOT / 'fonts' / 'Orbitron-VariableFont_wght.ttf'
+
+
 def test_render_square_image_adds_visible_name_overlay(tmp_path: Path) -> None:
     poster_path = tmp_path / 'poster.png'
     Image.new('RGBA', (300, 200), (255, 0, 0, 255)).save(poster_path)
@@ -66,6 +74,20 @@ def test_render_square_image_adds_visible_name_overlay(tmp_path: Path) -> None:
     diff = ImageChops.difference(plain, overlaid)
 
     assert diff.getbbox() is not None
+
+
+def test_render_square_image_places_name_overlay_in_lower_right_region(tmp_path: Path) -> None:
+    poster_path = tmp_path / 'poster.png'
+    Image.new('RGBA', (300, 200), (255, 0, 0, 255)).save(poster_path)
+
+    plain = render_square_image(poster_path, 1024, 'My Fun Mix', add_name_overlay=False)
+    overlaid = render_square_image(poster_path, 1024, 'My Fun Mix', add_name_overlay=True)
+
+    bbox = ImageChops.difference(plain, overlaid).getbbox()
+
+    assert bbox is not None
+    assert bbox[0] > 300
+    assert bbox[1] > 500
 
 
 def test_resolve_export_target_uses_outer_name_and_inner_id(tmp_path: Path) -> None:

@@ -14,6 +14,7 @@ from new_music_builder.domain.models import (
     ProjectConfig,
     ScaffoldResult,
 )
+from new_music_builder.platform.paths import assets_root
 from new_music_builder.services.asset_catalog import AssetEntry
 from new_music_builder.services.export_lua_writer import write_export_lua
 from new_music_builder.services.export_naming import sanitize_filesystem_component
@@ -243,6 +244,7 @@ def _overlay_font_candidate_paths() -> list[Path]:
 
     candidates.extend(
         [
+            assets_root() / "fonts" / "Orbitron-VariableFont_wght.ttf",
             Path(r"C:\Windows\Fonts\segoeuib.ttf"),
             Path(r"C:\Windows\Fonts\arialbd.ttf"),
             Path(r"C:\Windows\Fonts\calibrib.ttf"),
@@ -311,9 +313,10 @@ def _apply_mod_name_overlay(image: Image.Image, mod_name: str) -> Image.Image:
     draw = ImageDraw.Draw(output, "RGBA")
     width, height = output.size
     margin = max(16, width // 24)
-    overlay_height = max(120, height // 4)
+    overlay_width = max(width // 3, width // 2)
+    overlay_height = max(120, height // 5)
     box = (
-        margin,
+        width - overlay_width - margin,
         height - overlay_height - margin,
         width - margin,
         height - margin,
@@ -324,7 +327,6 @@ def _apply_mod_name_overlay(image: Image.Image, mod_name: str) -> Image.Image:
     stroke = max(2, height // 256)
     line_spacing = max(4, height // 170)
 
-    # Add a dedicated title band so poster text remains readable over any image.
     draw.rounded_rectangle(
         box,
         radius=max(12, width // 48),
@@ -351,7 +353,7 @@ def _apply_mod_name_overlay(image: Image.Image, mod_name: str) -> Image.Image:
             "\n".join(trial_lines),
             font=trial_font,
             spacing=line_spacing,
-            align="center",
+            align="right",
             stroke_width=stroke,
         )
         text_width = bounds[2] - bounds[0]
@@ -377,12 +379,12 @@ def _apply_mod_name_overlay(image: Image.Image, mod_name: str) -> Image.Image:
         rendered,
         font=font,
         spacing=line_spacing,
-        align="center",
+        align="right",
         stroke_width=stroke,
     )
     text_width = bounds[2] - bounds[0]
     text_height = bounds[3] - bounds[1]
-    text_x = box[0] + ((box[2] - box[0] - text_width) // 2)
+    text_x = box[2] - inner - text_width
     text_y = box[1] + ((box[3] - box[1] - text_height) // 2)
     draw.multiline_text(
         (text_x, text_y),
@@ -390,7 +392,7 @@ def _apply_mod_name_overlay(image: Image.Image, mod_name: str) -> Image.Image:
         font=font,
         fill=(255, 255, 255, 245),
         spacing=line_spacing,
-        align="center",
+        align="right",
         stroke_width=stroke,
         stroke_fill=(0, 0, 0, 235),
     )
