@@ -244,6 +244,7 @@ def _overlay_font_candidate_paths() -> list[Path]:
 
     candidates.extend(
         [
+            assets_root() / "fonts" / "Nasalization Rg.otf",
             assets_root() / "fonts" / "Orbitron-VariableFont_wght.ttf",
             Path(r"C:\Windows\Fonts\segoeuib.ttf"),
             Path(r"C:\Windows\Fonts\arialbd.ttf"),
@@ -314,7 +315,7 @@ def _apply_mod_name_overlay(image: Image.Image, mod_name: str) -> Image.Image:
     width, height = output.size
     margin = max(16, width // 24)
     overlay_width = max(width // 3, width // 2)
-    overlay_height = max(120, height // 5)
+    overlay_height = max(96, height // 6)
     box = (
         width - overlay_width - margin,
         height - overlay_height - margin,
@@ -324,28 +325,20 @@ def _apply_mod_name_overlay(image: Image.Image, mod_name: str) -> Image.Image:
     inner = max(14, width // 40)
     max_width = max(40, (box[2] - box[0]) - inner * 2)
     max_height = max(40, (box[3] - box[1]) - inner * 2)
-    stroke = max(2, height // 256)
-    line_spacing = max(4, height // 170)
-
-    draw.rounded_rectangle(
-        box,
-        radius=max(12, width // 48),
-        fill=(0, 0, 0, 170),
-        outline=(255, 255, 255, 90),
-        width=max(1, width // 256),
-    )
+    stroke = max(3, height // 180)
+    line_spacing = max(4, height // 192)
 
     lines: list[str] = [mod_name]
     font: ImageFont.ImageFont = ImageFont.load_default()
-    min_size = max(14, width // 36)
-    for size in range(max(22, width // 10), min_size - 1, -1):
+    min_size = max(14, width // 34)
+    for size in range(max(24, width // 8), min_size - 1, -1):
         trial_font = _load_overlay_font(size)
         trial_lines = _wrap_text(
             draw,
             mod_name,
             trial_font,
             max_width,
-            max_lines=3,
+            max_lines=2,
             truncate_with_ellipsis=True,
         )
         bounds = draw.multiline_textbbox(
@@ -369,7 +362,7 @@ def _apply_mod_name_overlay(image: Image.Image, mod_name: str) -> Image.Image:
             mod_name,
             font,
             max_width,
-            max_lines=3,
+            max_lines=2,
             truncate_with_ellipsis=True,
         )
 
@@ -390,11 +383,11 @@ def _apply_mod_name_overlay(image: Image.Image, mod_name: str) -> Image.Image:
         (text_x, text_y),
         rendered,
         font=font,
-        fill=(255, 255, 255, 245),
+        fill=(255, 255, 255, 255),
         spacing=line_spacing,
         align="right",
         stroke_width=stroke,
-        stroke_fill=(0, 0, 0, 235),
+        stroke_fill=(46, 46, 46, 255),
     )
     return output
 

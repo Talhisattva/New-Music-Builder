@@ -56,12 +56,12 @@ def test_overlay_font_candidates_prefer_explicit_override(monkeypatch) -> None:
     assert candidates[0] == Path('/tmp/custom-font.ttf')
 
 
-def test_overlay_font_candidates_prefer_bundled_orbitron_when_not_overridden(monkeypatch) -> None:
+def test_overlay_font_candidates_prefer_bundled_nasalization_when_not_overridden(monkeypatch) -> None:
     monkeypatch.delenv('NMB_OVERLAY_FONT', raising=False)
 
     candidates = _overlay_font_candidate_paths()
 
-    assert candidates[0] == ASSETS_ROOT / 'fonts' / 'Orbitron-VariableFont_wght.ttf'
+    assert candidates[0] == ASSETS_ROOT / 'fonts' / 'Nasalization Rg.otf'
 
 
 def test_render_square_image_adds_visible_name_overlay(tmp_path: Path) -> None:
