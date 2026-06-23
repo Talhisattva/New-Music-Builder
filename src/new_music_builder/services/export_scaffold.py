@@ -313,11 +313,12 @@ def _apply_mod_name_overlay(image: Image.Image, mod_name: str) -> Image.Image:
     output = image.convert("RGBA")
     draw = ImageDraw.Draw(output, "RGBA")
     width, height = output.size
+    compact_preview = width <= 256
     margin = max(16, width // 24)
-    overlay_width = max(width // 3, width // 2)
-    overlay_height = max(96, height // 6)
+    overlay_width = max(width - (margin * 2), width // 2) if compact_preview else max(width // 3, width // 2)
+    overlay_height = max(48, height // 2) if compact_preview else max(96, height // 6)
     box = (
-        width - overlay_width - margin,
+        margin if compact_preview else width - overlay_width - margin,
         height - overlay_height - margin,
         width - margin,
         height - margin,
@@ -325,20 +326,22 @@ def _apply_mod_name_overlay(image: Image.Image, mod_name: str) -> Image.Image:
     inner = max(14, width // 40)
     max_width = max(40, (box[2] - box[0]) - inner * 2)
     max_height = max(40, (box[3] - box[1]) - inner * 2)
-    stroke = max(3, height // 180)
-    line_spacing = max(4, height // 192)
+    stroke = max(2, height // 44) if compact_preview else max(3, height // 180)
+    line_spacing = max(2, height // 44) if compact_preview else max(4, height // 192)
+    max_lines = 2
 
     lines: list[str] = [mod_name]
     font: ImageFont.ImageFont = ImageFont.load_default()
-    min_size = max(14, width // 34)
-    for size in range(max(24, width // 8), min_size - 1, -1):
+    min_size = max(12, width // 14) if compact_preview else max(14, width // 34)
+    max_size = max(20, width // 3) if compact_preview else max(24, width // 8)
+    for size in range(max_size, min_size - 1, -1):
         trial_font = _load_overlay_font(size)
         trial_lines = _wrap_text(
             draw,
             mod_name,
             trial_font,
             max_width,
-            max_lines=2,
+            max_lines=max_lines,
             truncate_with_ellipsis=True,
         )
         bounds = draw.multiline_textbbox(
@@ -362,7 +365,7 @@ def _apply_mod_name_overlay(image: Image.Image, mod_name: str) -> Image.Image:
             mod_name,
             font,
             max_width,
-            max_lines=2,
+            max_lines=max_lines,
             truncate_with_ellipsis=True,
         )
 
