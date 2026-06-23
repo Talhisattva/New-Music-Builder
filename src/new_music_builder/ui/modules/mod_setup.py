@@ -6,11 +6,12 @@ import tkinter.filedialog as fd
 import customtkinter as ctk
 
 from new_music_builder.platform.paths import detect_workshop_dir
+from new_music_builder.services.export_scaffold import render_square_image
 from new_music_builder.ui import theme
 from new_music_builder.ui.widgets.buttons import make_builder_button
 from new_music_builder.ui.widgets.checkboxes import make_builder_checkbox
 from new_music_builder.ui.widgets.fields import LabeledEntry, apply_builder_entry_style, make_builder_label
-from new_music_builder.ui.widgets.images import load_ctk_image
+from new_music_builder.ui.widgets.images import ctk_image_from_pil
 from new_music_builder.ui.widgets.module_panel import ModulePanel
 from new_music_builder.ui.widgets.tooltip import Tooltip
 
@@ -125,10 +126,12 @@ class ModSetupModule(ModulePanel):
         self.session.project.ogg_output_folder = self._vars['ogg_output_folder'].get().strip()
         self.session.project.workshop_output_folder = self._vars['workshop_output_folder'].get().strip()
         self.session.project.workshop_poster_path = self._vars['poster'].get().strip()
+        self._refresh_poster_preview()
         self.on_change()
 
     def _commit_boolean(self) -> None:
         self.session.project.write_mod_name_on_poster = bool(self._vars['write_name'].get())
+        self._refresh_poster_preview()
         self.on_change()
 
     def pick_poster(self) -> None:
@@ -178,7 +181,10 @@ class ModSetupModule(ModulePanel):
             self.session.project.workshop_output_folder = str(detected)
         if self.detected_label is not None:
             self.detected_label.configure(text='✓ DETECTED' if detected else '')
-        image = load_ctk_image(self._vars['poster'].get().strip(), (132, 132))
+        self._refresh_poster_preview()
+
+    def _refresh_poster_preview(self) -> None:
+        image = self._build_poster_preview()
         if self.poster_label is not None:
             if image is None:
                 self.poster_label.configure(text='Click To Pick Poster', image=None)
@@ -186,3 +192,18 @@ class ModSetupModule(ModulePanel):
             else:
                 self.poster_label.configure(text='', image=image)
                 self.poster_label.image = image
+
+    def _build_poster_preview(self) -> ctk.CTkImage | None:
+        poster_path = self._vars['poster'].get().strip()
+        if not poster_path:
+            return None
+        source = Path(poster_path)
+        if not source.exists() or not source.is_file():
+            return None
+        rendered = render_square_image(
+            source,
+            132,
+            self._vars['mod_name'].get().strip(),
+            add_name_overlay=bool(self._vars['write_name'].get()),
+        )
+        return ctk_image_from_pil(rendered, (132, 132))

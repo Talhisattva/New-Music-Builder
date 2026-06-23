@@ -40,6 +40,11 @@ def load_ctk_image(path: str | Path | None, size: tuple[int, int]) -> ctk.CTkIma
     return ctk.CTkImage(light_image=image, dark_image=image, size=size)
 
 
+def ctk_image_from_pil(image: Image.Image, size: tuple[int, int]) -> ctk.CTkImage:
+    rgba = image.convert('RGBA')
+    return ctk.CTkImage(light_image=rgba, dark_image=rgba.copy(), size=size)
+
+
 def load_contained_pil_image(
     path: str | Path | None,
     size: tuple[int, int],
