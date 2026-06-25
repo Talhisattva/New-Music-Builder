@@ -4,6 +4,7 @@ from new_music_builder.ui.main_window import (
     build_generated_asset_failure_log_line,
     build_generated_assets_removed_log_line,
     build_project_saved_log_line,
+    preferred_default_asset_key,
     resolve_song_removal_indices,
 )
 
@@ -48,3 +49,13 @@ def test_build_generated_asset_failure_log_line_uses_error_style_and_reason() ->
     assert line.trailing_text == "donor cassette shell was unavailable"
     assert line.color_role == "error"
     assert line.timestamp
+
+
+def test_preferred_default_asset_key_uses_black_outer_cassette_and_case_defaults() -> None:
+    assert preferred_default_asset_key('cassette', {'cassette:1', 'cassette:17'}) == 'cassette:17'
+    assert preferred_default_asset_key('case', {'case:1', 'case:12'}) == 'case:12'
+
+
+def test_preferred_default_asset_key_falls_back_when_preferred_key_missing() -> None:
+    assert preferred_default_asset_key('cassette', {'cassette:1'}) == ''
+    assert preferred_default_asset_key('vinyl', {'vinyl:1'}) == ''

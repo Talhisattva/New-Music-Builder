@@ -247,6 +247,19 @@ def build_generated_asset_failure_log_line(cover_path: str, reason: str) -> Expo
     )
 
 
+_PREFERRED_DEFAULT_ASSET_KEYS: dict[str, str] = {
+    'cassette': 'cassette:17',
+    'case': 'case:12',
+}
+
+
+def preferred_default_asset_key(kind: str, available_keys: set[str]) -> str:
+    preferred_key = _PREFERRED_DEFAULT_ASSET_KEYS.get(kind, '')
+    if preferred_key and preferred_key in available_keys:
+        return preferred_key
+    return ''
+
+
 class MainWindow(_DnDCompat, ctk.CTk):
 
     def __init__(self) -> None:
@@ -2174,8 +2187,10 @@ class MainWindow(_DnDCompat, ctk.CTk):
             row.ensure_appearances()
             for kind, entries in self.asset_catalog.items():
                 if entries and not row.appearances[kind].selected_asset_key:
-                    row.appearances[kind].selected_asset_key = entries[0].key
-                    row.appearances[kind].sprite_mode = entries[0].sprite_mode
+                    preferred_key = preferred_default_asset_key(kind, {entry.key for entry in entries})
+                    default_entry = next((entry for entry in entries if entry.key == preferred_key), entries[0])
+                    row.appearances[kind].selected_asset_key = default_entry.key
+                    row.appearances[kind].sprite_mode = default_entry.sprite_mode
 
     def new_project(self) -> None:
         if self._is_build_locked():
