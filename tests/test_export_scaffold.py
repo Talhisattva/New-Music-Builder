@@ -1,12 +1,14 @@
 from pathlib import Path
 
-from PIL import Image, ImageChops
+from PIL import Image, ImageChops, ImageDraw
 
 from new_music_builder.domain.models import ProjectConfig, TrackEntry, default_media_row
 from new_music_builder.services.asset_catalog import AssetCatalog
 from new_music_builder.services.export_planning import build_export_plan
 from new_music_builder.services.export_scaffold import (
     _overlay_font_candidate_paths,
+    _load_overlay_font,
+    _wrap_text,
     render_square_image,
     resolve_export_target,
     sanitize_filesystem_component,
@@ -100,8 +102,45 @@ def test_render_square_image_keeps_small_preview_overlay_readable(tmp_path: Path
     bbox = ImageChops.difference(plain.convert('RGB'), overlaid.convert('RGB')).getbbox()
 
     assert bbox is not None
-    assert (bbox[2] - bbox[0]) >= 50
+    assert bbox[0] >= 35
+    assert bbox[2] <= 124
+    assert (bbox[2] - bbox[0]) >= 30
     assert (bbox[3] - bbox[1]) >= 20
+
+
+def test_wrap_text_keeps_spaced_name_without_early_ellipsis() -> None:
+    image = Image.new('RGBA', (132, 132), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    font = _load_overlay_font(11)
+
+    lines = _wrap_text(
+        draw,
+        "Tali's Music Time",
+        font,
+        76,
+        max_lines=4,
+        truncate_with_ellipsis=False,
+    )
+
+    assert '...' not in ''.join(lines)
+
+
+def test_wrap_text_breaks_long_unspaced_name_before_ellipsis() -> None:
+    image = Image.new('RGBA', (132, 132), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    font = _load_overlay_font(10)
+
+    lines = _wrap_text(
+        draw,
+        'asdgfasdgdsagasdgasgasdsgasdg',
+        font,
+        76,
+        max_lines=4,
+        truncate_with_ellipsis=False,
+    )
+
+    assert len(lines) >= 2
+    assert all(draw.textlength(line, font=font) <= 76 for line in lines)
 
 
 def test_resolve_export_target_uses_outer_name_and_inner_id(tmp_path: Path) -> None:

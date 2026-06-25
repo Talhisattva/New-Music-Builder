@@ -4,6 +4,8 @@ from collections.abc import Callable
 from pathlib import Path
 import tkinter as tk
 
+from PIL import Image, ImageTk
+
 from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.icon_button import FolderIconButton
 from new_music_builder.ui.widgets.images import load_tk_photoimage_contained
@@ -60,6 +62,20 @@ class CoverPicker(tk.Frame):
             cover_path,
             (self._cover_size[0] - 2, self._cover_size[1] - 2),
         )
+        self.cover_surface.configure(image=self._cover_image if self._cover_image is not None else '')
+        self.cover_surface.image = self._cover_image
+
+    def set_cover_image(self, image: Image.Image | None) -> None:
+        if image is None:
+            self._cover_image = None
+        else:
+            contained = image.copy()
+            contained.thumbnail((self._cover_size[0] - 2, self._cover_size[1] - 2), Image.Resampling.LANCZOS)
+            fitted = Image.new('RGBA', (self._cover_size[0] - 2, self._cover_size[1] - 2), (0, 0, 0, 0))
+            paste_x = (fitted.width - contained.width) // 2
+            paste_y = (fitted.height - contained.height) // 2
+            fitted.paste(contained, (paste_x, paste_y), contained)
+            self._cover_image = ImageTk.PhotoImage(fitted)
         self.cover_surface.configure(image=self._cover_image if self._cover_image is not None else '')
         self.cover_surface.image = self._cover_image
 

@@ -2,14 +2,14 @@
   "current_path": "",
   "project": {
     "schema_version": 1,
-    "mod_name": "",
-    "mod_id": "",
+    "mod_name": "Olive Test",
+    "mod_id": "OliveTest",
     "parent_mod_id": "NewMusic",
-    "author": "",
-    "workshop_poster_path": "",
-    "write_mod_name_on_poster": false,
-    "ogg_output_folder": "",
-    "workshop_output_folder": "",
+    "author": "Talismon",
+    "workshop_poster_path": "C:/Users/chowl/OneDrive/Pictures/Olive223.png",
+    "write_mod_name_on_poster": true,
+    "ogg_output_folder": "C:/Users/chowl/Music/ogg",
+    "workshop_output_folder": "C:\\Users\\chowl\\Zomboid\\Workshop",
     "sample_rate": 44100,
     "compression_quality": 0.5,
     "reencode_existing_ogg": true,
@@ -25,7 +25,15 @@
           "cd": true
         },
         "cover_path": "",
-        "tracks_a": [],
+        "tracks_a": [
+          {
+            "source_path": "C:\\Users\\chowl\\Music\\Battery - Copy.ogg",
+            "cached_ogg_path": "C:\\Users\\chowl\\Music\\ogg\\44100hz - Medium\\Battery - Copy-691ffd5e41ad.ogg",
+            "display_label": "Battery - Copy",
+            "duration": "00:00:01",
+            "conversion_status": "source_ogg"
+          }
+        ],
         "tracks_b": [],
         "song_sort_a": {
           "column": null,
@@ -38,7 +46,7 @@
         "appearances": {
           "cassette": {
             "kind": "cassette",
-            "selected_asset_key": "",
+            "selected_asset_key": "cassette:1",
             "source": "default",
             "sprite_mode": "single",
             "inventory_full": "",
@@ -48,7 +56,7 @@
           },
           "vinyl": {
             "kind": "vinyl",
-            "selected_asset_key": "",
+            "selected_asset_key": "vinyl:1",
             "source": "default",
             "sprite_mode": "single",
             "inventory_full": "",
@@ -58,7 +66,7 @@
           },
           "cd": {
             "kind": "cd",
-            "selected_asset_key": "",
+            "selected_asset_key": "cd",
             "source": "default",
             "sprite_mode": "single",
             "inventory_full": "",
@@ -68,7 +76,7 @@
           },
           "case": {
             "kind": "case",
-            "selected_asset_key": "",
+            "selected_asset_key": "case:1",
             "source": "default",
             "sprite_mode": "single",
             "inventory_full": "",
@@ -78,7 +86,7 @@
           },
           "jacket": {
             "kind": "jacket",
-            "selected_asset_key": "",
+            "selected_asset_key": "jacket:1",
             "source": "default",
             "sprite_mode": "single",
             "inventory_full": "",
@@ -88,7 +96,7 @@
           },
           "cd_cover": {
             "kind": "cd_cover",
-            "selected_asset_key": "",
+            "selected_asset_key": "cd_cover:1",
             "source": "default",
             "sprite_mode": "single",
             "inventory_full": "",
@@ -100,6 +108,13 @@
         "expanded": true
       }
     ],
-    "custom_assets": {}
+    "custom_assets": {
+      "case": [],
+      "jacket": [],
+      "cd_cover": [],
+      "cassette": [],
+      "vinyl": [],
+      "cd": []
+    }
   }
 }

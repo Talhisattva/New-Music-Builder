@@ -42,6 +42,7 @@ from new_music_builder.services.export_planning import build_export_plan, build_
 from new_music_builder.services.export_scaffold import (
     build_scaffold_stats,
     build_validation_log_lines,
+    render_square_image,
     resolve_export_target,
     validate_export_request,
 )
@@ -1404,7 +1405,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         if not selected:
             return
         self.session.project.workshop_poster_path = selected
-        self.module_one_cover_picker.set_cover_path(selected)
+        self._refresh_module_one_poster_preview()
         self.on_project_change()
 
     def _select_module_two_media_cover(self, row_id: int) -> None:
@@ -1949,6 +1950,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
     def on_project_change(self) -> None:
         self._commit_phase_one_project_state()
+        self._refresh_module_one_poster_preview()
         if hasattr(self, 'module_two_row_list'):
             self.module_two_row_list.refresh_collapsed_details()
         if hasattr(self, 'build_summary'):
@@ -1957,8 +1959,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
     def refresh_all(self) -> None:
         self._apply_default_asset_selections()
-        if hasattr(self, 'module_one_cover_picker'):
-            self.module_one_cover_picker.set_cover_path(self.session.project.workshop_poster_path)
+        self._refresh_module_one_poster_preview()
         self._refresh_module_three_appearance_selector()
         if hasattr(self, 'mod_setup'):
             self.mod_setup.refresh()
@@ -2804,6 +2805,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
     def _flush_phase_one_project_sync(self) -> None:
         self._phase_one_sync_after_id = None
         self._commit_phase_one_project_state()
+        self._refresh_module_one_poster_preview()
         self.session_store.save(self.session.project, self.session.current_path)
         if hasattr(self, 'build_summary'):
             self.build_summary.refresh()
@@ -2827,12 +2829,30 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self.author_var.set(self.session.project.author)
             self.ogg_output_folder_var.set(self.session.project.ogg_output_folder)
             self.workshop_output_folder_var.set(self.session.project.workshop_output_folder)
-            if hasattr(self, 'module_one_cover_picker'):
-                self.module_one_cover_picker.set_cover_path(self.session.project.workshop_poster_path)
             if hasattr(self, 'poster_name_checkbox'):
                 self.poster_name_checkbox.set_checked(bool(self.session.project.write_mod_name_on_poster))
+            self._refresh_module_one_poster_preview()
         finally:
             self._phase_one_sync_suspended = False
+
+    def _refresh_module_one_poster_preview(self) -> None:
+        if not hasattr(self, 'module_one_cover_picker'):
+            return
+        poster_path = (self.session.project.workshop_poster_path or '').strip()
+        if not poster_path:
+            self.module_one_cover_picker.set_cover_image(None)
+            return
+        source = Path(poster_path)
+        if not source.exists() or not source.is_file():
+            self.module_one_cover_picker.set_cover_image(None)
+            return
+        rendered = render_square_image(
+            source,
+            spec.COVER_SIZE[0] - 2,
+            (self.session.project.mod_name or '').strip(),
+            add_name_overlay=bool(self.session.project.write_mod_name_on_poster),
+        )
+        self.module_one_cover_picker.set_cover_image(rendered)
 
     def on_close(self) -> None:
         if self._is_build_locked():

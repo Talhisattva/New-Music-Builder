@@ -281,13 +281,20 @@ def _wrap_text(
     if not words:
         return [text.strip() or "Untitled"]
 
+    expanded_words: list[str] = []
+    for word in words:
+        if draw.textlength(word, font=font) <= max_width:
+            expanded_words.append(word)
+        else:
+            expanded_words.extend(_split_long_token(draw, word, font, max_width))
+
     lines: list[str] = []
     index = 0
-    while index < len(words) and (max_lines is None or len(lines) < max_lines):
-        line = words[index]
+    while index < len(expanded_words) and (max_lines is None or len(lines) < max_lines):
+        line = expanded_words[index]
         index += 1
-        while index < len(words):
-            candidate = f"{line} {words[index]}"
+        while index < len(expanded_words):
+            candidate = f"{line} {expanded_words[index]}"
             if draw.textlength(candidate, font=font) <= max_width:
                 line = candidate
                 index += 1
@@ -309,40 +316,58 @@ def _wrap_text(
     return lines
 
 
+def _split_long_token(
+    draw: ImageDraw.ImageDraw,
+    token: str,
+    font: ImageFont.ImageFont,
+    max_width: int,
+) -> list[str]:
+    parts: list[str] = []
+    remaining = token
+    while remaining:
+        if draw.textlength(remaining, font=font) <= max_width:
+            parts.append(remaining)
+            break
+        cutoff = len(remaining)
+        while cutoff > 1 and draw.textlength(remaining[:cutoff], font=font) > max_width:
+            cutoff -= 1
+        parts.append(remaining[:cutoff])
+        remaining = remaining[cutoff:]
+    return parts
+
+
 def _apply_mod_name_overlay(image: Image.Image, mod_name: str) -> Image.Image:
     output = image.convert("RGBA")
     draw = ImageDraw.Draw(output, "RGBA")
     width, height = output.size
     compact_preview = width <= 256
-    margin = max(16, width // 24)
-    overlay_width = max(width - (margin * 2), width // 2) if compact_preview else max(width // 3, width // 2)
-    overlay_height = max(48, height // 2) if compact_preview else max(96, height // 6)
+    margin = max(8, width // 32)
     box = (
-        margin if compact_preview else width - overlay_width - margin,
-        height - overlay_height - margin,
+        max(margin, int(width * (0.22 if compact_preview else 0.5))),
+        int(height * (0.54 if compact_preview else 0.58)),
         width - margin,
         height - margin,
     )
-    inner = max(14, width // 40)
-    max_width = max(40, (box[2] - box[0]) - inner * 2)
-    max_height = max(40, (box[3] - box[1]) - inner * 2)
-    stroke = max(2, height // 44) if compact_preview else max(3, height // 180)
-    line_spacing = max(2, height // 44) if compact_preview else max(4, height // 192)
-    max_lines = 2
+    text = (mod_name or "").strip() or "Untitled"
+    inner = max(6, width // 24) if compact_preview else max(14, width // 40)
+    max_width = max(24, (box[2] - box[0]) - inner * 2)
+    max_height = max(18, (box[3] - box[1]) - inner * 2)
+    stroke = max(1, height // 64) if compact_preview else max(3, height // 180)
+    line_spacing = max(1, height // 56) if compact_preview else max(4, height // 192)
 
-    lines: list[str] = [mod_name]
+    lines: list[str] = [text]
     font: ImageFont.ImageFont = ImageFont.load_default()
-    min_size = max(12, width // 14) if compact_preview else max(14, width // 34)
-    max_size = max(20, width // 3) if compact_preview else max(24, width // 8)
+    min_size = max(6, width // 28) if compact_preview else max(14, width // 34)
+    max_size = max(12, width // 5) if compact_preview else max(24, width // 8)
     for size in range(max_size, min_size - 1, -1):
         trial_font = _load_overlay_font(size)
         trial_lines = _wrap_text(
             draw,
-            mod_name,
+            text,
             trial_font,
-            max_width,
-            max_lines=max_lines,
-            truncate_with_ellipsis=True,
+            max_width=max_width,
+            max_lines=None,
+            truncate_with_ellipsis=False,
         )
         bounds = draw.multiline_textbbox(
             (0, 0),
@@ -362,10 +387,10 @@ def _apply_mod_name_overlay(image: Image.Image, mod_name: str) -> Image.Image:
         font = _load_overlay_font(min_size)
         lines = _wrap_text(
             draw,
-            mod_name,
+            text,
             font,
-            max_width,
-            max_lines=max_lines,
+            max_width=max_width,
+            max_lines=4 if compact_preview else 6,
             truncate_with_ellipsis=True,
         )
 
@@ -381,7 +406,9 @@ def _apply_mod_name_overlay(image: Image.Image, mod_name: str) -> Image.Image:
     text_width = bounds[2] - bounds[0]
     text_height = bounds[3] - bounds[1]
     text_x = box[2] - inner - text_width
-    text_y = box[1] + ((box[3] - box[1] - text_height) // 2)
+    text_y = box[3] - inner - text_height
+    lift = max(3, height // 72)
+    text_y = max(box[1] + inner, text_y - lift)
     draw.multiline_text(
         (text_x, text_y),
         rendered,
