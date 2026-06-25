@@ -32,11 +32,11 @@ class InventoryWarpPreset:
 
 CASSETTE_INVENTORY_PRESET = InventoryWarpPreset(
     rotation_degrees=30.0,
-    initial_scale_ratio=1.45,
-    max_scale_ratio=2.25,
+    initial_scale_ratio=1.70,
+    max_scale_ratio=2.70,
     scale_step_ratio=0.12,
-    right_edge_inset_ratio=0.22,
-    right_edge_vertical_inset_ratio=0.14,
+    right_edge_inset_ratio=0.36,
+    right_edge_vertical_inset_ratio=0.20,
 )
 
 
@@ -171,7 +171,12 @@ def _build_inventory_transformed_cover(
     while square_size <= max_size:
         square_source = _prepare_square_source(source_path, square_size)
         warped = _apply_inventory_warp(square_source, preset)
-        placed = _place_transformed_cover_on_canvas(warped, mask_size)
+        placed = _place_transformed_cover_on_canvas(
+            warped,
+            mask_size,
+            mask_alpha=mask_alpha,
+            alpha_threshold=preset.coverage_alpha_threshold,
+        )
         if _mask_region_is_fully_covered(placed, mask_alpha, alpha_threshold=preset.coverage_alpha_threshold):
             return placed
         square_size = int(ceil(square_size * (1.0 + preset.scale_step_ratio)))
@@ -179,7 +184,12 @@ def _build_inventory_transformed_cover(
             square_size = target_edge + 1
     final_square = _prepare_square_source(source_path, max_size)
     final_warped = _apply_inventory_warp(final_square, preset)
-    return _place_transformed_cover_on_canvas(final_warped, mask_size)
+    return _place_transformed_cover_on_canvas(
+        final_warped,
+        mask_size,
+        mask_alpha=mask_alpha,
+        alpha_threshold=preset.coverage_alpha_threshold,
+    )
 
 
 def _build_masked_cover(*, source_path: Path, mask_path: Path) -> Image.Image:
@@ -258,10 +268,53 @@ def _find_perspective_coefficients(
     return tuple(float(value) for value in solution)
 
 
-def _place_transformed_cover_on_canvas(image: Image.Image, size: tuple[int, int]) -> Image.Image:
+def _place_transformed_cover_on_canvas(
+    image: Image.Image,
+    size: tuple[int, int],
+    *,
+    mask_alpha: Image.Image | None = None,
+    alpha_threshold: int = 8,
+) -> Image.Image:
+    centered_x = (size[0] - image.width) // 2
+    centered_y = (size[1] - image.height) // 2
+    if mask_alpha is None:
+        return _composite_image_on_canvas(image, size, centered_x, centered_y)
+
+    max_offset_x = max(0, image.width - size[0])
+    max_offset_y = max(0, image.height - size[1])
+    best_canvas: Image.Image | None = None
+    best_distance: tuple[int, int, int] | None = None
+    for offset_x in range(-max_offset_x, max_offset_x + 1):
+        for offset_y in range(-max_offset_y, max_offset_y + 1):
+            canvas = _composite_image_on_canvas(
+                image,
+                size,
+                centered_x + offset_x,
+                centered_y + offset_y,
+            )
+            if not _mask_region_is_fully_covered(canvas, mask_alpha, alpha_threshold=alpha_threshold):
+                continue
+            distance = (
+                abs(offset_x) + abs(offset_y),
+                abs(offset_y),
+                abs(offset_x),
+            )
+            if best_distance is None or distance < best_distance:
+                best_canvas = canvas
+                best_distance = distance
+
+    if best_canvas is not None:
+        return best_canvas
+    return _composite_image_on_canvas(image, size, centered_x, centered_y)
+
+
+def _composite_image_on_canvas(
+    image: Image.Image,
+    size: tuple[int, int],
+    paste_x: int,
+    paste_y: int,
+) -> Image.Image:
     canvas = Image.new("RGBA", size, (0, 0, 0, 0))
-    paste_x = (size[0] - image.width) // 2
-    paste_y = (size[1] - image.height) // 2
     canvas.alpha_composite(image, (paste_x, paste_y))
     return canvas
 
