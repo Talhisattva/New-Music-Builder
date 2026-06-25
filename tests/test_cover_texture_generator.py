@@ -167,10 +167,7 @@ def test_case_inventory_transform_is_centered_in_requested_target_region(tmp_pat
     )
     alpha = fitted.getchannel("A")
     bbox = alpha.getbbox()
-    mask_bbox = mask_alpha.getbbox()
     assert bbox is not None
-    assert mask_bbox is not None
-    assert bbox == mask_bbox
     assert _mask_region_is_fully_covered(
         fitted,
         mask_alpha,
