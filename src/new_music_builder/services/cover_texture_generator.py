@@ -619,23 +619,13 @@ def _apply_inventory_warp(image: Image.Image, preset: InventoryWarpPreset) -> Im
 def _apply_inventory_shear(image: Image.Image, preset: InventoryShearPreset) -> Image.Image:
     shear_ratio = tan(radians(preset.shear_degrees))
     width, height = image.size
-    horizontal_offset = max(1, int(round(abs(shear_ratio) * height)))
-    output_width = width + horizontal_offset
-    output = Image.new("RGBA", (output_width, height), (0, 0, 0, 0))
-    if shear_ratio >= 0:
-        data = (1.0, -shear_ratio, 0.0, 0.0, 1.0, 0.0)
-        pasted = image.transform(
-            (output_width, height),
-            Image.Transform.AFFINE,
-            data,
-            resample=Image.Resampling.BICUBIC,
-            fillcolor=(0, 0, 0, 0),
-        )
-        output.alpha_composite(pasted)
-        return output
-    data = (1.0, -shear_ratio, 0.0, 0.0, 1.0, 0.0)
+    vertical_offset = max(1, int(round(abs(shear_ratio) * width)))
+    output_height = height + vertical_offset
+    output = Image.new("RGBA", (width, output_height), (0, 0, 0, 0))
+    y_offset = 0 if shear_ratio >= 0 else vertical_offset
+    data = (1.0, 0.0, 0.0, -shear_ratio, 1.0, float(y_offset))
     pasted = image.transform(
-        (output_width, height),
+        (width, output_height),
         Image.Transform.AFFINE,
         data,
         resample=Image.Resampling.BICUBIC,
