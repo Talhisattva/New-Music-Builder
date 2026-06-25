@@ -20,12 +20,15 @@ ASSETS_ROOT = Path(__file__).resolve().parents[1] / "assets"
 def test_generate_cassette_textures_from_cover_writes_expected_outputs(tmp_path: Path) -> None:
     cover_path = tmp_path / "cover.png"
     donor_path = tmp_path / "donor.png"
+    donor_world_path = tmp_path / "donor-world.png"
     Image.new("RGBA", (500, 500), (255, 0, 0, 255)).save(cover_path)
     Image.new("RGBA", (32, 32), (40, 40, 220, 255)).save(donor_path)
+    Image.new("RGBA", (256, 156), (80, 180, 40, 255)).save(donor_world_path)
 
     result = generate_cassette_textures_from_cover(
         cover_path,
         donor_inventory_path=donor_path,
+        donor_world_path=donor_world_path,
         mask_root=ASSETS_ROOT / "Mask",
         output_root=tmp_path / "Generated Textures",
     )
@@ -47,12 +50,15 @@ def test_generate_cassette_textures_from_cover_writes_expected_outputs(tmp_path:
 def test_generate_cassette_textures_from_rectangular_cover_keeps_outputs_valid(tmp_path: Path) -> None:
     cover_path = tmp_path / "wide-cover.png"
     donor_path = tmp_path / "donor.png"
+    donor_world_path = tmp_path / "donor-world.png"
     Image.new("RGBA", (700, 400), (20, 140, 220, 255)).save(cover_path)
     Image.new("RGBA", (32, 32), (220, 220, 20, 255)).save(donor_path)
+    Image.new("RGBA", (256, 156), (20, 220, 180, 255)).save(donor_world_path)
 
     result = generate_cassette_textures_from_cover(
         cover_path,
         donor_inventory_path=donor_path,
+        donor_world_path=donor_world_path,
         mask_root=ASSETS_ROOT / "Mask",
         output_root=tmp_path / "Generated Textures",
     )
@@ -103,12 +109,15 @@ def test_inventory_warp_preserves_transparent_background_outside_art(tmp_path: P
 def test_generate_cassette_textures_from_cover_uses_donor_shell_on_outer_region(tmp_path: Path) -> None:
     cover_path = tmp_path / "cover.png"
     donor_path = tmp_path / "donor.png"
+    donor_world_path = tmp_path / "donor-world.png"
     Image.new("RGBA", (540, 540), (255, 0, 0, 255)).save(cover_path)
     Image.new("RGBA", (32, 32), (0, 0, 255, 255)).save(donor_path)
+    Image.new("RGBA", (256, 156), (0, 255, 0, 255)).save(donor_world_path)
 
     result = generate_cassette_textures_from_cover(
         cover_path,
         donor_inventory_path=donor_path,
+        donor_world_path=donor_world_path,
         mask_root=ASSETS_ROOT / "Mask",
         output_root=tmp_path / "Generated Textures",
     )
@@ -125,12 +134,41 @@ def test_generate_cassette_textures_from_cover_uses_donor_shell_on_outer_region(
 
 def test_generate_cassette_textures_from_cover_fails_when_donor_shell_is_missing(tmp_path: Path) -> None:
     cover_path = tmp_path / "cover.png"
+    donor_world_path = tmp_path / "donor-world.png"
     Image.new("RGBA", (500, 500), (255, 0, 0, 255)).save(cover_path)
+    Image.new("RGBA", (256, 156), (0, 255, 0, 255)).save(donor_world_path)
 
     with pytest.raises(FileNotFoundError, match="Donor cassette shell was unavailable"):
         generate_cassette_textures_from_cover(
             cover_path,
             donor_inventory_path="",
+            donor_world_path=donor_world_path,
             mask_root=ASSETS_ROOT / "Mask",
             output_root=tmp_path / "Generated Textures",
         )
+
+
+def test_generate_cassette_textures_from_cover_uses_donor_world_shell_on_outer_region(tmp_path: Path) -> None:
+    cover_path = tmp_path / "cover.png"
+    donor_path = tmp_path / "donor.png"
+    donor_world_path = tmp_path / "donor-world.png"
+    Image.new("RGBA", (540, 540), (255, 0, 0, 255)).save(cover_path)
+    Image.new("RGBA", (32, 32), (0, 0, 255, 255)).save(donor_path)
+    Image.new("RGBA", (256, 156), (0, 255, 0, 255)).save(donor_world_path)
+
+    result = generate_cassette_textures_from_cover(
+        cover_path,
+        donor_inventory_path=donor_path,
+        donor_world_path=donor_world_path,
+        mask_root=ASSETS_ROOT / "Mask",
+        output_root=tmp_path / "Generated Textures",
+    )
+
+    world = Image.open(result.record.world_full).convert("RGBA")
+    outer_only_point = (5, 5)
+    center_point = (128, 78)
+    outer_pixel = world.getpixel(outer_only_point)
+    center_pixel = world.getpixel(center_point)
+
+    assert outer_pixel[1] > outer_pixel[0]
+    assert center_pixel[0] > center_pixel[1]

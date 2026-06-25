@@ -44,6 +44,7 @@ def generate_cassette_textures_from_cover(
     cover_path: str | Path,
     *,
     donor_inventory_path: str | Path,
+    donor_world_path: str | Path,
     mask_root: Path | None = None,
     output_root: Path | None = None,
 ) -> CoverGenerationResult:
@@ -60,6 +61,12 @@ def generate_cassette_textures_from_cover(
     donor_source_path = Path(normalized_donor_inventory)
     if not donor_source_path.is_file():
         raise FileNotFoundError(f"Donor cassette shell was not found: {donor_source_path}")
+    normalized_donor_world = normalize_cover_path(donor_world_path)
+    if not normalized_donor_world:
+        raise FileNotFoundError("Donor cassette world shell was unavailable.")
+    donor_world_source_path = Path(normalized_donor_world)
+    if not donor_world_source_path.is_file():
+        raise FileNotFoundError(f"Donor cassette world shell was not found: {donor_world_source_path}")
 
     resolved_mask_root = mask_root or (assets_root() / "Mask")
     resolved_output_root = output_root or generated_textures_root()
@@ -87,6 +94,7 @@ def generate_cassette_textures_from_cover(
     _render_cassette_world(
         source_path=source_path,
         mask_path=world_mask,
+        donor_world_path=donor_world_source_path,
         outer_path=world_outer,
         overlay_paths=(world_overlay, world_overlay_detail),
         output_path=world_output,
@@ -136,16 +144,28 @@ def _render_cassette_inventory(
 def _render_cassette_world(
     *,
     source_path: Path,
+    donor_world_path: Path,
     mask_path: Path,
     outer_path: Path,
     overlay_paths: tuple[Path, ...],
     output_path: Path,
 ) -> None:
-    masked_cover = _build_masked_cover(source_path=source_path, mask_path=mask_path)
-    base = Image.new("RGBA", masked_cover.size, (0, 0, 0, 0))
-    base.alpha_composite(masked_cover)
+    with Image.open(mask_path) as mask_source:
+        mask_image = mask_source.convert("RGBA")
+    mask_alpha = _alpha_mask(mask_image)
+    masked_cover = _build_masked_cover_from_mask_alpha(
+        source_path=source_path,
+        size=mask_image.size,
+        mask_alpha=mask_alpha,
+    )
     with Image.open(outer_path) as outer_source:
-        base.alpha_composite(outer_source.convert("RGBA"))
+        outer_alpha = _alpha_mask(outer_source.convert("RGBA"))
+    donor_outer = _build_masked_donor_layer(
+        source_path=donor_world_path,
+        size=mask_image.size,
+        mask_alpha=_subtract_mask_alpha(outer_alpha, mask_alpha),
+    )
+    base = _compose_inventory_layers(masked_cover, donor_outer)
     for overlay_path in overlay_paths:
         with Image.open(overlay_path) as overlay_source:
             base.alpha_composite(overlay_source.convert("RGBA"))
@@ -167,6 +187,16 @@ def _build_inventory_masked_cover(
         preset=preset,
     )
     return _apply_mask_alpha(transformed, mask_alpha)
+
+
+def _build_masked_cover_from_mask_alpha(
+    *,
+    source_path: Path,
+    size: tuple[int, int],
+    mask_alpha: Image.Image,
+) -> Image.Image:
+    fitted_cover = _fit_cover_to_canvas(source_path, size)
+    return _apply_mask_alpha(fitted_cover, mask_alpha)
 
 
 def _build_inventory_transformed_cover(
@@ -208,8 +238,11 @@ def _build_inventory_transformed_cover(
 def _build_masked_cover(*, source_path: Path, mask_path: Path) -> Image.Image:
     with Image.open(mask_path) as mask_source:
         mask_image = mask_source.convert("RGBA")
-    fitted_cover = _fit_cover_to_canvas(source_path, mask_image.size)
-    return _apply_mask_alpha(fitted_cover, _alpha_mask(mask_image))
+    return _build_masked_cover_from_mask_alpha(
+        source_path=source_path,
+        size=mask_image.size,
+        mask_alpha=_alpha_mask(mask_image),
+    )
 
 
 def _prepare_square_source(source_path: Path, target_size: int) -> Image.Image:
@@ -359,6 +392,10 @@ def _compose_inventory_layers(center_layer: Image.Image, donor_outer_layer: Imag
     base.alpha_composite(center_layer)
     base.alpha_composite(donor_outer_layer)
     return base
+
+
+def _subtract_mask_alpha(base_mask_alpha: Image.Image, cutout_mask_alpha: Image.Image) -> Image.Image:
+    return ImageChops.subtract(base_mask_alpha, cutout_mask_alpha)
 
 
 def _apply_mask_alpha(image: Image.Image, mask_alpha: Image.Image) -> Image.Image:

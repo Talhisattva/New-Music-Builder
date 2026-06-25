@@ -1224,15 +1224,19 @@ class MainWindow(_DnDCompat, ctk.CTk):
     def _module_three_can_generate_from_cover(self, row, kind: AppearanceKind | None) -> bool:
         return can_generate_cover_for_kind(self.session.project, row, kind)
 
-    def _module_three_selected_inventory_path_for_row(self, row, kind: AppearanceKind) -> str:
+    def _module_three_selected_path_for_row(self, row, kind: AppearanceKind, mode: str) -> str:
         row.ensure_appearances()
         selection = row.appearances[kind]
         entries = self._module_three_entries_for_kind(kind)
         selected_entry = next((entry for entry in entries if entry.key == selection.selected_asset_key), None)
-        if selected_entry is not None and selected_entry.inventory_path:
-            return selected_entry.inventory_path
-        if selection.source == 'custom' and selection.inventory_full:
-            return selection.inventory_full
+        if selected_entry is not None:
+            selected_path = selected_entry.world_path if mode == 'world' else selected_entry.inventory_path
+            if selected_path:
+                return selected_path
+        if selection.source == 'custom':
+            fallback_path = selection.world_full if mode == 'world' else selection.inventory_full
+            if fallback_path:
+                return fallback_path
         return ""
 
     def _generate_module_three_from_cover(self, row_id: int, kind: AppearanceKind) -> None:
@@ -1241,14 +1245,19 @@ class MainWindow(_DnDCompat, ctk.CTk):
         target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
         if target_row is None or kind != 'cassette':
             return
-        donor_inventory_path = self._module_three_selected_inventory_path_for_row(target_row, kind)
+        donor_inventory_path = self._module_three_selected_path_for_row(target_row, kind, 'inventory')
         if not donor_inventory_path:
             self._append_generated_asset_failure_log(target_row.cover_path, "donor cassette shell was unavailable")
+            return
+        donor_world_path = self._module_three_selected_path_for_row(target_row, kind, 'world')
+        if not donor_world_path:
+            self._append_generated_asset_failure_log(target_row.cover_path, "donor cassette world shell was unavailable")
             return
         try:
             result = generate_cassette_textures_from_cover(
                 target_row.cover_path,
                 donor_inventory_path=donor_inventory_path,
+                donor_world_path=donor_world_path,
             )
         except Exception as exc:
             LOGGER.exception("Failed to generate cassette textures from %s", target_row.cover_path)
