@@ -530,6 +530,7 @@ class AppearanceSelector:
             spec.MODULE_THREE_GENERATE_BUTTON_TEXT,
             self._handle_generate_from_cover,
             size='compact',
+            width=spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE[0] - (spec.MODULE_THREE_PANEL_BORDER_WIDTH * 2),
         )
         self.generate_from_cover_button.configure(
             font=ctk.CTkFont(
@@ -538,13 +539,9 @@ class AppearanceSelector:
                 weight='normal',
             ),
             corner_radius=0,
-        )
-        self.generate_from_cover_button.place(
-            x=0,
-            y=0,
-            width=spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE[0] - (spec.MODULE_THREE_PANEL_BORDER_WIDTH * 2),
             height=spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE[1] - (spec.MODULE_THREE_PANEL_BORDER_WIDTH * 2),
         )
+        self.generate_from_cover_button.place(x=0, y=0)
         self._preview_mode_toggle = PreviewModeToggle(
             self.shell.preview_mode_pane.content,
             left_text='INVENTORY',
@@ -625,13 +622,10 @@ class AppearanceSelector:
                     size=spec.MODULE_THREE_GENERATE_BUTTON_HALF_FONT_SIZE,
                     weight='normal',
                 ),
-            )
-            self.generate_from_cover_button.place_configure(
-                x=0,
-                y=0,
                 width=spec.MODULE_THREE_GENERATE_BUTTON_ROW_SIZE[0] - (spec.MODULE_THREE_PANEL_BORDER_WIDTH * 2),
                 height=spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE[1] - (spec.MODULE_THREE_PANEL_BORDER_WIDTH * 2),
             )
+            self.generate_from_cover_button.place_configure(x=0, y=0)
         else:
             self.shell.generate_button_pane.resize(spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE)
             self.shell.generate_button_pane.place(x=0, y=spec.MODULE_THREE_DUAL_SPRITE_ROW_Y)
@@ -644,13 +638,10 @@ class AppearanceSelector:
                     size=spec.MODULE_THREE_GENERATE_BUTTON_FONT_SIZE,
                     weight='normal',
                 ),
-            )
-            self.generate_from_cover_button.place_configure(
-                x=0,
-                y=0,
                 width=spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE[0] - (spec.MODULE_THREE_PANEL_BORDER_WIDTH * 2),
                 height=spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE[1] - (spec.MODULE_THREE_PANEL_BORDER_WIDTH * 2),
             )
+            self.generate_from_cover_button.place_configure(x=0, y=0)
 
     def _refresh_footer(self) -> None:
         if self._active_kind is None:
