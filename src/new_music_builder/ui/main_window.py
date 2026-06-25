@@ -233,6 +233,16 @@ def build_generated_assets_removed_log_line(source_name: str, removed_record_cou
     )
 
 
+def build_generated_asset_failure_log_line(cover_path: str, reason: str) -> ExportLogLine:
+    return ExportLogLine(
+        timestamp=datetime.now().strftime("%H:%M:%S"),
+        prefix_text="Failed to create assets from",
+        subject_text=Path(cover_path).name if cover_path else "cover",
+        trailing_text=reason,
+        color_role="error",
+    )
+
+
 class MainWindow(_DnDCompat, ctk.CTk):
 
     def __init__(self) -> None:
@@ -1214,14 +1224,32 @@ class MainWindow(_DnDCompat, ctk.CTk):
     def _module_three_can_generate_from_cover(self, row, kind: AppearanceKind | None) -> bool:
         return can_generate_cover_for_kind(self.session.project, row, kind)
 
+    def _module_three_selected_inventory_path_for_row(self, row, kind: AppearanceKind) -> str:
+        row.ensure_appearances()
+        selection = row.appearances[kind]
+        entries = self._module_three_entries_for_kind(kind)
+        selected_entry = next((entry for entry in entries if entry.key == selection.selected_asset_key), None)
+        if selected_entry is not None and selected_entry.inventory_path:
+            return selected_entry.inventory_path
+        if selection.source == 'custom' and selection.inventory_full:
+            return selection.inventory_full
+        return ""
+
     def _generate_module_three_from_cover(self, row_id: int, kind: AppearanceKind) -> None:
         if self._is_build_locked():
             return
         target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
         if target_row is None or kind != 'cassette':
             return
+        donor_inventory_path = self._module_three_selected_inventory_path_for_row(target_row, kind)
+        if not donor_inventory_path:
+            self._append_generated_asset_failure_log(target_row.cover_path, "donor cassette shell was unavailable")
+            return
         try:
-            result = generate_cassette_textures_from_cover(target_row.cover_path)
+            result = generate_cassette_textures_from_cover(
+                target_row.cover_path,
+                donor_inventory_path=donor_inventory_path,
+            )
         except Exception as exc:
             LOGGER.exception("Failed to generate cassette textures from %s", target_row.cover_path)
             self._append_generated_asset_failure_log(target_row.cover_path, str(exc))
@@ -1257,15 +1285,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
     def _append_generated_asset_failure_log(self, cover_path: str, reason: str) -> None:
         if not hasattr(self, 'module_four_panel'):
             return
-        self.module_four_panel.append_log_line(
-            ExportLogLine(
-                timestamp=datetime.now().strftime("%H:%M:%S"),
-                prefix_text="Failed to create assets from",
-                subject_text=Path(cover_path).name if cover_path else "cover",
-                trailing_text=reason,
-                color_role="error",
-            )
-        )
+        self.module_four_panel.append_log_line(build_generated_asset_failure_log_line(cover_path, reason))
 
     def _append_generated_asset_removed_log(self, source_name: str, removed_record_count: int, deleted_file_count: int) -> None:
         if not hasattr(self, 'module_four_panel'):

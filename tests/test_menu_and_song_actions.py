@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from new_music_builder.ui.main_window import (
+    build_generated_asset_failure_log_line,
     build_generated_assets_removed_log_line,
     build_project_saved_log_line,
     resolve_song_removal_indices,
@@ -36,4 +37,14 @@ def test_build_generated_assets_removed_log_line_uses_done_style_and_counts() ->
     assert line.subject_text == "cover.png"
     assert line.trailing_text == "- 2 record(s), 4 file(s) deleted"
     assert line.color_role == "done"
+    assert line.timestamp
+
+
+def test_build_generated_asset_failure_log_line_uses_error_style_and_reason() -> None:
+    line = build_generated_asset_failure_log_line("C:/covers/cover.png", "donor cassette shell was unavailable")
+
+    assert line.prefix_text == "Failed to create assets from"
+    assert line.subject_text == "cover.png"
+    assert line.trailing_text == "donor cassette shell was unavailable"
+    assert line.color_role == "error"
     assert line.timestamp

@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import pytest
 from PIL import Image
 
 from new_music_builder.services.cover_texture_generator import (
@@ -18,10 +19,13 @@ ASSETS_ROOT = Path(__file__).resolve().parents[1] / "assets"
 
 def test_generate_cassette_textures_from_cover_writes_expected_outputs(tmp_path: Path) -> None:
     cover_path = tmp_path / "cover.png"
+    donor_path = tmp_path / "donor.png"
     Image.new("RGBA", (500, 500), (255, 0, 0, 255)).save(cover_path)
+    Image.new("RGBA", (32, 32), (40, 40, 220, 255)).save(donor_path)
 
     result = generate_cassette_textures_from_cover(
         cover_path,
+        donor_inventory_path=donor_path,
         mask_root=ASSETS_ROOT / "Mask",
         output_root=tmp_path / "Generated Textures",
     )
@@ -42,10 +46,13 @@ def test_generate_cassette_textures_from_cover_writes_expected_outputs(tmp_path:
 
 def test_generate_cassette_textures_from_rectangular_cover_keeps_outputs_valid(tmp_path: Path) -> None:
     cover_path = tmp_path / "wide-cover.png"
+    donor_path = tmp_path / "donor.png"
     Image.new("RGBA", (700, 400), (20, 140, 220, 255)).save(cover_path)
+    Image.new("RGBA", (32, 32), (220, 220, 20, 255)).save(donor_path)
 
     result = generate_cassette_textures_from_cover(
         cover_path,
+        donor_inventory_path=donor_path,
         mask_root=ASSETS_ROOT / "Mask",
         output_root=tmp_path / "Generated Textures",
     )
@@ -91,3 +98,39 @@ def test_inventory_warp_preserves_transparent_background_outside_art(tmp_path: P
     alpha = transformed.getchannel("A")
     assert alpha.getbbox() is not None
     assert alpha.getbbox() != (0, 0, transformed.width, transformed.height)
+
+
+def test_generate_cassette_textures_from_cover_uses_donor_shell_on_outer_region(tmp_path: Path) -> None:
+    cover_path = tmp_path / "cover.png"
+    donor_path = tmp_path / "donor.png"
+    Image.new("RGBA", (540, 540), (255, 0, 0, 255)).save(cover_path)
+    Image.new("RGBA", (32, 32), (0, 0, 255, 255)).save(donor_path)
+
+    result = generate_cassette_textures_from_cover(
+        cover_path,
+        donor_inventory_path=donor_path,
+        mask_root=ASSETS_ROOT / "Mask",
+        output_root=tmp_path / "Generated Textures",
+    )
+
+    inventory = Image.open(result.record.inventory_full).convert("RGBA")
+    outer_only_point = (20, 2)
+    center_only_point = (20, 4)
+    outer_pixel = inventory.getpixel(outer_only_point)
+    center_pixel = inventory.getpixel(center_only_point)
+
+    assert outer_pixel[2] > outer_pixel[0]
+    assert center_pixel[0] > center_pixel[2]
+
+
+def test_generate_cassette_textures_from_cover_fails_when_donor_shell_is_missing(tmp_path: Path) -> None:
+    cover_path = tmp_path / "cover.png"
+    Image.new("RGBA", (500, 500), (255, 0, 0, 255)).save(cover_path)
+
+    with pytest.raises(FileNotFoundError, match="Donor cassette shell was unavailable"):
+        generate_cassette_textures_from_cover(
+            cover_path,
+            donor_inventory_path="",
+            mask_root=ASSETS_ROOT / "Mask",
+            output_root=tmp_path / "Generated Textures",
+        )
