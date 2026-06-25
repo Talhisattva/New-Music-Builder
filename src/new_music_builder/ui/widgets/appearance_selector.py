@@ -536,7 +536,7 @@ class AppearanceSelector:
             font=ctk.CTkFont(
                 family=spec.MODULE_THREE_GENERATE_BUTTON_FONT_FAMILY,
                 size=spec.MODULE_THREE_GENERATE_BUTTON_FONT_SIZE,
-                weight='normal',
+                weight='bold',
             ),
             corner_radius=0,
             height=spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE[1] - (spec.MODULE_THREE_PANEL_BORDER_WIDTH * 2),
@@ -620,7 +620,7 @@ class AppearanceSelector:
                 font=ctk.CTkFont(
                     family=spec.MODULE_THREE_GENERATE_BUTTON_FONT_FAMILY,
                     size=spec.MODULE_THREE_GENERATE_BUTTON_HALF_FONT_SIZE,
-                    weight='normal',
+                    weight='bold',
                 ),
                 width=spec.MODULE_THREE_GENERATE_BUTTON_ROW_SIZE[0] - (spec.MODULE_THREE_PANEL_BORDER_WIDTH * 2),
                 height=spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE[1] - (spec.MODULE_THREE_PANEL_BORDER_WIDTH * 2),
@@ -636,7 +636,7 @@ class AppearanceSelector:
                 font=ctk.CTkFont(
                     family=spec.MODULE_THREE_GENERATE_BUTTON_FONT_FAMILY,
                     size=spec.MODULE_THREE_GENERATE_BUTTON_FONT_SIZE,
-                    weight='normal',
+                    weight='bold',
                 ),
                 width=spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE[0] - (spec.MODULE_THREE_PANEL_BORDER_WIDTH * 2),
                 height=spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE[1] - (spec.MODULE_THREE_PANEL_BORDER_WIDTH * 2),
