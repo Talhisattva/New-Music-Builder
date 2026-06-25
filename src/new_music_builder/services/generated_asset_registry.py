@@ -149,6 +149,20 @@ def can_generate_cover_for_kind(
     return not has_generated_cover(project, kind, normalized_cover)
 
 
+def generated_record_to_grid_entry(record: GeneratedAssetRecord) -> AppearanceGridEntry:
+    return AppearanceGridEntry(
+        key=record.asset_key,
+        label=record.label,
+        inventory_path=record.inventory_full,
+        world_path=record.world_full,
+        sprite_mode="single",
+        kind=record.kind,
+        is_custom=False,
+        is_generated=True,
+        is_dual=False,
+    )
+
+
 def visible_generated_entries_for_kind(
     project: ProjectConfig,
     kind: AppearanceKind,
@@ -164,18 +178,6 @@ def visible_generated_entries_for_kind(
             continue
         if not Path(record.inventory_full).is_file() or not Path(record.world_full).is_file():
             continue
-        visible.append(
-            AppearanceGridEntry(
-                key=record.asset_key,
-                label=record.label,
-                inventory_path=record.inventory_full,
-                world_path=record.world_full,
-                sprite_mode="single",
-                kind=kind,
-                is_custom=False,
-                is_generated=True,
-                is_dual=False,
-            )
-        )
+        visible.append(generated_record_to_grid_entry(record))
     visible.sort(key=lambda entry: entry.label.casefold())
     return visible

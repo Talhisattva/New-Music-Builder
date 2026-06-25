@@ -50,6 +50,7 @@ from new_music_builder.services.export_scaffold import (
 from new_music_builder.services.generated_asset_registry import (
     can_generate_cover_for_kind,
     delete_generated_cover_set_files,
+    generated_record_to_grid_entry,
     generated_records_for_asset_key,
     is_generated_asset_key,
     remove_generated_cover_set,
@@ -1269,12 +1270,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         record = upsert_generated_asset_record(self.session.project, result.record)
         target_row.ensure_appearances()
         selection = target_row.appearances[kind]
-        generated_entry = next(
-            (entry for entry in self._module_three_generated_entries_for_kind(kind) if entry.key == record.asset_key),
-            None,
-        )
-        if generated_entry is not None:
-            apply_selection_from_grid_entry(selection, generated_entry)
+        apply_selection_from_grid_entry(selection, generated_record_to_grid_entry(record))
         self._repair_generated_appearance_selections(kind)
         self._refresh_module_two_live_preview_for_row(row_id)
         self._refresh_module_three_appearance_selector()
