@@ -539,7 +539,12 @@ class AppearanceSelector:
             ),
             corner_radius=0,
         )
-        self.generate_from_cover_button.place(x=0, y=0, relwidth=1.0, relheight=1.0)
+        self.generate_from_cover_button.place(
+            x=0,
+            y=0,
+            width=spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE[0] - (spec.MODULE_THREE_PANEL_BORDER_WIDTH * 2),
+            height=spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE[1] - (spec.MODULE_THREE_PANEL_BORDER_WIDTH * 2),
+        )
         self._preview_mode_toggle = PreviewModeToggle(
             self.shell.preview_mode_pane.content,
             left_text='INVENTORY',
@@ -593,9 +598,19 @@ class AppearanceSelector:
         if self._active_kind is None:
             self.dual_checkbox.place_forget()
             self.dual_label.place_forget()
+            self.shell.generate_button_pane.resize(spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE)
+            self.shell.generate_button_pane.place(x=0, y=spec.MODULE_THREE_DUAL_SPRITE_ROW_Y)
+            self.shell.dual_sprite_left_pane.place_forget()
             return
         visible = should_show_dual_sprite_controls(self._active_kind)
         if visible:
+            self.shell.generate_button_pane.resize(spec.MODULE_THREE_GENERATE_BUTTON_ROW_SIZE)
+            self.shell.generate_button_pane.place(x=0, y=spec.MODULE_THREE_DUAL_SPRITE_ROW_Y)
+            self.shell.dual_sprite_left_pane.resize(spec.MODULE_THREE_DUAL_SPRITE_LEFT_SIZE)
+            self.shell.dual_sprite_left_pane.place(
+                x=spec.MODULE_THREE_GENERATE_BUTTON_ROW_SIZE[0],
+                y=spec.MODULE_THREE_DUAL_SPRITE_ROW_Y,
+            )
             selection = row.appearances[self._active_kind]
             self.dual_checkbox.set_checked(selection.sprite_mode == 'dual')
             self.dual_checkbox.place(
@@ -618,6 +633,9 @@ class AppearanceSelector:
                 height=spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE[1] - (spec.MODULE_THREE_PANEL_BORDER_WIDTH * 2),
             )
         else:
+            self.shell.generate_button_pane.resize(spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE)
+            self.shell.generate_button_pane.place(x=0, y=spec.MODULE_THREE_DUAL_SPRITE_ROW_Y)
+            self.shell.dual_sprite_left_pane.place_forget()
             self.dual_checkbox.place_forget()
             self.dual_label.place_forget()
             self.generate_from_cover_button.configure(
@@ -630,7 +648,7 @@ class AppearanceSelector:
             self.generate_from_cover_button.place_configure(
                 x=0,
                 y=0,
-                width=spec.MODULE_THREE_CONTENT_SIZE[0] - (spec.MODULE_THREE_PANEL_BORDER_WIDTH * 2),
+                width=spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE[0] - (spec.MODULE_THREE_PANEL_BORDER_WIDTH * 2),
                 height=spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE[1] - (spec.MODULE_THREE_PANEL_BORDER_WIDTH * 2),
             )
 
