@@ -5,14 +5,12 @@ from PIL import Image
 
 from new_music_builder.services.cover_texture_generator import (
     CASSETTE_INVENTORY_PRESET,
-    CASE_INVENTORY_TARGET_SIZE,
+    CASE_INVENTORY_PRESET,
     VINYL_INVENTORY_TARGET_SIZE,
     VINYL_WORLD_TARGET_SIZE,
     _apply_inventory_warp,
     _alpha_mask,
     _build_inventory_transformed_cover,
-    _build_optional_inverse_masked_donor_layer,
-    _build_optional_masked_donor_layer,
     _build_case_inventory_masked_cover,
     _fit_cover_to_target_region,
     _fit_cover_to_mask_width,
@@ -171,14 +169,12 @@ def test_case_inventory_transform_is_centered_in_requested_target_region(tmp_pat
     mask_bbox = mask_alpha.getbbox()
     assert bbox is not None
     assert mask_bbox is not None
-    assert bbox[2] - bbox[0] <= CASE_INVENTORY_TARGET_SIZE[0]
-    assert bbox[3] - bbox[1] <= CASE_INVENTORY_TARGET_SIZE[1] + 4
-    mask_center_x = (mask_bbox[0] + mask_bbox[2]) // 2
-    mask_center_y = (mask_bbox[1] + mask_bbox[3]) // 2
-    art_center_x = (bbox[0] + bbox[2]) // 2
-    art_center_y = (bbox[1] + bbox[3]) // 2
-    assert abs(mask_center_x - art_center_x) <= 1
-    assert abs(mask_center_y - art_center_y) <= 2
+    assert bbox == mask_bbox
+    assert _mask_region_is_fully_covered(
+        fitted,
+        mask_alpha,
+        alpha_threshold=CASE_INVENTORY_PRESET.coverage_alpha_threshold,
+    ) is True
 
 
 def test_generate_vinyl_textures_from_cover_uses_requested_inventory_target_region(tmp_path: Path) -> None:

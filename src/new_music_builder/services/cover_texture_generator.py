@@ -39,12 +39,12 @@ CASSETTE_INVENTORY_PRESET = InventoryWarpPreset(
     right_edge_vertical_inset_ratio=0.25,
 )
 CASE_INVENTORY_PRESET = InventoryWarpPreset(
-    rotation_degrees=-2.0,
-    initial_scale_ratio=1.05,
-    max_scale_ratio=1.45,
-    scale_step_ratio=0.10,
+    rotation_degrees=2.0,
+    initial_scale_ratio=1.10,
+    max_scale_ratio=1.80,
+    scale_step_ratio=0.08,
     right_edge_inset_ratio=0.14,
-    right_edge_vertical_inset_ratio=0.12,
+    right_edge_vertical_inset_ratio=0.10,
 )
 
 WORLD_OVERLAY_SECOND_MULTIPLY_RATIO = 0.50
@@ -463,15 +463,13 @@ def _build_case_inventory_masked_cover(
     mask_size: tuple[int, int],
     mask_alpha: Image.Image,
 ) -> Image.Image:
-    square_source = _prepare_square_source(source_path, CASE_INVENTORY_TARGET_SIZE[0])
-    warped = _apply_inventory_warp(square_source, CASE_INVENTORY_PRESET)
-    placed = _place_transformed_cover_on_canvas(
-        warped,
-        mask_size,
+    transformed = _build_inventory_transformed_cover(
+        source_path=source_path,
+        mask_size=mask_size,
         mask_alpha=mask_alpha,
-        alpha_threshold=CASE_INVENTORY_PRESET.coverage_alpha_threshold,
+        preset=CASE_INVENTORY_PRESET,
     )
-    return _apply_mask_alpha(placed, mask_alpha)
+    return _apply_mask_alpha(transformed, mask_alpha)
 
 
 def _build_masked_cover_from_mask_alpha(
