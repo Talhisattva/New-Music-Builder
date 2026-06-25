@@ -142,13 +142,15 @@ def test_session_store_load_returns_default_project_for_invalid_payload(tmp_path
     target = tmp_path / 'last_session.json'
     target.write_text('{"project":[]}', encoding='utf-8')
 
-    project, current_path = SessionStore(target).load()
+    store = SessionStore(target)
+    project, current_path = store.load()
 
     assert current_path == ''
     assert project.sample_rate == 44100
     assert project.compression_quality == 0.5
     assert project.reencode_existing_ogg is True
     assert len(project.media_rows) == 1
+    assert store.last_load_used_default is True
 
 
 def test_session_store_roundtrip_preserves_generated_assets(tmp_path: Path) -> None:
@@ -172,4 +174,43 @@ def test_session_store_roundtrip_preserves_generated_assets(tmp_path: Path) -> N
     loaded_project, current_path = store.load()
 
     assert current_path == 'C:/projects/test.nmbproj.json'
+    assert loaded_project.generated_assets[0].asset_key == 'generated:cassette:abc'
+    assert store.last_load_used_default is False
+
+
+def test_session_store_roundtrip_preserves_unsaved_row_covers_and_generated_assets(tmp_path: Path) -> None:
+    target = tmp_path / 'last_session.json'
+    project = ProjectConfig(mod_name='Unsaved Session')
+    first = default_media_row(1)
+    first.cover_path = 'C:/covers/row-cover.png'
+    first.appearances['cassette'].selected_asset_key = 'generated:cassette:abc'
+    first.appearances['cassette'].source = 'custom'
+    first.appearances['cassette'].inventory_full = 'C:/generated/inventory.png'
+    first.appearances['cassette'].world_full = 'C:/generated/world.png'
+    second = default_media_row(2)
+    second.cover_path = 'C:/covers/row-two.png'
+    project.media_rows = [first, second]
+    project.generated_assets = [
+        GeneratedAssetRecord(
+            kind='cassette',
+            cover_path='C:/covers/row-cover.png',
+            asset_key='generated:cassette:abc',
+            label='row-cover Generated',
+            inventory_full='C:/generated/inventory.png',
+            world_full='C:/generated/world.png',
+            source_name='row-cover.png',
+        )
+    ]
+
+    store = SessionStore(target)
+    store.save(project, '')
+    loaded_project, current_path = store.load()
+
+    assert current_path == ''
+    assert store.last_load_used_default is False
+    assert loaded_project.mod_name == 'Unsaved Session'
+    assert len(loaded_project.media_rows) == 2
+    assert loaded_project.media_rows[0].cover_path == 'C:/covers/row-cover.png'
+    assert loaded_project.media_rows[1].cover_path == 'C:/covers/row-two.png'
+    assert loaded_project.media_rows[0].appearances['cassette'].selected_asset_key == 'generated:cassette:abc'
     assert loaded_project.generated_assets[0].asset_key == 'generated:cassette:abc'

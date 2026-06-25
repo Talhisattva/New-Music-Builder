@@ -271,7 +271,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._module_two_row_drag_session: dict[str, object] | None = None
         self._module_two_selection_suppressed_until = 0.0
         self._module_two_consume_next_plain_selection = False
-        self._restore_unsaved_phase_two_default()
+        self._restore_unsaved_phase_two_default(restore_defaults=self.session_store.last_load_used_default)
         self.mod_name_var = tk.StringVar(value=self.session.project.mod_name)
         self.mod_id_var = tk.StringVar(value=self.session.project.mod_id)
         self.parent_mod_id_var = tk.StringVar(value=self.session.project.parent_mod_id)
@@ -556,8 +556,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
     def _build_menu(self) -> None:
         self.configure(menu='')
 
-    def _restore_unsaved_phase_two_default(self) -> None:
-        if self.session.current_path:
+    def _restore_unsaved_phase_two_default(self, *, restore_defaults: bool = True) -> None:
+        if not restore_defaults:
             return
         first_row = default_media_row(1)
         second_row = default_media_row(2)

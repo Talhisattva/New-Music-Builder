@@ -13,6 +13,7 @@ LOGGER = logging.getLogger('new_music_builder')
 class SessionStore:
     def __init__(self, file_path: Path | None = None) -> None:
         self.file_path = file_path or data_root() / 'last_session.json'
+        self.last_load_used_default = False
 
     def save(self, project: ProjectConfig, current_path: str) -> None:
         payload = {
@@ -24,14 +25,17 @@ class SessionStore:
 
     def load(self) -> tuple[ProjectConfig, str]:
         if not self.file_path.exists():
+            self.last_load_used_default = True
             return self._default_session_state()
         try:
             payload = json.loads(self.file_path.read_text(encoding='utf-8'))
             project = project_from_dict(payload.get('project', {}))
             current_path = str(payload.get('current_path', ''))
+            self.last_load_used_default = False
             return project, current_path
         except Exception as exc:
             LOGGER.warning('Failed to restore last session from %s: %s', self.file_path, exc)
+            self.last_load_used_default = True
             return self._default_session_state()
 
     @staticmethod
