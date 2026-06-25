@@ -159,13 +159,16 @@ def _render_cassette_world(
         mask_alpha=mask_alpha,
     )
     with Image.open(outer_path) as outer_source:
-        outer_alpha = _alpha_mask(outer_source.convert("RGBA"))
+        outer_image = outer_source.convert("RGBA")
+    outer_alpha = _alpha_mask(outer_image)
     donor_outer = _build_masked_donor_layer(
         source_path=donor_world_path,
         size=mask_image.size,
         mask_alpha=_subtract_mask_alpha(outer_alpha, mask_alpha),
     )
     base = _compose_inventory_layers(masked_cover, donor_outer)
+    outer_overlap = _apply_mask_alpha(outer_image, _intersect_mask_alpha(outer_alpha, mask_alpha))
+    base.alpha_composite(outer_overlap)
     if overlay_paths:
         with Image.open(overlay_paths[0]) as overlay_source:
             base = _multiply_overlay(base, overlay_source.convert("RGBA"))
@@ -426,6 +429,10 @@ def _compose_inventory_layers(center_layer: Image.Image, donor_outer_layer: Imag
 
 def _subtract_mask_alpha(base_mask_alpha: Image.Image, cutout_mask_alpha: Image.Image) -> Image.Image:
     return ImageChops.subtract(base_mask_alpha, cutout_mask_alpha)
+
+
+def _intersect_mask_alpha(first_mask_alpha: Image.Image, second_mask_alpha: Image.Image) -> Image.Image:
+    return ImageChops.multiply(first_mask_alpha, second_mask_alpha)
 
 
 def _multiply_overlay(base: Image.Image, overlay: Image.Image) -> Image.Image:
