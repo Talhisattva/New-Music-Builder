@@ -8,11 +8,12 @@ from new_music_builder.services.cover_texture_generator import (
     _apply_inventory_warp,
     _alpha_mask,
     _build_inventory_transformed_cover,
-    _double_multiply_overlay,
     _fit_cover_to_mask_width,
     _mask_region_is_fully_covered,
     _multiply_overlay,
+    _multiply_with_second_pass,
     _prepare_square_source,
+    WORLD_OVERLAY_SECOND_MULTIPLY_RATIO,
     generate_cassette_textures_from_cover,
 )
 
@@ -131,23 +132,28 @@ def test_fit_cover_to_mask_width_reaches_world_inner_mask_edges(tmp_path: Path) 
     assert fitted_alpha.getpixel((right_x, mask_center_y)) > 0
 
 
-def test_double_multiply_overlay_only_affects_masked_overlay_region() -> None:
+def test_multiply_with_second_pass_only_affects_masked_overlay_region() -> None:
     base = Image.new("RGBA", (4, 1), (120, 80, 40, 255))
     overlay = Image.new("RGBA", (4, 1), (128, 128, 128, 0))
     overlay.putpixel((1, 0), (128, 128, 128, 255))
 
-    result = _double_multiply_overlay(base, overlay)
-    multiplied = _multiply_overlay(base, overlay)
+    result = _multiply_with_second_pass(base, overlay, second_pass_ratio=WORLD_OVERLAY_SECOND_MULTIPLY_RATIO)
+    first_pass = _multiply_overlay(base, overlay)
+    second_pass = _multiply_overlay(first_pass, overlay)
 
     assert result.getpixel((0, 0)) == (120, 80, 40, 255)
     changed = result.getpixel((1, 0))
-    multiplied_pixel = multiplied.getpixel((1, 0))
-    assert multiplied_pixel[0] < 120
-    assert multiplied_pixel[1] < 80
-    assert multiplied_pixel[2] < 40
-    assert changed[0] < multiplied_pixel[0]
-    assert changed[1] < multiplied_pixel[1]
-    assert changed[2] < multiplied_pixel[2]
+    first_pixel = first_pass.getpixel((1, 0))
+    second_pixel = second_pass.getpixel((1, 0))
+    assert first_pixel[0] < 120
+    assert first_pixel[1] < 80
+    assert first_pixel[2] < 40
+    assert second_pixel[0] < first_pixel[0]
+    assert second_pixel[1] < first_pixel[1]
+    assert second_pixel[2] < first_pixel[2]
+    assert second_pixel[0] < changed[0] < first_pixel[0]
+    assert second_pixel[1] < changed[1] < first_pixel[1]
+    assert second_pixel[2] < changed[2] < first_pixel[2]
 
 
 def test_generate_cassette_textures_from_cover_uses_donor_shell_on_outer_region(tmp_path: Path) -> None:

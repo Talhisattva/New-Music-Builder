@@ -39,6 +39,8 @@ CASSETTE_INVENTORY_PRESET = InventoryWarpPreset(
     right_edge_vertical_inset_ratio=0.25,
 )
 
+WORLD_OVERLAY_SECOND_MULTIPLY_RATIO = 0.50
+
 
 def generate_cassette_textures_from_cover(
     cover_path: str | Path,
@@ -177,7 +179,11 @@ def _render_cassette_world(
     base.alpha_composite(donor_outer)
     if overlay_paths:
         with Image.open(overlay_paths[0]) as overlay_source:
-            base = _double_multiply_overlay(base, overlay_source.convert("RGBA"))
+            base = _multiply_with_second_pass(
+                base,
+                overlay_source.convert("RGBA"),
+                second_pass_ratio=WORLD_OVERLAY_SECOND_MULTIPLY_RATIO,
+            )
     for overlay_path in overlay_paths[1:]:
         with Image.open(overlay_path) as overlay_source:
             base.alpha_composite(overlay_source.convert("RGBA"))
@@ -440,8 +446,19 @@ def _multiply_overlay(base: Image.Image, overlay: Image.Image) -> Image.Image:
     return Image.composite(multiplied_rgb, base, overlay_alpha)
 
 
-def _double_multiply_overlay(base: Image.Image, overlay: Image.Image) -> Image.Image:
-    return _multiply_overlay(_multiply_overlay(base, overlay), overlay)
+def _multiply_with_second_pass(
+    base: Image.Image,
+    overlay: Image.Image,
+    *,
+    second_pass_ratio: float,
+) -> Image.Image:
+    first_pass = _multiply_overlay(base, overlay)
+    if second_pass_ratio <= 0.0:
+        return first_pass
+    second_pass = _multiply_overlay(first_pass, overlay)
+    blended = Image.blend(first_pass.convert("RGB"), second_pass.convert("RGB"), max(0.0, min(1.0, second_pass_ratio))).convert("RGBA")
+    blended.putalpha(base.getchannel("A"))
+    return blended
 
 
 def _apply_mask_alpha(image: Image.Image, mask_alpha: Image.Image) -> Image.Image:
