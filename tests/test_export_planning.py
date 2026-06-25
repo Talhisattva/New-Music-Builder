@@ -130,6 +130,25 @@ def test_export_plan_resolves_selected_generated_cassette_paths(tmp_path: Path) 
     assert resolved.source == 'custom'
 
 
+def test_export_plan_prefers_custom_paths_when_selection_source_is_custom() -> None:
+    catalog = AssetCatalog(ASSETS_ROOT).scan()
+    row = default_media_row(1)
+    row.tracks_a = [_track('C:/music/song.ogg', 'Song', '00:03:00')]
+    row.appearances['cassette'].selected_asset_key = 'cassette:7'
+    row.appearances['cassette'].source = 'custom'
+    row.appearances['cassette'].inventory_full = 'C:/custom/Item_NM_Cassette_Custom.png'
+    row.appearances['cassette'].world_full = 'C:/custom/World_NM_Cassette_Custom.png'
+    project = ProjectConfig(media_rows=[row])
+
+    plan = build_export_plan(project, catalog)
+    resolved = plan.rows[0].appearances.cassette
+
+    assert resolved.selected_asset_key == 'cassette:7'
+    assert resolved.inventory_path == 'C:/custom/Item_NM_Cassette_Custom.png'
+    assert resolved.world_path == 'C:/custom/World_NM_Cassette_Custom.png'
+    assert resolved.source == 'custom'
+
+
 def test_preview_scenario_respects_enabled_media_filtering() -> None:
     catalog = AssetCatalog(ASSETS_ROOT).scan()
     row = default_media_row(1)

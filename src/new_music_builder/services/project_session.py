@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from new_music_builder.domain.models import MediaRow, ProjectConfig, SongSortColumn, SongSortState, TrackEntry, default_media_row, next_row_id
+from new_music_builder.services.default_appearance_selection import apply_preferred_row_defaults
 from new_music_builder.services.track_import import build_track_entry, filter_supported_audio_paths
 
 
@@ -23,13 +24,16 @@ class ProjectSession:
     def add_media_row(self) -> int:
         row_id = next_row_id(self.project)
         row = default_media_row(row_id)
+        apply_preferred_row_defaults(row)
         self.project.media_rows.append(row)
         return row_id
 
     def remove_media_row(self, row_id: int) -> None:
         self.project.media_rows = [row for row in self.project.media_rows if row.row_id != row_id]
         if not self.project.media_rows:
-            self.project.media_rows = [default_media_row(1)]
+            row = default_media_row(1)
+            apply_preferred_row_defaults(row)
+            self.project.media_rows = [row]
 
     def remove_media_rows(self, row_ids: set[int]) -> None:
         self.project.media_rows = [row for row in self.project.media_rows if row.row_id not in row_ids]

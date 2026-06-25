@@ -189,6 +189,21 @@ def _resolve_appearance(
         project.custom_assets.get(kind, []),
     )
     selected = next((entry for entry in merged_entries if entry.key == selection.selected_asset_key), None)
+    if (
+        selection.source == "custom"
+        and (selection.inventory_full or selection.world_full)
+        and (selected is None or (not selected.is_custom and not selected.is_generated))
+    ):
+        return ResolvedAppearance(
+            kind=kind,
+            selected_asset_key=selection.selected_asset_key,
+            source="custom",
+            inventory_path=str(selection.inventory_full or ""),
+            world_path=str(selection.world_full or ""),
+            sprite_mode=selection.sprite_mode if selection.sprite_mode in {"single", "dual"} else "single",
+            inventory_empty_path=str(selection.inventory_empty or ""),
+            world_empty_path=str(selection.world_empty or ""),
+        )
     if selected is not None:
         return ResolvedAppearance(
             kind=kind,
@@ -199,18 +214,6 @@ def _resolve_appearance(
             sprite_mode="dual" if selected.is_dual else "single",
             inventory_empty_path=selected.inventory_empty_path if selected.is_dual else "",
             world_empty_path=selected.world_empty_path if selected.is_dual else "",
-        )
-
-    if selection.source == "custom" and (selection.inventory_full or selection.world_full):
-        return ResolvedAppearance(
-            kind=kind,
-            selected_asset_key=selection.selected_asset_key,
-            source="custom",
-            inventory_path=str(selection.inventory_full or ""),
-            world_path=str(selection.world_full or ""),
-            sprite_mode=selection.sprite_mode if selection.sprite_mode in {"single", "dual"} else "single",
-            inventory_empty_path=str(selection.inventory_empty or ""),
-            world_empty_path=str(selection.world_empty or ""),
         )
 
     if merged_entries:

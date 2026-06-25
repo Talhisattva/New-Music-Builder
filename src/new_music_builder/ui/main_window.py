@@ -38,7 +38,7 @@ from new_music_builder.platform.paths import detect_workshop_dir, open_folder
 from new_music_builder.services.asset_catalog import AssetCatalog
 from new_music_builder.services.build_event_pump import BuildEventPump
 from new_music_builder.services.cover_texture_generator import generate_cassette_textures_from_cover, generate_vinyl_textures_from_cover
-from new_music_builder.services.default_appearance_selection import preferred_default_asset_key
+from new_music_builder.services.default_appearance_selection import apply_preferred_row_defaults, preferred_default_asset_key
 from new_music_builder.services.export_build_runner import run_staged_export
 from new_music_builder.services.export_planning import build_export_plan, build_preview_scenario
 from new_music_builder.services.export_scaffold import (
@@ -560,9 +560,12 @@ class MainWindow(_DnDCompat, ctk.CTk):
         if not restore_defaults:
             return
         first_row = default_media_row(1)
+        apply_preferred_row_defaults(first_row)
         second_row = default_media_row(2)
+        apply_preferred_row_defaults(second_row)
         second_row.expanded = False
         third_row = default_media_row(3)
+        apply_preferred_row_defaults(third_row)
         third_row.expanded = False
         self.session.project.media_rows = [first_row, second_row, third_row]
 
