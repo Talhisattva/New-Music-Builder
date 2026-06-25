@@ -1304,6 +1304,12 @@ class MainWindow(_DnDCompat, ctk.CTk):
             return
         self.module_four_panel.append_log_line(build_generated_assets_removed_log_line(source_name, removed_record_count, deleted_file_count))
 
+    def _repair_active_generated_appearance_selections(self) -> list[int]:
+        changed_rows: set[int] = set()
+        for kind in ('cassette', 'vinyl'):
+            changed_rows.update(self._repair_generated_appearance_selections(kind))
+        return sorted(changed_rows)
+
     def _repair_generated_appearance_selections(self, kind: AppearanceKind) -> list[int]:
         changed_rows: list[int] = []
         available_entries = self._module_three_entries_for_kind(kind)
@@ -1590,7 +1596,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         if not selected:
             return
         target_row.cover_path = selected
-        repaired_rows = self._repair_generated_appearance_selections('cassette')
+        repaired_rows = self._repair_active_generated_appearance_selections()
         expanded_widget = next(
             (
                 widget
@@ -2130,7 +2136,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
     def refresh_all(self) -> None:
         self._apply_default_asset_selections()
-        repaired_rows = self._repair_generated_appearance_selections('cassette')
+        repaired_rows = self._repair_active_generated_appearance_selections()
         self._refresh_module_one_poster_preview()
         self._refresh_module_three_appearance_selector()
         if hasattr(self, 'mod_setup'):

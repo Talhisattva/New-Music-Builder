@@ -340,6 +340,12 @@ def test_generate_button_text_for_state_blanks_when_disabled_for_existing_cover_
         kind='cassette',
         enabled=False,
     ) == ''
+    assert generate_button_text_for_state(
+        locked=False,
+        row=row,
+        kind='vinyl',
+        enabled=False,
+    ) == ''
 
 
 def test_generate_button_text_for_state_keeps_label_for_general_disabled_cases() -> None:

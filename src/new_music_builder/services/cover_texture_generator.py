@@ -41,6 +41,8 @@ CASSETTE_INVENTORY_PRESET = InventoryWarpPreset(
 
 WORLD_OVERLAY_SECOND_MULTIPLY_RATIO = 0.50
 VINYL_OVERLAY_SECOND_MULTIPLY_RATIO = 0.50
+VINYL_INVENTORY_TARGET_SIZE = (12, 7)
+VINYL_WORLD_TARGET_SIZE = (68, 68)
 
 
 def generate_cassette_textures_from_cover(
@@ -153,6 +155,8 @@ def generate_vinyl_textures_from_cover(
         outer_path=inventory_outer,
         overlay_paths=(inventory_overlay,),
         overlay_second_pass_ratio=VINYL_OVERLAY_SECOND_MULTIPLY_RATIO,
+        cover_target_size=VINYL_INVENTORY_TARGET_SIZE,
+        preserve_square=False,
         output_path=inventory_output,
     )
     _render_single_mask_composite(
@@ -161,6 +165,8 @@ def generate_vinyl_textures_from_cover(
         outer_path=world_outer,
         overlay_paths=(world_overlay,),
         overlay_second_pass_ratio=VINYL_OVERLAY_SECOND_MULTIPLY_RATIO,
+        cover_target_size=VINYL_WORLD_TARGET_SIZE,
+        preserve_square=True,
         output_path=world_output,
     )
 
@@ -258,16 +264,27 @@ def _render_single_mask_composite(
     outer_path: Path,
     overlay_paths: tuple[Path, ...],
     overlay_second_pass_ratio: float,
+    cover_target_size: tuple[int, int] | None = None,
+    preserve_square: bool = True,
     output_path: Path,
 ) -> None:
     with Image.open(mask_path) as mask_source:
         mask_image = mask_source.convert("RGBA")
     mask_alpha = _alpha_mask(mask_image)
-    masked_cover = _build_masked_cover_from_mask_alpha(
-        source_path=source_path,
-        size=mask_image.size,
-        mask_alpha=mask_alpha,
-    )
+    if cover_target_size is None:
+        masked_cover = _build_masked_cover_from_mask_alpha(
+            source_path=source_path,
+            size=mask_image.size,
+            mask_alpha=mask_alpha,
+        )
+    else:
+        masked_cover = _build_targeted_masked_cover(
+            source_path=source_path,
+            size=mask_image.size,
+            mask_alpha=mask_alpha,
+            target_size=cover_target_size,
+            preserve_square=preserve_square,
+        )
     base = Image.new("RGBA", masked_cover.size, (0, 0, 0, 0))
     base.alpha_composite(masked_cover)
     with Image.open(outer_path) as outer_source:
@@ -309,6 +326,24 @@ def _build_masked_cover_from_mask_alpha(
     mask_alpha: Image.Image,
 ) -> Image.Image:
     fitted_cover = _fit_cover_to_mask_width(source_path, size, mask_alpha)
+    return _apply_mask_alpha(fitted_cover, mask_alpha)
+
+
+def _build_targeted_masked_cover(
+    *,
+    source_path: Path,
+    size: tuple[int, int],
+    mask_alpha: Image.Image,
+    target_size: tuple[int, int],
+    preserve_square: bool,
+) -> Image.Image:
+    fitted_cover = _fit_cover_to_target_region(
+        source_path=source_path,
+        size=size,
+        mask_alpha=mask_alpha,
+        target_size=target_size,
+        preserve_square=preserve_square,
+    )
     return _apply_mask_alpha(fitted_cover, mask_alpha)
 
 
@@ -515,6 +550,47 @@ def _fit_cover_to_mask_width(
         paste_y = mask_center_y - (resized.height // 2)
     fitted.paste(resized, (paste_x, paste_y), resized)
     return fitted
+
+
+def _fit_cover_to_target_region(
+    *,
+    source_path: Path,
+    size: tuple[int, int],
+    mask_alpha: Image.Image,
+    target_size: tuple[int, int],
+    preserve_square: bool,
+) -> Image.Image:
+    with Image.open(source_path) as source_image:
+        source = source_image.convert("RGBA")
+    crop_size = min(source.width, source.height)
+    left = (source.width - crop_size) // 2
+    top = (source.height - crop_size) // 2
+    square = source.crop((left, top, left + crop_size, top + crop_size))
+    resized_size = _resolved_target_cover_size(target_size, preserve_square=preserve_square)
+    resized = square.resize(resized_size, Image.Resampling.LANCZOS)
+    fitted = Image.new("RGBA", size, (0, 0, 0, 0))
+    bbox = mask_alpha.getbbox()
+    if bbox is None:
+        paste_x = (size[0] - resized.width) // 2
+        paste_y = (size[1] - resized.height) // 2
+    else:
+        mask_center_x = (bbox[0] + bbox[2]) // 2
+        mask_center_y = (bbox[1] + bbox[3]) // 2
+        paste_x = mask_center_x - (resized.width // 2)
+        paste_y = mask_center_y - (resized.height // 2)
+    fitted.paste(resized, (paste_x, paste_y), resized)
+    return fitted
+
+
+def _resolved_target_cover_size(
+    target_size: tuple[int, int],
+    *,
+    preserve_square: bool,
+) -> tuple[int, int]:
+    if not preserve_square:
+        return (max(1, target_size[0]), max(1, target_size[1]))
+    square_edge = max(1, min(target_size))
+    return (square_edge, square_edge)
 
 
 def _build_masked_donor_layer(

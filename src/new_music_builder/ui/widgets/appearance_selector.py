@@ -41,7 +41,7 @@ def generate_button_text_for_state(
 ) -> str:
     if enabled:
         return 'GENERATE FROM COVER'
-    if locked or row is None or kind != 'cassette':
+    if locked or row is None or kind not in {'cassette', 'vinyl'}:
         return 'GENERATE FROM COVER'
     cover_path = str(row.cover_path or '').strip()
     if cover_path and Path(cover_path).is_file():

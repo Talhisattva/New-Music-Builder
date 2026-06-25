@@ -5,9 +5,12 @@ from PIL import Image
 
 from new_music_builder.services.cover_texture_generator import (
     CASSETTE_INVENTORY_PRESET,
+    VINYL_INVENTORY_TARGET_SIZE,
+    VINYL_WORLD_TARGET_SIZE,
     _apply_inventory_warp,
     _alpha_mask,
     _build_inventory_transformed_cover,
+    _fit_cover_to_target_region,
     _fit_cover_to_mask_width,
     _mask_region_is_fully_covered,
     _multiply_overlay,
@@ -116,6 +119,58 @@ def test_generate_vinyl_textures_from_rectangular_cover_keeps_outputs_valid(tmp_
     assert world.size == (256, 256)
     assert inventory.getbbox() is not None
     assert world.getbbox() is not None
+
+
+def test_generate_vinyl_textures_from_cover_uses_requested_inventory_target_region(tmp_path: Path) -> None:
+    cover_path = tmp_path / "cover.png"
+    Image.new("RGBA", (540, 540), (255, 0, 0, 255)).save(cover_path)
+    with Image.open(ASSETS_ROOT / "Mask" / "Inventory" / "Vinyl" / "Item_NM_Vinyl_Mask.png") as mask_source:
+        mask_alpha = _alpha_mask(mask_source.convert("RGBA"))
+    fitted = _fit_cover_to_target_region(
+        source_path=cover_path,
+        size=mask_alpha.size,
+        mask_alpha=mask_alpha,
+        target_size=VINYL_INVENTORY_TARGET_SIZE,
+        preserve_square=False,
+    )
+    alpha = fitted.getchannel("A")
+    bbox = mask_alpha.getbbox()
+    assert bbox is not None
+    mask_center_x = (bbox[0] + bbox[2]) // 2
+    mask_center_y = (bbox[1] + bbox[3]) // 2
+    expected_bbox = (
+        mask_center_x - (VINYL_INVENTORY_TARGET_SIZE[0] // 2),
+        mask_center_y - (VINYL_INVENTORY_TARGET_SIZE[1] // 2),
+        mask_center_x - (VINYL_INVENTORY_TARGET_SIZE[0] // 2) + VINYL_INVENTORY_TARGET_SIZE[0],
+        mask_center_y - (VINYL_INVENTORY_TARGET_SIZE[1] // 2) + VINYL_INVENTORY_TARGET_SIZE[1],
+    )
+    assert alpha.getbbox() == expected_bbox
+
+
+def test_generate_vinyl_textures_from_cover_uses_requested_world_target_region(tmp_path: Path) -> None:
+    cover_path = tmp_path / "cover.png"
+    Image.new("RGBA", (540, 540), (255, 0, 0, 255)).save(cover_path)
+    with Image.open(ASSETS_ROOT / "Mask" / "World" / "Vinyl" / "World_NM_Vinyl_Mask.png") as mask_source:
+        mask_alpha = _alpha_mask(mask_source.convert("RGBA"))
+    fitted = _fit_cover_to_target_region(
+        source_path=cover_path,
+        size=mask_alpha.size,
+        mask_alpha=mask_alpha,
+        target_size=VINYL_WORLD_TARGET_SIZE,
+        preserve_square=True,
+    )
+    alpha = fitted.getchannel("A")
+    bbox = mask_alpha.getbbox()
+    assert bbox is not None
+    mask_center_x = (bbox[0] + bbox[2]) // 2
+    mask_center_y = (bbox[1] + bbox[3]) // 2
+    expected_bbox = (
+        mask_center_x - (VINYL_WORLD_TARGET_SIZE[0] // 2),
+        mask_center_y - (VINYL_WORLD_TARGET_SIZE[1] // 2),
+        mask_center_x - (VINYL_WORLD_TARGET_SIZE[0] // 2) + VINYL_WORLD_TARGET_SIZE[0],
+        mask_center_y - (VINYL_WORLD_TARGET_SIZE[1] // 2) + VINYL_WORLD_TARGET_SIZE[1],
+    )
+    assert alpha.getbbox() == expected_bbox
 
 
 def test_inventory_transform_returns_mask_sized_rgba_and_covers_mask(tmp_path: Path) -> None:
