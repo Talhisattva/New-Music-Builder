@@ -4,6 +4,7 @@ import tkinter.filedialog as fd
 
 import customtkinter as ctk
 
+from new_music_builder.services.default_appearance_selection import preferred_default_asset_key
 from new_music_builder.ui import theme
 from new_music_builder.ui.widgets.buttons import apply_builder_button_style, make_builder_button
 from new_music_builder.ui.widgets.checkboxes import make_builder_checkbox
@@ -106,7 +107,8 @@ class AppearanceModule(ModulePanel):
             child.destroy()
         entries = self.asset_catalog.get(self.active_kind, [])
         if entries and not selection.selected_asset_key:
-            selection.selected_asset_key = entries[0].key
+            preferred_key = preferred_default_asset_key(self.active_kind, {entry.key for entry in entries})
+            selection.selected_asset_key = next((entry.key for entry in entries if entry.key == preferred_key), entries[0].key)
         row.appearances[self.active_kind] = selection
         columns = self._calculate_asset_columns()
         self._asset_columns = columns

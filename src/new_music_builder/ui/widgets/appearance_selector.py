@@ -8,6 +8,7 @@ import customtkinter as ctk
 
 from new_music_builder.domain.models import AppearanceKind, AppearanceSelection, MediaRow
 from new_music_builder.services.asset_catalog import AssetEntry
+from new_music_builder.services.default_appearance_selection import preferred_default_asset_key
 from new_music_builder.ui import spec, theme
 from new_music_builder.ui.widgets.buttons import make_builder_button
 from new_music_builder.ui.widgets.appearance_entries import (
@@ -817,7 +818,9 @@ class AppearanceSelector:
         selection = row.appearances[kind]
         selection.selected_asset_key = BUILT_IN_DUAL_EMPTY_TO_FULL.get(selection.selected_asset_key, selection.selected_asset_key)
         if entries and selection.selected_asset_key not in {entry.key for entry in entries}:
-            apply_selection_from_grid_entry(selection, entries[0])
+            preferred_key = preferred_default_asset_key(kind, {entry.key for entry in entries})
+            default_entry = next((entry for entry in entries if entry.key == preferred_key), entries[0])
+            apply_selection_from_grid_entry(selection, default_entry)
 
     def _entry_for_kind(self, row: MediaRow, kind: AppearanceKind) -> AppearanceGridEntry | None:
         entries = self._entries_for_kind(kind)

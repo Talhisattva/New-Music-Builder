@@ -38,6 +38,7 @@ from new_music_builder.platform.paths import detect_workshop_dir, open_folder
 from new_music_builder.services.asset_catalog import AssetCatalog
 from new_music_builder.services.build_event_pump import BuildEventPump
 from new_music_builder.services.cover_texture_generator import generate_cassette_textures_from_cover, generate_vinyl_textures_from_cover
+from new_music_builder.services.default_appearance_selection import preferred_default_asset_key
 from new_music_builder.services.export_build_runner import run_staged_export
 from new_music_builder.services.export_planning import build_export_plan, build_preview_scenario
 from new_music_builder.services.export_scaffold import (
@@ -245,20 +246,6 @@ def build_generated_asset_failure_log_line(cover_path: str, reason: str) -> Expo
         trailing_text=reason,
         color_role="error",
     )
-
-
-_PREFERRED_DEFAULT_ASSET_KEYS: dict[str, str] = {
-    'cassette': 'cassette:17',
-    'case': 'case:12',
-}
-
-
-def preferred_default_asset_key(kind: str, available_keys: set[str]) -> str:
-    preferred_key = _PREFERRED_DEFAULT_ASSET_KEYS.get(kind, '')
-    if preferred_key and preferred_key in available_keys:
-        return preferred_key
-    return ''
-
 
 class MainWindow(_DnDCompat, ctk.CTk):
 

@@ -25,7 +25,6 @@ def test_project_roundtrip(tmp_path: Path) -> None:
     assert loaded.media_rows[0].tracks_a[0].display_label == '01 Artist - Song'
     assert loaded.media_rows[0].appearances['cassette'].selected_asset_key == 'cassette:1'
 
-
 def test_project_roundtrip_preserves_stateful_row_fields(tmp_path: Path) -> None:
     project = ProjectConfig(
         mod_name='Stateful Pack',
