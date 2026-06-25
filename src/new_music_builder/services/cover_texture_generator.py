@@ -32,11 +32,11 @@ class InventoryWarpPreset:
 
 CASSETTE_INVENTORY_PRESET = InventoryWarpPreset(
     rotation_degrees=30.0,
-    initial_scale_ratio=1.70,
-    max_scale_ratio=2.70,
+    initial_scale_ratio=2.10,
+    max_scale_ratio=3.30,
     scale_step_ratio=0.12,
-    right_edge_inset_ratio=0.36,
-    right_edge_vertical_inset_ratio=0.20,
+    right_edge_inset_ratio=0.46,
+    right_edge_vertical_inset_ratio=0.25,
 )
 
 
