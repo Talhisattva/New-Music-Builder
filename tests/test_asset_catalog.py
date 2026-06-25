@@ -18,3 +18,10 @@ def test_asset_catalog_finds_expected_families() -> None:
 
     jacket_keys = {entry.key for entry in catalog['jacket']}
     assert 'jacket:19' in jacket_keys
+
+
+def test_asset_catalog_places_preferred_cassette_and_case_entries_first() -> None:
+    catalog = AssetCatalog(ASSETS_ROOT).scan()
+
+    assert catalog['cassette'][0].key == 'cassette:7'
+    assert catalog['case'][0].key == 'case:4'

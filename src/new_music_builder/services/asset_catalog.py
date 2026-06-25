@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
+from new_music_builder.services.default_appearance_selection import preferred_default_asset_key
+
 
 @dataclass(slots=True)
 class AssetEntry:
@@ -68,7 +70,7 @@ class AssetCatalog:
             world_path = world_dir_path / world_name
             if world_path.exists():
                 entries.append(AssetEntry(key=f'{kind}:{stem}', label=label, inventory_path=str(inv_path), world_path=str(world_path), kind=kind))
-        return entries
+        return self._with_preferred_default_first(kind, entries)
 
     def _scan_jackets(self) -> list[AssetEntry]:
         entries: list[AssetEntry] = []
@@ -126,3 +128,9 @@ class AssetCatalog:
             if world_path.exists():
                 entries.append(AssetEntry(key=f'cd_cover:{stem}', label=label, inventory_path=str(inv_path), world_path=str(world_path), kind='cd_cover'))
         return entries
+
+    def _with_preferred_default_first(self, kind: str, entries: list[AssetEntry]) -> list[AssetEntry]:
+        preferred_key = preferred_default_asset_key(kind, {entry.key for entry in entries})
+        if not preferred_key:
+            return entries
+        return sorted(entries, key=lambda entry: entry.key != preferred_key)

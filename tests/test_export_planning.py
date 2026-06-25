@@ -80,16 +80,17 @@ def test_export_plan_resolves_selected_builtin_appearance_paths() -> None:
     catalog = AssetCatalog(ASSETS_ROOT).scan()
     row = default_media_row(1)
     row.tracks_a = [_track('C:/music/song.ogg', 'Song', '00:03:00')]
-    row.appearances['cassette'].selected_asset_key = catalog['cassette'][1].key
+    selected_cassette = next(entry for entry in catalog['cassette'] if entry.key != 'cassette:7')
+    row.appearances['cassette'].selected_asset_key = selected_cassette.key
     row.appearances['jacket'].selected_asset_key = catalog['jacket'][0].key
     project = ProjectConfig(media_rows=[row])
 
     plan = build_export_plan(project, catalog)
     resolved_row = plan.rows[0]
 
-    assert resolved_row.appearances.cassette.selected_asset_key == catalog['cassette'][1].key
-    assert resolved_row.appearances.cassette.inventory_path == catalog['cassette'][1].inventory_path
-    assert resolved_row.appearances.cassette.world_path == catalog['cassette'][1].world_path
+    assert resolved_row.appearances.cassette.selected_asset_key == selected_cassette.key
+    assert resolved_row.appearances.cassette.inventory_path == selected_cassette.inventory_path
+    assert resolved_row.appearances.cassette.world_path == selected_cassette.world_path
     assert resolved_row.appearances.jacket.inventory_path == catalog['jacket'][0].inventory_path
 
 
