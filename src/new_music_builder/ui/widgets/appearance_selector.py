@@ -41,7 +41,7 @@ def generate_button_text_for_state(
 ) -> str:
     if enabled:
         return 'GENERATE FROM COVER'
-    if locked or row is None or kind not in {'cassette', 'vinyl'}:
+    if locked or row is None:
         return 'GENERATE FROM COVER'
     cover_path = str(row.cover_path or '').strip()
     if cover_path and Path(cover_path).is_file():
@@ -427,8 +427,8 @@ class AppearanceSelector:
         on_commit_custom: Callable[[AppearanceKind, bool], None],
         on_delete_custom: Callable[[AppearanceKind, str], None],
         on_delete_generated: Callable[[str], None],
-        can_generate_from_cover: Callable[[MediaRow | None, AppearanceKind | None], bool],
-        on_generate_from_cover: Callable[[int, AppearanceKind], None] | None,
+        can_generate_from_cover: Callable[[MediaRow | None], bool],
+        on_generate_from_cover: Callable[[int], None] | None,
         on_preview_mode_selected: Callable[[int, str], None] | None,
         on_selection_changed: Callable[[int], None] | None,
         on_change: Callable[[], None],
@@ -904,13 +904,13 @@ class AppearanceSelector:
         row = self._active_row
         if row is None or self._active_kind is None or self._locked:
             return
-        if not self._can_generate_from_cover(row, self._active_kind):
+        if not self._can_generate_from_cover(row):
             return
         if self._on_generate_from_cover is not None:
-            self._on_generate_from_cover(row.row_id, self._active_kind)
+            self._on_generate_from_cover(row.row_id)
 
     def _refresh_generate_button_state(self) -> None:
-        enabled = (not self._locked) and self._can_generate_from_cover(self._active_row, self._active_kind)
+        enabled = (not self._locked) and self._can_generate_from_cover(self._active_row)
         button_text = generate_button_text_for_state(
             locked=self._locked,
             row=self._active_row,

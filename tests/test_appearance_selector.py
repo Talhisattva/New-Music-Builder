@@ -343,7 +343,7 @@ def test_generate_button_text_for_state_blanks_when_disabled_for_existing_cover_
     assert generate_button_text_for_state(
         locked=False,
         row=row,
-        kind='vinyl',
+        kind='cd',
         enabled=False,
     ) == ''
 

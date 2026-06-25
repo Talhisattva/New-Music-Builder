@@ -47,14 +47,17 @@ from new_music_builder.services.export_scaffold import (
     resolve_export_target,
     validate_export_request,
 )
+from new_music_builder.services.generated_cover_flow import (
+    GeneratedCoverSetResult,
+    generate_supported_cover_set_for_row,
+)
 from new_music_builder.services.generated_asset_registry import (
+    can_generate_cover_for_row,
     can_generate_cover_for_kind,
     delete_generated_cover_set_files,
-    generated_record_to_grid_entry,
     generated_records_for_asset_key,
     is_generated_asset_key,
     remove_generated_cover_set,
-    upsert_generated_asset_record,
     visible_generated_entries_for_kind,
 )
 from new_music_builder.services.index_selection import apply_index_selection
@@ -1222,8 +1225,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
     def _module_three_generated_entries_for_kind(self, kind: AppearanceKind) -> list[AppearanceGridEntry]:
         return visible_generated_entries_for_kind(self.session.project, kind)
 
-    def _module_three_can_generate_from_cover(self, row, kind: AppearanceKind | None) -> bool:
-        return can_generate_cover_for_kind(self.session.project, row, kind)
+    def _module_three_can_generate_from_cover(self, row) -> bool:
+        return can_generate_cover_for_row(self.session.project, row)
 
     def _module_three_selected_path_for_row(self, row, kind: AppearanceKind, mode: str) -> str:
         row.ensure_appearances()
@@ -1240,44 +1243,43 @@ class MainWindow(_DnDCompat, ctk.CTk):
                 return fallback_path
         return ""
 
-    def _generate_module_three_from_cover(self, row_id: int, kind: AppearanceKind) -> None:
+    def _generate_module_three_from_cover(self, row_id: int) -> None:
         if self._is_build_locked():
             return
         target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
-        if target_row is None or kind not in {'cassette', 'vinyl'}:
+        if target_row is None:
             return
+        donor_inventory_path = ""
+        donor_world_path = ""
+        if can_generate_cover_for_kind(self.session.project, target_row, 'cassette'):
+            donor_inventory_path = self._module_three_selected_path_for_row(target_row, 'cassette', 'inventory')
+            donor_world_path = self._module_three_selected_path_for_row(target_row, 'cassette', 'world')
         try:
-            if kind == 'cassette':
-                donor_inventory_path = self._module_three_selected_path_for_row(target_row, kind, 'inventory')
-                if not donor_inventory_path:
-                    self._append_generated_asset_failure_log(target_row.cover_path, "donor cassette shell was unavailable")
-                    return
-                donor_world_path = self._module_three_selected_path_for_row(target_row, kind, 'world')
-                if not donor_world_path:
-                    self._append_generated_asset_failure_log(target_row.cover_path, "donor cassette world shell was unavailable")
-                    return
-                result = generate_cassette_textures_from_cover(
-                    target_row.cover_path,
-                    donor_inventory_path=donor_inventory_path,
-                    donor_world_path=donor_world_path,
-                )
-            else:
-                result = generate_vinyl_textures_from_cover(target_row.cover_path)
+            result = generate_supported_cover_set_for_row(
+                self.session.project,
+                target_row,
+                cassette_donor_inventory_path=donor_inventory_path,
+                cassette_donor_world_path=donor_world_path,
+                cassette_generator=generate_cassette_textures_from_cover,
+                vinyl_generator=generate_vinyl_textures_from_cover,
+            )
         except Exception as exc:
-            LOGGER.exception("Failed to generate %s textures from %s", kind, target_row.cover_path)
+            LOGGER.exception("Failed to generate cover set from %s", target_row.cover_path)
             self._append_generated_asset_failure_log(target_row.cover_path, str(exc))
             return
-        record = upsert_generated_asset_record(self.session.project, result.record)
-        target_row.ensure_appearances()
-        selection = target_row.appearances[kind]
-        apply_selection_from_grid_entry(selection, generated_record_to_grid_entry(record))
-        self._repair_generated_appearance_selections(kind)
+        self._append_generated_cover_set_logs(target_row.cover_path, result)
         self._refresh_module_two_live_preview_for_row(row_id)
         self._refresh_module_three_appearance_selector()
-        self._append_generated_asset_success_log(result.record.source_name, result.successful_outputs, result.total_outputs)
         self.on_project_change()
 
-    def _append_generated_asset_success_log(self, source_name: str, successful_outputs: int, total_outputs: int) -> None:
+    def _append_generated_asset_success_log(
+        self,
+        source_name: str,
+        successful_outputs: int,
+        total_outputs: int,
+        *,
+        kind: str,
+    ) -> None:
         if not hasattr(self, 'module_four_panel'):
             return
         self.module_four_panel.append_log_line(
@@ -1285,7 +1287,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
                 timestamp=datetime.now().strftime("%H:%M:%S"),
                 prefix_text="Created assets from",
                 subject_text=source_name,
-                trailing_text=f"- {successful_outputs}/{total_outputs} successful",
+                trailing_text=f"- {kind} {successful_outputs}/{total_outputs} successful",
                 color_role="done",
             )
         )
@@ -1305,6 +1307,19 @@ class MainWindow(_DnDCompat, ctk.CTk):
         for kind in ('cassette', 'vinyl'):
             changed_rows.update(self._repair_generated_appearance_selections(kind))
         return sorted(changed_rows)
+
+    def _append_generated_cover_set_logs(self, cover_path: str, result: GeneratedCoverSetResult) -> None:
+        for outcome in result.outcomes:
+            if outcome.status == 'generated':
+                self._append_generated_asset_success_log(
+                    result.source_name,
+                    outcome.successful_outputs,
+                    outcome.total_outputs,
+                    kind=outcome.kind,
+                )
+                continue
+            if outcome.status == 'failed':
+                self._append_generated_asset_failure_log(cover_path, f"{outcome.kind}: {outcome.error}")
 
     def _repair_generated_appearance_selections(self, kind: AppearanceKind) -> list[int]:
         changed_rows: list[int] = []

@@ -53,6 +53,24 @@ def generated_records_for_asset_key(project: ProjectConfig, asset_key: str) -> l
     return generated_records_for_cover_path(project, record.cover_path)
 
 
+def generated_record_for_kind(
+    project: ProjectConfig,
+    kind: AppearanceKind,
+    cover_path: str | Path | None,
+) -> GeneratedAssetRecord | None:
+    normalized_cover = normalize_cover_path(cover_path)
+    if not normalized_cover:
+        return None
+    return next(
+        (
+            record
+            for record in project.generated_assets
+            if record.kind == kind and record.cover_path == normalized_cover
+        ),
+        None,
+    )
+
+
 def remove_generated_cover_set(project: ProjectConfig, asset_key: str) -> list[GeneratedAssetRecord]:
     removed_records = generated_records_for_asset_key(project, asset_key)
     if not removed_records:
@@ -148,18 +166,15 @@ def can_generate_cover_for_kind(
         return False
     return not has_generated_cover(project, kind, normalized_cover)
 
-
-def generated_record_to_grid_entry(record: GeneratedAssetRecord) -> AppearanceGridEntry:
-    return AppearanceGridEntry(
-        key=record.asset_key,
-        label=record.label,
-        inventory_path=record.inventory_full,
-        world_path=record.world_full,
-        sprite_mode="single",
-        kind=record.kind,
-        is_custom=False,
-        is_generated=True,
-        is_dual=False,
+def can_generate_cover_for_row(project: ProjectConfig, row: MediaRow | None) -> bool:
+    if row is None:
+        return False
+    normalized_cover = normalize_cover_path(row.cover_path)
+    if not normalized_cover or not Path(normalized_cover).is_file():
+        return False
+    return any(
+        row.enabled_media.get(kind, False) and not has_generated_cover(project, kind, normalized_cover)
+        for kind in ("cassette", "vinyl")
     )
 
 
@@ -178,6 +193,18 @@ def visible_generated_entries_for_kind(
             continue
         if not Path(record.inventory_full).is_file() or not Path(record.world_full).is_file():
             continue
-        visible.append(generated_record_to_grid_entry(record))
+        visible.append(
+            AppearanceGridEntry(
+                key=record.asset_key,
+                label=record.label,
+                inventory_path=record.inventory_full,
+                world_path=record.world_full,
+                sprite_mode="single",
+                kind=kind,
+                is_custom=False,
+                is_generated=True,
+                is_dual=False,
+            )
+        )
     visible.sort(key=lambda entry: entry.label.casefold())
     return visible

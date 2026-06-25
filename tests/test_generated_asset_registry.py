@@ -4,15 +4,14 @@ from PIL import Image
 
 from new_music_builder.domain.models import GeneratedAssetRecord, ProjectConfig, default_media_row
 from new_music_builder.services.generated_asset_registry import (
+    can_generate_cover_for_row,
     can_generate_cover_for_kind,
     delete_generated_cover_set_files,
-    generated_record_to_grid_entry,
     generated_records_for_asset_key,
     remove_generated_cover_set,
     upsert_generated_asset_record,
     visible_generated_entries_for_kind,
 )
-from new_music_builder.ui.widgets.appearance_entries import apply_selection_from_grid_entry
 
 
 def test_visible_generated_entries_follow_active_cover_usage(tmp_path: Path) -> None:
@@ -114,29 +113,50 @@ def test_can_generate_cover_for_kind_allows_vinyl_cover_and_blocks_existing_gene
     assert can_generate_cover_for_kind(project, row, "vinyl") is False
 
 
-def test_generated_record_to_grid_entry_preserves_generated_selection_fields() -> None:
-    record = GeneratedAssetRecord(
-        kind="vinyl",
-        cover_path="C:/covers/cover.png",
-        asset_key="generated:vinyl:abc",
-        label="cover Generated",
-        inventory_full="C:/generated/inventory.png",
-        world_full="C:/generated/world.png",
-        source_name="cover.png",
-    )
+def test_can_generate_cover_for_row_requires_valid_cover_and_any_missing_supported_kind(tmp_path: Path) -> None:
+    cover_path = tmp_path / "cover.png"
+    inventory_path = tmp_path / "inventory.png"
+    world_path = tmp_path / "world.png"
+    Image.new("RGBA", (300, 300), (255, 0, 0, 255)).save(cover_path)
+    Image.new("RGBA", (32, 32), (255, 255, 255, 255)).save(inventory_path)
+    Image.new("RGBA", (256, 256), (255, 255, 255, 255)).save(world_path)
 
-    entry = generated_record_to_grid_entry(record)
     row = default_media_row(1)
-    selection = row.appearances["vinyl"]
-    apply_selection_from_grid_entry(selection, entry)
+    project = ProjectConfig(media_rows=[row])
 
-    assert entry.key == record.asset_key
-    assert entry.kind == "vinyl"
-    assert entry.is_generated is True
-    assert selection.selected_asset_key == record.asset_key
-    assert selection.source == "custom"
-    assert selection.inventory_full == record.inventory_full
-    assert selection.world_full == record.world_full
+    assert can_generate_cover_for_row(project, None) is False
+    assert can_generate_cover_for_row(project, row) is False
+
+    row.cover_path = str(cover_path)
+    assert can_generate_cover_for_row(project, row) is True
+
+    upsert_generated_asset_record(
+        project,
+        GeneratedAssetRecord(
+            kind="cassette",
+            cover_path=str(cover_path),
+            asset_key="generated:cassette:abc",
+            label="cover Generated",
+            inventory_full=str(inventory_path),
+            world_full=str(world_path),
+            source_name="cover.png",
+        ),
+    )
+    assert can_generate_cover_for_row(project, row) is True
+
+    upsert_generated_asset_record(
+        project,
+        GeneratedAssetRecord(
+            kind="vinyl",
+            cover_path=str(cover_path),
+            asset_key="generated:vinyl:abc",
+            label="cover Generated",
+            inventory_full=str(inventory_path),
+            world_full=str(world_path),
+            source_name="cover.png",
+        ),
+    )
+    assert can_generate_cover_for_row(project, row) is False
 
 
 def test_remove_generated_cover_set_removes_all_records_for_same_cover(tmp_path: Path) -> None:
