@@ -49,7 +49,10 @@ from new_music_builder.services.export_scaffold import (
 )
 from new_music_builder.services.generated_asset_registry import (
     can_generate_cover_for_kind,
+    delete_generated_cover_set_files,
+    generated_records_for_asset_key,
     is_generated_asset_key,
+    remove_generated_cover_set,
     upsert_generated_asset_record,
     visible_generated_entries_for_kind,
 )
@@ -216,6 +219,16 @@ def build_project_saved_log_line(project_path: str) -> ExportLogLine:
         timestamp=datetime.now().strftime("%H:%M:%S"),
         prefix_text="Project saved:",
         subject_text=project_path,
+        color_role="done",
+    )
+
+
+def build_generated_assets_removed_log_line(source_name: str, removed_record_count: int, deleted_file_count: int) -> ExportLogLine:
+    return ExportLogLine(
+        timestamp=datetime.now().strftime("%H:%M:%S"),
+        prefix_text="Removed generated assets from",
+        subject_text=source_name,
+        trailing_text=f"- {removed_record_count} record(s), {deleted_file_count} file(s) deleted",
         color_role="done",
     )
 
@@ -787,6 +800,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             on_reset_custom=self._reset_module_three_custom_staged,
             on_commit_custom=self._commit_module_three_custom,
             on_delete_custom=self._delete_module_three_custom_asset,
+            on_delete_generated=self._delete_module_three_generated_asset_set,
             can_generate_from_cover=self._module_three_can_generate_from_cover,
             on_generate_from_cover=self._generate_module_three_from_cover,
             on_preview_mode_selected=self._set_module_two_preview_mode,
@@ -1253,6 +1267,11 @@ class MainWindow(_DnDCompat, ctk.CTk):
             )
         )
 
+    def _append_generated_asset_removed_log(self, source_name: str, removed_record_count: int, deleted_file_count: int) -> None:
+        if not hasattr(self, 'module_four_panel'):
+            return
+        self.module_four_panel.append_log_line(build_generated_assets_removed_log_line(source_name, removed_record_count, deleted_file_count))
+
     def _repair_generated_appearance_selections(self, kind: AppearanceKind) -> list[int]:
         changed_rows: list[int] = []
         available_entries = self._module_three_entries_for_kind(kind)
@@ -1277,6 +1296,27 @@ class MainWindow(_DnDCompat, ctk.CTk):
                     apply_selection_from_grid_entry(selection, fallback_entry)
                 changed_rows.append(row.row_id)
         return changed_rows
+
+    def _delete_module_three_generated_asset_set(self, asset_key: str) -> None:
+        if self._is_build_locked():
+            return
+        target_records = generated_records_for_asset_key(self.session.project, asset_key)
+        if not target_records:
+            return
+        deleted_records = remove_generated_cover_set(self.session.project, asset_key)
+        if not deleted_records:
+            return
+        deleted_file_count = delete_generated_cover_set_files(deleted_records)
+        affected_kinds = {record.kind for record in deleted_records}
+        changed_rows: set[int] = set()
+        for kind in affected_kinds:
+            changed_rows.update(self._repair_generated_appearance_selections(kind))
+        for row_id in changed_rows:
+            self._refresh_module_two_live_preview_for_row(row_id)
+        self._refresh_module_three_appearance_selector()
+        source_name = deleted_records[0].source_name or Path(deleted_records[0].cover_path).name or "cover"
+        self._append_generated_asset_removed_log(source_name, len(deleted_records), deleted_file_count)
+        self.on_project_change()
 
     def _pick_module_three_custom_image(self, kind: AppearanceKind, slot: str) -> None:
         staged = self._module_three_staged_custom_for_kind(kind)

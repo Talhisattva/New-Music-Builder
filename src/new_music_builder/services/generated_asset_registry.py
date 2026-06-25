@@ -3,6 +3,7 @@ from __future__ import annotations
 from hashlib import sha1
 from pathlib import Path
 
+from new_music_builder.platform.paths import generated_textures_root
 from new_music_builder.domain.models import AppearanceKind, GeneratedAssetRecord, MediaRow, ProjectConfig
 from new_music_builder.ui.widgets.appearance_entries import AppearanceGridEntry
 
@@ -29,6 +30,78 @@ def build_generated_asset_key(kind: AppearanceKind, cover_path: str | Path | Non
 
 def is_generated_asset_key(asset_key: str) -> bool:
     return asset_key.startswith("generated:")
+
+
+def generated_record_for_asset_key(project: ProjectConfig, asset_key: str) -> GeneratedAssetRecord | None:
+    return next((record for record in project.generated_assets if record.asset_key == asset_key), None)
+
+
+def generated_records_for_cover_path(
+    project: ProjectConfig,
+    cover_path: str | Path | None,
+) -> list[GeneratedAssetRecord]:
+    normalized_cover = normalize_cover_path(cover_path)
+    if not normalized_cover:
+        return []
+    return [record for record in project.generated_assets if record.cover_path == normalized_cover]
+
+
+def generated_records_for_asset_key(project: ProjectConfig, asset_key: str) -> list[GeneratedAssetRecord]:
+    record = generated_record_for_asset_key(project, asset_key)
+    if record is None:
+        return []
+    return generated_records_for_cover_path(project, record.cover_path)
+
+
+def remove_generated_cover_set(project: ProjectConfig, asset_key: str) -> list[GeneratedAssetRecord]:
+    removed_records = generated_records_for_asset_key(project, asset_key)
+    if not removed_records:
+        return []
+    removed_keys = {record.asset_key for record in removed_records}
+    project.generated_assets = [record for record in project.generated_assets if record.asset_key not in removed_keys]
+    return removed_records
+
+
+def delete_generated_cover_set_files(
+    records: list[GeneratedAssetRecord],
+    *,
+    managed_root: Path | None = None,
+) -> int:
+    root = (managed_root or generated_textures_root()).resolve(strict=False)
+    deleted_file_count = 0
+    cleanup_dirs: set[Path] = set()
+    for record in records:
+        for candidate in (record.inventory_full, record.world_full):
+            if not candidate:
+                continue
+            path = Path(candidate).resolve(strict=False)
+            if not _is_within_root(path, root):
+                continue
+            cleanup_dirs.add(path.parent)
+            if path.exists() and path.is_file():
+                path.unlink()
+                deleted_file_count += 1
+    for directory in sorted(cleanup_dirs, key=lambda item: len(item.parts), reverse=True):
+        _remove_empty_directory_chain(directory, root)
+    return deleted_file_count
+
+
+def _remove_empty_directory_chain(directory: Path, root: Path) -> None:
+    current = directory
+    while _is_within_root(current, root) and current != root:
+        try:
+            current.rmdir()
+        except OSError:
+            break
+        current = current.parent
+
+
+def _is_within_root(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+    except ValueError:
+        return False
+    return True
 
 
 def upsert_generated_asset_record(project: ProjectConfig, record: GeneratedAssetRecord) -> GeneratedAssetRecord:

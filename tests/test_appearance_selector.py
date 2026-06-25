@@ -304,6 +304,7 @@ def test_merge_appearance_grid_entries_places_generated_before_custom_and_not_de
             sprite_mode='single',
             kind='cassette',
             is_custom=False,
+            is_generated=True,
         )
     ]
     custom_assets = [
@@ -319,4 +320,5 @@ def test_merge_appearance_grid_entries_places_generated_before_custom_and_not_de
 
     assert [entry.key for entry in merged] == ['cassette:1', 'generated:cassette:abc', 'custom:cassette:abc']
     assert merged[1].is_custom is False
+    assert merged[1].is_generated is True
     assert merged[2].is_custom is True

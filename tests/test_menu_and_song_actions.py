@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from new_music_builder.ui.main_window import build_project_saved_log_line, resolve_song_removal_indices
+from new_music_builder.ui.main_window import (
+    build_generated_assets_removed_log_line,
+    build_project_saved_log_line,
+    resolve_song_removal_indices,
+)
 
 
 def test_resolve_song_removal_indices_uses_selection_when_present() -> None:
@@ -21,5 +25,15 @@ def test_build_project_saved_log_line_uses_done_style_and_path() -> None:
 
     assert line.prefix_text == "Project saved:"
     assert line.subject_text == "C:/Projects/test.nmbproj.json"
+    assert line.color_role == "done"
+    assert line.timestamp
+
+
+def test_build_generated_assets_removed_log_line_uses_done_style_and_counts() -> None:
+    line = build_generated_assets_removed_log_line("cover.png", 2, 4)
+
+    assert line.prefix_text == "Removed generated assets from"
+    assert line.subject_text == "cover.png"
+    assert line.trailing_text == "- 2 record(s), 4 file(s) deleted"
     assert line.color_role == "done"
     assert line.timestamp

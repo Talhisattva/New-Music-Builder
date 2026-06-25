@@ -224,6 +224,7 @@ class _AppearanceGridTile(_BorderSurface):
         display_mode: PreviewMode,
         on_selected: Callable[[str], None],
         on_remove_custom: Callable[[str], None],
+        on_remove_generated: Callable[[str], None],
         on_hover_started: Callable[[AppearanceGridEntry, int, int], None],
         on_hover_moved: Callable[[AppearanceGridEntry, int, int], None],
         on_hover_ended: Callable[[AppearanceGridEntry], None],
@@ -238,6 +239,7 @@ class _AppearanceGridTile(_BorderSurface):
         self.entry = entry
         self._on_selected = on_selected
         self._on_remove_custom = on_remove_custom
+        self._on_remove_generated = on_remove_generated
         self._on_hover_started = on_hover_started
         self._on_hover_moved = on_hover_moved
         self._on_hover_ended = on_hover_ended
@@ -266,7 +268,7 @@ class _AppearanceGridTile(_BorderSurface):
             font=(spec.MODULE_THREE_CUSTOM_DELETE_X_FONT_FAMILY, spec.MODULE_THREE_CUSTOM_DELETE_X_FONT_SIZE),
             anchor='center',
         )
-        if entry.is_custom:
+        if entry.is_custom or entry.is_generated:
             self.delete_label.place(
                 x=spec.MODULE_THREE_CUSTOM_DELETE_X_POS[0],
                 y=spec.MODULE_THREE_CUSTOM_DELETE_X_POS[1],
@@ -379,6 +381,9 @@ class _AppearanceGridTile(_BorderSurface):
     def _on_delete_press(self, _event: tk.Event) -> str:
         if self._locked:
             return 'break'
+        if self.entry.is_generated:
+            self._on_remove_generated(self.entry.key)
+            return 'break'
         self._on_remove_custom(self.entry.key)
         return 'break'
 
@@ -403,6 +408,7 @@ class AppearanceSelector:
         on_reset_custom: Callable[[AppearanceKind, bool], None],
         on_commit_custom: Callable[[AppearanceKind, bool], None],
         on_delete_custom: Callable[[AppearanceKind, str], None],
+        on_delete_generated: Callable[[str], None],
         can_generate_from_cover: Callable[[MediaRow | None, AppearanceKind | None], bool],
         on_generate_from_cover: Callable[[int, AppearanceKind], None] | None,
         on_preview_mode_selected: Callable[[int, str], None] | None,
@@ -420,6 +426,7 @@ class AppearanceSelector:
         self._on_reset_custom = on_reset_custom
         self._on_commit_custom = on_commit_custom
         self._on_delete_custom = on_delete_custom
+        self._on_delete_generated = on_delete_generated
         self._can_generate_from_cover = can_generate_from_cover
         self._on_generate_from_cover = on_generate_from_cover
         self._on_preview_mode_selected = on_preview_mode_selected
@@ -749,6 +756,11 @@ class AppearanceSelector:
             return
         self._on_delete_custom(self._active_kind, key)
 
+    def _handle_remove_generated(self, key: str) -> None:
+        if self._locked:
+            return
+        self._on_delete_generated(key)
+
     def _handle_tile_hover_started(self, _entry: AppearanceGridEntry, x_root: int, y_root: int) -> None:
         if self._preview_mode() != 'world':
             self._cursor_tooltip.hide()
@@ -962,6 +974,7 @@ class AppearanceSelector:
                 display_mode=self._preview_mode(),
                 on_selected=self._handle_grid_selected,
                 on_remove_custom=self._handle_remove_custom,
+                on_remove_generated=self._handle_remove_generated,
                 on_hover_started=self._handle_tile_hover_started,
                 on_hover_moved=self._handle_tile_hover_moved,
                 on_hover_ended=self._handle_tile_hover_ended,
