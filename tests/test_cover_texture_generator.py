@@ -8,6 +8,7 @@ from new_music_builder.services.cover_texture_generator import (
     _apply_inventory_warp,
     _alpha_mask,
     _build_inventory_transformed_cover,
+    _fit_cover_to_mask_width,
     _mask_region_is_fully_covered,
     _prepare_square_source,
     generate_cassette_textures_from_cover,
@@ -104,6 +105,28 @@ def test_inventory_warp_preserves_transparent_background_outside_art(tmp_path: P
     alpha = transformed.getchannel("A")
     assert alpha.getbbox() is not None
     assert alpha.getbbox() != (0, 0, transformed.width, transformed.height)
+
+
+def test_fit_cover_to_mask_width_reaches_world_inner_mask_edges(tmp_path: Path) -> None:
+    cover_path = tmp_path / "cover.png"
+    Image.new("RGBA", (540, 540), (255, 0, 0, 255)).save(cover_path)
+    mask_path = ASSETS_ROOT / "Mask" / "World" / "Cassette" / "Cassette_World_Mask.png"
+
+    with Image.open(mask_path) as mask_source:
+        mask_alpha = _alpha_mask(mask_source.convert("RGBA"))
+    fitted = _fit_cover_to_mask_width(cover_path, mask_alpha.size, mask_alpha)
+    bbox = mask_alpha.getbbox()
+    assert bbox is not None
+
+    mask_center_y = (bbox[1] + bbox[3]) // 2
+    visible_x = [x for x in range(mask_alpha.width) if mask_alpha.getpixel((x, mask_center_y)) > 0]
+    assert visible_x
+    left_x = visible_x[0]
+    right_x = visible_x[-1]
+
+    fitted_alpha = fitted.getchannel("A")
+    assert fitted_alpha.getpixel((left_x, mask_center_y)) > 0
+    assert fitted_alpha.getpixel((right_x, mask_center_y)) > 0
 
 
 def test_generate_cassette_textures_from_cover_uses_donor_shell_on_outer_region(tmp_path: Path) -> None:
