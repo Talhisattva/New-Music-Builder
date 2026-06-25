@@ -7,6 +7,7 @@ from typing import Literal
 from new_music_builder.domain.models import AppearanceKind, GeneratedAssetRecord, MediaRow, ProjectConfig
 from new_music_builder.services.cover_texture_generator import (
     CoverGenerationResult,
+    generate_case_textures_from_cover,
     generate_cassette_textures_from_cover,
     generate_vinyl_textures_from_cover,
 )
@@ -18,9 +19,8 @@ from new_music_builder.services.generated_asset_registry import (
 )
 from new_music_builder.ui.widgets.appearance_entries import AppearanceGridEntry, apply_selection_from_grid_entry
 
-SupportedGeneratedKind = Literal["cassette", "vinyl"]
+SupportedGeneratedKind = Literal["cassette", "case", "vinyl"]
 GenerationStatus = Literal["generated", "skipped", "failed"]
-SUPPORTED_GENERATED_KINDS: tuple[SupportedGeneratedKind, ...] = ("cassette", "vinyl")
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,7 +44,12 @@ class GeneratedCoverSetResult:
 
 
 def supported_generated_kinds_for_row(row: MediaRow) -> tuple[SupportedGeneratedKind, ...]:
-    return tuple(kind for kind in SUPPORTED_GENERATED_KINDS if row.enabled_media.get(kind, False))
+    supported: list[SupportedGeneratedKind] = []
+    if row.enabled_media.get("cassette", False):
+        supported.extend(("cassette", "case"))
+    if row.enabled_media.get("vinyl", False):
+        supported.append("vinyl")
+    return tuple(supported)
 
 
 def generate_supported_cover_set_for_row(
@@ -53,9 +58,12 @@ def generate_supported_cover_set_for_row(
     *,
     cassette_donor_inventory_path: str | Path = "",
     cassette_donor_world_path: str | Path = "",
+    case_donor_inventory_path: str | Path = "",
+    case_donor_world_path: str | Path = "",
     mask_root: Path | None = None,
     output_root: Path | None = None,
     cassette_generator=generate_cassette_textures_from_cover,
+    case_generator=generate_case_textures_from_cover,
     vinyl_generator=generate_vinyl_textures_from_cover,
 ) -> GeneratedCoverSetResult:
     normalized_cover = normalize_cover_path(row.cover_path)
@@ -94,9 +102,12 @@ def generate_supported_cover_set_for_row(
                 normalized_cover,
                 cassette_donor_inventory_path=cassette_donor_inventory_path,
                 cassette_donor_world_path=cassette_donor_world_path,
+                case_donor_inventory_path=case_donor_inventory_path,
+                case_donor_world_path=case_donor_world_path,
                 mask_root=mask_root,
                 output_root=output_root,
                 cassette_generator=cassette_generator,
+                case_generator=case_generator,
                 vinyl_generator=vinyl_generator,
             )
         except Exception as exc:
@@ -140,9 +151,12 @@ def _generate_kind_from_cover(
     *,
     cassette_donor_inventory_path: str | Path,
     cassette_donor_world_path: str | Path,
+    case_donor_inventory_path: str | Path,
+    case_donor_world_path: str | Path,
     mask_root: Path | None,
     output_root: Path | None,
     cassette_generator,
+    case_generator,
     vinyl_generator,
 ) -> CoverGenerationResult:
     if kind == "cassette":
@@ -150,6 +164,14 @@ def _generate_kind_from_cover(
             cover_path,
             donor_inventory_path=cassette_donor_inventory_path,
             donor_world_path=cassette_donor_world_path,
+            mask_root=mask_root,
+            output_root=output_root,
+        )
+    if kind == "case":
+        return case_generator(
+            cover_path,
+            donor_inventory_path=case_donor_inventory_path,
+            donor_world_path=case_donor_world_path,
             mask_root=mask_root,
             output_root=output_root,
         )

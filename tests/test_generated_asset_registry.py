@@ -61,11 +61,12 @@ def test_can_generate_cover_for_kind_requires_cassette_cover_and_no_existing_gen
     project = ProjectConfig(media_rows=[row])
 
     assert can_generate_cover_for_kind(project, None, "cassette") is False
-    assert can_generate_cover_for_kind(project, row, "vinyl") is False
+    assert can_generate_cover_for_kind(project, row, "case") is False
     assert can_generate_cover_for_kind(project, row, "cassette") is False
 
     row.cover_path = str(cover_path)
     assert can_generate_cover_for_kind(project, row, "cassette") is True
+    assert can_generate_cover_for_kind(project, row, "case") is True
 
     upsert_generated_asset_record(
         project,
@@ -80,6 +81,7 @@ def test_can_generate_cover_for_kind_requires_cassette_cover_and_no_existing_gen
         ),
     )
     assert can_generate_cover_for_kind(project, row, "cassette") is False
+    assert can_generate_cover_for_kind(project, row, "case") is True
 
 
 def test_can_generate_cover_for_kind_allows_vinyl_cover_and_blocks_existing_generation(tmp_path: Path) -> None:
@@ -147,6 +149,20 @@ def test_can_generate_cover_for_row_requires_valid_cover_and_any_missing_support
     upsert_generated_asset_record(
         project,
         GeneratedAssetRecord(
+            kind="case",
+            cover_path=str(cover_path),
+            asset_key="generated:case:abc",
+            label="cover Generated",
+            inventory_full=str(inventory_path),
+            world_full=str(world_path),
+            source_name="cover.png",
+        ),
+    )
+    assert can_generate_cover_for_row(project, row) is True
+
+    upsert_generated_asset_record(
+        project,
+        GeneratedAssetRecord(
             kind="vinyl",
             cover_path=str(cover_path),
             asset_key="generated:vinyl:abc",
@@ -181,6 +197,18 @@ def test_remove_generated_cover_set_removes_all_records_for_same_cover(tmp_path:
     upsert_generated_asset_record(
         project,
         GeneratedAssetRecord(
+            kind="case",
+            cover_path=str(first_cover),
+            asset_key="generated:case:first",
+            label="first Case",
+            inventory_full="C:/generated/first-case-inventory.png",
+            world_full="C:/generated/first-case-world.png",
+            source_name="cover-a.png",
+        ),
+    )
+    upsert_generated_asset_record(
+        project,
+        GeneratedAssetRecord(
             kind="jacket",
             cover_path=str(first_cover),
             asset_key="generated:jacket:first",
@@ -204,11 +232,11 @@ def test_remove_generated_cover_set_removes_all_records_for_same_cover(tmp_path:
     )
 
     cover_set = generated_records_for_asset_key(project, "generated:cassette:first")
-    assert {record.asset_key for record in cover_set} == {"generated:cassette:first", "generated:jacket:first"}
+    assert {record.asset_key for record in cover_set} == {"generated:cassette:first", "generated:case:first", "generated:jacket:first"}
 
     removed = remove_generated_cover_set(project, "generated:cassette:first")
 
-    assert {record.asset_key for record in removed} == {"generated:cassette:first", "generated:jacket:first"}
+    assert {record.asset_key for record in removed} == {"generated:cassette:first", "generated:case:first", "generated:jacket:first"}
     assert [record.asset_key for record in project.generated_assets] == ["generated:cassette:second"]
 
 

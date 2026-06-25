@@ -5,11 +5,15 @@ from PIL import Image
 
 from new_music_builder.services.cover_texture_generator import (
     CASSETTE_INVENTORY_PRESET,
+    CASE_INVENTORY_TARGET_SIZE,
     VINYL_INVENTORY_TARGET_SIZE,
     VINYL_WORLD_TARGET_SIZE,
     _apply_inventory_warp,
     _alpha_mask,
     _build_inventory_transformed_cover,
+    _build_optional_inverse_masked_donor_layer,
+    _build_optional_masked_donor_layer,
+    _build_case_inventory_masked_cover,
     _fit_cover_to_target_region,
     _fit_cover_to_mask_width,
     _mask_region_is_fully_covered,
@@ -17,6 +21,7 @@ from new_music_builder.services.cover_texture_generator import (
     _multiply_with_second_pass,
     _prepare_square_source,
     WORLD_OVERLAY_SECOND_MULTIPLY_RATIO,
+    generate_case_textures_from_cover,
     generate_vinyl_textures_from_cover,
     generate_cassette_textures_from_cover,
 )
@@ -79,6 +84,36 @@ def test_generate_vinyl_textures_from_cover_writes_expected_outputs(tmp_path: Pa
     assert world.mode == "RGBA"
 
 
+def test_generate_case_textures_from_cover_writes_expected_outputs(tmp_path: Path) -> None:
+    cover_path = tmp_path / "cover.png"
+    donor_path = tmp_path / "donor.png"
+    donor_world_path = tmp_path / "donor-world.png"
+    Image.new("RGBA", (500, 500), (255, 0, 0, 255)).save(cover_path)
+    Image.new("RGBA", (32, 32), (40, 40, 220, 255)).save(donor_path)
+    Image.new("RGBA", (256, 256), (80, 180, 40, 255)).save(donor_world_path)
+
+    result = generate_case_textures_from_cover(
+        cover_path,
+        donor_inventory_path=donor_path,
+        donor_world_path=donor_world_path,
+        mask_root=ASSETS_ROOT / "Mask",
+        output_root=tmp_path / "Generated Textures",
+    )
+
+    assert result.successful_outputs == 2
+    assert result.total_outputs == 2
+    assert Path(result.record.inventory_full).is_file()
+    assert Path(result.record.world_full).is_file()
+    assert result.record.asset_key.startswith("generated:case:")
+
+    inventory = Image.open(result.record.inventory_full)
+    world = Image.open(result.record.world_full)
+    assert inventory.size == (32, 32)
+    assert world.size == (256, 256)
+    assert inventory.mode == "RGBA"
+    assert world.mode == "RGBA"
+
+
 def test_generate_cassette_textures_from_rectangular_cover_keeps_outputs_valid(tmp_path: Path) -> None:
     cover_path = tmp_path / "wide-cover.png"
     donor_path = tmp_path / "donor.png"
@@ -119,6 +154,31 @@ def test_generate_vinyl_textures_from_rectangular_cover_keeps_outputs_valid(tmp_
     assert world.size == (256, 256)
     assert inventory.getbbox() is not None
     assert world.getbbox() is not None
+
+
+def test_case_inventory_transform_is_centered_in_requested_target_region(tmp_path: Path) -> None:
+    cover_path = tmp_path / "cover.png"
+    Image.new("RGBA", (540, 540), (255, 0, 0, 255)).save(cover_path)
+    with Image.open(ASSETS_ROOT / "Mask" / "Inventory" / "CassetteCase" / "Item_NM_Case_Mask.png") as mask_source:
+        mask_alpha = _alpha_mask(mask_source.convert("RGBA"))
+    fitted = _build_case_inventory_masked_cover(
+        source_path=cover_path,
+        mask_size=mask_alpha.size,
+        mask_alpha=mask_alpha,
+    )
+    alpha = fitted.getchannel("A")
+    bbox = alpha.getbbox()
+    mask_bbox = mask_alpha.getbbox()
+    assert bbox is not None
+    assert mask_bbox is not None
+    assert bbox[2] - bbox[0] <= CASE_INVENTORY_TARGET_SIZE[0]
+    assert bbox[3] - bbox[1] <= CASE_INVENTORY_TARGET_SIZE[1] + 4
+    mask_center_x = (mask_bbox[0] + mask_bbox[2]) // 2
+    mask_center_y = (mask_bbox[1] + mask_bbox[3]) // 2
+    art_center_x = (bbox[0] + bbox[2]) // 2
+    art_center_y = (bbox[1] + bbox[3]) // 2
+    assert abs(mask_center_x - art_center_x) <= 1
+    assert abs(mask_center_y - art_center_y) <= 2
 
 
 def test_generate_vinyl_textures_from_cover_uses_requested_inventory_target_region(tmp_path: Path) -> None:
@@ -320,3 +380,73 @@ def test_generate_cassette_textures_from_cover_uses_donor_world_shell_on_outer_r
 
     assert outer_pixel[1] > outer_pixel[0]
     assert center_pixel[0] > center_pixel[1]
+
+
+def test_generate_case_textures_from_cover_uses_donor_shell_on_inventory_outer_region(tmp_path: Path) -> None:
+    cover_path = tmp_path / "cover.png"
+    donor_path = tmp_path / "donor.png"
+    donor_world_path = tmp_path / "donor-world.png"
+    Image.new("RGBA", (540, 540), (255, 0, 0, 255)).save(cover_path)
+    Image.new("RGBA", (32, 32), (0, 0, 255, 255)).save(donor_path)
+    Image.new("RGBA", (256, 256), (0, 255, 0, 255)).save(donor_world_path)
+
+    result = generate_case_textures_from_cover(
+        cover_path,
+        donor_inventory_path=donor_path,
+        donor_world_path=donor_world_path,
+        mask_root=ASSETS_ROOT / "Mask",
+        output_root=tmp_path / "Generated Textures",
+    )
+
+    inventory = Image.open(result.record.inventory_full).convert("RGBA")
+    outer_only_point = (8, 4)
+    center_point = (14, 16)
+    outer_pixel = inventory.getpixel(outer_only_point)
+    center_pixel = inventory.getpixel(center_point)
+
+    assert outer_pixel[2] > outer_pixel[0]
+    assert center_pixel[0] > center_pixel[2]
+
+
+def test_generate_case_textures_from_cover_uses_donor_world_shell_on_outer_region(tmp_path: Path) -> None:
+    cover_path = tmp_path / "cover.png"
+    donor_path = tmp_path / "donor.png"
+    donor_world_path = tmp_path / "donor-world.png"
+    Image.new("RGBA", (540, 540), (255, 0, 0, 255)).save(cover_path)
+    Image.new("RGBA", (32, 32), (0, 0, 255, 255)).save(donor_path)
+    Image.new("RGBA", (256, 256), (0, 255, 0, 255)).save(donor_world_path)
+
+    result = generate_case_textures_from_cover(
+        cover_path,
+        donor_inventory_path=donor_path,
+        donor_world_path=donor_world_path,
+        mask_root=ASSETS_ROOT / "Mask",
+        output_root=tmp_path / "Generated Textures",
+    )
+
+    world = Image.open(result.record.world_full).convert("RGBA")
+    outer_only_point = (5, 5)
+    center_point = (128, 128)
+    outer_pixel = world.getpixel(outer_only_point)
+    center_pixel = world.getpixel(center_point)
+
+    assert outer_pixel[1] > outer_pixel[0]
+    assert center_pixel[0] > center_pixel[1]
+
+
+def test_generate_case_textures_from_cover_falls_back_when_donor_shells_missing(tmp_path: Path) -> None:
+    cover_path = tmp_path / "cover.png"
+    Image.new("RGBA", (540, 540), (255, 0, 0, 255)).save(cover_path)
+
+    result = generate_case_textures_from_cover(
+        cover_path,
+        donor_inventory_path="",
+        donor_world_path="",
+        mask_root=ASSETS_ROOT / "Mask",
+        output_root=tmp_path / "Generated Textures",
+    )
+
+    inventory = Image.open(result.record.inventory_full).convert("RGBA")
+    world = Image.open(result.record.world_full).convert("RGBA")
+    assert inventory.getpixel((8, 4))[3] > 0
+    assert world.getpixel((5, 5))[3] > 0

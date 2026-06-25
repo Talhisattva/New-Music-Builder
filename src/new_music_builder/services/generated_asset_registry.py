@@ -159,10 +159,14 @@ def can_generate_cover_for_kind(
     row: MediaRow | None,
     kind: AppearanceKind | None,
 ) -> bool:
-    if row is None or kind not in {"cassette", "vinyl"}:
+    if row is None or kind not in {"cassette", "case", "vinyl"}:
         return False
     normalized_cover = normalize_cover_path(row.cover_path)
     if not normalized_cover or not Path(normalized_cover).is_file():
+        return False
+    if kind in {"cassette", "case"} and not row.enabled_media.get("cassette", False):
+        return False
+    if kind == "vinyl" and not row.enabled_media.get("vinyl", False):
         return False
     return not has_generated_cover(project, kind, normalized_cover)
 
@@ -172,9 +176,12 @@ def can_generate_cover_for_row(project: ProjectConfig, row: MediaRow | None) -> 
     normalized_cover = normalize_cover_path(row.cover_path)
     if not normalized_cover or not Path(normalized_cover).is_file():
         return False
-    return any(
-        row.enabled_media.get(kind, False) and not has_generated_cover(project, kind, normalized_cover)
-        for kind in ("cassette", "vinyl")
+    return (
+        (row.enabled_media.get("cassette", False) and any(
+            not has_generated_cover(project, kind, normalized_cover)
+            for kind in ("cassette", "case")
+        ))
+        or (row.enabled_media.get("vinyl", False) and not has_generated_cover(project, "vinyl", normalized_cover))
     )
 
 
