@@ -7,7 +7,7 @@ import customtkinter as ctk
 
 from new_music_builder.domain.models import AppearanceKind, AppearanceSelection, MediaRow
 from new_music_builder.services.asset_catalog import AssetEntry
-from new_music_builder.ui import spec
+from new_music_builder.ui import spec, theme
 from new_music_builder.ui.widgets.buttons import make_builder_button
 from new_music_builder.ui.widgets.appearance_entries import (
     BUILT_IN_DUAL_EMPTY_TO_FULL,
@@ -531,13 +531,12 @@ class AppearanceSelector:
         self._place_dual_label(label_x)
 
     def _build_generate_row(self) -> None:
-        row_content = self.shell.generate_button_pane.content
         self.generate_from_cover_button = make_builder_button(
-            row_content,
+            self.shell.generate_button_pane,
             spec.MODULE_THREE_GENERATE_BUTTON_TEXT,
             self._handle_generate_from_cover,
             size='compact',
-            width=spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE[0] - (spec.MODULE_THREE_PANEL_BORDER_WIDTH * 2),
+            width=spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE[0],
         )
         self.generate_from_cover_button.configure(
             font=ctk.CTkFont(
@@ -546,7 +545,7 @@ class AppearanceSelector:
                 weight='bold',
             ),
             corner_radius=0,
-            height=spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE[1] - (spec.MODULE_THREE_PANEL_BORDER_WIDTH * 2),
+            height=spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE[1],
         )
         self.generate_from_cover_button.place(x=0, y=0)
         self._preview_mode_toggle = PreviewModeToggle(
@@ -629,8 +628,8 @@ class AppearanceSelector:
                     size=spec.MODULE_THREE_GENERATE_BUTTON_HALF_FONT_SIZE,
                     weight='bold',
                 ),
-                width=spec.MODULE_THREE_GENERATE_BUTTON_ROW_SIZE[0] - (spec.MODULE_THREE_PANEL_BORDER_WIDTH * 2),
-                height=spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE[1] - (spec.MODULE_THREE_PANEL_BORDER_WIDTH * 2),
+                width=spec.MODULE_THREE_GENERATE_BUTTON_ROW_SIZE[0],
+                height=spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE[1],
             )
             self.generate_from_cover_button.place_configure(x=0, y=0)
         else:
@@ -645,8 +644,8 @@ class AppearanceSelector:
                     size=spec.MODULE_THREE_GENERATE_BUTTON_FONT_SIZE,
                     weight='bold',
                 ),
-                width=spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE[0] - (spec.MODULE_THREE_PANEL_BORDER_WIDTH * 2),
-                height=spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE[1] - (spec.MODULE_THREE_PANEL_BORDER_WIDTH * 2),
+                width=spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE[0],
+                height=spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE[1],
             )
             self.generate_from_cover_button.place_configure(x=0, y=0)
         self._refresh_generate_button_state()
@@ -882,7 +881,24 @@ class AppearanceSelector:
 
     def _refresh_generate_button_state(self) -> None:
         enabled = (not self._locked) and self._can_generate_from_cover(self._active_row, self._active_kind)
-        self.generate_from_cover_button.configure(state='normal' if enabled else 'disabled')
+        if enabled:
+            self.generate_from_cover_button.configure(
+                state='normal',
+                fg_color=theme.ACCENT,
+                hover_color=theme.ACCENT_DARK,
+                border_color=theme.ACCENT_DARK,
+                text_color=theme.BUTTON_TEXT,
+                text_color_disabled=theme.BUTTON_TEXT,
+            )
+            return
+        self.generate_from_cover_button.configure(
+            state='disabled',
+            fg_color='#4a474c',
+            hover_color='#4a474c',
+            border_color='#706b73',
+            text_color=theme.BUTTON_TEXT,
+            text_color_disabled='#a9a5ab',
+        )
 
     def _normalize_active_kind(self, visible_kinds: tuple[AppearanceKind, ...]) -> None:
         if not visible_kinds:
