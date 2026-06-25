@@ -1,5 +1,6 @@
 from new_music_builder.services.asset_catalog import AssetEntry
 from new_music_builder.ui import spec
+from new_music_builder.ui.widgets.appearance_entries import AppearanceGridEntry
 from new_music_builder.ui.widgets.appearance_selector import (
     appearance_tab_order,
     BUILT_IN_DUAL_EMPTY_TO_FULL,
@@ -97,7 +98,7 @@ def test_merge_appearance_grid_entries_appends_custom_items_after_defaults() -> 
         }
     ]
 
-    merged = merge_appearance_grid_entries('cassette', defaults, custom_assets)
+    merged = merge_appearance_grid_entries('cassette', defaults, [], custom_assets)
 
     assert [entry.key for entry in merged] == ['cassette:1', 'cassette:2', 'custom:cassette:abc']
     assert merged[-1].is_custom is True
@@ -123,7 +124,7 @@ def test_merge_appearance_grid_entries_collapses_built_in_dual_jacket_pair() -> 
         ),
     ]
 
-    merged = merge_appearance_grid_entries('jacket', defaults, [])
+    merged = merge_appearance_grid_entries('jacket', defaults, [], [])
 
     assert [entry.key for entry in merged] == ['jacket:18']
     assert merged[0].is_dual is True
@@ -150,7 +151,7 @@ def test_merge_appearance_grid_entries_collapses_cd_cover_blank_empty_pair() -> 
         ),
     ]
 
-    merged = merge_appearance_grid_entries('cd_cover', defaults, [])
+    merged = merge_appearance_grid_entries('cd_cover', defaults, [], [])
 
     assert [entry.key for entry in merged] == ['cd_cover:_Blank']
     assert merged[0].is_dual is True
@@ -168,7 +169,7 @@ def test_fallback_selected_asset_key_after_delete_returns_first_remaining_entry(
             kind='cassette',
         )
     ]
-    remaining_entries = merge_appearance_grid_entries('cassette', defaults, [])
+    remaining_entries = merge_appearance_grid_entries('cassette', defaults, [], [])
 
     assert fallback_selected_asset_key_after_delete(
         remaining_entries,
@@ -248,7 +249,7 @@ def test_dual_grid_entry_resolves_full_and_empty_world_paths() -> None:
         ),
     ]
 
-    merged = merge_appearance_grid_entries('jacket', defaults, [])
+    merged = merge_appearance_grid_entries('jacket', defaults, [], [])
     entry = merged[0]
 
     assert entry.displayed_world_path(show_empty=False) == 'full-world.png'
@@ -275,9 +276,47 @@ def test_dual_grid_entry_resolves_display_path_for_inventory_and_world_modes() -
         ),
     ]
 
-    entry = merge_appearance_grid_entries('jacket', defaults, [])[0]
+    entry = merge_appearance_grid_entries('jacket', defaults, [], [])[0]
 
     assert entry.displayed_path('inventory', show_empty=False) == 'full-inventory.png'
     assert entry.displayed_path('inventory', show_empty=True) == 'empty-inventory.png'
     assert entry.displayed_path('world', show_empty=False) == 'full-world.png'
     assert entry.displayed_path('world', show_empty=True) == 'empty-world.png'
+
+
+def test_merge_appearance_grid_entries_places_generated_before_custom_and_not_deletable() -> None:
+    defaults = [
+        AssetEntry(
+            key='cassette:1',
+            label='One',
+            inventory_path='default-one.png',
+            world_path='world-one.png',
+            sprite_mode='single',
+            kind='cassette',
+        ),
+    ]
+    generated = [
+        AppearanceGridEntry(
+            key='generated:cassette:abc',
+            label='Generated',
+            inventory_path='generated-inventory.png',
+            world_path='generated-world.png',
+            sprite_mode='single',
+            kind='cassette',
+            is_custom=False,
+        )
+    ]
+    custom_assets = [
+        {
+            'key': 'custom:cassette:abc',
+            'inventory_full': 'custom-inventory.png',
+            'world_full': 'custom-world.png',
+            'sprite_mode': 'single',
+        }
+    ]
+
+    merged = merge_appearance_grid_entries('cassette', defaults, generated, custom_assets)
+
+    assert [entry.key for entry in merged] == ['cassette:1', 'generated:cassette:abc', 'custom:cassette:abc']
+    assert merged[1].is_custom is False
+    assert merged[2].is_custom is True

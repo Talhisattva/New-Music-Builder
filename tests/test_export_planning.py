@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from new_music_builder.domain.models import ProjectConfig, TrackEntry, default_media_row
+from new_music_builder.domain.models import GeneratedAssetRecord, ProjectConfig, TrackEntry, default_media_row
 from new_music_builder.services.asset_catalog import AssetCatalog
 from new_music_builder.services.export_planning import build_export_plan, build_preview_scenario
 from new_music_builder.services.export_naming import build_audio_row_folder_name, build_audio_track_file_name
@@ -91,6 +91,43 @@ def test_export_plan_resolves_selected_builtin_appearance_paths() -> None:
     assert resolved_row.appearances.cassette.inventory_path == catalog['cassette'][1].inventory_path
     assert resolved_row.appearances.cassette.world_path == catalog['cassette'][1].world_path
     assert resolved_row.appearances.jacket.inventory_path == catalog['jacket'][0].inventory_path
+
+
+def test_export_plan_resolves_selected_generated_cassette_paths(tmp_path: Path) -> None:
+    catalog = AssetCatalog(ASSETS_ROOT).scan()
+    cover_path = tmp_path / "cover.png"
+    inventory_path = tmp_path / "generated-inventory.png"
+    world_path = tmp_path / "generated-world.png"
+    cover_path.write_bytes(b"cover")
+    inventory_path.write_bytes(b"inventory")
+    world_path.write_bytes(b"world")
+
+    row = default_media_row(1)
+    row.cover_path = str(cover_path)
+    row.tracks_a = [_track('C:/music/song.ogg', 'Song', '00:03:00')]
+    row.appearances['cassette'].selected_asset_key = 'generated:cassette:abc'
+    project = ProjectConfig(
+        media_rows=[row],
+        generated_assets=[
+            GeneratedAssetRecord(
+                kind='cassette',
+                cover_path=str(cover_path),
+                asset_key='generated:cassette:abc',
+                label='cover Generated',
+                inventory_full=str(inventory_path),
+                world_full=str(world_path),
+                source_name='cover.png',
+            )
+        ],
+    )
+
+    plan = build_export_plan(project, catalog)
+    resolved = plan.rows[0].appearances.cassette
+
+    assert resolved.selected_asset_key == 'generated:cassette:abc'
+    assert resolved.inventory_path == str(inventory_path)
+    assert resolved.world_path == str(world_path)
+    assert resolved.source == 'custom'
 
 
 def test_preview_scenario_respects_enabled_media_filtering() -> None:

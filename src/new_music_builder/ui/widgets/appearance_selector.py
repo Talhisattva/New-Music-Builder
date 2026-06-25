@@ -397,11 +397,14 @@ class AppearanceSelector:
         small_check_icon_path: str | None,
         loading_icon_path: str | None,
         get_custom_assets: Callable[[AppearanceKind], list[dict[str, str]]],
+        get_generated_entries: Callable[[AppearanceKind], list[AppearanceGridEntry]],
         get_staged_custom_images: Callable[[AppearanceKind], dict[str, str]],
         on_pick_custom_slot: Callable[[AppearanceKind, str], None],
         on_reset_custom: Callable[[AppearanceKind, bool], None],
         on_commit_custom: Callable[[AppearanceKind, bool], None],
         on_delete_custom: Callable[[AppearanceKind, str], None],
+        can_generate_from_cover: Callable[[MediaRow | None, AppearanceKind | None], bool],
+        on_generate_from_cover: Callable[[int, AppearanceKind], None] | None,
         on_preview_mode_selected: Callable[[int, str], None] | None,
         on_selection_changed: Callable[[int], None] | None,
         on_change: Callable[[], None],
@@ -411,11 +414,14 @@ class AppearanceSelector:
         self._small_check_icon_path = small_check_icon_path
         self._loading_icon_path = loading_icon_path
         self._get_custom_assets = get_custom_assets
+        self._get_generated_entries = get_generated_entries
         self._get_staged_custom_images = get_staged_custom_images
         self._on_pick_custom_slot = on_pick_custom_slot
         self._on_reset_custom = on_reset_custom
         self._on_commit_custom = on_commit_custom
         self._on_delete_custom = on_delete_custom
+        self._can_generate_from_cover = can_generate_from_cover
+        self._on_generate_from_cover = on_generate_from_cover
         self._on_preview_mode_selected = on_preview_mode_selected
         self._on_selection_changed = on_selection_changed
         self._on_change = on_change
@@ -490,6 +496,7 @@ class AppearanceSelector:
             entry = self._entry_for_kind(row, kind)
             self._tab_widgets[kind].set_image(entry.displayed_path(self._preview_mode(), show_empty=False) if entry else None)
         self._refresh_dual_sprite_row()
+        self._refresh_generate_button_state()
         self._refresh_footer()
         self._rebuild_grid()
 
@@ -642,6 +649,7 @@ class AppearanceSelector:
                 height=spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE[1] - (spec.MODULE_THREE_PANEL_BORDER_WIDTH * 2),
             )
             self.generate_from_cover_button.place_configure(x=0, y=0)
+        self._refresh_generate_button_state()
 
     def _refresh_footer(self) -> None:
         if self._active_kind is None:
@@ -793,6 +801,7 @@ class AppearanceSelector:
         return merge_appearance_grid_entries(
             kind,
             self.asset_catalog.get(kind, []),
+            self._get_generated_entries(kind),
             self._get_custom_assets(kind),
         )
 
@@ -863,7 +872,17 @@ class AppearanceSelector:
             self._on_preview_mode_selected(row.row_id, mode)
 
     def _handle_generate_from_cover(self) -> None:
-        return
+        row = self._active_row
+        if row is None or self._active_kind is None or self._locked:
+            return
+        if not self._can_generate_from_cover(row, self._active_kind):
+            return
+        if self._on_generate_from_cover is not None:
+            self._on_generate_from_cover(row.row_id, self._active_kind)
+
+    def _refresh_generate_button_state(self) -> None:
+        enabled = (not self._locked) and self._can_generate_from_cover(self._active_row, self._active_kind)
+        self.generate_from_cover_button.configure(state='normal' if enabled else 'disabled')
 
     def _normalize_active_kind(self, visible_kinds: tuple[AppearanceKind, ...]) -> None:
         if not visible_kinds:
@@ -980,4 +999,5 @@ class AppearanceSelector:
             tab.set_locked(locked)
         for tile in self._grid_tiles.values():
             tile.set_locked(locked)
+        self._refresh_generate_button_state()
         self._refresh_footer()

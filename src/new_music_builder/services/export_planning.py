@@ -24,6 +24,7 @@ from new_music_builder.domain.models import (
 )
 from new_music_builder.services.asset_catalog import AssetEntry
 from new_music_builder.services.export_ids import unique_export_id
+from new_music_builder.services.generated_asset_registry import visible_generated_entries_for_kind
 from new_music_builder.services.export_naming import (
     build_audio_row_folder_name,
     build_audio_side_folder_name,
@@ -184,6 +185,7 @@ def _resolve_appearance(
     merged_entries = merge_appearance_grid_entries(
         kind,
         assets,
+        visible_generated_entries_for_kind(project, kind),
         project.custom_assets.get(kind, []),
     )
     selected = next((entry for entry in merged_entries if entry.key == selection.selected_asset_key), None)
@@ -191,7 +193,7 @@ def _resolve_appearance(
         return ResolvedAppearance(
             kind=kind,
             selected_asset_key=selected.key,
-            source="custom" if selected.is_custom else "default",
+            source="custom" if selected.is_custom or selected.is_generated else "default",
             inventory_path=selected.inventory_path,
             world_path=selected.world_path,
             sprite_mode="dual" if selected.is_dual else "single",
@@ -216,7 +218,7 @@ def _resolve_appearance(
         return ResolvedAppearance(
             kind=kind,
             selected_asset_key=fallback.key,
-            source="custom" if fallback.is_custom else "default",
+            source="custom" if fallback.is_custom or fallback.is_generated else "default",
             inventory_path=fallback.inventory_path,
             world_path=fallback.world_path,
             sprite_mode="dual" if fallback.is_dual else "single",

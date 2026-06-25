@@ -61,6 +61,17 @@ class AppearanceSelection:
 
 
 @dataclass(slots=True)
+class GeneratedAssetRecord:
+    kind: AppearanceKind
+    cover_path: str = ""
+    asset_key: str = ""
+    label: str = ""
+    inventory_full: str = ""
+    world_full: str = ""
+    source_name: str = ""
+
+
+@dataclass(slots=True)
 class MediaRow:
     row_id: int
     media_name: str = "New Album"
@@ -102,11 +113,13 @@ class ProjectConfig:
     reencode_existing_ogg: bool = True
     media_rows: list[MediaRow] = field(default_factory=list)
     custom_assets: dict[str, list[dict[str, str]]] = field(default_factory=dict)
+    generated_assets: list[GeneratedAssetRecord] = field(default_factory=list)
 
     def ensure_defaults(self) -> None:
         self.sample_rate = _coerce_int(self.sample_rate, 44100, minimum=1)
         self.compression_quality = snap_compression_quality(self.compression_quality)
         self.custom_assets = _coerce_custom_assets(self.custom_assets)
+        self.generated_assets = _coerce_generated_assets(self.generated_assets)
         if not self.media_rows:
             self.media_rows = [default_media_row(1)]
         for row in self.media_rows:
@@ -589,6 +602,42 @@ def _coerce_custom_assets(data: Any) -> dict[str, list[dict[str, str]]]:
     return normalized
 
 
+def _coerce_generated_assets(data: Any) -> list[GeneratedAssetRecord]:
+    entries = data if isinstance(data, list) else []
+    normalized: list[GeneratedAssetRecord] = []
+    for entry in entries:
+        if isinstance(entry, GeneratedAssetRecord):
+            normalized.append(
+                GeneratedAssetRecord(
+                    kind=entry.kind,
+                    cover_path=str(entry.cover_path),
+                    asset_key=str(entry.asset_key),
+                    label=str(entry.label),
+                    inventory_full=str(entry.inventory_full),
+                    world_full=str(entry.world_full),
+                    source_name=str(entry.source_name),
+                )
+            )
+            continue
+        if not isinstance(entry, dict):
+            continue
+        kind = str(entry.get("kind", "")).strip()
+        if kind not in _APPEARANCE_KINDS:
+            continue
+        normalized.append(
+            GeneratedAssetRecord(
+                kind=kind,
+                cover_path=str(entry.get("cover_path", "")),
+                asset_key=str(entry.get("asset_key", "")),
+                label=str(entry.get("label", "")),
+                inventory_full=str(entry.get("inventory_full", "")),
+                world_full=str(entry.get("world_full", "")),
+                source_name=str(entry.get("source_name", "")),
+            )
+        )
+    return normalized
+
+
 def project_from_dict(data: dict[str, Any]) -> ProjectConfig:
     rows: list[MediaRow] = []
     for raw_row in data.get("media_rows", []):
@@ -634,6 +683,7 @@ def project_from_dict(data: dict[str, Any]) -> ProjectConfig:
         reencode_existing_ogg=bool(data.get("reencode_existing_ogg", True)),
         media_rows=rows,
         custom_assets=_coerce_custom_assets(data.get("custom_assets", {})),
+        generated_assets=_coerce_generated_assets(data.get("generated_assets", [])),
     )
     project.ensure_defaults()
     return project

@@ -37,6 +37,7 @@ from new_music_builder.platform.paths import app_root, assets_root
 from new_music_builder.platform.paths import detect_workshop_dir, open_folder
 from new_music_builder.services.asset_catalog import AssetCatalog
 from new_music_builder.services.build_event_pump import BuildEventPump
+from new_music_builder.services.cover_texture_generator import generate_cassette_textures_from_cover
 from new_music_builder.services.export_build_runner import run_staged_export
 from new_music_builder.services.export_planning import build_export_plan, build_preview_scenario
 from new_music_builder.services.export_scaffold import (
@@ -45,6 +46,12 @@ from new_music_builder.services.export_scaffold import (
     render_square_image,
     resolve_export_target,
     validate_export_request,
+)
+from new_music_builder.services.generated_asset_registry import (
+    can_generate_cover_for_kind,
+    is_generated_asset_key,
+    upsert_generated_asset_record,
+    visible_generated_entries_for_kind,
 )
 from new_music_builder.services.index_selection import apply_index_selection
 from new_music_builder.services.project_session import ProjectSession
@@ -774,11 +781,14 @@ class MainWindow(_DnDCompat, ctk.CTk):
             small_check_icon_path=str(self._small_check_icon_path()),
             loading_icon_path=str(self._loading_icon_path()),
             get_custom_assets=self._module_three_custom_assets_for_kind,
+            get_generated_entries=self._module_three_generated_entries_for_kind,
             get_staged_custom_images=self._module_three_staged_custom_for_kind,
             on_pick_custom_slot=self._pick_module_three_custom_slot,
             on_reset_custom=self._reset_module_three_custom_staged,
             on_commit_custom=self._commit_module_three_custom,
             on_delete_custom=self._delete_module_three_custom_asset,
+            can_generate_from_cover=self._module_three_can_generate_from_cover,
+            on_generate_from_cover=self._generate_module_three_from_cover,
             on_preview_mode_selected=self._set_module_two_preview_mode,
             on_selection_changed=self._refresh_module_two_live_preview_for_row,
             on_change=self.on_project_change,
@@ -1180,8 +1190,93 @@ class MainWindow(_DnDCompat, ctk.CTk):
         return merge_appearance_grid_entries(
             kind,
             self.asset_catalog.get(kind, []),
+            self._module_three_generated_entries_for_kind(kind),
             self._module_three_custom_assets_for_kind(kind),
         )
+
+    def _module_three_generated_entries_for_kind(self, kind: AppearanceKind) -> list[AppearanceGridEntry]:
+        return visible_generated_entries_for_kind(self.session.project, kind)
+
+    def _module_three_can_generate_from_cover(self, row, kind: AppearanceKind | None) -> bool:
+        return can_generate_cover_for_kind(self.session.project, row, kind)
+
+    def _generate_module_three_from_cover(self, row_id: int, kind: AppearanceKind) -> None:
+        if self._is_build_locked():
+            return
+        target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
+        if target_row is None or kind != 'cassette':
+            return
+        try:
+            result = generate_cassette_textures_from_cover(target_row.cover_path)
+        except Exception as exc:
+            LOGGER.exception("Failed to generate cassette textures from %s", target_row.cover_path)
+            self._append_generated_asset_failure_log(target_row.cover_path, str(exc))
+            return
+        record = upsert_generated_asset_record(self.session.project, result.record)
+        target_row.ensure_appearances()
+        selection = target_row.appearances[kind]
+        generated_entry = next(
+            (entry for entry in self._module_three_generated_entries_for_kind(kind) if entry.key == record.asset_key),
+            None,
+        )
+        if generated_entry is not None:
+            apply_selection_from_grid_entry(selection, generated_entry)
+        self._repair_generated_appearance_selections(kind)
+        self._refresh_module_two_live_preview_for_row(row_id)
+        self._refresh_module_three_appearance_selector()
+        self._append_generated_asset_success_log(result.record.source_name, result.successful_outputs, result.total_outputs)
+        self.on_project_change()
+
+    def _append_generated_asset_success_log(self, source_name: str, successful_outputs: int, total_outputs: int) -> None:
+        if not hasattr(self, 'module_four_panel'):
+            return
+        self.module_four_panel.append_log_line(
+            ExportLogLine(
+                timestamp=datetime.now().strftime("%H:%M:%S"),
+                prefix_text="Created assets from",
+                subject_text=source_name,
+                trailing_text=f"- {successful_outputs}/{total_outputs} successful",
+                color_role="done",
+            )
+        )
+
+    def _append_generated_asset_failure_log(self, cover_path: str, reason: str) -> None:
+        if not hasattr(self, 'module_four_panel'):
+            return
+        self.module_four_panel.append_log_line(
+            ExportLogLine(
+                timestamp=datetime.now().strftime("%H:%M:%S"),
+                prefix_text="Failed to create assets from",
+                subject_text=Path(cover_path).name if cover_path else "cover",
+                trailing_text=reason,
+                color_role="error",
+            )
+        )
+
+    def _repair_generated_appearance_selections(self, kind: AppearanceKind) -> list[int]:
+        changed_rows: list[int] = []
+        available_entries = self._module_three_entries_for_kind(kind)
+        available_by_key = {entry.key: entry for entry in available_entries}
+        fallback_entry = available_entries[0] if available_entries else None
+        for row in self.session.project.media_rows:
+            row.ensure_appearances()
+            selection = row.appearances[kind]
+            if not is_generated_asset_key(selection.selected_asset_key):
+                continue
+            next_entry = available_by_key.get(selection.selected_asset_key)
+            if next_entry is None:
+                if fallback_entry is None:
+                    selection.selected_asset_key = ''
+                    selection.source = 'default'
+                    selection.inventory_full = ''
+                    selection.world_full = ''
+                    selection.inventory_empty = ''
+                    selection.world_empty = ''
+                    selection.sprite_mode = 'single'
+                else:
+                    apply_selection_from_grid_entry(selection, fallback_entry)
+                changed_rows.append(row.row_id)
+        return changed_rows
 
     def _pick_module_three_custom_image(self, kind: AppearanceKind, slot: str) -> None:
         staged = self._module_three_staged_custom_for_kind(kind)
@@ -1423,6 +1518,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         if not selected:
             return
         target_row.cover_path = selected
+        repaired_rows = self._repair_generated_appearance_selections('cassette')
         expanded_widget = next(
             (
                 widget
@@ -1433,6 +1529,9 @@ class MainWindow(_DnDCompat, ctk.CTk):
         )
         if expanded_widget is not None:
             expanded_widget.refresh_cover(selected)
+        for repaired_row_id in repaired_rows:
+            self._refresh_module_two_live_preview_for_row(repaired_row_id)
+        self._refresh_module_three_appearance_selector()
         self.on_project_change()
 
     def _can_accept_song_drop(self, paths: list[str]) -> bool:
@@ -1959,6 +2058,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
     def refresh_all(self) -> None:
         self._apply_default_asset_selections()
+        repaired_rows = self._repair_generated_appearance_selections('cassette')
         self._refresh_module_one_poster_preview()
         self._refresh_module_three_appearance_selector()
         if hasattr(self, 'mod_setup'):
@@ -1972,6 +2072,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         if hasattr(self, 'module_two_row_list'):
             self.module_two_row_list.refresh_media_type_strips()
             self.module_two_row_list.refresh_collapsed_details()
+            for row_id in repaired_rows:
+                self._refresh_module_two_live_preview_for_row(row_id)
         if hasattr(self, 'module_four_panel'):
             self.module_four_panel.queue_scroll.refresh_scroll_region()
             self.module_four_panel.log_scroll.refresh_scroll_region()

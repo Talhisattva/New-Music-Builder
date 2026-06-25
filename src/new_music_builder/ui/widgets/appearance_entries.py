@@ -43,6 +43,7 @@ class AppearanceGridEntry:
     sprite_mode: str
     kind: AppearanceKind
     is_custom: bool = False
+    is_generated: bool = False
     is_dual: bool = False
     inventory_empty_path: str = ''
     world_empty_path: str = ''
@@ -97,6 +98,7 @@ def can_commit_dual_custom(staged: dict[str, str]) -> bool:
 def merge_appearance_grid_entries(
     kind: AppearanceKind,
     defaults: list[AssetEntry],
+    generated_entries: list[AppearanceGridEntry],
     custom_assets: list[dict[str, str]],
 ) -> list[AppearanceGridEntry]:
     merged: list[AppearanceGridEntry] = []
@@ -139,6 +141,7 @@ def merge_appearance_grid_entries(
                 is_custom=False,
             )
         )
+    merged.extend(generated_entries)
     for index, asset in enumerate(custom_assets):
         inventory_path = asset.get('inventory_full', '')
         world_path = asset.get('world_full', '')
@@ -177,7 +180,7 @@ def fallback_selected_asset_key_after_delete(
 def apply_selection_from_grid_entry(selection: AppearanceSelection, entry: AppearanceGridEntry) -> None:
     selection.selected_asset_key = entry.key
     selection.sprite_mode = entry.sprite_mode if should_show_dual_sprite_controls(entry.kind) else 'single'
-    if entry.is_custom:
+    if entry.is_custom or entry.is_generated:
         selection.source = 'custom'
         selection.inventory_full = entry.inventory_path
         selection.world_full = entry.world_path

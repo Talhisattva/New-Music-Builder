@@ -40,6 +40,12 @@ def logs_root() -> Path:
     return root
 
 
+def generated_textures_root() -> Path:
+    root = runtime_root() / 'Generated Textures'
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
 def diagnostic_log_path() -> Path:
     return logs_root() / 'new_music_builder.log'
 

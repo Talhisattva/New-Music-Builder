@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from new_music_builder.domain.models import ProjectConfig, TrackEntry, default_media_row
+from new_music_builder.domain.models import GeneratedAssetRecord, ProjectConfig, TrackEntry, default_media_row
 from new_music_builder.services.project_store import ProjectStore
 from new_music_builder.services.session_store import SessionStore
 
@@ -55,6 +55,17 @@ def test_project_roundtrip_preserves_stateful_row_fields(tmp_path: Path) -> None
     first.appearances['cassette'].selected_asset_key = 'custom:cassette:1'
     first.appearances['cassette'].inventory_full = 'C:/art/inventory.png'
     first.appearances['cassette'].world_full = 'C:/art/world.png'
+    project.generated_assets = [
+        GeneratedAssetRecord(
+            kind='cassette',
+            cover_path='C:/covers/album.png',
+            asset_key='generated:cassette:abc',
+            label='album Generated',
+            inventory_full='C:/generated/inventory.png',
+            world_full='C:/generated/world.png',
+            source_name='album.png',
+        )
+    ]
     project.custom_assets = {
         'cassette': [
             {
@@ -88,6 +99,8 @@ def test_project_roundtrip_preserves_stateful_row_fields(tmp_path: Path) -> None
     assert loaded.media_rows[0].song_sort_b.direction == 'desc'
     assert loaded.media_rows[0].appearances['cassette'].selected_asset_key == 'custom:cassette:1'
     assert loaded.custom_assets['cassette'][0]['label'] == 'Custom Tape'
+    assert loaded.generated_assets[0].asset_key == 'generated:cassette:abc'
+    assert loaded.generated_assets[0].source_name == 'album.png'
     assert loaded.media_rows[1].expanded is True
 
 
@@ -136,3 +149,27 @@ def test_session_store_load_returns_default_project_for_invalid_payload(tmp_path
     assert project.compression_quality == 0.5
     assert project.reencode_existing_ogg is True
     assert len(project.media_rows) == 1
+
+
+def test_session_store_roundtrip_preserves_generated_assets(tmp_path: Path) -> None:
+    target = tmp_path / 'last_session.json'
+    project = ProjectConfig(
+        generated_assets=[
+            GeneratedAssetRecord(
+                kind='cassette',
+                cover_path='C:/covers/album.png',
+                asset_key='generated:cassette:abc',
+                label='album Generated',
+                inventory_full='C:/generated/inventory.png',
+                world_full='C:/generated/world.png',
+                source_name='album.png',
+            )
+        ]
+    )
+
+    store = SessionStore(target)
+    store.save(project, 'C:/projects/test.nmbproj.json')
+    loaded_project, current_path = store.load()
+
+    assert current_path == 'C:/projects/test.nmbproj.json'
+    assert loaded_project.generated_assets[0].asset_key == 'generated:cassette:abc'
