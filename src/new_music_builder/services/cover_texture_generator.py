@@ -177,7 +177,7 @@ def _render_cassette_world(
     base.alpha_composite(donor_outer)
     if overlay_paths:
         with Image.open(overlay_paths[0]) as overlay_source:
-            base = _multiply_overlay(base, overlay_source.convert("RGBA"))
+            base = _screen_overlay(base, overlay_source.convert("RGBA"))
     for overlay_path in overlay_paths[1:]:
         with Image.open(overlay_path) as overlay_source:
             base.alpha_composite(overlay_source.convert("RGBA"))
@@ -433,11 +433,11 @@ def _compose_inventory_layers(center_layer: Image.Image, donor_outer_layer: Imag
     return base
 
 
-def _multiply_overlay(base: Image.Image, overlay: Image.Image) -> Image.Image:
+def _screen_overlay(base: Image.Image, overlay: Image.Image) -> Image.Image:
     overlay_alpha = overlay.getchannel("A")
-    multiplied_rgb = ImageChops.multiply(base.convert("RGB"), overlay.convert("RGB")).convert("RGBA")
-    multiplied_rgb.putalpha(base.getchannel("A"))
-    return Image.composite(multiplied_rgb, base, overlay_alpha)
+    screened_rgb = ImageChops.screen(base.convert("RGB"), overlay.convert("RGB")).convert("RGBA")
+    screened_rgb.putalpha(base.getchannel("A"))
+    return Image.composite(screened_rgb, base, overlay_alpha)
 
 
 def _apply_mask_alpha(image: Image.Image, mask_alpha: Image.Image) -> Image.Image:
