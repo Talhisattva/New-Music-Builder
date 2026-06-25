@@ -60,20 +60,27 @@ class AppearancePanelShell(tk.Frame):
         )
         self.footer_pane.place(x=0, y=spec.MODULE_THREE_FOOTER_Y)
 
+        self.preview_mode_pane = BorderPane(
+            self,
+            size=spec.MODULE_THREE_PREVIEW_MODE_FULL_SIZE,
+            fill_color=fill_color,
+            border_color=border_color,
+        )
+        self.preview_mode_pane.place(x=0, y=spec.MODULE_THREE_PREVIEW_MODE_ROW_Y)
+        self.generate_button_pane = BorderPane(
+            self,
+            size=spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE,
+            fill_color=fill_color,
+            border_color=border_color,
+        )
+        self.generate_button_pane.place(x=0, y=spec.MODULE_THREE_DUAL_SPRITE_ROW_Y)
         self.dual_sprite_left_pane = BorderPane(
             self,
             size=spec.MODULE_THREE_DUAL_SPRITE_LEFT_SIZE,
             fill_color=fill_color,
             border_color=border_color,
         )
-        self.dual_sprite_left_pane.place(x=0, y=spec.MODULE_THREE_DUAL_SPRITE_ROW_Y)
-        self.preview_mode_pane = BorderPane(
-            self,
-            size=spec.MODULE_THREE_PREVIEW_MODE_ROW_SIZE,
-            fill_color=fill_color,
-            border_color=border_color,
-        )
-        self.preview_mode_pane.place(x=spec.MODULE_THREE_DUAL_SPRITE_LEFT_SIZE[0], y=spec.MODULE_THREE_DUAL_SPRITE_ROW_Y)
+        self.dual_sprite_left_pane.place(x=spec.MODULE_THREE_GENERATE_BUTTON_ROW_SIZE[0], y=spec.MODULE_THREE_DUAL_SPRITE_ROW_Y)
         self.expanded_footer_overlay = BorderPane(
             self,
             size=spec.MODULE_THREE_EXPANDED_FOOTER_OVERLAY_SIZE,

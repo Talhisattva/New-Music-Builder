@@ -3,10 +3,12 @@ from __future__ import annotations
 from collections.abc import Callable
 import tkinter as tk
 import tkinter.font as tkfont
+import customtkinter as ctk
 
 from new_music_builder.domain.models import AppearanceKind, AppearanceSelection, MediaRow
 from new_music_builder.services.asset_catalog import AssetEntry
 from new_music_builder.ui import spec
+from new_music_builder.ui.widgets.buttons import make_builder_button
 from new_music_builder.ui.widgets.appearance_entries import (
     BUILT_IN_DUAL_EMPTY_TO_FULL,
     TAB_KINDS,
@@ -442,6 +444,7 @@ class AppearanceSelector:
         self._preview_mode_toggle: PreviewModeToggle | None = None
 
         self._build_tabs()
+        self._build_generate_row()
         self._build_dual_sprite_row()
         self._build_footer()
 
@@ -519,8 +522,26 @@ class AppearanceSelector:
             anchor='w',
         )
         self._place_dual_label(label_x)
+
+    def _build_generate_row(self) -> None:
+        row_content = self.shell.generate_button_pane.content
+        self.generate_from_cover_button = make_builder_button(
+            row_content,
+            spec.MODULE_THREE_GENERATE_BUTTON_TEXT,
+            self._handle_generate_from_cover,
+            size='compact',
+        )
+        self.generate_from_cover_button.configure(
+            font=ctk.CTkFont(
+                family=spec.MODULE_THREE_GENERATE_BUTTON_FONT_FAMILY,
+                size=spec.MODULE_THREE_GENERATE_BUTTON_FONT_SIZE,
+                weight='normal',
+            ),
+            corner_radius=0,
+        )
+        self.generate_from_cover_button.place(x=0, y=0, relwidth=1.0, relheight=1.0)
         self._preview_mode_toggle = PreviewModeToggle(
-            self.shell,
+            self.shell.preview_mode_pane.content,
             left_text='INVENTORY',
             right_text='WORLD',
             left_mode='inventory',
@@ -534,7 +555,7 @@ class AppearanceSelector:
             outline_color=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_OUTLINE,
             outline_width=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_OUTLINE_WIDTH,
         )
-        self._preview_mode_toggle.place(x=spec.MODULE_THREE_DUAL_SPRITE_LEFT_SIZE[0], y=spec.MODULE_THREE_DUAL_SPRITE_ROW_Y)
+        self._preview_mode_toggle.place(x=0, y=0)
 
     def _build_footer(self) -> None:
         self.single_custom_footer = AppearanceSingleCustomFooter(
@@ -563,11 +584,15 @@ class AppearanceSelector:
         self.dual_checkbox.set_enabled(True)
         if self._preview_mode_toggle is not None:
             self._preview_mode_toggle.set_mode(self._preview_mode())
+            self._preview_mode_toggle.resize(
+                left_width=spec.MODULE_THREE_PREVIEW_MODE_INVENTORY_SIZE[0],
+                right_width=spec.MODULE_THREE_PREVIEW_MODE_WORLD_SIZE[0],
+                height=spec.MODULE_THREE_PREVIEW_MODE_ROW_SIZE[1],
+            )
+            self._preview_mode_toggle.place(x=0, y=0)
         if self._active_kind is None:
             self.dual_checkbox.place_forget()
             self.dual_label.place_forget()
-            if self._preview_mode_toggle is not None:
-                self._preview_mode_toggle.place_forget()
             return
         visible = should_show_dual_sprite_controls(self._active_kind)
         if visible:
@@ -579,37 +604,35 @@ class AppearanceSelector:
             )
             label_x = spec.MODULE_THREE_DUAL_SPRITE_CHECKBOX_POS[0] + spec.MODULE_THREE_DUAL_SPRITE_CHECKBOX_SIZE[0] + spec.MODULE_THREE_DUAL_SPRITE_LABEL_GAP_X
             self._place_dual_label(label_x)
-            if self._preview_mode_toggle is not None:
-                self._preview_mode_toggle.resize(
-                    left_width=spec.MODULE_THREE_PREVIEW_MODE_INVENTORY_SIZE[0],
-                    right_width=spec.MODULE_THREE_PREVIEW_MODE_WORLD_SIZE[0],
-                    height=spec.MODULE_THREE_PREVIEW_MODE_ROW_SIZE[1],
-                )
-                self._preview_mode_toggle.place_configure(
-                    x=spec.MODULE_THREE_DUAL_SPRITE_LEFT_SIZE[0],
-                    y=spec.MODULE_THREE_DUAL_SPRITE_ROW_Y,
-                )
-                self._preview_mode_toggle.place(
-                    x=spec.MODULE_THREE_DUAL_SPRITE_LEFT_SIZE[0],
-                    y=spec.MODULE_THREE_DUAL_SPRITE_ROW_Y,
-                )
+            self.generate_from_cover_button.configure(
+                font=ctk.CTkFont(
+                    family=spec.MODULE_THREE_GENERATE_BUTTON_FONT_FAMILY,
+                    size=spec.MODULE_THREE_GENERATE_BUTTON_HALF_FONT_SIZE,
+                    weight='normal',
+                ),
+            )
+            self.generate_from_cover_button.place_configure(
+                x=0,
+                y=0,
+                width=spec.MODULE_THREE_GENERATE_BUTTON_ROW_SIZE[0] - (spec.MODULE_THREE_PANEL_BORDER_WIDTH * 2),
+                height=spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE[1] - (spec.MODULE_THREE_PANEL_BORDER_WIDTH * 2),
+            )
         else:
             self.dual_checkbox.place_forget()
             self.dual_label.place_forget()
-            if self._preview_mode_toggle is not None:
-                self._preview_mode_toggle.resize(
-                    left_width=spec.MODULE_THREE_DUAL_SPRITE_LEFT_SIZE[0],
-                    right_width=spec.MODULE_THREE_PREVIEW_MODE_ROW_SIZE[0],
-                    height=spec.MODULE_THREE_PREVIEW_MODE_ROW_SIZE[1],
-                )
-                self._preview_mode_toggle.place_configure(
-                    x=0,
-                    y=spec.MODULE_THREE_DUAL_SPRITE_ROW_Y,
-                )
-                self._preview_mode_toggle.place(
-                    x=0,
-                    y=spec.MODULE_THREE_DUAL_SPRITE_ROW_Y,
-                )
+            self.generate_from_cover_button.configure(
+                font=ctk.CTkFont(
+                    family=spec.MODULE_THREE_GENERATE_BUTTON_FONT_FAMILY,
+                    size=spec.MODULE_THREE_GENERATE_BUTTON_FONT_SIZE,
+                    weight='normal',
+                ),
+            )
+            self.generate_from_cover_button.place_configure(
+                x=0,
+                y=0,
+                width=spec.MODULE_THREE_CONTENT_SIZE[0] - (spec.MODULE_THREE_PANEL_BORDER_WIDTH * 2),
+                height=spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE[1] - (spec.MODULE_THREE_PANEL_BORDER_WIDTH * 2),
+            )
 
     def _refresh_footer(self) -> None:
         if self._active_kind is None:
@@ -829,6 +852,9 @@ class AppearanceSelector:
             return
         if self._on_preview_mode_selected is not None:
             self._on_preview_mode_selected(row.row_id, mode)
+
+    def _handle_generate_from_cover(self) -> None:
+        return
 
     def _normalize_active_kind(self, visible_kinds: tuple[AppearanceKind, ...]) -> None:
         if not visible_kinds:
