@@ -37,7 +37,7 @@ from new_music_builder.platform.paths import app_root, assets_root
 from new_music_builder.platform.paths import detect_workshop_dir, open_folder
 from new_music_builder.services.asset_catalog import AssetCatalog
 from new_music_builder.services.build_event_pump import BuildEventPump
-from new_music_builder.services.cover_texture_generator import generate_cassette_textures_from_cover
+from new_music_builder.services.cover_texture_generator import generate_cassette_textures_from_cover, generate_vinyl_textures_from_cover
 from new_music_builder.services.export_build_runner import run_staged_export
 from new_music_builder.services.export_planning import build_export_plan, build_preview_scenario
 from new_music_builder.services.export_scaffold import (
@@ -1243,24 +1243,27 @@ class MainWindow(_DnDCompat, ctk.CTk):
         if self._is_build_locked():
             return
         target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
-        if target_row is None or kind != 'cassette':
-            return
-        donor_inventory_path = self._module_three_selected_path_for_row(target_row, kind, 'inventory')
-        if not donor_inventory_path:
-            self._append_generated_asset_failure_log(target_row.cover_path, "donor cassette shell was unavailable")
-            return
-        donor_world_path = self._module_three_selected_path_for_row(target_row, kind, 'world')
-        if not donor_world_path:
-            self._append_generated_asset_failure_log(target_row.cover_path, "donor cassette world shell was unavailable")
+        if target_row is None or kind not in {'cassette', 'vinyl'}:
             return
         try:
-            result = generate_cassette_textures_from_cover(
-                target_row.cover_path,
-                donor_inventory_path=donor_inventory_path,
-                donor_world_path=donor_world_path,
-            )
+            if kind == 'cassette':
+                donor_inventory_path = self._module_three_selected_path_for_row(target_row, kind, 'inventory')
+                if not donor_inventory_path:
+                    self._append_generated_asset_failure_log(target_row.cover_path, "donor cassette shell was unavailable")
+                    return
+                donor_world_path = self._module_three_selected_path_for_row(target_row, kind, 'world')
+                if not donor_world_path:
+                    self._append_generated_asset_failure_log(target_row.cover_path, "donor cassette world shell was unavailable")
+                    return
+                result = generate_cassette_textures_from_cover(
+                    target_row.cover_path,
+                    donor_inventory_path=donor_inventory_path,
+                    donor_world_path=donor_world_path,
+                )
+            else:
+                result = generate_vinyl_textures_from_cover(target_row.cover_path)
         except Exception as exc:
-            LOGGER.exception("Failed to generate cassette textures from %s", target_row.cover_path)
+            LOGGER.exception("Failed to generate %s textures from %s", kind, target_row.cover_path)
             self._append_generated_asset_failure_log(target_row.cover_path, str(exc))
             return
         record = upsert_generated_asset_record(self.session.project, result.record)

@@ -81,6 +81,37 @@ def test_can_generate_cover_for_kind_requires_cassette_cover_and_no_existing_gen
     assert can_generate_cover_for_kind(project, row, "cassette") is False
 
 
+def test_can_generate_cover_for_kind_allows_vinyl_cover_and_blocks_existing_generation(tmp_path: Path) -> None:
+    cover_path = tmp_path / "cover.png"
+    Image.new("RGBA", (300, 300), (255, 0, 0, 255)).save(cover_path)
+    inventory_path = tmp_path / "inventory.png"
+    world_path = tmp_path / "world.png"
+    Image.new("RGBA", (32, 32), (255, 255, 255, 255)).save(inventory_path)
+    Image.new("RGBA", (256, 256), (255, 255, 255, 255)).save(world_path)
+
+    row = default_media_row(1)
+    project = ProjectConfig(media_rows=[row])
+
+    assert can_generate_cover_for_kind(project, row, "vinyl") is False
+
+    row.cover_path = str(cover_path)
+    assert can_generate_cover_for_kind(project, row, "vinyl") is True
+
+    upsert_generated_asset_record(
+        project,
+        GeneratedAssetRecord(
+            kind="vinyl",
+            cover_path=str(cover_path),
+            asset_key="generated:vinyl:abc",
+            label="cover Generated",
+            inventory_full=str(inventory_path),
+            world_full=str(world_path),
+            source_name="cover.png",
+        ),
+    )
+    assert can_generate_cover_for_kind(project, row, "vinyl") is False
+
+
 def test_remove_generated_cover_set_removes_all_records_for_same_cover(tmp_path: Path) -> None:
     first_cover = tmp_path / "cover-a.png"
     second_cover = tmp_path / "cover-b.png"

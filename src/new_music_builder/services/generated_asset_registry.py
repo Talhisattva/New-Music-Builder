@@ -141,7 +141,7 @@ def can_generate_cover_for_kind(
     row: MediaRow | None,
     kind: AppearanceKind | None,
 ) -> bool:
-    if row is None or kind != "cassette":
+    if row is None or kind not in {"cassette", "vinyl"}:
         return False
     normalized_cover = normalize_cover_path(row.cover_path)
     if not normalized_cover or not Path(normalized_cover).is_file():

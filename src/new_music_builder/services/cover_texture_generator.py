@@ -40,6 +40,7 @@ CASSETTE_INVENTORY_PRESET = InventoryWarpPreset(
 )
 
 WORLD_OVERLAY_SECOND_MULTIPLY_RATIO = 0.50
+VINYL_OVERLAY_SECOND_MULTIPLY_RATIO = 0.50
 
 
 def generate_cassette_textures_from_cover(
@@ -116,6 +117,65 @@ def generate_cassette_textures_from_cover(
     return CoverGenerationResult(record=record, successful_outputs=2, total_outputs=2)
 
 
+def generate_vinyl_textures_from_cover(
+    cover_path: str | Path,
+    *,
+    mask_root: Path | None = None,
+    output_root: Path | None = None,
+) -> CoverGenerationResult:
+    normalized_cover = normalize_cover_path(cover_path)
+    if not normalized_cover:
+        raise FileNotFoundError("Cover image was not provided.")
+
+    source_path = Path(normalized_cover)
+    if not source_path.is_file():
+        raise FileNotFoundError(f"Cover image was not found: {source_path}")
+
+    resolved_mask_root = mask_root or (assets_root() / "Mask")
+    resolved_output_root = output_root or generated_textures_root()
+    cover_id = build_generated_cover_id(normalized_cover)
+    vinyl_output_root = resolved_output_root / "Vinyl" / cover_id
+    vinyl_output_root.mkdir(parents=True, exist_ok=True)
+
+    inventory_mask = resolved_mask_root / "Inventory" / "Vinyl" / "Item_NM_Vinyl_Mask.png"
+    inventory_outer = resolved_mask_root / "Inventory" / "Vinyl" / "Item_NM_Vinyl_Outer.png"
+    inventory_overlay = resolved_mask_root / "Inventory" / "Vinyl" / "Item_NM_Vinyl_Overlay.png"
+    world_mask = resolved_mask_root / "World" / "Vinyl" / "World_NM_Vinyl_Mask.png"
+    world_outer = resolved_mask_root / "World" / "Vinyl" / "World_NM_Vinyl_Outer.png"
+    world_overlay = resolved_mask_root / "World" / "Vinyl" / "World_NM_Vinyl_Overlay.png"
+
+    inventory_output = vinyl_output_root / "Item_NM_Vinyl_Generated.png"
+    world_output = vinyl_output_root / "World_NM_Vinyl_Generated.png"
+
+    _render_single_mask_composite(
+        source_path=source_path,
+        mask_path=inventory_mask,
+        outer_path=inventory_outer,
+        overlay_paths=(inventory_overlay,),
+        overlay_second_pass_ratio=VINYL_OVERLAY_SECOND_MULTIPLY_RATIO,
+        output_path=inventory_output,
+    )
+    _render_single_mask_composite(
+        source_path=source_path,
+        mask_path=world_mask,
+        outer_path=world_outer,
+        overlay_paths=(world_overlay,),
+        overlay_second_pass_ratio=VINYL_OVERLAY_SECOND_MULTIPLY_RATIO,
+        output_path=world_output,
+    )
+
+    record = GeneratedAssetRecord(
+        kind="vinyl",
+        cover_path=normalized_cover,
+        asset_key=build_generated_asset_key("vinyl", normalized_cover),
+        label=f"{source_path.stem} Generated",
+        inventory_full=str(inventory_output),
+        world_full=str(world_output),
+        source_name=source_path.name,
+    )
+    return CoverGenerationResult(record=record, successful_outputs=2, total_outputs=2)
+
+
 def _render_cassette_inventory(
     *,
     source_path: Path,
@@ -183,6 +243,41 @@ def _render_cassette_world(
                 base,
                 overlay_source.convert("RGBA"),
                 second_pass_ratio=WORLD_OVERLAY_SECOND_MULTIPLY_RATIO,
+            )
+    for overlay_path in overlay_paths[1:]:
+        with Image.open(overlay_path) as overlay_source:
+            base.alpha_composite(overlay_source.convert("RGBA"))
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    base.save(output_path)
+
+
+def _render_single_mask_composite(
+    *,
+    source_path: Path,
+    mask_path: Path,
+    outer_path: Path,
+    overlay_paths: tuple[Path, ...],
+    overlay_second_pass_ratio: float,
+    output_path: Path,
+) -> None:
+    with Image.open(mask_path) as mask_source:
+        mask_image = mask_source.convert("RGBA")
+    mask_alpha = _alpha_mask(mask_image)
+    masked_cover = _build_masked_cover_from_mask_alpha(
+        source_path=source_path,
+        size=mask_image.size,
+        mask_alpha=mask_alpha,
+    )
+    base = Image.new("RGBA", masked_cover.size, (0, 0, 0, 0))
+    base.alpha_composite(masked_cover)
+    with Image.open(outer_path) as outer_source:
+        base.alpha_composite(outer_source.convert("RGBA"))
+    if overlay_paths:
+        with Image.open(overlay_paths[0]) as overlay_source:
+            base = _multiply_with_second_pass(
+                base,
+                overlay_source.convert("RGBA"),
+                second_pass_ratio=overlay_second_pass_ratio,
             )
     for overlay_path in overlay_paths[1:]:
         with Image.open(overlay_path) as overlay_source:

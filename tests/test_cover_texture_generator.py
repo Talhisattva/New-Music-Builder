@@ -14,6 +14,7 @@ from new_music_builder.services.cover_texture_generator import (
     _multiply_with_second_pass,
     _prepare_square_source,
     WORLD_OVERLAY_SECOND_MULTIPLY_RATIO,
+    generate_vinyl_textures_from_cover,
     generate_cassette_textures_from_cover,
 )
 
@@ -51,6 +52,30 @@ def test_generate_cassette_textures_from_cover_writes_expected_outputs(tmp_path:
     assert world.mode == "RGBA"
 
 
+def test_generate_vinyl_textures_from_cover_writes_expected_outputs(tmp_path: Path) -> None:
+    cover_path = tmp_path / "cover.png"
+    Image.new("RGBA", (500, 500), (255, 0, 0, 255)).save(cover_path)
+
+    result = generate_vinyl_textures_from_cover(
+        cover_path,
+        mask_root=ASSETS_ROOT / "Mask",
+        output_root=tmp_path / "Generated Textures",
+    )
+
+    assert result.successful_outputs == 2
+    assert result.total_outputs == 2
+    assert Path(result.record.inventory_full).is_file()
+    assert Path(result.record.world_full).is_file()
+    assert result.record.asset_key.startswith("generated:vinyl:")
+
+    inventory = Image.open(result.record.inventory_full)
+    world = Image.open(result.record.world_full)
+    assert inventory.size == (32, 32)
+    assert world.size == (256, 256)
+    assert inventory.mode == "RGBA"
+    assert world.mode == "RGBA"
+
+
 def test_generate_cassette_textures_from_rectangular_cover_keeps_outputs_valid(tmp_path: Path) -> None:
     cover_path = tmp_path / "wide-cover.png"
     donor_path = tmp_path / "donor.png"
@@ -71,6 +96,24 @@ def test_generate_cassette_textures_from_rectangular_cover_keeps_outputs_valid(t
     world = Image.open(result.record.world_full)
     assert inventory.size == (32, 32)
     assert world.size == (256, 156)
+    assert inventory.getbbox() is not None
+    assert world.getbbox() is not None
+
+
+def test_generate_vinyl_textures_from_rectangular_cover_keeps_outputs_valid(tmp_path: Path) -> None:
+    cover_path = tmp_path / "wide-cover.png"
+    Image.new("RGBA", (700, 400), (20, 140, 220, 255)).save(cover_path)
+
+    result = generate_vinyl_textures_from_cover(
+        cover_path,
+        mask_root=ASSETS_ROOT / "Mask",
+        output_root=tmp_path / "Generated Textures",
+    )
+
+    inventory = Image.open(result.record.inventory_full)
+    world = Image.open(result.record.world_full)
+    assert inventory.size == (32, 32)
+    assert world.size == (256, 256)
     assert inventory.getbbox() is not None
     assert world.getbbox() is not None
 
