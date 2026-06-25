@@ -39,6 +39,8 @@ CASSETTE_INVENTORY_PRESET = InventoryWarpPreset(
     right_edge_vertical_inset_ratio=0.25,
 )
 
+WORLD_OVERLAY_SCREEN_LIFT_RATIO = 0.10
+
 
 def generate_cassette_textures_from_cover(
     cover_path: str | Path,
@@ -177,7 +179,11 @@ def _render_cassette_world(
     base.alpha_composite(donor_outer)
     if overlay_paths:
         with Image.open(overlay_paths[0]) as overlay_source:
-            base = _screen_overlay(base, overlay_source.convert("RGBA"))
+            base = _multiply_then_screen_overlay(
+                base,
+                overlay_source.convert("RGBA"),
+                screen_ratio=WORLD_OVERLAY_SCREEN_LIFT_RATIO,
+            )
     for overlay_path in overlay_paths[1:]:
         with Image.open(overlay_path) as overlay_source:
             base.alpha_composite(overlay_source.convert("RGBA"))
@@ -433,11 +439,33 @@ def _compose_inventory_layers(center_layer: Image.Image, donor_outer_layer: Imag
     return base
 
 
+def _multiply_overlay(base: Image.Image, overlay: Image.Image) -> Image.Image:
+    overlay_alpha = overlay.getchannel("A")
+    multiplied_rgb = ImageChops.multiply(base.convert("RGB"), overlay.convert("RGB")).convert("RGBA")
+    multiplied_rgb.putalpha(base.getchannel("A"))
+    return Image.composite(multiplied_rgb, base, overlay_alpha)
+
+
 def _screen_overlay(base: Image.Image, overlay: Image.Image) -> Image.Image:
     overlay_alpha = overlay.getchannel("A")
     screened_rgb = ImageChops.screen(base.convert("RGB"), overlay.convert("RGB")).convert("RGBA")
     screened_rgb.putalpha(base.getchannel("A"))
     return Image.composite(screened_rgb, base, overlay_alpha)
+
+
+def _multiply_then_screen_overlay(
+    base: Image.Image,
+    overlay: Image.Image,
+    *,
+    screen_ratio: float,
+) -> Image.Image:
+    multiplied = _multiply_overlay(base, overlay)
+    if screen_ratio <= 0.0:
+        return multiplied
+    screened = _screen_overlay(base, overlay)
+    blended = Image.blend(multiplied.convert("RGB"), screened.convert("RGB"), max(0.0, min(1.0, screen_ratio))).convert("RGBA")
+    blended.putalpha(base.getchannel("A"))
+    return blended
 
 
 def _apply_mask_alpha(image: Image.Image, mask_alpha: Image.Image) -> Image.Image:

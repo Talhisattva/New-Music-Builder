@@ -5,13 +5,15 @@ from PIL import Image
 
 from new_music_builder.services.cover_texture_generator import (
     CASSETTE_INVENTORY_PRESET,
+    WORLD_OVERLAY_SCREEN_LIFT_RATIO,
     _apply_inventory_warp,
     _alpha_mask,
     _build_inventory_transformed_cover,
     _fit_cover_to_mask_width,
     _mask_region_is_fully_covered,
+    _multiply_overlay,
+    _multiply_then_screen_overlay,
     _prepare_square_source,
-    _screen_overlay,
     generate_cassette_textures_from_cover,
 )
 
@@ -130,18 +132,26 @@ def test_fit_cover_to_mask_width_reaches_world_inner_mask_edges(tmp_path: Path) 
     assert fitted_alpha.getpixel((right_x, mask_center_y)) > 0
 
 
-def test_screen_overlay_only_affects_masked_overlay_region() -> None:
+def test_multiply_then_screen_overlay_only_affects_masked_overlay_region() -> None:
     base = Image.new("RGBA", (4, 1), (120, 80, 40, 255))
     overlay = Image.new("RGBA", (4, 1), (128, 128, 128, 0))
     overlay.putpixel((1, 0), (128, 128, 128, 255))
 
-    result = _screen_overlay(base, overlay)
+    result = _multiply_then_screen_overlay(base, overlay, screen_ratio=WORLD_OVERLAY_SCREEN_LIFT_RATIO)
+    multiplied = _multiply_overlay(base, overlay)
 
     assert result.getpixel((0, 0)) == (120, 80, 40, 255)
     changed = result.getpixel((1, 0))
-    assert changed[0] > 120
-    assert changed[1] > 80
-    assert changed[2] > 40
+    multiplied_pixel = multiplied.getpixel((1, 0))
+    assert multiplied_pixel[0] < 120
+    assert multiplied_pixel[1] < 80
+    assert multiplied_pixel[2] < 40
+    assert changed[0] > multiplied_pixel[0]
+    assert changed[1] > multiplied_pixel[1]
+    assert changed[2] > multiplied_pixel[2]
+    assert changed[0] < 120
+    assert changed[1] < 80
+    assert changed[2] < 40
 
 
 def test_generate_cassette_textures_from_cover_uses_donor_shell_on_outer_region(tmp_path: Path) -> None:
