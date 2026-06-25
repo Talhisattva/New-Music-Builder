@@ -1,4 +1,7 @@
+from pathlib import Path
+
 from new_music_builder.services.asset_catalog import AssetEntry
+from new_music_builder.domain.models import default_media_row
 from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.appearance_entries import AppearanceGridEntry
 from new_music_builder.ui.widgets.appearance_selector import (
@@ -7,6 +10,7 @@ from new_music_builder.ui.widgets.appearance_selector import (
     can_commit_dual_custom,
     can_commit_single_custom,
     fallback_selected_asset_key_after_delete,
+    generate_button_text_for_state,
     merge_appearance_grid_entries,
     should_show_dual_sprite_controls,
     visible_tab_kinds_for_enabled_media,
@@ -322,3 +326,40 @@ def test_merge_appearance_grid_entries_places_generated_before_custom_and_not_de
     assert merged[1].is_custom is False
     assert merged[1].is_generated is True
     assert merged[2].is_custom is True
+
+
+def test_generate_button_text_for_state_blanks_when_disabled_for_existing_cover_generation(tmp_path: Path) -> None:
+    row = default_media_row(1)
+    cover_path = tmp_path / 'cover.png'
+    cover_path.write_bytes(b'cover')
+    row.cover_path = str(cover_path)
+
+    assert generate_button_text_for_state(
+        locked=False,
+        row=row,
+        kind='cassette',
+        enabled=False,
+    ) == ''
+
+
+def test_generate_button_text_for_state_keeps_label_for_general_disabled_cases() -> None:
+    row = default_media_row(1)
+
+    assert generate_button_text_for_state(
+        locked=True,
+        row=row,
+        kind='cassette',
+        enabled=False,
+    ) == 'GENERATE FROM COVER'
+    assert generate_button_text_for_state(
+        locked=False,
+        row=row,
+        kind='vinyl',
+        enabled=False,
+    ) == 'GENERATE FROM COVER'
+    assert generate_button_text_for_state(
+        locked=False,
+        row=row,
+        kind='cassette',
+        enabled=True,
+    ) == 'GENERATE FROM COVER'

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from pathlib import Path
 import tkinter as tk
 import tkinter.font as tkfont
 import customtkinter as ctk
@@ -29,6 +30,23 @@ from new_music_builder.ui.widgets.cursor_tooltip import CursorTooltip
 from new_music_builder.ui.widgets.images import load_tk_photoimage_contained
 from new_music_builder.ui.widgets.loading_overlay import LoadingOverlay
 from new_music_builder.ui.widgets.preview_mode_toggle import PreviewModeToggle
+
+
+def generate_button_text_for_state(
+    *,
+    locked: bool,
+    row: MediaRow | None,
+    kind: AppearanceKind | None,
+    enabled: bool,
+) -> str:
+    if enabled:
+        return 'GENERATE FROM COVER'
+    if locked or row is None or kind != 'cassette':
+        return 'GENERATE FROM COVER'
+    cover_path = str(row.cover_path or '').strip()
+    if cover_path and Path(cover_path).is_file():
+        return ''
+    return 'GENERATE FROM COVER'
 
 
 class _BorderSurface(tk.Frame):
@@ -893,6 +911,12 @@ class AppearanceSelector:
 
     def _refresh_generate_button_state(self) -> None:
         enabled = (not self._locked) and self._can_generate_from_cover(self._active_row, self._active_kind)
+        button_text = generate_button_text_for_state(
+            locked=self._locked,
+            row=self._active_row,
+            kind=self._active_kind,
+            enabled=enabled,
+        )
         if enabled:
             self.generate_from_cover_button.configure(
                 state='normal',
@@ -901,6 +925,7 @@ class AppearanceSelector:
                 border_color=theme.ACCENT_DARK,
                 text_color=theme.BUTTON_TEXT,
                 text_color_disabled=theme.BUTTON_TEXT,
+                text=button_text,
             )
             return
         self.generate_from_cover_button.configure(
@@ -910,6 +935,7 @@ class AppearanceSelector:
             border_color='#706b73',
             text_color=theme.BUTTON_TEXT,
             text_color_disabled='#a9a5ab',
+            text=button_text,
         )
 
     def _normalize_active_kind(self, visible_kinds: tuple[AppearanceKind, ...]) -> None:
