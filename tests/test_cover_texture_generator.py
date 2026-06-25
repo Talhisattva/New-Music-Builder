@@ -10,6 +10,7 @@ from new_music_builder.services.cover_texture_generator import (
     _build_inventory_transformed_cover,
     _fit_cover_to_mask_width,
     _mask_region_is_fully_covered,
+    _multiply_overlay,
     _prepare_square_source,
     generate_cassette_textures_from_cover,
 )
@@ -127,6 +128,20 @@ def test_fit_cover_to_mask_width_reaches_world_inner_mask_edges(tmp_path: Path) 
     fitted_alpha = fitted.getchannel("A")
     assert fitted_alpha.getpixel((left_x, mask_center_y)) > 0
     assert fitted_alpha.getpixel((right_x, mask_center_y)) > 0
+
+
+def test_multiply_overlay_only_affects_masked_overlay_region() -> None:
+    base = Image.new("RGBA", (4, 1), (200, 100, 50, 255))
+    overlay = Image.new("RGBA", (4, 1), (128, 128, 128, 0))
+    overlay.putpixel((1, 0), (128, 128, 128, 255))
+
+    result = _multiply_overlay(base, overlay)
+
+    assert result.getpixel((0, 0)) == (200, 100, 50, 255)
+    changed = result.getpixel((1, 0))
+    assert changed[0] < 200
+    assert changed[1] < 100
+    assert changed[2] < 50
 
 
 def test_generate_cassette_textures_from_cover_uses_donor_shell_on_outer_region(tmp_path: Path) -> None:

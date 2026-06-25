@@ -166,7 +166,10 @@ def _render_cassette_world(
         mask_alpha=_subtract_mask_alpha(outer_alpha, mask_alpha),
     )
     base = _compose_inventory_layers(masked_cover, donor_outer)
-    for overlay_path in overlay_paths:
+    if overlay_paths:
+        with Image.open(overlay_paths[0]) as overlay_source:
+            base = _multiply_overlay(base, overlay_source.convert("RGBA"))
+    for overlay_path in overlay_paths[1:]:
         with Image.open(overlay_path) as overlay_source:
             base.alpha_composite(overlay_source.convert("RGBA"))
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -423,6 +426,13 @@ def _compose_inventory_layers(center_layer: Image.Image, donor_outer_layer: Imag
 
 def _subtract_mask_alpha(base_mask_alpha: Image.Image, cutout_mask_alpha: Image.Image) -> Image.Image:
     return ImageChops.subtract(base_mask_alpha, cutout_mask_alpha)
+
+
+def _multiply_overlay(base: Image.Image, overlay: Image.Image) -> Image.Image:
+    overlay_alpha = overlay.getchannel("A")
+    multiplied_rgb = ImageChops.multiply(base.convert("RGB"), overlay.convert("RGB")).convert("RGBA")
+    multiplied_rgb.putalpha(base.getchannel("A"))
+    return Image.composite(multiplied_rgb, base, overlay_alpha)
 
 
 def _apply_mask_alpha(image: Image.Image, mask_alpha: Image.Image) -> Image.Image:
