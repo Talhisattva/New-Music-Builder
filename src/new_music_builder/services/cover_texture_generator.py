@@ -420,7 +420,7 @@ def _render_case_world(
     with Image.open(mask_path) as mask_source:
         mask_image = mask_source.convert("RGBA")
     mask_alpha = _alpha_mask(mask_image)
-    masked_cover = _build_masked_cover_from_mask_alpha(
+    masked_cover = _build_masked_cover_to_mask_height(
         source_path=source_path,
         size=mask_image.size,
         mask_alpha=mask_alpha,
@@ -479,6 +479,16 @@ def _build_masked_cover_from_mask_alpha(
     mask_alpha: Image.Image,
 ) -> Image.Image:
     fitted_cover = _fit_cover_to_mask_width(source_path, size, mask_alpha)
+    return _apply_mask_alpha(fitted_cover, mask_alpha)
+
+
+def _build_masked_cover_to_mask_height(
+    *,
+    source_path: Path,
+    size: tuple[int, int],
+    mask_alpha: Image.Image,
+) -> Image.Image:
+    fitted_cover = _fit_cover_to_mask_height(source_path, size, mask_alpha)
     return _apply_mask_alpha(fitted_cover, mask_alpha)
 
 
@@ -692,6 +702,33 @@ def _fit_cover_to_mask_width(
     bbox = mask_alpha.getbbox()
     target_width = size[0] if bbox is None else max(1, bbox[2] - bbox[0])
     resized = square.resize((target_width, target_width), Image.Resampling.LANCZOS)
+    fitted = Image.new("RGBA", size, (0, 0, 0, 0))
+    if bbox is None:
+        paste_x = (size[0] - resized.width) // 2
+        paste_y = (size[1] - resized.height) // 2
+    else:
+        mask_center_x = (bbox[0] + bbox[2]) // 2
+        mask_center_y = (bbox[1] + bbox[3]) // 2
+        paste_x = mask_center_x - (resized.width // 2)
+        paste_y = mask_center_y - (resized.height // 2)
+    fitted.paste(resized, (paste_x, paste_y), resized)
+    return fitted
+
+
+def _fit_cover_to_mask_height(
+    source_path: Path,
+    size: tuple[int, int],
+    mask_alpha: Image.Image,
+) -> Image.Image:
+    with Image.open(source_path) as source_image:
+        source = source_image.convert("RGBA")
+    crop_size = min(source.width, source.height)
+    left = (source.width - crop_size) // 2
+    top = (source.height - crop_size) // 2
+    square = source.crop((left, top, left + crop_size, top + crop_size))
+    bbox = mask_alpha.getbbox()
+    target_height = size[1] if bbox is None else max(1, bbox[3] - bbox[1])
+    resized = square.resize((target_height, target_height), Image.Resampling.LANCZOS)
     fitted = Image.new("RGBA", size, (0, 0, 0, 0))
     if bbox is None:
         paste_x = (size[0] - resized.width) // 2

@@ -13,6 +13,7 @@ from new_music_builder.services.cover_texture_generator import (
     _build_inventory_transformed_cover,
     _build_case_inventory_masked_cover,
     _fit_cover_to_target_region,
+    _fit_cover_to_mask_height,
     _fit_cover_to_mask_width,
     _mask_region_is_fully_covered,
     _multiply_overlay,
@@ -284,6 +285,28 @@ def test_fit_cover_to_mask_width_reaches_world_inner_mask_edges(tmp_path: Path) 
     fitted_alpha = fitted.getchannel("A")
     assert fitted_alpha.getpixel((left_x, mask_center_y)) > 0
     assert fitted_alpha.getpixel((right_x, mask_center_y)) > 0
+
+
+def test_fit_cover_to_mask_height_reaches_case_world_inner_mask_top_and_bottom(tmp_path: Path) -> None:
+    cover_path = tmp_path / "cover.png"
+    Image.new("RGBA", (540, 540), (255, 0, 0, 255)).save(cover_path)
+    mask_path = ASSETS_ROOT / "Mask" / "World" / "CassetteCase" / "World_NM_CassetteCase_Mask.png"
+
+    with Image.open(mask_path) as mask_source:
+        mask_alpha = _alpha_mask(mask_source.convert("RGBA"))
+    fitted = _fit_cover_to_mask_height(cover_path, mask_alpha.size, mask_alpha)
+    bbox = mask_alpha.getbbox()
+    assert bbox is not None
+
+    mask_center_x = (bbox[0] + bbox[2]) // 2
+    visible_y = [y for y in range(mask_alpha.height) if mask_alpha.getpixel((mask_center_x, y)) > 0]
+    assert visible_y
+    top_y = visible_y[0]
+    bottom_y = visible_y[-1]
+
+    fitted_alpha = fitted.getchannel("A")
+    assert fitted_alpha.getpixel((mask_center_x, top_y)) > 0
+    assert fitted_alpha.getpixel((mask_center_x, bottom_y)) > 0
 
 
 def test_multiply_with_second_pass_only_affects_masked_overlay_region() -> None:
