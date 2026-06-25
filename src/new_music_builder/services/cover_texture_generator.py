@@ -39,7 +39,7 @@ CASSETTE_INVENTORY_PRESET = InventoryWarpPreset(
     right_edge_vertical_inset_ratio=0.25,
 )
 CASE_INVENTORY_PRESET = InventoryWarpPreset(
-    rotation_degrees=4.0,
+    rotation_degrees=-4.0,
     initial_scale_ratio=1.10,
     max_scale_ratio=1.80,
     scale_step_ratio=0.08,
