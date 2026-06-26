@@ -31,12 +31,10 @@ class InventoryWarpPreset:
 
 
 @dataclass(frozen=True, slots=True)
-class InventoryFacePreset:
+class InventoryShearPreset:
     initial_edge: int
     max_edge: int
-    top_left_inset_ratio: float
-    right_edge_inset_ratio: float
-    bottom_right_inset_ratio: float
+    shear_degrees: float
     edge_step: int = 1
     coverage_alpha_threshold: int = 8
 
@@ -49,12 +47,10 @@ CASSETTE_INVENTORY_PRESET = InventoryWarpPreset(
     right_edge_inset_ratio=0.46,
     right_edge_vertical_inset_ratio=0.25,
 )
-CASE_INVENTORY_PRESET = InventoryFacePreset(
+CASE_INVENTORY_PRESET = InventoryShearPreset(
     initial_edge=23,
     max_edge=40,
-    top_left_inset_ratio=0.18,
-    right_edge_inset_ratio=0.22,
-    bottom_right_inset_ratio=0.30,
+    shear_degrees=20.0,
 )
 
 WORLD_OVERLAY_SECOND_MULTIPLY_RATIO = 0.50
@@ -472,7 +468,7 @@ def _build_case_inventory_masked_cover(
     mask_size: tuple[int, int],
     mask_alpha: Image.Image,
 ) -> Image.Image:
-    transformed = _build_inventory_faced_cover(
+    transformed = _build_inventory_sheared_cover(
         source_path=source_path,
         mask_size=mask_size,
         mask_alpha=mask_alpha,
@@ -555,18 +551,18 @@ def _build_inventory_transformed_cover(
     )
 
 
-def _build_inventory_faced_cover(
+def _build_inventory_sheared_cover(
     *,
     source_path: Path,
     mask_size: tuple[int, int],
     mask_alpha: Image.Image,
-    preset: InventoryFacePreset,
+    preset: InventoryShearPreset,
 ) -> Image.Image:
     edge = max(1, preset.initial_edge)
     max_edge = max(edge, preset.max_edge)
     while edge <= max_edge:
         square_source = _prepare_square_source(source_path, edge)
-        sheared = _apply_inventory_face_transform(square_source, preset)
+        sheared = _apply_inventory_shear(square_source, preset)
         placed = _place_transformed_cover_on_canvas(
             sheared,
             mask_size,
@@ -577,7 +573,7 @@ def _build_inventory_faced_cover(
             return placed
         edge += max(1, preset.edge_step)
     square_source = _prepare_square_source(source_path, max_edge)
-    sheared = _apply_inventory_face_transform(square_source, preset)
+    sheared = _apply_inventory_shear(square_source, preset)
     return _place_transformed_cover_on_canvas(
         sheared,
         mask_size,
@@ -620,31 +616,23 @@ def _apply_inventory_warp(image: Image.Image, preset: InventoryWarpPreset) -> Im
     )
 
 
-def _apply_inventory_face_transform(image: Image.Image, preset: InventoryFacePreset) -> Image.Image:
+def _apply_inventory_shear(image: Image.Image, preset: InventoryShearPreset) -> Image.Image:
+    shear_ratio = preset.shear_degrees / 180.0
     width, height = image.size
-    top_left_inset = max(1, int(round(height * preset.top_left_inset_ratio)))
-    right_edge_inset = max(1, int(round(width * preset.right_edge_inset_ratio)))
-    bottom_right_inset = max(1, int(round(height * preset.bottom_right_inset_ratio)))
-    source_quad = (
-        (0.0, 0.0),
-        (float(width), 0.0),
-        (float(width), float(height)),
-        (0.0, float(height)),
-    )
-    destination_quad = (
-        (0.0, float(top_left_inset)),
-        (float(width - right_edge_inset), 0.0),
-        (float(width - right_edge_inset), float(height - bottom_right_inset)),
-        (0.0, float(height)),
-    )
-    coefficients = _find_perspective_coefficients(source_quad, destination_quad)
-    return image.transform(
-        (width, height),
-        Image.Transform.PERSPECTIVE,
-        coefficients,
+    vertical_offset = max(1, int(round(abs(shear_ratio) * width)))
+    output_height = height + vertical_offset
+    output = Image.new("RGBA", (width, output_height), (0, 0, 0, 0))
+    # Positive shear drops the right edge downward while keeping the left edge anchored.
+    data = (1.0, 0.0, 0.0, shear_ratio, 1.0, 0.0)
+    pasted = image.transform(
+        (width, output_height),
+        Image.Transform.AFFINE,
+        data,
         resample=Image.Resampling.BICUBIC,
         fillcolor=(0, 0, 0, 0),
     )
+    output.alpha_composite(pasted)
+    return output
 
 
 def _apply_perspective_warp(
