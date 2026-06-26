@@ -105,7 +105,7 @@ class ProjectConfig:
     parent_mod_id: str = "NewMusic"
     author: str = ""
     workshop_poster_path: str = ""
-    write_mod_name_on_poster: bool = False
+    write_mod_name_on_poster: bool = True
     ogg_output_folder: str = ""
     workshop_output_folder: str = ""
     sample_rate: int = 44100
@@ -676,7 +676,7 @@ def project_from_dict(data: dict[str, Any]) -> ProjectConfig:
         parent_mod_id=str(data.get("parent_mod_id", "NewMusic")),
         author=str(data.get("author", "")),
         workshop_poster_path=str(data.get("workshop_poster_path", "")),
-        write_mod_name_on_poster=bool(data.get("write_mod_name_on_poster", False)),
+        write_mod_name_on_poster=bool(data.get("write_mod_name_on_poster", True)),
         ogg_output_folder=str(data.get("ogg_output_folder", "")),
         workshop_output_folder=str(data.get("workshop_output_folder", "")),
         sample_rate=_coerce_int(data.get("sample_rate", 44100), 44100, minimum=1),

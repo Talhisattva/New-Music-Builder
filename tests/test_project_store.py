@@ -24,6 +24,7 @@ def test_project_roundtrip(tmp_path: Path) -> None:
     assert loaded.media_rows[0].media_name == 'Example Album'
     assert loaded.media_rows[0].tracks_a[0].display_label == '01 Artist - Song'
     assert loaded.media_rows[0].appearances['cassette'].selected_asset_key == 'cassette:1'
+    assert loaded.write_mod_name_on_poster is True
     assert loaded.automatic_textures_enabled is True
 
 def test_project_roundtrip_preserves_stateful_row_fields(tmp_path: Path) -> None:
@@ -149,8 +150,24 @@ def test_session_store_load_returns_default_project_for_invalid_payload(tmp_path
     assert project.sample_rate == 44100
     assert project.compression_quality == 0.5
     assert project.reencode_existing_ogg is True
+    assert project.write_mod_name_on_poster is True
     assert len(project.media_rows) == 1
     assert store.last_load_used_default is True
+
+
+def test_project_load_defaults_write_mod_name_on_poster_for_legacy_payload(tmp_path: Path) -> None:
+    payload = {
+        'schema_version': 1,
+        'mod_name': 'Legacy Pack',
+        'mod_id': 'LegacyPack',
+        'media_rows': [],
+    }
+    target = tmp_path / 'legacy.nmbproj.json'
+    target.write_text(json.dumps(payload), encoding='utf-8')
+
+    loaded = ProjectStore().load(target)
+
+    assert loaded.write_mod_name_on_poster is True
 
 
 def test_session_store_roundtrip_preserves_generated_assets(tmp_path: Path) -> None:

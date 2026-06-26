@@ -162,7 +162,7 @@ class ModSetupModule(ModulePanel):
         self._vars['ogg_output_folder'].set('')
         self._vars['workshop_output_folder'].set('')
         self._vars['poster'].set('')
-        self._vars['write_name'].set(False)
+        self._vars['write_name'].set(True)
         self.session.project.mod_name = ''
         self.session.project.mod_id = ''
         self.session.project.parent_mod_id = ''
@@ -170,7 +170,7 @@ class ModSetupModule(ModulePanel):
         self.session.project.ogg_output_folder = ''
         self.session.project.workshop_output_folder = ''
         self.session.project.workshop_poster_path = ''
-        self.session.project.write_mod_name_on_poster = False
+        self.session.project.write_mod_name_on_poster = True
         self.on_change()
         self.refresh(auto_detect_workshop=False)
 
