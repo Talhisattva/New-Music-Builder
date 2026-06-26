@@ -683,6 +683,44 @@ def test_generate_cassette_textures_from_cover_uses_donor_world_shell_on_outer_r
     cover_path = tmp_path / "cover.png"
     donor_path = tmp_path / "donor.png"
     donor_world_path = tmp_path / "donor-world.png"
+    donor_world_path_alt = tmp_path / "donor-world-alt.png"
+    Image.new("RGBA", (540, 540), (255, 0, 0, 255)).save(cover_path)
+    Image.new("RGBA", (32, 32), (0, 0, 255, 255)).save(donor_path)
+    Image.new("RGBA", (256, 156), (0, 255, 0, 255)).save(donor_world_path)
+    Image.new("RGBA", (256, 156), (0, 0, 255, 255)).save(donor_world_path_alt)
+
+    first_result = generate_cassette_textures_from_cover(
+        cover_path,
+        donor_inventory_path=donor_path,
+        donor_world_path=donor_world_path,
+        mask_root=ASSETS_ROOT / "Mask",
+        output_root=tmp_path / "Generated Textures",
+    )
+    second_result = generate_cassette_textures_from_cover(
+        cover_path,
+        donor_inventory_path=donor_path,
+        donor_world_path=donor_world_path_alt,
+        mask_root=ASSETS_ROOT / "Mask",
+        output_root=tmp_path / "Generated Textures Alt",
+    )
+
+    first_world = Image.open(first_result.record.world_full).convert("RGBA")
+    second_world = Image.open(second_result.record.world_full).convert("RGBA")
+    outer_only_point = (5, 5)
+    center_point = (128, 78)
+    first_outer_pixel = first_world.getpixel(outer_only_point)
+    second_outer_pixel = second_world.getpixel(outer_only_point)
+    first_center_pixel = first_world.getpixel(center_point)
+    second_center_pixel = second_world.getpixel(center_point)
+
+    assert first_outer_pixel != second_outer_pixel
+    assert first_center_pixel == second_center_pixel
+
+
+def test_generate_cassette_textures_from_cover_preserves_world_outer_center_oval(tmp_path: Path) -> None:
+    cover_path = tmp_path / "cover.png"
+    donor_path = tmp_path / "donor.png"
+    donor_world_path = tmp_path / "donor-world.png"
     Image.new("RGBA", (540, 540), (255, 0, 0, 255)).save(cover_path)
     Image.new("RGBA", (32, 32), (0, 0, 255, 255)).save(donor_path)
     Image.new("RGBA", (256, 156), (0, 255, 0, 255)).save(donor_world_path)
@@ -696,13 +734,11 @@ def test_generate_cassette_textures_from_cover_uses_donor_world_shell_on_outer_r
     )
 
     world = Image.open(result.record.world_full).convert("RGBA")
-    outer_only_point = (5, 5)
-    center_point = (128, 78)
-    outer_pixel = world.getpixel(outer_only_point)
-    center_pixel = world.getpixel(center_point)
+    center_oval_point = (128, 58)
+    center_pixel = world.getpixel(center_oval_point)
 
-    assert outer_pixel[1] > outer_pixel[0]
-    assert center_pixel[0] > center_pixel[1]
+    assert center_pixel[3] == 255
+    assert center_pixel[1] > 0
 
 
 def test_generate_case_textures_from_cover_uses_donor_shell_on_inventory_outer_region(tmp_path: Path) -> None:

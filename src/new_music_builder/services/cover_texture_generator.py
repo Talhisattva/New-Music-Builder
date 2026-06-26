@@ -108,6 +108,7 @@ def generate_cassette_textures_from_cover(
 
     inventory_mask = resolved_mask_root / "Inventory" / "Cassette" / "Item_NM_Cassette_Mask.png"
     world_mask = resolved_mask_root / "World" / "Cassette" / "Cassette_World_Mask.png"
+    world_outer_mask = resolved_mask_root / "World" / "Cassette" / "Cassette_World_Outer_Mask.png"
     world_outer = resolved_mask_root / "World" / "Cassette" / "Cassette_World_Outer.png"
     world_overlay = resolved_mask_root / "World" / "Cassette" / "Cassette_World_Overlay.png"
     world_overlay_detail = resolved_mask_root / "World" / "Cassette" / "Cassette_World_Overlay_02.png"
@@ -125,6 +126,7 @@ def generate_cassette_textures_from_cover(
         source_path=source_path,
         mask_path=world_mask,
         donor_world_path=donor_world_source_path,
+        outer_mask_path=world_outer_mask,
         outer_path=world_outer,
         overlay_paths=(world_overlay, world_overlay_detail),
         output_path=world_output,
@@ -402,6 +404,7 @@ def _render_cassette_world(
     source_path: Path,
     donor_world_path: Path,
     mask_path: Path,
+    outer_mask_path: Path,
     outer_path: Path,
     overlay_paths: tuple[Path, ...],
     output_path: Path,
@@ -409,24 +412,26 @@ def _render_cassette_world(
     with Image.open(mask_path) as mask_source:
         mask_image = mask_source.convert("RGBA")
     mask_alpha = _alpha_mask(mask_image)
-    outer_mask_alpha = _inverse_mask_alpha(mask_alpha)
     masked_cover = _build_masked_cover_from_mask_alpha(
         source_path=source_path,
         size=mask_image.size,
         mask_alpha=mask_alpha,
     )
+    with Image.open(outer_mask_path) as outer_mask_source:
+        outer_mask_alpha = _alpha_mask(outer_mask_source.convert("RGBA"))
     with Image.open(outer_path) as outer_source:
         outer_image = outer_source.convert("RGBA")
+    fallback_outer_mask_alpha = ImageChops.subtract(outer_image.getchannel("A"), outer_mask_alpha)
+    fallback_outer = _apply_mask_alpha(outer_image, fallback_outer_mask_alpha)
     donor_outer = _build_masked_donor_layer(
         source_path=donor_world_path,
         size=mask_image.size,
         mask_alpha=outer_mask_alpha,
     )
-    fallback_outer = _apply_mask_alpha(outer_image, outer_mask_alpha)
     base = Image.new("RGBA", masked_cover.size, (0, 0, 0, 0))
     base.alpha_composite(masked_cover)
-    base.alpha_composite(fallback_outer)
     base.alpha_composite(donor_outer)
+    base.alpha_composite(fallback_outer)
     if overlay_paths:
         with Image.open(overlay_paths[0]) as overlay_source:
             base = _multiply_with_second_pass(

@@ -26,9 +26,9 @@ Created specifically for media packs where multiple tracks and media appearances
 
 ## Version
 
-Current version: `0.2.0`
+Current version: `0.2.1`
 
-If the first public cut was `0.1.0`, this is best treated as `0.2.0`: it adds substantial new workflow capability and export/texture coverage, but it is still pre-`1.0` and not a full stability milestone.
+This is a small follow-up patch release on top of `0.2.0`: it keeps the `0.2.x` feature set intact while tightening persistence, dialog behavior, and audio export behavior.
 
 ## Platform Support
 
