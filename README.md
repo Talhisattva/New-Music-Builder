@@ -1,4 +1,4 @@
-![New Music Builder](docs/images/NewMusicBuilder0.2.0-640-transparent.png)
+![New Music Builder](docs/images/NewMusicBuilder0.2.1-640-transparent.png)
 
 # New Music Builder
 
