@@ -55,7 +55,7 @@ CASE_INVENTORY_PRESET = InventoryShearPreset(
 JACKET_INVENTORY_PRESET = InventoryShearPreset(
     initial_edge=30,
     max_edge=46,
-    shear_degrees=50.0,
+    shear_degrees=60.0,
 )
 
 WORLD_OVERLAY_SECOND_MULTIPLY_RATIO = 0.50
@@ -519,7 +519,7 @@ def _render_jacket_inventory(
         preset=JACKET_INVENTORY_PRESET,
     )
     with Image.open(overlay_path) as overlay_source:
-        base = _multiply_overlay(masked_cover, overlay_source.convert("RGBA"))
+        base = _soft_light_overlay(masked_cover, overlay_source.convert("RGBA"))
     base = _apply_mask_alpha(base, mask_alpha)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     base.save(output_path)
@@ -999,6 +999,13 @@ def _multiply_overlay(base: Image.Image, overlay: Image.Image) -> Image.Image:
     multiplied_rgb = ImageChops.multiply(base.convert("RGB"), overlay.convert("RGB")).convert("RGBA")
     multiplied_rgb.putalpha(base.getchannel("A"))
     return Image.composite(multiplied_rgb, base, overlay_alpha)
+
+
+def _soft_light_overlay(base: Image.Image, overlay: Image.Image) -> Image.Image:
+    overlay_alpha = overlay.getchannel("A")
+    softened_rgb = ImageChops.soft_light(base.convert("RGB"), overlay.convert("RGB")).convert("RGBA")
+    softened_rgb.putalpha(base.getchannel("A"))
+    return Image.composite(softened_rgb, base, overlay_alpha)
 
 
 def _multiply_with_second_pass(
