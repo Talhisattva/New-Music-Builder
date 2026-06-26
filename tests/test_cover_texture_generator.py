@@ -6,11 +6,14 @@ from PIL import Image
 from new_music_builder.services.cover_texture_generator import (
     CASSETTE_INVENTORY_PRESET,
     CASE_INVENTORY_PRESET,
+    JACKET_INVENTORY_PRESET,
+    JACKET_WORLD_OUTPUT_SIZE,
     VINYL_INVENTORY_TARGET_SIZE,
     VINYL_WORLD_TARGET_SIZE,
     _apply_inventory_warp,
     _alpha_mask,
     _build_inventory_transformed_cover,
+    _build_inventory_sheared_cover,
     _build_case_inventory_masked_cover,
     _fit_cover_to_target_region,
     _fit_cover_to_mask_height,
@@ -21,6 +24,7 @@ from new_music_builder.services.cover_texture_generator import (
     _prepare_square_source,
     WORLD_OVERLAY_SECOND_MULTIPLY_RATIO,
     generate_case_textures_from_cover,
+    generate_jacket_textures_from_cover,
     generate_vinyl_textures_from_cover,
     generate_cassette_textures_from_cover,
 )
@@ -113,6 +117,30 @@ def test_generate_case_textures_from_cover_writes_expected_outputs(tmp_path: Pat
     assert world.mode == "RGBA"
 
 
+def test_generate_jacket_textures_from_cover_writes_expected_outputs(tmp_path: Path) -> None:
+    cover_path = tmp_path / "cover.png"
+    Image.new("RGBA", (500, 300), (255, 0, 0, 255)).save(cover_path)
+
+    result = generate_jacket_textures_from_cover(
+        cover_path,
+        mask_root=ASSETS_ROOT / "Mask",
+        output_root=tmp_path / "Generated Textures",
+    )
+
+    assert result.successful_outputs == 2
+    assert result.total_outputs == 2
+    assert Path(result.record.inventory_full).is_file()
+    assert Path(result.record.world_full).is_file()
+    assert result.record.asset_key.startswith("generated:jacket:")
+
+    inventory = Image.open(result.record.inventory_full)
+    world = Image.open(result.record.world_full)
+    assert inventory.size == (32, 32)
+    assert world.size == JACKET_WORLD_OUTPUT_SIZE
+    assert inventory.mode == "RGBA"
+    assert world.mode == "RGBA"
+
+
 def test_generate_cassette_textures_from_rectangular_cover_keeps_outputs_valid(tmp_path: Path) -> None:
     cover_path = tmp_path / "wide-cover.png"
     donor_path = tmp_path / "donor.png"
@@ -173,6 +201,40 @@ def test_case_inventory_transform_is_centered_in_requested_target_region(tmp_pat
         mask_alpha,
         alpha_threshold=CASE_INVENTORY_PRESET.coverage_alpha_threshold,
     ) is True
+
+
+def test_jacket_inventory_transform_covers_mask_region(tmp_path: Path) -> None:
+    cover_path = tmp_path / "cover.png"
+    Image.new("RGBA", (540, 540), (255, 0, 0, 255)).save(cover_path)
+    with Image.open(ASSETS_ROOT / "Mask" / "Inventory" / "VinylJacket" / "Item_NM_Jacket_Mask.png") as mask_source:
+        mask_alpha = _alpha_mask(mask_source.convert("RGBA"))
+    fitted = _build_inventory_sheared_cover(
+        source_path=cover_path,
+        mask_size=mask_alpha.size,
+        mask_alpha=mask_alpha,
+        preset=JACKET_INVENTORY_PRESET,
+    )
+    assert _mask_region_is_fully_covered(
+        fitted,
+        mask_alpha,
+        alpha_threshold=JACKET_INVENTORY_PRESET.coverage_alpha_threshold,
+    ) is True
+
+
+def test_generate_jacket_textures_from_cover_world_is_letterboxed_square(tmp_path: Path) -> None:
+    cover_path = tmp_path / "cover.png"
+    Image.new("RGBA", (600, 300), (255, 0, 0, 255)).save(cover_path)
+
+    result = generate_jacket_textures_from_cover(
+        cover_path,
+        mask_root=ASSETS_ROOT / "Mask",
+        output_root=tmp_path / "Generated Textures",
+    )
+
+    world = Image.open(result.record.world_full).convert("RGBA")
+    assert world.size == JACKET_WORLD_OUTPUT_SIZE
+    assert world.getpixel((0, 0))[3] == 0
+    assert world.getpixel((512, 512))[3] > 0
 
 
 def test_generate_vinyl_textures_from_cover_uses_requested_inventory_target_region(tmp_path: Path) -> None:

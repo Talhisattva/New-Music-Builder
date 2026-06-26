@@ -96,9 +96,11 @@ def test_can_generate_cover_for_kind_allows_vinyl_cover_and_blocks_existing_gene
     project = ProjectConfig(media_rows=[row])
 
     assert can_generate_cover_for_kind(project, row, "vinyl") is False
+    assert can_generate_cover_for_kind(project, row, "jacket") is False
 
     row.cover_path = str(cover_path)
     assert can_generate_cover_for_kind(project, row, "vinyl") is True
+    assert can_generate_cover_for_kind(project, row, "jacket") is True
 
     upsert_generated_asset_record(
         project,
@@ -113,6 +115,7 @@ def test_can_generate_cover_for_kind_allows_vinyl_cover_and_blocks_existing_gene
         ),
     )
     assert can_generate_cover_for_kind(project, row, "vinyl") is False
+    assert can_generate_cover_for_kind(project, row, "jacket") is True
 
 
 def test_can_generate_cover_for_row_requires_valid_cover_and_any_missing_supported_kind(tmp_path: Path) -> None:
@@ -166,6 +169,20 @@ def test_can_generate_cover_for_row_requires_valid_cover_and_any_missing_support
             kind="vinyl",
             cover_path=str(cover_path),
             asset_key="generated:vinyl:abc",
+            label="cover Generated",
+            inventory_full=str(inventory_path),
+            world_full=str(world_path),
+            source_name="cover.png",
+        ),
+    )
+    assert can_generate_cover_for_row(project, row) is True
+
+    upsert_generated_asset_record(
+        project,
+        GeneratedAssetRecord(
+            kind="jacket",
+            cover_path=str(cover_path),
+            asset_key="generated:jacket:abc",
             label="cover Generated",
             inventory_full=str(inventory_path),
             world_full=str(world_path),

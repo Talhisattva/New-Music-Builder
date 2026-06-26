@@ -37,7 +37,7 @@ from new_music_builder.platform.paths import app_root, assets_root
 from new_music_builder.platform.paths import detect_workshop_dir, open_folder
 from new_music_builder.services.asset_catalog import AssetCatalog
 from new_music_builder.services.build_event_pump import BuildEventPump
-from new_music_builder.services.cover_texture_generator import generate_case_textures_from_cover, generate_cassette_textures_from_cover, generate_vinyl_textures_from_cover
+from new_music_builder.services.cover_texture_generator import generate_case_textures_from_cover, generate_cassette_textures_from_cover, generate_jacket_textures_from_cover, generate_vinyl_textures_from_cover
 from new_music_builder.services.default_appearance_selection import apply_preferred_row_defaults, preferred_default_asset_key
 from new_music_builder.services.export_build_runner import run_staged_export
 from new_music_builder.services.export_planning import build_export_plan, build_preview_scenario
@@ -1273,6 +1273,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
                 cassette_generator=generate_cassette_textures_from_cover,
                 case_generator=generate_case_textures_from_cover,
                 vinyl_generator=generate_vinyl_textures_from_cover,
+                jacket_generator=generate_jacket_textures_from_cover,
             )
         except Exception as exc:
             LOGGER.exception("Failed to generate cover set from %s", target_row.cover_path)
@@ -1315,7 +1316,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
     def _repair_active_generated_appearance_selections(self) -> list[int]:
         changed_rows: set[int] = set()
-        for kind in ('cassette', 'case', 'vinyl'):
+        for kind in ('cassette', 'case', 'vinyl', 'jacket'):
             changed_rows.update(self._repair_generated_appearance_selections(kind))
         return sorted(changed_rows)
 

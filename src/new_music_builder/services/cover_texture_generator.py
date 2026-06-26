@@ -40,23 +40,29 @@ class InventoryShearPreset:
 
 
 CASSETTE_INVENTORY_PRESET = InventoryWarpPreset(
-    rotation_degrees=30.0,
+    rotation_degrees=25.0,
     initial_scale_ratio=2.10,
     max_scale_ratio=3.30,
     scale_step_ratio=0.12,
-    right_edge_inset_ratio=0.46,
+    right_edge_inset_ratio=0.5,
     right_edge_vertical_inset_ratio=0.25,
 )
 CASE_INVENTORY_PRESET = InventoryShearPreset(
     initial_edge=23,
     max_edge=40,
-    shear_degrees=28.0,
+    shear_degrees=50.0,
+)
+JACKET_INVENTORY_PRESET = InventoryShearPreset(
+    initial_edge=30,
+    max_edge=46,
+    shear_degrees=50.0,
 )
 
 WORLD_OVERLAY_SECOND_MULTIPLY_RATIO = 0.50
 VINYL_OVERLAY_SECOND_MULTIPLY_RATIO = 0.50
 VINYL_INVENTORY_TARGET_SIZE = (12, 7)
 VINYL_WORLD_TARGET_SIZE = (68, 68)
+JACKET_WORLD_OUTPUT_SIZE = (1024, 1024)
 
 
 def generate_cassette_textures_from_cover(
@@ -258,6 +264,56 @@ def generate_case_textures_from_cover(
     return CoverGenerationResult(record=record, successful_outputs=2, total_outputs=2)
 
 
+def generate_jacket_textures_from_cover(
+    cover_path: str | Path,
+    *,
+    mask_root: Path | None = None,
+    output_root: Path | None = None,
+) -> CoverGenerationResult:
+    normalized_cover = normalize_cover_path(cover_path)
+    if not normalized_cover:
+        raise FileNotFoundError("Cover image was not provided.")
+
+    source_path = Path(normalized_cover)
+    if not source_path.is_file():
+        raise FileNotFoundError(f"Cover image was not found: {source_path}")
+
+    resolved_mask_root = mask_root or (assets_root() / "Mask")
+    resolved_output_root = output_root or generated_textures_root()
+    cover_id = build_generated_cover_id(normalized_cover)
+    jacket_output_root = resolved_output_root / "Jacket" / cover_id
+    jacket_output_root.mkdir(parents=True, exist_ok=True)
+
+    inventory_mask = resolved_mask_root / "Inventory" / "VinylJacket" / "Item_NM_Jacket_Mask.png"
+    inventory_overlay = resolved_mask_root / "Inventory" / "VinylJacket" / "Item_NM_Jacket_Overlay.png"
+
+    inventory_output = jacket_output_root / "Item_NM_Jacket_Generated.png"
+    world_output = jacket_output_root / "World_NM_Cover_Generated.png"
+
+    _render_jacket_inventory(
+        source_path=source_path,
+        mask_path=inventory_mask,
+        overlay_path=inventory_overlay,
+        output_path=inventory_output,
+    )
+    _render_letterboxed_square_cover(
+        source_path=source_path,
+        output_size=JACKET_WORLD_OUTPUT_SIZE,
+        output_path=world_output,
+    )
+
+    record = GeneratedAssetRecord(
+        kind="jacket",
+        cover_path=normalized_cover,
+        asset_key=build_generated_asset_key("jacket", normalized_cover),
+        label=f"{source_path.stem} Generated",
+        inventory_full=str(inventory_output),
+        world_full=str(world_output),
+        source_name=source_path.name,
+    )
+    return CoverGenerationResult(record=record, successful_outputs=2, total_outputs=2)
+
+
 def _render_cassette_inventory(
     *,
     source_path: Path,
@@ -444,6 +500,39 @@ def _render_case_world(
         base.alpha_composite(donor_outer)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     base.save(output_path)
+
+
+def _render_jacket_inventory(
+    *,
+    source_path: Path,
+    mask_path: Path,
+    overlay_path: Path,
+    output_path: Path,
+) -> None:
+    with Image.open(mask_path) as mask_source:
+        mask_image = mask_source.convert("RGBA")
+    mask_alpha = _alpha_mask(mask_image)
+    masked_cover = _build_inventory_sheared_cover(
+        source_path=source_path,
+        mask_size=mask_image.size,
+        mask_alpha=mask_alpha,
+        preset=JACKET_INVENTORY_PRESET,
+    )
+    with Image.open(overlay_path) as overlay_source:
+        base = _multiply_overlay(masked_cover, overlay_source.convert("RGBA"))
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    base.save(output_path)
+
+
+def _render_letterboxed_square_cover(
+    *,
+    source_path: Path,
+    output_size: tuple[int, int],
+    output_path: Path,
+) -> None:
+    image = _fit_cover_to_canvas(source_path, output_size)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    image.save(output_path)
 
 
 def _build_inventory_masked_cover(
