@@ -11,6 +11,8 @@ from new_music_builder.domain.models import GeneratedAssetRecord
 from new_music_builder.platform.paths import assets_root, generated_textures_root
 from new_music_builder.services.generated_asset_registry import build_generated_asset_key, build_generated_cover_id, normalize_cover_path
 
+INVENTORY_COVER_RESAMPLE = Image.Resampling.BILINEAR
+
 
 @dataclass(frozen=True, slots=True)
 class CoverGenerationResult:
@@ -693,13 +695,13 @@ def _prepare_square_source(source_path: Path, target_size: int) -> Image.Image:
     left = (source.width - crop_size) // 2
     top = (source.height - crop_size) // 2
     square = source.crop((left, top, left + crop_size, top + crop_size))
-    return square.resize((target_size, target_size), Image.Resampling.LANCZOS)
+    return square.resize((target_size, target_size), INVENTORY_COVER_RESAMPLE)
 
 
 def _apply_inventory_warp(image: Image.Image, preset: InventoryWarpPreset) -> Image.Image:
     rotated = image.rotate(
         preset.rotation_degrees,
-        resample=Image.Resampling.BICUBIC,
+        resample=INVENTORY_COVER_RESAMPLE,
         expand=True,
         fillcolor=(0, 0, 0, 0),
     )
@@ -753,7 +755,7 @@ def _apply_perspective_warp(
         (width, height),
         Image.Transform.PERSPECTIVE,
         coefficients,
-        resample=Image.Resampling.BICUBIC,
+        resample=INVENTORY_COVER_RESAMPLE,
         fillcolor=(0, 0, 0, 0),
     )
 
