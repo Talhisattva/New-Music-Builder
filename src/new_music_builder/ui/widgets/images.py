@@ -61,8 +61,12 @@ def load_contained_pil_image(
         return cached.copy()
     image = Image.open(img_path).convert('RGBA')
     fitted = Image.new('RGBA', size, background)
-    contained = image.copy()
-    contained.thumbnail(size, Image.Resampling.LANCZOS)
+    scale_ratio = min(size[0] / max(1, image.width), size[1] / max(1, image.height))
+    contained_size = (
+        max(1, int(round(image.width * scale_ratio))),
+        max(1, int(round(image.height * scale_ratio))),
+    )
+    contained = image.resize(contained_size, Image.Resampling.LANCZOS)
     paste_x = (size[0] - contained.width) // 2
     paste_y = (size[1] - contained.height) // 2
     fitted.paste(contained, (paste_x, paste_y), contained)
