@@ -50,7 +50,7 @@ CASSETTE_INVENTORY_PRESET = InventoryWarpPreset(
 CASE_INVENTORY_PRESET = InventoryShearPreset(
     initial_edge=23,
     max_edge=40,
-    shear_degrees=20.0,
+    shear_degrees=28.0,
 )
 
 WORLD_OVERLAY_SECOND_MULTIPLY_RATIO = 0.50
