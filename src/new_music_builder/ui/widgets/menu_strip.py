@@ -120,12 +120,12 @@ class _DropdownItem(ctk.CTkFrame):
             font=(font.cget('family'), font.cget('size')),
             anchor='w',
             justify='left',
-            width=label_width,
-            height=spec.MENU_DROPDOWN_ROW_HEIGHT,
         )
         self.label.place(
             x=text_x,
             y=0,
+            width=label_width,
+            height=spec.MENU_DROPDOWN_ROW_HEIGHT,
         )
         self.accelerator_label: tk.Label | None = None
         if accelerator_text:
