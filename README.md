@@ -1,4 +1,4 @@
-![New Music Builder](docs/images/NewMusicBuilder-640-transparent.png)
+![New Music Builder](docs/images/NewMusicBuilder0.2.0-640-transparent.png)
 
 # New Music Builder
 
@@ -11,15 +11,24 @@ It is made to help Project Zomboid modders create multitrack music media quickly
 New Music Builder helps you assemble workshop-ready music packs with:
 
 - multitrack cassette, vinyl, and CD media setup
-- cover and appearance selection
+- row-based media authoring with expand/collapse, drag/reorder, and per-row song management
+- cover and appearance selection across cassette, case, vinyl, jacket, and CD cover assets
+- automatic cover-driven texture generation for cassette, case, vinyl, jacket, and CD cover outputs
 - audio conversion and compression
 - preview and organization tools while authoring
+- workshop poster preview and export support
 - export into Project Zomboid mod/workshop folder structure
 
 ## About the App
 
 Use this if you want to build custom music media for Tali's New Music in Project Zomboid without hand-authoring all of the supporting files yourself.
 Created specifically for media packs where multiple tracks and media appearances need to be managed together.
+
+## Version
+
+Current version: `0.2.0`
+
+If the first public cut was `0.1.0`, this is best treated as `0.2.0`: it adds substantial new workflow capability and export/texture coverage, but it is still pre-`1.0` and not a full stability milestone.
 
 ## Platform Support
 
@@ -30,8 +39,9 @@ Created specifically for media packs where multiple tracks and media appearances
 ## Current State
 
 - Song pack export is working end to end.
-- Covers, compression, naming, organization, Lua/bootstrap output, and texture export are in place.
-- The project is currently in cleanup and release-shaping mode rather than major feature churn.
+- Automatic texture generation is in place for cassette, case, vinyl, jacket, and CD cover media.
+- Covers, compression, naming, organization, Lua/bootstrap output, workshop poster output, and texture export are in place.
+- The project is in cleanup, smoothness, and release-shaping mode rather than broad feature churn.
 
 ## Run From Source
 
@@ -54,5 +64,6 @@ pytest -q
 - `src/new_music_builder/` contains the application code.
 - `assets/` contains runtime assets used by the builder.
 - `tests/` contains automated validation coverage.
-- `workspace/` and `logs/` contain local app state and log output defaults.
+- `workspace/` and `logs/` are runtime/state locations and should be treated carefully during release cleanup.
+- `Generated Textures/` is generated output and should not be treated as source content.
 - `_references/` is kept out of Git and is not part of the public source distribution.
