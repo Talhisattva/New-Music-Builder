@@ -62,26 +62,32 @@ def run_audio_export(
             cache_path = _cache_path_for_item(cache_parent_dir, item)
 
             try:
-                converted = ensure_cached_ogg(
-                    item,
-                    cache_path,
-                    emit_progress=lambda percent, message: emit_side(
-                        "song_progress",
-                        song_index=song_index,
-                        track_number=item.track_number,
-                        display_label=item.display_label,
-                        percent=percent,
-                        message=message,
-                        size_text=_format_size_text(cache_path.stat().st_size) if cache_path.exists() else "",
-                    ),
-                    cancel_requested=cancel_requested,
-                )
-                if converted:
-                    result.converted_count += 1
+                export_source_path = cache_path
+                succeeded_cached_path = str(cache_path)
+                if item.action == "copy_ogg":
+                    export_source_path = Path(item.source_path)
+                    succeeded_cached_path = ""
+                else:
+                    converted = ensure_cached_ogg(
+                        item,
+                        cache_path,
+                        emit_progress=lambda percent, message: emit_side(
+                            "song_progress",
+                            song_index=song_index,
+                            track_number=item.track_number,
+                            display_label=item.display_label,
+                            percent=percent,
+                            message=message,
+                            size_text=_format_size_text(cache_path.stat().st_size) if cache_path.exists() else "",
+                        ),
+                        cancel_requested=cancel_requested,
+                    )
+                    if converted:
+                        result.converted_count += 1
 
                 _raise_if_cancelled(cancel_requested, result)
                 copy_file_with_cancel(
-                    cache_path,
+                    export_source_path,
                     target_path,
                     cancel_requested=cancel_requested,
                     emit_progress=lambda percent, message: emit_side(
@@ -91,7 +97,7 @@ def run_audio_export(
                         display_label=item.display_label,
                         percent=percent,
                         message=message,
-                        size_text=_format_size_text(cache_path.stat().st_size) if cache_path.exists() else "",
+                        size_text=_format_size_text(export_source_path.stat().st_size) if export_source_path.exists() else "",
                     ),
                     progress_message="Copying exported song...",
                 )
@@ -103,7 +109,7 @@ def run_audio_export(
                     song_index=song_index,
                     track_number=item.track_number,
                     display_label=item.display_label,
-                    cached_ogg_path=str(cache_path),
+                    cached_ogg_path=succeeded_cached_path,
                     percent=100,
                     message="Exported song.",
                     size_text=size_text,
