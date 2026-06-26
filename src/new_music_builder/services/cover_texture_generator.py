@@ -519,10 +519,10 @@ def _render_jacket_inventory(
         preset=JACKET_INVENTORY_PRESET,
     )
     with Image.open(overlay_path) as overlay_source:
-        base = _multiply_with_second_pass(
+        base = _alpha_composite_overlay(
             masked_cover,
             overlay_source.convert("RGBA"),
-            second_pass_ratio=0.5,
+            opacity=0.6,
         )
     base = _apply_mask_alpha(base, mask_alpha)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1010,6 +1010,15 @@ def _soft_light_overlay(base: Image.Image, overlay: Image.Image) -> Image.Image:
     softened_rgb = ImageChops.soft_light(base.convert("RGB"), overlay.convert("RGB")).convert("RGBA")
     softened_rgb.putalpha(base.getchannel("A"))
     return Image.composite(softened_rgb, base, overlay_alpha)
+
+
+def _alpha_composite_overlay(base: Image.Image, overlay: Image.Image, *, opacity: float) -> Image.Image:
+    composited = base.copy()
+    fitted_overlay = overlay.resize(base.size, Image.Resampling.LANCZOS)
+    alpha = fitted_overlay.getchannel("A").point(lambda value: int(round(value * max(0.0, min(1.0, opacity)))))
+    fitted_overlay.putalpha(alpha)
+    composited.alpha_composite(fitted_overlay)
+    return composited
 
 
 def _multiply_with_second_pass(
