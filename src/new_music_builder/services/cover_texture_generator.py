@@ -531,7 +531,7 @@ def _render_letterboxed_square_cover(
     output_size: tuple[int, int],
     output_path: Path,
 ) -> None:
-    image = _fit_cover_to_canvas(source_path, output_size)
+    image = _fit_cover_to_canvas(source_path, output_size, allow_upscale=True, crop_to_visible_bounds=True)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     image.save(output_path)
 
@@ -819,16 +819,39 @@ def _composite_image_on_canvas(
     return canvas
 
 
-def _fit_cover_to_canvas(source_path: Path, size: tuple[int, int]) -> Image.Image:
+def _fit_cover_to_canvas(
+    source_path: Path,
+    size: tuple[int, int],
+    *,
+    allow_upscale: bool = False,
+    crop_to_visible_bounds: bool = False,
+) -> Image.Image:
     with Image.open(source_path) as source_image:
         source = source_image.convert("RGBA")
+    if crop_to_visible_bounds:
+        source = _crop_image_to_visible_bounds(source)
     fitted = Image.new("RGBA", size, (0, 0, 0, 0))
-    contained = source.copy()
-    contained.thumbnail(size, Image.Resampling.LANCZOS)
+    if allow_upscale:
+        scale_ratio = min(size[0] / max(1, source.width), size[1] / max(1, source.height))
+        target_size = (
+            max(1, int(round(source.width * scale_ratio))),
+            max(1, int(round(source.height * scale_ratio))),
+        )
+        contained = source.resize(target_size, Image.Resampling.LANCZOS)
+    else:
+        contained = source.copy()
+        contained.thumbnail(size, Image.Resampling.LANCZOS)
     paste_x = (size[0] - contained.width) // 2
     paste_y = (size[1] - contained.height) // 2
     fitted.paste(contained, (paste_x, paste_y), contained)
     return fitted
+
+
+def _crop_image_to_visible_bounds(image: Image.Image) -> Image.Image:
+    bbox = image.getchannel("A").getbbox()
+    if bbox is None:
+        return image
+    return image.crop(bbox)
 
 
 def _fit_cover_to_mask_width(

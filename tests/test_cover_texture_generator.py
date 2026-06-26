@@ -237,6 +237,56 @@ def test_generate_jacket_textures_from_cover_world_is_letterboxed_square(tmp_pat
     assert world.getpixel((512, 512))[3] > 0
 
 
+def test_generate_jacket_textures_from_small_cover_upscales_world_preview_square(tmp_path: Path) -> None:
+    cover_path = tmp_path / "small-cover.png"
+    Image.new("RGBA", (64, 32), (255, 0, 255, 255)).save(cover_path)
+
+    result = generate_jacket_textures_from_cover(
+        cover_path,
+        mask_root=ASSETS_ROOT / "Mask",
+        output_root=tmp_path / "Generated Textures",
+    )
+
+    world = Image.open(result.record.world_full).convert("RGBA")
+    assert world.size == JACKET_WORLD_OUTPUT_SIZE
+    assert world.getpixel((512, 512))[3] > 0
+    assert world.getpixel((128, 512))[3] > 0
+    assert world.getpixel((896, 512))[3] > 0
+
+
+def test_generate_jacket_textures_from_square_cover_fills_world_preview_square(tmp_path: Path) -> None:
+    cover_path = tmp_path / "square-cover.png"
+    Image.new("RGBA", (500, 500), (255, 0, 255, 255)).save(cover_path)
+
+    result = generate_jacket_textures_from_cover(
+        cover_path,
+        mask_root=ASSETS_ROOT / "Mask",
+        output_root=tmp_path / "Generated Textures",
+    )
+
+    world = Image.open(result.record.world_full).convert("RGBA")
+    assert world.size == JACKET_WORLD_OUTPUT_SIZE
+    assert world.getchannel("A").getbbox() == (0, 0, 1024, 1024)
+
+
+def test_generate_jacket_textures_crops_transparent_padding_before_world_fit(tmp_path: Path) -> None:
+    cover_path = tmp_path / "padded-cover.png"
+    padded = Image.new("RGBA", (500, 500), (0, 0, 0, 0))
+    inner = Image.new("RGBA", (240, 400), (255, 0, 255, 255))
+    padded.paste(inner, (130, 50), inner)
+    padded.save(cover_path)
+
+    result = generate_jacket_textures_from_cover(
+        cover_path,
+        mask_root=ASSETS_ROOT / "Mask",
+        output_root=tmp_path / "Generated Textures",
+    )
+
+    world = Image.open(result.record.world_full).convert("RGBA")
+    assert world.size == JACKET_WORLD_OUTPUT_SIZE
+    assert world.getchannel("A").getbbox() == (205, 0, 819, 1024)
+
+
 def test_generate_vinyl_textures_from_cover_uses_requested_inventory_target_region(tmp_path: Path) -> None:
     cover_path = tmp_path / "cover.png"
     Image.new("RGBA", (540, 540), (255, 0, 0, 255)).save(cover_path)
