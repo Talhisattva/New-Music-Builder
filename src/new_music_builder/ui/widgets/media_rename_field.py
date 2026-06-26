@@ -367,3 +367,6 @@ class MediaRenameField(tk.Frame):
         else:
             self.entry.configure(state='disabled')
             self.display_label.configure(fg='#8d8690')
+
+    def tooltip_widgets(self) -> tuple[tk.Misc, ...]:
+        return (self, self.surface, self.text_area, self.display_label, self.edit_button)

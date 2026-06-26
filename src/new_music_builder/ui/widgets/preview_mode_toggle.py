@@ -141,6 +141,18 @@ class PreviewModeToggle(tk.Frame):
         self.right_button.place(x=left_width, y=0)
         self.set_mode(self._mode)
 
+    def tooltip_widgets(self) -> tuple[tk.Misc, ...]:
+        return (
+            self,
+            self.left_button,
+            self.right_button,
+            self.left_border,
+            self.right_border,
+            self.top_border,
+            self.bottom_border,
+            self.middle_border,
+        )
+
     def get_mode(self) -> str:
         return self._mode
 

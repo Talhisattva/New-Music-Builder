@@ -54,3 +54,9 @@ class MediaSongActions(tk.Frame):
     def set_enabled(self, enabled: bool) -> None:
         self.add_button.set_enabled(enabled)
         self.remove_button.set_enabled(enabled)
+
+    def tooltip_widgets_for_add(self) -> tuple[tk.Misc, ...]:
+        return (self.add_button,)
+
+    def tooltip_widgets_for_remove(self) -> tuple[tk.Misc, ...]:
+        return (self.remove_button,)

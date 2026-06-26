@@ -98,7 +98,7 @@ class CoverPicker(tk.Frame):
     def _bind_drop_target(self) -> None:
         if self._dnd_type is None or self._can_accept_drop is None or self._on_drop_files is None:
             return
-        for widget in (self.cover_border, self.cover_surface):
+        for widget in (self.cover_border, self.cover_surface, self.folder_button):
             if not hasattr(widget, 'drop_target_register'):
                 continue
             try:

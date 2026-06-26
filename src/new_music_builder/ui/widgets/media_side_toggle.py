@@ -73,3 +73,8 @@ class MediaSideToggle(tk.Frame):
     def set_enabled(self, enabled: bool) -> None:
         self.a_button.set_enabled(enabled)
         self.b_button.set_enabled(enabled)
+
+    def tooltip_widgets_for_side(self, side: str) -> tuple[tk.Misc, ...]:
+        if side == 'A':
+            return (self.a_button,)
+        return (self.b_button,)

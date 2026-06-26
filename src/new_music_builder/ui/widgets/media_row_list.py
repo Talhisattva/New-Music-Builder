@@ -6,6 +6,7 @@ import tkinter as tk
 
 from new_music_builder.domain.models import AppearanceKind, MediaKind, MediaRow, SongSortColumn
 from new_music_builder.ui import spec
+from new_music_builder.ui.widgets.help_tooltip import bind_help_tooltip
 from new_music_builder.ui.widgets.collapsed_row_chevron import CollapsedRowChevron
 from new_music_builder.ui.widgets.collapsed_row_details import CollapsedRowDetails
 from new_music_builder.ui.widgets.media_live_preview import MediaLivePreview
@@ -210,12 +211,20 @@ class MediaRowShell(tk.Frame):
             x=spec.MEDIA_ROW_EXPANDED_COVER_POS[0],
             y=spec.MEDIA_ROW_EXPANDED_COVER_POS[1],
         )
+        self._expanded_cover_tooltip = bind_help_tooltip(
+            self.expanded_cover.tooltip_widgets(),
+            tooltip_id='module_two.media_cover',
+        )
         self.expanded_badge = MediaRowBadge(
             self.expanded_container,
             row_number=row.row_id,
             command=(lambda: on_select(row.row_id)) if on_select is not None else None,
         )
         self.expanded_badge.place(x=spec.MEDIA_ROW_BADGE_EXPANDED_POS[0], y=spec.MEDIA_ROW_BADGE_EXPANDED_POS[1])
+        self._expanded_badge_tooltip = bind_help_tooltip(
+            (self.expanded_badge,),
+            tooltip_id='module_two.row_badge',
+        )
         self.rename_field = MediaRenameField(
             self.expanded_container,
             row=row,
@@ -224,6 +233,10 @@ class MediaRowShell(tk.Frame):
             on_name_committed=on_name_committed,
         )
         self.rename_field.place(x=spec.MEDIA_ROW_RENAME_POS[0], y=spec.MEDIA_ROW_RENAME_POS[1])
+        self._rename_field_tooltip = bind_help_tooltip(
+            self.rename_field.tooltip_widgets(),
+            tooltip_id='module_two.media_name',
+        )
         self.side_toggle = MediaSideToggle(
             self.expanded_container,
             row=row,
@@ -231,6 +244,14 @@ class MediaRowShell(tk.Frame):
             on_side_selected=on_side_selected,
         )
         self.side_toggle.place(x=spec.MEDIA_ROW_SIDE_TOGGLE_POS[0], y=spec.MEDIA_ROW_SIDE_TOGGLE_POS[1])
+        self._side_a_tooltip = bind_help_tooltip(
+            self.side_toggle.tooltip_widgets_for_side('A'),
+            tooltip_id='module_two.side_a',
+        )
+        self._side_b_tooltip = bind_help_tooltip(
+            self.side_toggle.tooltip_widgets_for_side('B'),
+            tooltip_id='module_two.side_b',
+        )
         self.songlist_viewport = MediaSonglistViewport(
             self.expanded_container,
             row=row,
@@ -251,6 +272,11 @@ class MediaRowShell(tk.Frame):
             on_drop_files=(lambda paths: on_song_drop(row.row_id, paths)) if on_song_drop is not None else None,
         )
         self.songlist_viewport.place(x=spec.MEDIA_ROW_SONGLIST_VIEWPORT_POS[0], y=spec.MEDIA_ROW_SONGLIST_VIEWPORT_POS[1])
+        self._song_table_tooltip = bind_help_tooltip(
+            self.songlist_viewport.header_tooltip_widgets(),
+            tooltip_id='module_two.song_table',
+            should_show=self.songlist_viewport.is_pointer_in_header,
+        )
         self.song_actions = MediaSongActions(
             self.expanded_container,
             bg_color=spec.MEDIA_ROW_BG,
@@ -258,6 +284,16 @@ class MediaRowShell(tk.Frame):
             on_remove_song=(lambda: on_remove_song(row.row_id)) if on_remove_song is not None else None,
         )
         self.song_actions.place(x=spec.MEDIA_ROW_SONG_ACTIONS_POS[0], y=spec.MEDIA_ROW_SONG_ACTIONS_POS[1])
+        self._add_song_tooltip = bind_help_tooltip(
+            self.song_actions.tooltip_widgets_for_add(),
+            tooltip_id='module_two.add_song',
+            preferred_direction='down',
+        )
+        self._remove_song_tooltip = bind_help_tooltip(
+            self.song_actions.tooltip_widgets_for_remove(),
+            tooltip_id='module_two.remove_song',
+            preferred_direction='down',
+        )
         self.live_preview = MediaLivePreview(
             self.expanded_container,
             row=row,
@@ -266,6 +302,11 @@ class MediaRowShell(tk.Frame):
             on_mode_selected=on_preview_mode_selected,
         )
         self.live_preview.place(x=spec.MEDIA_ROW_LIVE_PREVIEW_POS[0], y=spec.MEDIA_ROW_LIVE_PREVIEW_POS[1])
+        self._live_preview_tooltip = bind_help_tooltip(
+            self.live_preview.help_tooltip_widgets(),
+            tooltip_id='module_two.live_preview',
+            preferred_direction='down',
+        )
         self.expanded_media_type_strip = MediaTypeStrip(
             self.expanded_container,
             row=row,
@@ -279,6 +320,20 @@ class MediaRowShell(tk.Frame):
             x=spec.MEDIA_ROW_MEDIA_STRIP_EXPANDED_POS[0],
             y=spec.MEDIA_ROW_MEDIA_STRIP_EXPANDED_POS[1],
         )
+        self._expanded_media_checkbox_tooltips = {
+            'cassette': bind_help_tooltip(
+                self.expanded_media_type_strip.checkbox_tooltip_widgets_for_kind('cassette'),
+                tooltip_id='module_two.media_checkbox.cassette',
+            ),
+            'vinyl': bind_help_tooltip(
+                self.expanded_media_type_strip.checkbox_tooltip_widgets_for_kind('vinyl'),
+                tooltip_id='module_two.media_checkbox.vinyl',
+            ),
+            'cd': bind_help_tooltip(
+                self.expanded_media_type_strip.checkbox_tooltip_widgets_for_kind('cd'),
+                tooltip_id='module_two.media_checkbox.cd',
+            ),
+        }
 
         self.collapsed_badge = MediaRowBadge(
             self.collapsed_container,
@@ -286,6 +341,10 @@ class MediaRowShell(tk.Frame):
             command=(lambda: on_select(row.row_id)) if on_select is not None else None,
         )
         self.collapsed_badge.place(x=spec.MEDIA_ROW_BADGE_COLLAPSED_POS[0], y=spec.MEDIA_ROW_BADGE_COLLAPSED_POS[1])
+        self._collapsed_badge_tooltip = bind_help_tooltip(
+            (self.collapsed_badge,),
+            tooltip_id='module_two.row_badge',
+        )
         self.collapsed_cover = CollapsedMediaCover(
             self.collapsed_container,
             cover_path=row.cover_path,
@@ -304,6 +363,20 @@ class MediaRowShell(tk.Frame):
             x=spec.MEDIA_ROW_MEDIA_STRIP_COLLAPSED_POS[0],
             y=spec.MEDIA_ROW_MEDIA_STRIP_COLLAPSED_POS[1],
         )
+        self._collapsed_media_icon_tooltips = {
+            'cassette': bind_help_tooltip(
+                self.collapsed_media_type_strip.collapsed_tooltip_widgets_for_kind('cassette'),
+                tooltip_id='module_two.collapsed_media.cassette',
+            ),
+            'vinyl': bind_help_tooltip(
+                self.collapsed_media_type_strip.collapsed_tooltip_widgets_for_kind('vinyl'),
+                tooltip_id='module_two.collapsed_media.vinyl',
+            ),
+            'cd': bind_help_tooltip(
+                self.collapsed_media_type_strip.collapsed_tooltip_widgets_for_kind('cd'),
+                tooltip_id='module_two.collapsed_media.cd',
+            ),
+        }
         self.collapsed_chevron = CollapsedRowChevron(
             self.collapsed_container,
             bg_color=spec.MEDIA_ROW_BG,
@@ -530,6 +603,7 @@ class MediaRowShell(tk.Frame):
 
     def set_song_selection_state(self, selected_song_indices: set[int]) -> None:
         self.songlist_viewport.set_selection_state(selected_song_indices)
+
 
     def set_locked(self, locked: bool) -> None:
         self._locked = locked

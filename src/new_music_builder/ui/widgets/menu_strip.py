@@ -8,6 +8,8 @@ import tkinter.font as tkfont
 import customtkinter as ctk
 
 from new_music_builder.ui import spec
+from new_music_builder.ui.help_tooltip_registry import tooltip_segments_for_id
+from new_music_builder.ui.widgets.help_tooltip import bind_help_tooltip
 from new_music_builder.ui.widgets.images import load_tk_photoimage_contained
 
 
@@ -19,6 +21,7 @@ class MenuAction:
     show_check_column: bool = False
     checked_getter: Callable[[], bool] | None = None
     close_after_invoke: bool = True
+    tooltip_id: str | None = None
 
 
 def measure_menu_action_width(
@@ -54,6 +57,7 @@ class _DropdownItem(ctk.CTkFrame):
         show_check_column: bool = False,
         checked_getter: Callable[[], bool] | None = None,
         check_icon_path: str | None = None,
+        tooltip_id: str | None = None,
     ) -> None:
         super().__init__(
             parent,
@@ -154,6 +158,7 @@ class _DropdownItem(ctk.CTkFrame):
             widget.bind('<Enter>', self._on_enter, add='+')
             widget.bind('<Leave>', self._on_leave, add='+')
             widget.bind('<ButtonPress-1>', self._on_press, add='+')
+        self._tooltip_binding = bind_help_tooltip(widgets, tooltip_id=tooltip_id) if tooltip_segments_for_id(tooltip_id) else None
         self._apply_enabled_state()
         self._apply_checked_state()
         self._set_visual_bg(bg_color)
@@ -247,6 +252,7 @@ class _DropdownMenu(tk.Frame):
                 show_check_column=item.show_check_column,
                 checked_getter=item.checked_getter,
                 check_icon_path=check_icon_path,
+                tooltip_id=item.tooltip_id,
             )
             menu_item.place(
                 x=0,
@@ -365,6 +371,7 @@ class MenuStrip(ctk.CTkFrame):
                     show_check_column=item.show_check_column,
                     checked_getter=item.checked_getter,
                     close_after_invoke=item.close_after_invoke,
+                    tooltip_id=item.tooltip_id,
                 )
                 for item in actions
             ],

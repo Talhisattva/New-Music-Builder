@@ -133,3 +133,13 @@ class MediaTypeStrip(tk.Frame):
 
     def _preview_mode(self) -> PreviewMode:
         return 'world' if self._row.preview_mode == 'world' else 'inventory'
+
+    def collapsed_tooltip_widgets_for_kind(self, kind: MediaKind) -> tuple[tk.Misc, ...]:
+        if self._expanded or kind not in self.icon_labels:
+            return ()
+        return (self.icon_labels[kind],)
+
+    def checkbox_tooltip_widgets_for_kind(self, kind: MediaKind) -> tuple[tk.Misc, ...]:
+        if not self._expanded or kind not in self.checkboxes:
+            return ()
+        return (self.checkboxes[kind],)

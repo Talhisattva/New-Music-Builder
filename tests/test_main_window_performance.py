@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from new_music_builder.domain.models import ProjectConfig, default_media_row
+from new_music_builder.domain.models import ProjectConfig, TrackEntry, default_media_row
 from new_music_builder.services.project_session import ProjectSession
+from new_music_builder.services.session_store import SessionAudioPreferences
 from new_music_builder.ui.main_window import MainWindow
 from new_music_builder.ui.widgets.media_row_list import MediaRowList
 
@@ -37,6 +38,7 @@ class _FakeRowList:
         self.removed_row_ids: list[set[int]] = []
         self.remove_rows_payloads: list[list[int]] = []
         self.selection_states: list[set[int]] = []
+        self.reordered_rows: list[list[int]] = []
 
     def append_row(self, row) -> None:
         self.appended_row_ids.append(row.row_id)
@@ -51,6 +53,9 @@ class _FakeRowList:
     def set_selection_state(self, row_ids: set[int]) -> None:
         self.selection_states.append(set(row_ids))
 
+    def reorder_rows(self, rows) -> None:
+        self.reordered_rows.append([row.row_id for row in rows])
+
 
 class _FakeRowWidget:
     def __init__(self, expanded: bool, row_id: int | None = None) -> None:
@@ -58,6 +63,8 @@ class _FakeRowWidget:
         self._row_id = row_id
         self.set_expanded_calls: list[bool] = []
         self.refreshed_covers: list[str] = []
+        self.song_table_refresh_count = 0
+        self.song_selection_states: list[set[int]] = []
 
     def set_expanded(self, expanded: bool) -> None:
         self._expanded = expanded
@@ -65,6 +72,12 @@ class _FakeRowWidget:
 
     def refresh_cover(self, cover_path: str) -> None:
         self.refreshed_covers.append(cover_path)
+
+    def refresh_song_table(self) -> None:
+        self.song_table_refresh_count += 1
+
+    def set_song_selection_state(self, selected_indices: set[int]) -> None:
+        self.song_selection_states.append(set(selected_indices))
 
 
 def test_add_module_two_media_row_uses_incremental_row_list() -> None:
@@ -124,6 +137,119 @@ def test_remove_module_two_media_row_set_remaps_selection_and_updates_remaining_
     assert window.module_two_content_viewport.moved_to == [0.25]
     assert getattr(window, "_refreshed_module_three", False) is True
     assert getattr(window, "_project_changed", False) is True
+
+
+def test_move_module_two_selected_songs_by_moves_block_and_preserves_selection() -> None:
+    row = default_media_row(1)
+    row.tracks_a = [
+        TrackEntry(display_label="A"),
+        TrackEntry(display_label="B"),
+        TrackEntry(display_label="C"),
+        TrackEntry(display_label="D"),
+    ]
+    session = ProjectSession(project=ProjectConfig(media_rows=[row]))
+    row_widget = _FakeRowWidget(True, row_id=1)
+    window = MainWindow.__new__(MainWindow)
+    window.session = session
+    window._module_two_keyboard_song_key = (1, "A")
+    window.module_two_song_selected_indices = {(1, "A"): {1, 2}}
+    window.module_two_song_selection_anchor_indices = {(1, "A"): 1}
+    window._expanded_row_widget = lambda row_id: row_widget if row_id == 1 else None
+    window.on_project_change = lambda: setattr(window, "_project_changed", True)
+
+    MainWindow._move_module_two_selected_songs_by(window, 1)
+
+    assert [track.display_label for track in row.tracks_a] == ["A", "D", "B", "C"]
+    assert window.module_two_song_selected_indices[(1, "A")] == {2, 3}
+    assert window.module_two_song_selection_anchor_indices[(1, "A")] == 2
+    assert row_widget.song_table_refresh_count == 1
+    assert row_widget.song_selection_states == [{2, 3}]
+    assert getattr(window, "_project_changed", False) is True
+
+
+def test_handle_module_two_keyboard_reorder_uses_last_clicked_song_owner() -> None:
+    rows = [default_media_row(1), default_media_row(2), default_media_row(3)]
+    rows[0].tracks_a = [
+        TrackEntry(display_label="A"),
+        TrackEntry(display_label="B"),
+        TrackEntry(display_label="C"),
+    ]
+    session = ProjectSession(project=ProjectConfig(media_rows=rows))
+    row_widget = _FakeRowWidget(True, row_id=1)
+    window = MainWindow.__new__(MainWindow)
+    window.session = session
+    window._module_two_keyboard_owner = "songs"
+    window._module_two_keyboard_song_key = (1, "A")
+    window.module_two_selected_row_ids = {2}
+    window.module_two_selection_anchor_row_id = 2
+    window.module_two_song_selected_indices = {(1, "A"): {1}}
+    window.module_two_song_selection_anchor_indices = {(1, "A"): 1}
+    window._expanded_row_widget = lambda row_id: row_widget if row_id == 1 else None
+    window.module_two_row_list = _FakeRowList()
+    window.module_two_scroll_area = _FakeScrollArea()
+    window.module_two_content_viewport = _FakeViewport(current=(0.25, 0.75))
+    window._refresh_module_three_appearance_selector = lambda: setattr(window, "_refreshed_module_three", True)
+    window.on_project_change = lambda: setattr(window, "_project_changed", True)
+    window._is_build_locked = lambda: False
+    window.focus_get = lambda: None
+
+    result = MainWindow._handle_module_two_keyboard_reorder(window, None, 1)
+
+    assert result == "break"
+    assert [row.row_id for row in window.session.project.media_rows] == [1, 2, 3]
+    assert [track.display_label for track in rows[0].tracks_a] == ["A", "C", "B"]
+    assert row_widget.song_selection_states == [{2}]
+
+
+def test_move_module_two_selected_rows_by_moves_block_and_preserves_selection() -> None:
+    rows = [default_media_row(1), default_media_row(2), default_media_row(3), default_media_row(4)]
+    session = ProjectSession(project=ProjectConfig(media_rows=rows))
+    window = MainWindow.__new__(MainWindow)
+    window.session = session
+    window.module_two_selected_row_ids = {2, 3}
+    window.module_two_selection_anchor_row_id = 2
+    window.module_two_row_list = _FakeRowList()
+    window.module_two_scroll_area = _FakeScrollArea()
+    window.module_two_content_viewport = _FakeViewport(current=(0.25, 0.75))
+    window._refresh_module_three_appearance_selector = lambda: setattr(window, "_refreshed_module_three", True)
+    window.on_project_change = lambda: setattr(window, "_project_changed", True)
+
+    MainWindow._move_module_two_selected_rows_by(window, -1)
+
+    assert [row.row_id for row in window.session.project.media_rows] == [2, 3, 1, 4]
+    assert window.module_two_selected_row_ids == {2, 3}
+    assert window.module_two_selection_anchor_row_id == 2
+    assert window.module_two_row_list.reordered_rows == [[2, 3, 1, 4]]
+    assert window.module_two_row_list.selection_states == [{2, 3}]
+    assert window.module_two_scroll_area.refresh_count == 1
+    assert window.module_two_content_viewport.moved_to == [0.25]
+    assert getattr(window, "_refreshed_module_three", False) is True
+    assert getattr(window, "_project_changed", False) is True
+
+
+def test_move_module_two_selected_rows_by_blocks_expanded_rows() -> None:
+    rows = [default_media_row(1), default_media_row(2), default_media_row(3)]
+    rows[1].expanded = True
+    session = ProjectSession(project=ProjectConfig(media_rows=rows))
+    window = MainWindow.__new__(MainWindow)
+    window.session = session
+    window.module_two_selected_row_ids = {2}
+    window.module_two_selection_anchor_row_id = 2
+    window.module_two_row_list = _FakeRowList()
+    window.module_two_scroll_area = _FakeScrollArea()
+    window.module_two_content_viewport = _FakeViewport(current=(0.25, 0.75))
+    window._refresh_module_three_appearance_selector = lambda: setattr(window, "_refreshed_module_three", True)
+    window.on_project_change = lambda: setattr(window, "_project_changed", True)
+
+    MainWindow._move_module_two_selected_rows_by(window, -1)
+
+    assert [row.row_id for row in window.session.project.media_rows] == [1, 2, 3]
+    assert window.module_two_row_list.reordered_rows == []
+    assert window.module_two_row_list.selection_states == []
+    assert window.module_two_scroll_area.refresh_count == 0
+    assert window.module_two_content_viewport.moved_to is None
+    assert window.__dict__.get("_refreshed_module_three", False) is False
+    assert window.__dict__.get("_project_changed", False) is False
 
 
 def test_media_row_list_set_expanded_row_only_touches_changed_widgets() -> None:
@@ -286,7 +412,7 @@ def test_show_audio_settings_dialog_updates_project_and_persists_session(monkeyp
         "SessionStore",
         (),
         {
-            "save": lambda _self, project, current_path, dialog_folder_memory=None: session_saves.append(
+            "save": lambda _self, project, current_path, dialog_folder_memory=None, audio_preferences=None: session_saves.append(
                 (
                     project.sample_rate,
                     project.compression_quality,
@@ -302,6 +428,7 @@ def test_show_audio_settings_dialog_updates_project_and_persists_session(monkeyp
     window.module_two_row_list = type("RowList", (), {"refresh_collapsed_details": lambda _self: None})()
     window.build_summary = type("BuildSummary", (), {"refresh": lambda _self: None})()
     window.dialog_folder_memory = type("DialogFolderMemory", (), {"song_folder": "", "image_folder": ""})()
+    window.audio_preferences = SessionAudioPreferences()
 
     class _FakeDialog:
         def __init__(self, *_args, **_kwargs) -> None:
@@ -317,7 +444,48 @@ def test_show_audio_settings_dialog_updates_project_and_persists_session(monkeyp
     assert window.session.project.sample_rate == 48000
     assert window.session.project.compression_quality == 0.65
     assert window.session.project.reencode_existing_ogg is False
+    assert window.audio_preferences.sample_rate == 48000
+    assert window.audio_preferences.compression_quality == 0.65
+    assert window.audio_preferences.reencode_existing_ogg is False
     assert session_saves == [(48000, 0.65, False, "C:/projects/test.nmbproj.json")]
+
+
+def test_reset_project_to_defaults_preserves_master_audio_preferences() -> None:
+    row = default_media_row(1)
+    session = ProjectSession(project=ProjectConfig(media_rows=[row], sample_rate=22050, compression_quality=0.2, reencode_existing_ogg=True))
+    window = MainWindow.__new__(MainWindow)
+    window.session = session
+    window.audio_preferences = SessionAudioPreferences(
+        sample_rate=48000,
+        compression_quality=0.65,
+        reencode_existing_ogg=False,
+    )
+    window._cancel_module_two_song_drag = lambda: None
+    window._cancel_module_two_row_drag = lambda: None
+    window._restore_unsaved_phase_two_default = lambda *args, **kwargs: None
+    window._sync_phase_one_ui_from_project = lambda: None
+    window._build_module_two_row_list = lambda: None
+    window._refresh_module_three_appearance_selector = lambda: None
+    window.refresh_all = lambda: None
+    window.on_project_change = lambda: None
+    window.module_three_staged_custom_images = {}
+    window.module_two_selected_row_ids = set()
+    window.module_two_selection_anchor_row_id = None
+    window.module_two_song_selected_indices = {}
+    window.module_two_song_selection_anchor_indices = {}
+    window._last_export_output_path = ''
+    window.build_log = []
+    window.preview_entries = []
+    window.module_four_panel = type("ModuleFour", (), {"reset_current_run": lambda _self: None})()
+    window.module_five_panel = type("ModuleFive", (), {"reset_preview_rows": lambda _self: None})()
+    window.module_six_panel = type("ModuleSix", (), {"reset": lambda _self: None})()
+    window.module_two_row_list = type("RowList", (), {})()
+
+    MainWindow._reset_project_to_defaults(window)
+
+    assert window.session.project.sample_rate == 48000
+    assert window.session.project.compression_quality == 0.65
+    assert window.session.project.reencode_existing_ogg is False
 
 
 def test_select_workshop_poster_image_uses_image_lane_and_remembers_selection(monkeypatch, tmp_path) -> None:

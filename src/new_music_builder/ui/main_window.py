@@ -72,6 +72,7 @@ from new_music_builder.services.project_session import ProjectSession
 from new_music_builder.services.project_store import ProjectStore
 from new_music_builder.services.recent_projects import RecentProjectsStore
 from new_music_builder.services.session_store import SessionStore
+from new_music_builder.services.session_store import SessionAudioPreferences
 from new_music_builder.services.track_import import filter_supported_audio_paths
 from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.app_header import AppHeader
@@ -96,6 +97,7 @@ from new_music_builder.ui.widgets.main_button import MainButton
 from new_music_builder.ui.widgets.media_creation_header import MediaCreationHeader
 from new_music_builder.ui.widgets.media_row_list import MediaRowList, RowSelectionModifiers
 from new_music_builder.ui.widgets.media_songlist_table import TrackSelectionModifiers
+from new_music_builder.ui.widgets.help_tooltip import bind_help_tooltip
 from new_music_builder.ui.widgets.menu_strip import MenuAction, MenuStrip
 from new_music_builder.ui.widgets.module_four_panel import ModuleFourPanel
 from new_music_builder.ui.widgets.module_five_panel import ModuleFivePanel
@@ -209,6 +211,7 @@ def build_menu_action_map(window: object) -> dict[str, list[MenuAction]]:
             label=first.label,
             command=first.command,
             show_check_column=True,
+            tooltip_id='menu.preferences.audio_settings',
         )
     preferences.append(
         MenuAction(
@@ -217,6 +220,7 @@ def build_menu_action_map(window: object) -> dict[str, list[MenuAction]]:
             show_check_column=True,
             checked_getter=getattr(window, '_automatic_textures_enabled'),
             close_after_invoke=False,
+            tooltip_id='menu.preferences.automatic_textures',
         )
     )
     return menu_actions
@@ -287,6 +291,11 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.session_store = SessionStore()
         self.session, saved_path = self.session_store.load()
         self.session = ProjectSession(project=self.session, current_path=saved_path)
+        self.audio_preferences = SessionAudioPreferences(
+            sample_rate=self.session_store.last_audio_preferences.sample_rate,
+            compression_quality=self.session_store.last_audio_preferences.compression_quality,
+            reencode_existing_ogg=self.session_store.last_audio_preferences.reencode_existing_ogg,
+        )
         self.dialog_folder_memory = DialogFolderMemory(
             song_folder=self.session_store.last_dialog_folder_memory.song_folder,
             image_folder=self.session_store.last_dialog_folder_memory.image_folder,
@@ -295,6 +304,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.module_two_selection_anchor_row_id: int | None = None
         self.module_two_song_selected_indices: dict[tuple[int, str], set[int]] = {}
         self.module_two_song_selection_anchor_indices: dict[tuple[int, str], int | None] = {}
+        self._module_two_keyboard_owner: str | None = None
+        self._module_two_keyboard_song_key: tuple[int, str] | None = None
         self._module_two_song_drag_session: dict[str, object] | None = None
         self._module_two_row_drag_session: dict[str, object] | None = None
         self._module_two_selection_suppressed_until = 0.0
@@ -347,6 +358,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._sync_phase_one_ui_from_project()
         self.content_frame.bind('<Configure>', self._on_content_frame_configure, add='+')
         self.bind('<Delete>', self._on_delete_selected_songs, add='+')
+        self.bind('<Up>', lambda event: self._handle_module_two_keyboard_reorder(event, -1), add='+')
+        self.bind('<Down>', lambda event: self._handle_module_two_keyboard_reorder(event, 1), add='+')
         self.refresh_all()
         self._schedule_responsive_layout()
         self._bind_app_shortcuts()
@@ -625,6 +638,98 @@ class MainWindow(_DnDCompat, ctk.CTk):
         action()
         return 'break'
 
+    def _set_module_two_keyboard_owner(self, owner: str, song_key: tuple[int, str] | None = None) -> None:
+        self._module_two_keyboard_owner = owner
+        self._module_two_keyboard_song_key = song_key if owner == 'songs' else None
+
+    def _module_two_keyboard_reorder_blocked_by_focus(self) -> bool:
+        focused_widget = self.focus_get()
+        return isinstance(focused_widget, (tk.Entry, tk.Text))
+
+    def _handle_module_two_keyboard_reorder(self, _event: tk.Event | None, delta: int) -> str:
+        if delta not in {-1, 1}:
+            return 'break'
+        if self._is_build_locked() or self._module_two_keyboard_reorder_blocked_by_focus():
+            return 'break'
+        if self._module_two_keyboard_owner == 'songs':
+            self._move_module_two_selected_songs_by(delta)
+            return 'break'
+        if self._module_two_keyboard_owner == 'media_rows':
+            self._move_module_two_selected_rows_by(delta)
+            return 'break'
+        return 'break'
+
+    def _move_module_two_selected_songs_by(self, delta: int) -> None:
+        if self._module_two_keyboard_song_key is None:
+            return
+        row_id, side = self._module_two_keyboard_song_key
+        target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
+        if target_row is None:
+            return
+        tracks = target_row.tracks_a if side == 'A' else target_row.tracks_b
+        selected_indices = sorted(self._module_two_song_selection_for_row(row_id, side))
+        if not tracks or not selected_indices:
+            return
+        if delta < 0:
+            if selected_indices[0] <= 0:
+                return
+            target_index = selected_indices[0] - 1
+        else:
+            if selected_indices[-1] >= len(tracks) - 1:
+                return
+            target_index = selected_indices[-1] + 2
+        moved_indices = self.session.move_tracks_within_media_row(
+            row_id,
+            side,
+            set(selected_indices),
+            target_index,
+        )
+        if not moved_indices:
+            return
+        key = (row_id, side)
+        moved_selection = set(moved_indices)
+        self.module_two_song_selected_indices[key] = moved_selection
+        self.module_two_song_selection_anchor_indices[key] = moved_indices[0] if moved_indices else None
+        expanded_widget = self._expanded_row_widget(row_id)
+        if expanded_widget is not None:
+            expanded_widget.refresh_song_table()
+            expanded_widget.set_song_selection_state(moved_selection)
+        self.on_project_change()
+
+    def _move_module_two_selected_rows_by(self, delta: int) -> None:
+        if not self.module_two_selected_row_ids or not hasattr(self, 'module_two_row_list'):
+            return
+        rows = list(self.session.project.media_rows)
+        if any(row.row_id in self.module_two_selected_row_ids and row.expanded for row in rows):
+            return
+        selected_indices = [
+            index
+            for index, row in enumerate(rows)
+            if row.row_id in self.module_two_selected_row_ids
+        ]
+        if not selected_indices:
+            return
+        if delta < 0:
+            if selected_indices[0] <= 0:
+                return
+            target_index = selected_indices[0] - 1
+        else:
+            if selected_indices[-1] >= len(rows) - 1:
+                return
+            target_index = selected_indices[-1] + 2
+        current_view = self.module_two_content_viewport.yview()
+        moved_row_ids = self.session.move_media_rows(set(self.module_two_selected_row_ids), target_index)
+        if not moved_row_ids:
+            return
+        self.module_two_selected_row_ids = set(moved_row_ids)
+        self.module_two_selection_anchor_row_id = moved_row_ids[0] if moved_row_ids else None
+        self.module_two_row_list.reorder_rows(self.session.project.media_rows)
+        self.module_two_row_list.set_selection_state(self.module_two_selected_row_ids)
+        self.module_two_scroll_area.refresh_scroll_region()
+        self.module_two_content_viewport.yview_moveto(current_view[0])
+        self._refresh_module_three_appearance_selector()
+        self.on_project_change()
+
     def _show_tutorial_placeholder(self) -> None:
         messagebox.showinfo('Tutorial', 'Tutorial coming soon.')
 
@@ -868,6 +973,14 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.module_two_top_header.place(x=0, y=0)
         self.module_two_add_row_button = self.module_two_top_header.add_button
         self.module_two_remove_row_button = self.module_two_top_header.remove_button
+        self._module_two_add_row_tooltip = bind_help_tooltip(
+            (self.module_two_add_row_button,),
+            tooltip_id='module_two.add_media_row',
+        )
+        self._module_two_remove_row_tooltip = bind_help_tooltip(
+            (self.module_two_remove_row_button,),
+            tooltip_id='module_two.remove_media_row',
+        )
 
         self.module_two_scroll_area = ScrollViewport(
             self.module_two_midground_border,
@@ -895,6 +1008,15 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.module_one_cover_border = self.module_one_cover_picker.cover_border
         self.module_one_cover_surface = self.module_one_cover_picker.cover_surface
         self.module_one_cover_button = self.module_one_cover_picker.folder_button
+        self._module_one_cover_tooltip = bind_help_tooltip(
+            (
+                self.module_one_cover_picker,
+                self.module_one_cover_border,
+                self.module_one_cover_surface,
+                self.module_one_cover_button,
+            ),
+            tooltip_id='module_one.workshop_preview',
+        )
 
         checkbox_x = (
             spec.COVER_OFFSET[0]
@@ -923,6 +1045,17 @@ class MainWindow(_DnDCompat, ctk.CTk):
             textvariable=self.mod_name_var,
         )
         self.module_one_mod_name_field.place(x=spec.PHASE_ONE_TEXT_ROW_X, y=mod_name_row_y)
+        self._module_one_mod_name_tooltip = bind_help_tooltip(
+            (
+                self.module_one_mod_name_field,
+                self.module_one_mod_name_field.label_frame,
+                self.module_one_mod_name_field.label,
+                self.module_one_mod_name_field.field,
+                self.module_one_mod_name_field.field.inner,
+                self.module_one_mod_name_field.field.entry,
+            ),
+            tooltip_id='module_one.mod_name',
+        )
 
         self.module_one_mod_id_field = LabeledTextField(
             self.module_one_midground_border,
@@ -931,6 +1064,17 @@ class MainWindow(_DnDCompat, ctk.CTk):
             textvariable=self.mod_id_var,
         )
         self.module_one_mod_id_field.place(x=spec.PHASE_ONE_TEXT_ROW_X, y=mod_name_row_y + row_step)
+        self._module_one_mod_id_tooltip = bind_help_tooltip(
+            (
+                self.module_one_mod_id_field,
+                self.module_one_mod_id_field.label_frame,
+                self.module_one_mod_id_field.label,
+                self.module_one_mod_id_field.field,
+                self.module_one_mod_id_field.field.inner,
+                self.module_one_mod_id_field.field.entry,
+            ),
+            tooltip_id='module_one.mod_id',
+        )
 
         self.module_one_parent_id_field = LabeledTextField(
             self.module_one_midground_border,
@@ -939,6 +1083,17 @@ class MainWindow(_DnDCompat, ctk.CTk):
             textvariable=self.parent_mod_id_var,
         )
         self.module_one_parent_id_field.place(x=spec.PHASE_ONE_TEXT_ROW_X, y=mod_name_row_y + (row_step * 2))
+        self._module_one_parent_id_tooltip = bind_help_tooltip(
+            (
+                self.module_one_parent_id_field,
+                self.module_one_parent_id_field.label_frame,
+                self.module_one_parent_id_field.label,
+                self.module_one_parent_id_field.field,
+                self.module_one_parent_id_field.field.inner,
+                self.module_one_parent_id_field.field.entry,
+            ),
+            tooltip_id='module_one.parent_mod_id',
+        )
 
         self.module_one_author_field = LabeledTextField(
             self.module_one_midground_border,
@@ -947,6 +1102,17 @@ class MainWindow(_DnDCompat, ctk.CTk):
             textvariable=self.author_var,
         )
         self.module_one_author_field.place(x=spec.PHASE_ONE_TEXT_ROW_X, y=mod_name_row_y + (row_step * 3))
+        self._module_one_author_tooltip = bind_help_tooltip(
+            (
+                self.module_one_author_field,
+                self.module_one_author_field.label_frame,
+                self.module_one_author_field.label,
+                self.module_one_author_field.field,
+                self.module_one_author_field.field.inner,
+                self.module_one_author_field.field.entry,
+            ),
+            tooltip_id='module_one.author',
+        )
 
         output_folder_y = mod_name_row_y + (row_step * 3) + spec.TYPEABLE_FIELD_SIZE[1] + spec.PHASE_ONE_OUTPUT_FOLDER_GAP
         self.module_one_ogg_output_folder = OutputFolderField(
@@ -960,6 +1126,18 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.module_one_ogg_output_folder.place(
             x=spec.PHASE_ONE_TEXT_ROW_X + min(0, spec.OUTPUT_FOLDER_ROW_X_OFFSET),
             y=output_folder_y,
+        )
+        self._module_one_ogg_output_folder_tooltip = bind_help_tooltip(
+            (
+                self.module_one_ogg_output_folder,
+                self.module_one_ogg_output_folder.label_frame,
+                self.module_one_ogg_output_folder.label,
+                self.module_one_ogg_output_folder.path_display,
+                self.module_one_ogg_output_folder.path_display.inner,
+                self.module_one_ogg_output_folder.path_display.text_label,
+                self.module_one_ogg_output_folder.folder_button,
+            ),
+            tooltip_id='module_one.ogg_output_folder',
         )
 
         workshop_output_folder_y = (
@@ -979,6 +1157,18 @@ class MainWindow(_DnDCompat, ctk.CTk):
             x=spec.PHASE_ONE_TEXT_ROW_X + min(0, spec.OUTPUT_FOLDER_ROW_X_OFFSET),
             y=workshop_output_folder_y,
         )
+        self._module_one_workshop_output_folder_tooltip = bind_help_tooltip(
+            (
+                self.module_one_workshop_output_folder,
+                self.module_one_workshop_output_folder.label_frame,
+                self.module_one_workshop_output_folder.label,
+                self.module_one_workshop_output_folder.path_display,
+                self.module_one_workshop_output_folder.path_display.inner,
+                self.module_one_workshop_output_folder.path_display.text_label,
+                self.module_one_workshop_output_folder.folder_button,
+            ),
+            tooltip_id='module_one.workshop_output_folder',
+        )
 
         action_button_y = workshop_output_folder_y + self.module_one_workshop_output_folder.winfo_reqheight() + spec.PHASE_ONE_ACTION_BUTTON_GAP_BELOW_OUTPUT
         action_button_x = spec.PHASE_ONE_TEXT_ROW_X + min(0, spec.OUTPUT_FOLDER_ROW_X_OFFSET)
@@ -988,6 +1178,10 @@ class MainWindow(_DnDCompat, ctk.CTk):
             command=self.save_project,
         )
         self.module_one_save_button.place(x=action_button_x, y=action_button_y)
+        self._module_one_save_tooltip = bind_help_tooltip(
+            (self.module_one_save_button,),
+            tooltip_id='module_one.save',
+        )
 
         load_button_x = action_button_x + spec.MAIN_BUTTON_SIZE[0] + spec.PHASE_ONE_ACTION_BUTTON_GAP_X
         self.module_one_load_button = MainButton(
@@ -996,6 +1190,10 @@ class MainWindow(_DnDCompat, ctk.CTk):
             command=self.load_project,
         )
         self.module_one_load_button.place(x=load_button_x, y=action_button_y)
+        self._module_one_load_tooltip = bind_help_tooltip(
+            (self.module_one_load_button,),
+            tooltip_id='module_one.open',
+        )
 
     def _show_audio_settings_dialog(self) -> None:
         if self._is_build_locked():
@@ -1015,6 +1213,11 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.session.project.sample_rate = int(sample_rate)
         self.session.project.compression_quality = float(compression_quality)
         self.session.project.reencode_existing_ogg = bool(reencode_existing_ogg)
+        self.audio_preferences = SessionAudioPreferences(
+            sample_rate=self.session.project.sample_rate,
+            compression_quality=self.session.project.compression_quality,
+            reencode_existing_ogg=self.session.project.reencode_existing_ogg,
+        )
         self.on_project_change()
 
     def _automatic_textures_enabled(self) -> bool:
@@ -2143,6 +2346,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         else:
             self.module_two_selected_row_ids = {row_id}
             self.module_two_selection_anchor_row_id = row_id
+        self._set_module_two_keyboard_owner('media_rows')
         self.module_two_row_list.set_selection_state(self.module_two_selected_row_ids)
 
     def _begin_module_two_row_drag(self, row_id: int, x_root: int, y_root: int) -> None:
@@ -2160,6 +2364,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self.module_two_selected_row_ids = set(dragged_row_ids)
             self.module_two_selection_anchor_row_id = row_id
             self.module_two_row_list.set_selection_state(self.module_two_selected_row_ids)
+        self._set_module_two_keyboard_owner('media_rows')
         self._module_two_row_drag_session = {
             'anchor_row_id': row_id,
             'dragged_row_ids': dragged_row_ids,
@@ -2244,6 +2449,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             return
         self.module_two_song_selected_indices[key] = next_selected
         self.module_two_song_selection_anchor_indices[key] = next_anchor
+        self._set_module_two_keyboard_owner('songs', key)
         expanded_widget = self._expanded_row_widget(row_id)
         if expanded_widget is not None:
             expanded_widget.set_song_selection_state(next_selected)
@@ -2268,6 +2474,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self.module_two_song_selected_indices[key] = dragged_indices
             self.module_two_song_selection_anchor_indices[key] = track_index
             expanded_widget.set_song_selection_state(dragged_indices)
+        self._set_module_two_keyboard_owner('songs', key)
         self._module_two_song_drag_session = {
             'row_id': row_id,
             'side': side,
@@ -2385,6 +2592,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._cancel_module_two_song_drag()
         self._cancel_module_two_row_drag()
         self.session.reset()
+        self._apply_master_audio_preferences_to_project()
         self._restore_unsaved_phase_two_default()
         self._sync_phase_one_ui_from_project()
         self.module_three_staged_custom_images.clear()
@@ -3196,7 +3404,13 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self.session.project,
             self.session.current_path,
             dialog_folder_memory=self.dialog_folder_memory,
+            audio_preferences=self.audio_preferences,
         )
+
+    def _apply_master_audio_preferences_to_project(self) -> None:
+        self.session.project.sample_rate = int(self.audio_preferences.sample_rate)
+        self.session.project.compression_quality = float(self.audio_preferences.compression_quality)
+        self.session.project.reencode_existing_ogg = bool(self.audio_preferences.reencode_existing_ogg)
 
     def _commit_phase_one_project_state(self) -> None:
         if self._phase_one_sync_after_id is not None:

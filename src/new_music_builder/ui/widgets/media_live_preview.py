@@ -146,6 +146,15 @@ class MediaLivePreview(tk.Frame):
 
         self._apply_state()
 
+    def help_tooltip_widgets(self) -> tuple[tk.Misc, ...]:
+        return (
+            self.header,
+            self.header_fill,
+            self.header_label,
+            self.mode_strip,
+            *self.mode_toggle.tooltip_widgets(),
+        )
+
     def _image_for_slot(self, mode: str, kind: AppearanceKind) -> tk.PhotoImage | None:
         if self._resolve_preview_path is None:
             return None

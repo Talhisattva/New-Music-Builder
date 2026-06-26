@@ -115,6 +115,30 @@ class MediaSonglistViewport(tk.Frame):
         self.table.set_selection_state(self._selected_track_indices)
         self.refresh_scroll_region()
 
+    def tooltip_widgets(self) -> tuple[tk.Misc, ...]:
+        return (
+            self,
+            self.scroll_viewport,
+            self.viewport_canvas,
+            self.content_frame,
+            self.table,
+        )
+
+    def header_tooltip_widgets(self) -> tuple[tk.Misc, ...]:
+        return (self.table,)
+
+    def is_pointer_in_header(self, event: tk.Event | None) -> bool:
+        if event is not None and hasattr(event, 'y'):
+            return 0 <= int(event.y) < spec.MEDIA_ROW_SONGLIST_TABLE_HEADER_HEIGHT
+        try:
+            pointer_x = self.table.winfo_pointerx()
+            pointer_y = self.table.winfo_pointery()
+            local_x = pointer_x - self.table.winfo_rootx()
+            local_y = pointer_y - self.table.winfo_rooty()
+            return 0 <= local_x < self.table.winfo_width() and 0 <= local_y < spec.MEDIA_ROW_SONGLIST_TABLE_HEADER_HEIGHT
+        except tk.TclError:
+            return False
+
     def set_selection_state(self, selected_track_indices: set[int]) -> None:
         self._selected_track_indices = set(selected_track_indices)
         self.table.set_selection_state(self._selected_track_indices)

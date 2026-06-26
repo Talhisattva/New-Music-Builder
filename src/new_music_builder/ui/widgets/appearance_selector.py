@@ -11,6 +11,7 @@ from new_music_builder.domain.models import AppearanceKind, AppearanceSelection,
 from new_music_builder.services.asset_catalog import AssetEntry
 from new_music_builder.services.default_appearance_selection import preferred_default_asset_key
 from new_music_builder.ui import spec, theme
+from new_music_builder.ui.widgets.help_tooltip import bind_help_tooltip
 from new_music_builder.ui.widgets.buttons import make_builder_button
 from new_music_builder.ui.widgets.appearance_entries import (
     BUILT_IN_DUAL_EMPTY_TO_FULL,
@@ -261,6 +262,9 @@ class _AppearanceTab(_BorderSurface):
             widget.bind('<Enter>', self._on_enter, add='+')
             widget.bind('<Leave>', self._on_leave, add='+')
             widget.bind('<ButtonPress-1>', self._on_press, add='+')
+
+    def tooltip_widgets(self) -> tuple[tk.Misc, ...]:
+        return (self, self.content, self.icon_label, self.text_label, self.top, self.bottom, self.left, self.right)
 
     def set_image(self, path: str | None) -> None:
         self._image = load_tk_photoimage_contained(path, spec.MODULE_THREE_TAB_ICON_SIZE)
@@ -562,11 +566,13 @@ class AppearanceSelector:
             size=spec.MODULE_THREE_DUAL_SPRITE_LABEL_FONT_SIZE,
         )
         self._preview_mode_toggle: PreviewModeToggle | None = None
+        self._help_tooltips: list[object | None] = []
 
         self._build_tabs()
         self._build_generate_row()
         self._build_dual_sprite_row()
         self._build_footer()
+        self._bind_help_tooltips()
 
     def _automatic_textures_enabled(self) -> bool:
         return bool(self._automatic_textures_enabled_getter())
@@ -650,6 +656,121 @@ class AppearanceSelector:
             )
             tab.place(x=index * spec.MODULE_THREE_TAB_SIZE[0], y=0)
             self._tab_widgets[kind] = tab
+
+    def _bind_help_tooltips(self) -> None:
+        tab_tooltip_ids = {
+            'cassette': 'module_three.tab.cassette',
+            'vinyl': 'module_three.tab.vinyl',
+            'cd': 'module_three.tab.cd',
+            'case': 'module_three.tab.case',
+            'jacket': 'module_three.tab.jacket',
+            'cd_cover': 'module_three.tab.cd_cover',
+        }
+        for kind, tooltip_id in tab_tooltip_ids.items():
+            self._help_tooltips.append(
+                bind_help_tooltip(
+                    self._tab_widgets[kind].tooltip_widgets(),
+                    tooltip_id=tooltip_id,
+                    preferred_direction='down',
+                )
+            )
+        if self._preview_mode_toggle is not None:
+            self._help_tooltips.append(
+                bind_help_tooltip(
+                    self._preview_mode_toggle.tooltip_widgets(),
+                    tooltip_id='module_three.preview_mode_toggle',
+                    preferred_direction='down',
+                )
+            )
+        self._help_tooltips.append(
+            bind_help_tooltip(
+                (
+                    self.shell.dual_sprite_left_pane,
+                    self.shell.dual_sprite_left_pane.content,
+                    self.dual_checkbox,
+                    self.dual_label,
+                ),
+                tooltip_id='module_three.dual_sprite',
+                preferred_direction='down',
+            )
+        )
+        self._help_tooltips.append(
+            bind_help_tooltip(
+                (self.generate_from_cover_button,),
+                tooltip_id='module_three.generate_from_cover',
+                preferred_direction='down',
+            )
+        )
+        self._help_tooltips.append(
+            bind_help_tooltip(
+                self.single_custom_footer.tooltip_widgets_for_inventory_upload(),
+                tooltip_id='module_three.custom.single.inventory',
+                preferred_direction='left',
+            )
+        )
+        self._help_tooltips.append(
+            bind_help_tooltip(
+                self.single_custom_footer.tooltip_widgets_for_world_upload(),
+                tooltip_id='module_three.custom.single.world',
+                preferred_direction='left',
+            )
+        )
+        self._help_tooltips.append(
+            bind_help_tooltip(
+                self.single_custom_footer.tooltip_widgets_for_add_custom(),
+                tooltip_id='module_three.custom.single.add',
+                preferred_direction='left',
+            )
+        )
+        self._help_tooltips.append(
+            bind_help_tooltip(
+                self.single_custom_footer.tooltip_widgets_for_reset(),
+                tooltip_id='module_three.custom.reset',
+                preferred_direction='left',
+            )
+        )
+        self._help_tooltips.append(
+            bind_help_tooltip(
+                self.dual_custom_footer.tooltip_widgets_for_box(0),
+                tooltip_id='module_three.custom.dual.inventory_full',
+                preferred_direction='left',
+            )
+        )
+        self._help_tooltips.append(
+            bind_help_tooltip(
+                self.dual_custom_footer.tooltip_widgets_for_box(1),
+                tooltip_id='module_three.custom.dual.world_full',
+                preferred_direction='left',
+            )
+        )
+        self._help_tooltips.append(
+            bind_help_tooltip(
+                self.dual_custom_footer.tooltip_widgets_for_box(2),
+                tooltip_id='module_three.custom.dual.inventory_empty',
+                preferred_direction='left',
+            )
+        )
+        self._help_tooltips.append(
+            bind_help_tooltip(
+                self.dual_custom_footer.tooltip_widgets_for_box(3),
+                tooltip_id='module_three.custom.dual.world_empty',
+                preferred_direction='left',
+            )
+        )
+        self._help_tooltips.append(
+            bind_help_tooltip(
+                self.dual_custom_footer.tooltip_widgets_for_add_custom(),
+                tooltip_id='module_three.custom.dual.add',
+                preferred_direction='left',
+            )
+        )
+        self._help_tooltips.append(
+            bind_help_tooltip(
+                self.dual_custom_footer.tooltip_widgets_for_reset(),
+                tooltip_id='module_three.custom.reset',
+                preferred_direction='left',
+            )
+        )
 
     def _build_dual_sprite_row(self) -> None:
         row_content = self.shell.dual_sprite_left_pane.content

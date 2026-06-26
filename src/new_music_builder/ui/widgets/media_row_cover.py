@@ -70,6 +70,9 @@ class ExpandedMediaCover(tk.Frame):
         self.set_cover_path(cover_path)
         self._bind_drop_target()
 
+    def tooltip_widgets(self) -> tuple[tk.Misc, ...]:
+        return (self, self.cover_border, self.cover_surface, self.folder_button)
+
     def set_cover_path(self, cover_path: str | Path | None) -> None:
         self._cover_image = load_tk_photoimage_contained(
             cover_path,
@@ -88,7 +91,7 @@ class ExpandedMediaCover(tk.Frame):
     def _bind_drop_target(self) -> None:
         if self._dnd_type is None or self._can_accept_drop is None or self._on_drop_files is None:
             return
-        for widget in (self.cover_border, self.cover_surface):
+        for widget in (self.cover_border, self.cover_surface, self.folder_button):
             if not hasattr(widget, 'drop_target_register'):
                 continue
             try:
@@ -174,6 +177,9 @@ class CollapsedMediaCover(tk.Frame):
         )
         self.cover_surface.place(x=1, y=1, width=cover_size[0] - 2, height=cover_size[1] - 2)
         self.set_cover_path(cover_path)
+
+    def tooltip_widgets(self) -> tuple[tk.Misc, ...]:
+        return (self, self.cover_border, self.cover_surface)
 
     def set_cover_path(self, cover_path: str | Path | None) -> None:
         self._cover_image = load_tk_photoimage_contained(

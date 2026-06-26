@@ -407,7 +407,7 @@ class MediaSonglistTable(tk.Canvas):
             self.clear_drag_state()
             return 'break'
         column_index = self._column_index_at(int(getattr(event, 'x', -1)))
-        if column_index == 0:
+        if column_index != 4:
             self._pending_grab_row_index = row_index
             self._grab_press_x_root = int(getattr(event, 'x_root', 0))
             self._grab_press_y_root = int(getattr(event, 'y_root', 0))
@@ -441,6 +441,7 @@ class MediaSonglistTable(tk.Canvas):
         y_root = int(getattr(event, 'y_root', 0))
         row_index = self._row_index_at(y)
         column_index = self._column_index_at(x)
+        pressed_row_index = self._pending_grab_row_index
 
         if self._drag_active:
             if self._on_track_drag_finished is not None:
@@ -448,21 +449,26 @@ class MediaSonglistTable(tk.Canvas):
             self.clear_drag_state()
             return 'break'
 
-        if self._pending_grab_row_index is not None:
-            self.clear_drag_state()
-            return 'break'
-
         if 0 <= y < self._header_height:
+            self.clear_drag_state()
             sort_column = self._header_sort_column_at(x)
             if sort_column is not None and self._on_header_sort_requested is not None:
                 self._on_header_sort_requested(sort_column)
             return 'break'
         if row_index is None or row_index >= len(self._tracks):
+            self.clear_drag_state()
             return 'break'
         if column_index == 4 and self._on_track_remove_requested is not None:
+            self.clear_drag_state()
             self._on_track_remove_requested(row_index)
             return 'break'
-        if self._on_track_selected is not None:
+        should_select_row = (
+            pressed_row_index is not None
+            and pressed_row_index == row_index
+            and column_index != 4
+        )
+        self.clear_drag_state()
+        if should_select_row and self._on_track_selected is not None:
             self._on_track_selected(row_index, self._decode_selection_modifiers(event))
         return 'break'
 

@@ -347,13 +347,25 @@ class AppearanceSingleCustomFooter(_FooterBase):
             font=(spec.MODULE_THREE_CUSTOM_RESET_TEXT_FONT_FAMILY, spec.MODULE_THREE_CUSTOM_RESET_TEXT_FONT_SIZE),
             command=on_reset,
         )
-        self.reset_strip.place(x=spec.MODULE_THREE_FOOTER_SIZE[0] - spec.MODULE_THREE_CUSTOM_RESET_SIZE[0] - 1, y=0)
+        self.reset_strip.place(x=spec.MODULE_THREE_FOOTER_SIZE[0] - spec.MODULE_THREE_CUSTOM_RESET_SIZE[0], y=0)
 
         for widget in (self.main_surface, self.main_label, self.inventory_label, self.world_label):
             widget.bind('<Enter>', self._on_main_enter, add='+')
             widget.bind('<Leave>', self._on_main_leave, add='+')
             widget.bind('<ButtonPress-1>', self._on_main_press, add='+')
             widget.bind('<ButtonRelease-1>', self._on_main_release, add='+')
+
+    def tooltip_widgets_for_inventory_upload(self) -> tuple[tk.Misc, ...]:
+        return (self.inventory_box, self.inventory_label)
+
+    def tooltip_widgets_for_world_upload(self) -> tuple[tk.Misc, ...]:
+        return (self.world_box, self.world_label)
+
+    def tooltip_widgets_for_add_custom(self) -> tuple[tk.Misc, ...]:
+        return (self.main_label,)
+
+    def tooltip_widgets_for_reset(self) -> tuple[tk.Misc, ...]:
+        return (self.reset_strip,)
 
     def set_staged_images(self, *, inventory_path: str, world_path: str) -> None:
         self.inventory_box.set_preview_path(inventory_path)
@@ -516,13 +528,22 @@ class AppearanceDualCustomFooter(_FooterBase):
             font=(spec.MODULE_THREE_CUSTOM_RESET_TEXT_FONT_FAMILY, spec.MODULE_THREE_CUSTOM_RESET_TEXT_FONT_SIZE),
             command=on_reset,
         )
-        self.reset_strip.place(x=spec.MODULE_THREE_FOOTER_SIZE[0] - spec.MODULE_THREE_CUSTOM_RESET_SIZE[0] - 1, y=0)
+        self.reset_strip.place(x=spec.MODULE_THREE_FOOTER_SIZE[0] - spec.MODULE_THREE_CUSTOM_RESET_SIZE[0], y=0)
 
         for widget in (self.main_surface, *self.box_labels):
             widget.bind('<Enter>', self._on_main_enter, add='+')
             widget.bind('<Leave>', self._on_main_leave, add='+')
             widget.bind('<ButtonPress-1>', self._on_main_press, add='+')
             widget.bind('<ButtonRelease-1>', self._on_main_release, add='+')
+
+    def tooltip_widgets_for_box(self, index: int) -> tuple[tk.Misc, ...]:
+        return (self.boxes[index], self.box_labels[index])
+
+    def tooltip_widgets_for_add_custom(self) -> tuple[tk.Misc, ...]:
+        return (self.add_custom_strip,)
+
+    def tooltip_widgets_for_reset(self) -> tuple[tk.Misc, ...]:
+        return (self.reset_strip,)
 
     def set_staged_images(
         self,
