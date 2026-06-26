@@ -53,13 +53,18 @@ class _FakeRowList:
 
 
 class _FakeRowWidget:
-    def __init__(self, expanded: bool) -> None:
+    def __init__(self, expanded: bool, row_id: int | None = None) -> None:
         self._expanded = expanded
+        self._row_id = row_id
         self.set_expanded_calls: list[bool] = []
+        self.refreshed_covers: list[str] = []
 
     def set_expanded(self, expanded: bool) -> None:
         self._expanded = expanded
         self.set_expanded_calls.append(expanded)
+
+    def refresh_cover(self, cover_path: str) -> None:
+        self.refreshed_covers.append(cover_path)
 
 
 def test_add_module_two_media_row_uses_incremental_row_list() -> None:
@@ -145,3 +150,74 @@ def test_media_row_list_set_expanded_row_only_touches_changed_widgets() -> None:
     assert row_list.row_widgets[2].set_expanded_calls == []
     assert badge_calls == [0]
     assert layout_calls == [(0, False)]
+
+
+def test_select_module_two_media_cover_refreshes_row_cover_before_async_generation(monkeypatch) -> None:
+    row = default_media_row(1)
+    session = ProjectSession(project=ProjectConfig(media_rows=[row]))
+    row_widget = _FakeRowWidget(True, row_id=1)
+    window = MainWindow.__new__(MainWindow)
+    window.session = session
+    window.module_two_row_list = type("RowList", (), {"row_widgets": [row_widget]})()
+    window._is_build_locked = lambda: False
+    window._image_filetypes = lambda: [("Images", "*.png")]
+    window._initial_image_dir = lambda _path: ""
+    window._repair_active_generated_appearance_selections = lambda: []
+    window._refresh_module_two_live_preview_for_row = lambda _row_id: None
+    window._automatic_textures_enabled = lambda: True
+    window._generate_module_three_from_cover = lambda row_id: setattr(window, "_generated_row_id", row_id)
+    window._refresh_module_three_appearance_selector = lambda: setattr(window, "_refreshed_module_three", True)
+    window.on_project_change = lambda: setattr(window, "_project_changed", True)
+
+    monkeypatch.setattr("new_music_builder.ui.main_window.fd.askopenfilename", lambda **_kwargs: "C:/art/new-cover.png")
+
+    MainWindow._select_module_two_media_cover(window, 1)
+
+    assert row.cover_path == "C:/art/new-cover.png"
+    assert row_widget.refreshed_covers == ["C:/art/new-cover.png"]
+    assert window.__dict__.get("_generated_row_id") == 1
+    assert window.__dict__.get("_refreshed_module_three", False) is False
+    assert window.__dict__.get("_project_changed", False) is False
+
+
+def test_cover_generation_success_ignores_stale_tokens_and_applies_current_result(monkeypatch) -> None:
+    row = default_media_row(1)
+    session = ProjectSession(project=ProjectConfig(media_rows=[row]))
+    window = MainWindow.__new__(MainWindow)
+    window.session = session
+    window._module_three_cover_generation_tokens = {1: 7}
+    window._append_generated_cover_set_logs = lambda cover_path, result: setattr(window, "_logged_cover_path", cover_path)
+    window._refresh_module_two_live_preview_for_row = lambda row_id: setattr(window, "_refreshed_row_id", row_id)
+    window._refresh_module_three_appearance_selector = lambda: setattr(window, "_refreshed_module_three", True)
+    window.on_project_change = lambda: setattr(window, "_project_changed", True)
+    apply_calls: list[str] = []
+    monkeypatch.setattr(
+        "new_music_builder.ui.main_window.apply_generated_cover_set_result",
+        lambda project, target_row, result: apply_calls.append(target_row.cover_path),
+    )
+    result = type("Result", (), {"outcomes": (), "source_name": "cover.png"})()
+
+    MainWindow._finish_module_three_cover_generation_success(window, 1, 6, "C:/art/old.png", result)
+
+    assert apply_calls == []
+    assert window._module_three_cover_generation_tokens == {1: 7}
+
+    MainWindow._finish_module_three_cover_generation_success(window, 1, 7, "C:/art/new.png", result)
+
+    assert apply_calls == [row.cover_path]
+    assert window._module_three_cover_generation_tokens == {}
+    assert window.__dict__.get("_logged_cover_path") == "C:/art/new.png"
+    assert window.__dict__.get("_refreshed_row_id") == 1
+    assert window.__dict__.get("_refreshed_module_three", False) is True
+    assert window.__dict__.get("_project_changed", False) is True
+
+
+def test_cover_generation_error_clears_current_token_and_logs_failure() -> None:
+    window = MainWindow.__new__(MainWindow)
+    window._module_three_cover_generation_tokens = {4: 11}
+    window._append_generated_asset_failure_log = lambda cover_path, reason: setattr(window, "_failure", (cover_path, reason))
+
+    MainWindow._finish_module_three_cover_generation_error(window, 4, 11, "C:/art/fail.png", "boom")
+
+    assert window._module_three_cover_generation_tokens == {}
+    assert window.__dict__.get("_failure") == ("C:/art/fail.png", "boom")

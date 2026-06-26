@@ -153,6 +153,19 @@ def generate_supported_cover_set_for_row(
     )
 
 
+def apply_generated_cover_set_result(
+    project: ProjectConfig,
+    row: MediaRow,
+    result: GeneratedCoverSetResult,
+) -> None:
+    row.ensure_appearances()
+    for outcome in result.outcomes:
+        if outcome.record is None:
+            continue
+        record = upsert_generated_asset_record(project, outcome.record)
+        _apply_generated_record_selection(row, record)
+
+
 def _generate_kind_from_cover(
     kind: SupportedGeneratedKind,
     cover_path: str,

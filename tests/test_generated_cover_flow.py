@@ -10,7 +10,7 @@ from new_music_builder.services.generated_asset_registry import (
     upsert_generated_asset_record,
     visible_generated_entries_for_kind,
 )
-from new_music_builder.services.generated_cover_flow import generate_supported_cover_set_for_row
+from new_music_builder.services.generated_cover_flow import apply_generated_cover_set_result, generate_supported_cover_set_for_row
 
 
 def test_generate_supported_cover_set_for_row_generates_cassette_case_vinyl_jacket_and_cd_cover_and_selects_all(tmp_path: Path) -> None:
@@ -217,6 +217,41 @@ def test_generate_supported_cover_set_for_row_allows_partial_failure(tmp_path: P
     assert row.appearances["jacket"].selected_asset_key.startswith("generated:jacket:")
     assert row.appearances["cd_cover"].selected_asset_key.startswith("generated:cd_cover:")
     assert [record.kind for record in project.generated_assets] == ["case", "vinyl", "jacket", "cd_cover"]
+
+
+def test_apply_generated_cover_set_result_applies_worker_records_to_live_project(tmp_path: Path) -> None:
+    cover_path = tmp_path / "cover.png"
+    Image.new("RGBA", (300, 300), (255, 0, 0, 255)).save(cover_path)
+
+    worker_row = default_media_row(1)
+    worker_row.cover_path = str(cover_path)
+    worker_project = ProjectConfig(media_rows=[worker_row])
+    result = generate_supported_cover_set_for_row(
+        worker_project,
+        worker_row,
+        cassette_donor_inventory_path="",
+        cassette_donor_world_path="",
+        case_donor_inventory_path="",
+        case_donor_world_path="",
+        cassette_generator=lambda cover, **_kwargs: _fake_generation_result(tmp_path, "cassette", Path(cover)),
+        case_generator=lambda cover, **_kwargs: _fake_generation_result(tmp_path, "case", Path(cover)),
+        vinyl_generator=lambda cover, **_kwargs: _fake_generation_result(tmp_path, "vinyl", Path(cover)),
+        jacket_generator=lambda cover, **_kwargs: _fake_generation_result(tmp_path, "jacket", Path(cover)),
+        cd_cover_generator=lambda cover, **_kwargs: _fake_generation_result(tmp_path, "cd_cover", Path(cover)),
+    )
+
+    live_row = default_media_row(1)
+    live_row.cover_path = str(cover_path)
+    live_project = ProjectConfig(media_rows=[live_row])
+
+    apply_generated_cover_set_result(live_project, live_row, result)
+
+    assert [record.kind for record in live_project.generated_assets] == ["cassette", "case", "vinyl", "jacket", "cd_cover"]
+    assert live_row.appearances["cassette"].selected_asset_key.startswith("generated:cassette:")
+    assert live_row.appearances["case"].selected_asset_key.startswith("generated:case:")
+    assert live_row.appearances["vinyl"].selected_asset_key.startswith("generated:vinyl:")
+    assert live_row.appearances["jacket"].selected_asset_key.startswith("generated:jacket:")
+    assert live_row.appearances["cd_cover"].selected_asset_key.startswith("generated:cd_cover:")
 
 
 def _fake_generation_result(tmp_path: Path, kind: str, cover_path: Path) -> CoverGenerationResult:

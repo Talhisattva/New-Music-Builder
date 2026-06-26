@@ -50,6 +50,7 @@ from new_music_builder.services.export_scaffold import (
 )
 from new_music_builder.services.generated_cover_flow import (
     GeneratedCoverSetResult,
+    apply_generated_cover_set_result,
     generate_supported_cover_set_for_row,
 )
 from new_music_builder.services.generated_asset_registry import (
@@ -313,6 +314,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._active_successful_sides: list[tuple[int, str]] = []
         self._active_successful_sides_by_row: dict[int, set[str]] = {}
         self._active_emitted_preview_rows: set[tuple[int, str]] = set()
+        self._module_three_cover_generation_tokens: dict[int, int] = {}
+        self._module_three_cover_generation_seq = 0
 
         self.asset_catalog_service = AssetCatalog(assets_root())
         self.asset_catalog = self.asset_catalog_service.scan()
@@ -1286,6 +1289,9 @@ class MainWindow(_DnDCompat, ctk.CTk):
         target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
         if target_row is None:
             return
+        self._module_three_cover_generation_seq += 1
+        request_token = self._module_three_cover_generation_seq
+        self._module_three_cover_generation_tokens[row_id] = request_token
         donor_inventory_path = ""
         donor_world_path = ""
         case_donor_inventory_path = ""
@@ -1296,28 +1302,93 @@ class MainWindow(_DnDCompat, ctk.CTk):
         if can_generate_cover_for_kind(self.session.project, target_row, 'case'):
             case_donor_inventory_path = self._module_three_selected_path_for_row(target_row, 'case', 'inventory')
             case_donor_world_path = self._module_three_selected_path_for_row(target_row, 'case', 'world')
-        try:
-            result = generate_supported_cover_set_for_row(
-                self.session.project,
-                target_row,
-                cassette_donor_inventory_path=donor_inventory_path,
-                cassette_donor_world_path=donor_world_path,
-                case_donor_inventory_path=case_donor_inventory_path,
-                case_donor_world_path=case_donor_world_path,
-                cassette_generator=generate_cassette_textures_from_cover,
-                case_generator=generate_case_textures_from_cover,
-                vinyl_generator=generate_vinyl_textures_from_cover,
-                jacket_generator=generate_jacket_textures_from_cover,
-                cd_cover_generator=generate_cd_cover_textures_from_cover,
-            )
-        except Exception as exc:
-            LOGGER.exception("Failed to generate cover set from %s", target_row.cover_path)
-            self._append_generated_asset_failure_log(target_row.cover_path, str(exc))
+        project_snapshot = deepcopy(self.session.project)
+        snapshot_row = next((row for row in project_snapshot.media_rows if row.row_id == row_id), None)
+        if snapshot_row is None:
+            self._module_three_cover_generation_tokens.pop(row_id, None)
             return
-        self._append_generated_cover_set_logs(target_row.cover_path, result)
+        cover_path = target_row.cover_path
+
+        def worker() -> None:
+            try:
+                result = generate_supported_cover_set_for_row(
+                    project_snapshot,
+                    snapshot_row,
+                    cassette_donor_inventory_path=donor_inventory_path,
+                    cassette_donor_world_path=donor_world_path,
+                    case_donor_inventory_path=case_donor_inventory_path,
+                    case_donor_world_path=case_donor_world_path,
+                    cassette_generator=generate_cassette_textures_from_cover,
+                    case_generator=generate_case_textures_from_cover,
+                    vinyl_generator=generate_vinyl_textures_from_cover,
+                    jacket_generator=generate_jacket_textures_from_cover,
+                    cd_cover_generator=generate_cd_cover_textures_from_cover,
+                )
+            except Exception as exc:
+                reason = str(exc)
+                LOGGER.exception("Failed to generate cover set from %s", cover_path)
+                try:
+                    self.after(
+                        0,
+                        lambda: self._finish_module_three_cover_generation_error(
+                            row_id,
+                            request_token,
+                            cover_path,
+                            reason,
+                        ),
+                    )
+                except tk.TclError:
+                    return
+                return
+            try:
+                self.after(
+                    0,
+                    lambda: self._finish_module_three_cover_generation_success(
+                        row_id,
+                        request_token,
+                        cover_path,
+                        result,
+                    ),
+                )
+            except tk.TclError:
+                return
+
+        threading.Thread(
+            target=worker,
+            name=f"cover-gen-{row_id}-{request_token}",
+            daemon=True,
+        ).start()
+
+    def _finish_module_three_cover_generation_success(
+        self,
+        row_id: int,
+        request_token: int,
+        cover_path: str,
+        result: GeneratedCoverSetResult,
+    ) -> None:
+        if self._module_three_cover_generation_tokens.get(row_id) != request_token:
+            return
+        target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
+        self._module_three_cover_generation_tokens.pop(row_id, None)
+        if target_row is None:
+            return
+        apply_generated_cover_set_result(self.session.project, target_row, result)
+        self._append_generated_cover_set_logs(cover_path, result)
         self._refresh_module_two_live_preview_for_row(row_id)
         self._refresh_module_three_appearance_selector()
         self.on_project_change()
+
+    def _finish_module_three_cover_generation_error(
+        self,
+        row_id: int,
+        request_token: int,
+        cover_path: str,
+        reason: str,
+    ) -> None:
+        if self._module_three_cover_generation_tokens.get(row_id) != request_token:
+            return
+        self._module_three_cover_generation_tokens.pop(row_id, None)
+        self._append_generated_asset_failure_log(cover_path, reason)
 
     def _append_generated_asset_success_log(
         self,
@@ -1585,6 +1656,14 @@ class MainWindow(_DnDCompat, ctk.CTk):
         if hasattr(self, 'module_two_row_list'):
             self.module_two_row_list.refresh_media_type_strips_for_row(row_id)
 
+    def _row_widget_by_id(self, row_id: int):
+        if not hasattr(self, 'module_two_row_list'):
+            return None
+        return next(
+            (widget for widget in self.module_two_row_list.row_widgets if getattr(widget, '_row_id', None) == row_id),
+            None,
+        )
+
     def _cancel_module_two_song_drag(self) -> None:
         if self._module_two_song_drag_session is None:
             return
@@ -1655,16 +1734,9 @@ class MainWindow(_DnDCompat, ctk.CTk):
             return
         target_row.cover_path = selected
         repaired_rows = self._repair_active_generated_appearance_selections()
-        expanded_widget = next(
-            (
-                widget
-                for widget in self.module_two_row_list.row_widgets
-                if getattr(widget, '_row_expanded', False) and getattr(widget, '_row_id', None) == row_id
-            ),
-            None,
-        )
-        if expanded_widget is not None:
-            expanded_widget.refresh_cover(selected)
+        row_widget = self._row_widget_by_id(row_id)
+        if row_widget is not None:
+            row_widget.refresh_cover(selected)
         for repaired_row_id in repaired_rows:
             self._refresh_module_two_live_preview_for_row(repaired_row_id)
         if self._automatic_textures_enabled():
