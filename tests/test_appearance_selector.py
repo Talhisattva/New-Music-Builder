@@ -13,6 +13,7 @@ from new_music_builder.ui.widgets.appearance_selector import (
     generate_button_text_for_state,
     merge_appearance_grid_entries,
     resolve_module_three_control_layout,
+    resolve_module_three_vertical_metrics,
     should_show_dual_sprite_controls,
     visible_tab_kinds_for_enabled_media,
 )
@@ -395,3 +396,19 @@ def test_resolve_module_three_control_layout_uses_two_rows_when_automatic_textur
     assert layout.preview_row_size == spec.MODULE_THREE_PREVIEW_MODE_FULL_SIZE
     assert layout.generate_row_size == spec.MODULE_THREE_GENERATE_BUTTON_ROW_SIZE
     assert layout.dual_left_x == spec.MODULE_THREE_GENERATE_BUTTON_ROW_SIZE[0]
+
+
+def test_resolve_module_three_vertical_metrics_uses_taller_grid_when_automatic_textures_enabled() -> None:
+    metrics = resolve_module_three_vertical_metrics(automatic_textures_enabled=True)
+
+    assert metrics.grid_viewport_size == spec.MODULE_THREE_GRID_VIEWPORT_TALL_SIZE
+    assert metrics.grid_mask_size == spec.MODULE_THREE_GRID_MASK_TALL_SIZE
+    assert metrics.grid_scrollbar_size == spec.MODULE_THREE_GRID_SCROLLBAR_TALL_SIZE
+
+
+def test_resolve_module_three_vertical_metrics_uses_default_grid_when_automatic_textures_disabled() -> None:
+    metrics = resolve_module_three_vertical_metrics(automatic_textures_enabled=False)
+
+    assert metrics.grid_viewport_size == spec.MODULE_THREE_GRID_VIEWPORT_SIZE
+    assert metrics.grid_mask_size == spec.MODULE_THREE_GRID_MASK_SIZE
+    assert metrics.grid_scrollbar_size == spec.MODULE_THREE_GRID_SCROLLBAR_SIZE

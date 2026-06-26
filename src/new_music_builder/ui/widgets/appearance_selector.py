@@ -61,6 +61,15 @@ class ModuleThreeControlLayout:
     generate_row_size: tuple[int, int]
 
 
+@dataclass(frozen=True, slots=True)
+class ModuleThreeVerticalMetrics:
+    grid_viewport_size: tuple[int, int]
+    grid_mask_size: tuple[int, int]
+    grid_scrollbar_size: tuple[int, int]
+    loading_overlay_size: tuple[int, int]
+    footer_y: int
+
+
 def resolve_module_three_control_layout(
     *,
     automatic_textures_enabled: bool,
@@ -82,6 +91,24 @@ def resolve_module_three_control_layout(
         dual_row_y=spec.MODULE_THREE_DUAL_SPRITE_ROW_Y,
         dual_left_x=spec.MODULE_THREE_GENERATE_BUTTON_ROW_SIZE[0],
         generate_row_size=spec.MODULE_THREE_GENERATE_BUTTON_ROW_SIZE if dual_visible else spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE,
+    )
+
+
+def resolve_module_three_vertical_metrics(*, automatic_textures_enabled: bool) -> ModuleThreeVerticalMetrics:
+    if automatic_textures_enabled:
+        return ModuleThreeVerticalMetrics(
+            grid_viewport_size=spec.MODULE_THREE_GRID_VIEWPORT_TALL_SIZE,
+            grid_mask_size=spec.MODULE_THREE_GRID_MASK_TALL_SIZE,
+            grid_scrollbar_size=spec.MODULE_THREE_GRID_SCROLLBAR_TALL_SIZE,
+            loading_overlay_size=spec.MODULE_THREE_GRID_LOADING_OVERLAY_TALL_SIZE,
+            footer_y=spec.MODULE_THREE_FOOTER_Y,
+        )
+    return ModuleThreeVerticalMetrics(
+        grid_viewport_size=spec.MODULE_THREE_GRID_VIEWPORT_SIZE,
+        grid_mask_size=spec.MODULE_THREE_GRID_MASK_SIZE,
+        grid_scrollbar_size=spec.MODULE_THREE_GRID_SCROLLBAR_SIZE,
+        loading_overlay_size=spec.MODULE_THREE_GRID_LOADING_OVERLAY_SIZE,
+        footer_y=spec.MODULE_THREE_FOOTER_Y,
     )
 
 
@@ -520,6 +547,27 @@ class AppearanceSelector:
     def _automatic_textures_enabled(self) -> bool:
         return bool(self._automatic_textures_enabled_getter())
 
+    def _apply_vertical_layout(self, *, automatic_textures_enabled: bool) -> None:
+        metrics = resolve_module_three_vertical_metrics(automatic_textures_enabled=automatic_textures_enabled)
+        self.shell.grid_viewport.resize(
+            size=metrics.grid_viewport_size,
+            viewport_size=metrics.grid_mask_size,
+            scrollbar_size=metrics.grid_scrollbar_size,
+        )
+        self.shell.grid_viewport.place_configure(
+            x=0,
+            y=spec.MODULE_THREE_GRID_VIEWPORT_Y,
+            width=metrics.grid_viewport_size[0],
+            height=metrics.grid_viewport_size[1],
+        )
+        self.shell.footer_pane.place_configure(x=0, y=metrics.footer_y)
+        self._grid_loading_overlay.resize(metrics.loading_overlay_size)
+
+    def _current_grid_mask_size(self) -> tuple[int, int]:
+        return resolve_module_three_vertical_metrics(
+            automatic_textures_enabled=self._automatic_textures_enabled(),
+        ).grid_mask_size
+
     @property
     def active_kind(self) -> AppearanceKind | None:
         return self._active_kind
@@ -656,6 +704,7 @@ class AppearanceSelector:
         if row is None:
             return
         automatic_textures_enabled = self._automatic_textures_enabled()
+        self._apply_vertical_layout(automatic_textures_enabled=automatic_textures_enabled)
         self.dual_checkbox.set_enabled(True)
         if self._preview_mode_toggle is not None:
             self._preview_mode_toggle.set_mode(self._preview_mode())
@@ -781,8 +830,9 @@ class AppearanceSelector:
         self._dual_phase_show_empty = False
         row = self._active_row
         if row is None or self._active_kind is None:
+            grid_mask_size = self._current_grid_mask_size()
             self.shell.grid_viewport.content_frame.configure(
-                width=spec.MODULE_THREE_GRID_MASK_SIZE[0],
+                width=grid_mask_size[0],
                 height=0,
             )
             self.shell.grid_viewport.refresh_scroll_region()
@@ -792,8 +842,9 @@ class AppearanceSelector:
         selected_key = row.appearances[self._active_kind].selected_asset_key
         row_count = max(1, (len(entries) + 3) // 4)
         content_height = row_count * spec.MODULE_THREE_GRID_TILE_SIZE[1]
+        grid_mask_size = self._current_grid_mask_size()
         self.shell.grid_viewport.content_frame.configure(
-            width=spec.MODULE_THREE_GRID_MASK_SIZE[0],
+            width=grid_mask_size[0],
             height=content_height,
         )
         self.shell.grid_viewport.refresh_scroll_region()
@@ -1103,7 +1154,7 @@ class AppearanceSelector:
         tile = self._grid_tiles.get(key)
         if tile is None:
             return
-        viewport_height = spec.MODULE_THREE_GRID_MASK_SIZE[1]
+        viewport_height = self._current_grid_mask_size()[1]
         content_height = self.shell.grid_viewport.content_frame.winfo_reqheight()
         if content_height <= viewport_height:
             self.shell.grid_viewport.viewport_canvas.yview_moveto(0.0)

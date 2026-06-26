@@ -86,7 +86,7 @@ def test_measure_menu_action_width_includes_check_column_when_requested() -> Non
         accelerator_measure=lambda text: len(text) * 5,
     )
 
-    assert width == (18 * 10) + 16 + 8
+    assert width == (18 * 10) + 24 + 8
 
 
 def test_bind_app_shortcuts_registers_sequences_and_dispatches_handlers() -> None:

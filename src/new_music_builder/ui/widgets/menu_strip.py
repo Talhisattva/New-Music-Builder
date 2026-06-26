@@ -77,10 +77,22 @@ class _DropdownItem(ctk.CTkFrame):
             bg=bg_color,
             bd=0,
             highlightthickness=0,
+            width=width - (spec.MENU_DROPDOWN_PAD_X * 2),
+            height=spec.MENU_DROPDOWN_ROW_HEIGHT,
         )
         self._content.pack(fill='both', expand=True, padx=spec.MENU_DROPDOWN_PAD_X, pady=0)
+        self._content.pack_propagate(False)
         self._check_image = load_tk_photoimage_contained(check_icon_path, spec.MENU_DROPDOWN_CHECK_ICON_SIZE)
         self._check_label: tk.Label | None = None
+        check_column_width = spec.MENU_DROPDOWN_CHECK_COLUMN_WIDTH if show_check_column else 0
+        text_x = check_column_width + (spec.MENU_DROPDOWN_INLINE_GAP_X if show_check_column else 0)
+        accelerator_width = 0
+        if accelerator_text:
+            measure_font = tkfont.Font(
+                family=(self._accelerator_font.cget('family')),
+                size=self._accelerator_font.cget('size'),
+            )
+            accelerator_width = measure_font.measure(accelerator_text)
         if show_check_column:
             self._check_label = tk.Label(
                 self._content,
@@ -90,19 +102,28 @@ class _DropdownItem(ctk.CTkFrame):
                 anchor='center',
                 justify='center',
             )
-            self._check_label.pack(
-                side='left',
-                padx=(0, spec.MENU_DROPDOWN_INLINE_GAP_X),
-                pady=0,
+            self._check_label.place(
+                x=0,
+                y=0,
+                width=check_column_width,
+                height=spec.MENU_DROPDOWN_ROW_HEIGHT,
             )
-            self._check_label.configure(width=spec.MENU_DROPDOWN_CHECK_COLUMN_WIDTH)
+            self._check_label.configure(width=check_column_width)
         self.label = ctk.CTkLabel(
             self._content,
             text=text,
             text_color=text_color,
             font=font,
+            anchor='w',
+            justify='left',
         )
-        self.label.pack(side='left', pady=0)
+        label_width = max(1, (width - (spec.MENU_DROPDOWN_PAD_X * 2)) - text_x - (accelerator_width + (spec.MENU_DROPDOWN_INLINE_GAP_X if accelerator_text else 0)))
+        self.label.place(
+            x=text_x,
+            y=0,
+            width=label_width,
+            height=spec.MENU_DROPDOWN_ROW_HEIGHT,
+        )
         self.accelerator_label: tk.Label | None = None
         if accelerator_text:
             self.accelerator_label = tk.Label(
@@ -116,7 +137,13 @@ class _DropdownItem(ctk.CTkFrame):
                 anchor='w',
                 justify='left',
             )
-            self.accelerator_label.pack(side='left', padx=(spec.MENU_DROPDOWN_INLINE_GAP_X, 0), pady=0)
+            content_width = width - (spec.MENU_DROPDOWN_PAD_X * 2)
+            self.accelerator_label.place(
+                x=content_width - accelerator_width,
+                y=0,
+                width=accelerator_width,
+                height=spec.MENU_DROPDOWN_ROW_HEIGHT,
+            )
         widgets = [self, self._content, self.label]
         if self._check_label is not None:
             widgets.append(self._check_label)

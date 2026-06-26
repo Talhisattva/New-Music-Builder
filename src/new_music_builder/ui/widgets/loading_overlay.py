@@ -53,6 +53,16 @@ class LoadingOverlay(tk.Frame):
         self._draw_icon()
         self._schedule_tick()
 
+    def resize(self, size: tuple[int, int]) -> None:
+        self._size = size
+        self.configure(width=size[0], height=size[1])
+        self._label.place_configure(
+            x=(size[0] - spec.MODULE_THREE_GRID_LOADING_ICON_SIZE[0]) // 2,
+            y=(size[1] - spec.MODULE_THREE_GRID_LOADING_ICON_SIZE[1]) // 2,
+            width=spec.MODULE_THREE_GRID_LOADING_ICON_SIZE[0],
+            height=spec.MODULE_THREE_GRID_LOADING_ICON_SIZE[1],
+        )
+
     def hide(self) -> None:
         self._cancel_tick()
         self.place_forget()
