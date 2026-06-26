@@ -84,7 +84,7 @@ class CursorTooltip:
         self._image_path = path
         if self._image_label is None:
             return
-        self._image = load_tk_photoimage_contained(path, spec.MODULE_THREE_TOOLTIP_IMAGE_SIZE) if path else None
+        self._image = load_tk_photoimage_contained(path, spec.MODULE_THREE_TOOLTIP_IMAGE_SIZE, allow_upscale=True) if path else None
         self._image_label.configure(image=self._image if self._image is not None else '')
         self._image_label.image = self._image
 

@@ -50,23 +50,28 @@ def load_contained_pil_image(
     size: tuple[int, int],
     *,
     background: tuple[int, int, int, int] = (0, 0, 0, 0),
+    allow_upscale: bool = False,
 ) -> Image.Image | None:
     token = cache_token_for_path(path)
     if token is None:
         return None
     img_path = Path(token[0])
-    cache_key = (token, size, background)
+    cache_key = (token, size, background, (1, 1, 1, 1) if allow_upscale else (0, 0, 0, 0))
     cached = _PIL_CONTAINED_CACHE.get(cache_key)
     if cached is not None:
         return cached.copy()
     image = Image.open(img_path).convert('RGBA')
     fitted = Image.new('RGBA', size, background)
-    scale_ratio = min(size[0] / max(1, image.width), size[1] / max(1, image.height))
-    contained_size = (
-        max(1, int(round(image.width * scale_ratio))),
-        max(1, int(round(image.height * scale_ratio))),
-    )
-    contained = image.resize(contained_size, Image.Resampling.LANCZOS)
+    if allow_upscale:
+        scale_ratio = min(size[0] / max(1, image.width), size[1] / max(1, image.height))
+        contained_size = (
+            max(1, int(round(image.width * scale_ratio))),
+            max(1, int(round(image.height * scale_ratio))),
+        )
+        contained = image.resize(contained_size, Image.Resampling.LANCZOS)
+    else:
+        contained = image.copy()
+        contained.thumbnail(size, Image.Resampling.LANCZOS)
     paste_x = (size[0] - contained.width) // 2
     paste_y = (size[1] - contained.height) // 2
     fitted.paste(contained, (paste_x, paste_y), contained)
@@ -96,15 +101,16 @@ def load_tk_photoimage_contained(
     size: tuple[int, int],
     *,
     background: tuple[int, int, int, int] = (0, 0, 0, 0),
+    allow_upscale: bool = False,
 ) -> ImageTk.PhotoImage | None:
     token = cache_token_for_path(path)
     if token is None:
         return None
-    cache_key = (token, size, background)
+    cache_key = (token, size, background, (1, 1, 1, 1) if allow_upscale else (0, 0, 0, 0))
     cached = _CONTAINED_IMAGE_CACHE.get(cache_key)
     if cached is not None:
         return cached
-    image = load_contained_pil_image(token[0], size, background=background)
+    image = load_contained_pil_image(token[0], size, background=background, allow_upscale=allow_upscale)
     if image is None:
         return None
     photo = ImageTk.PhotoImage(image)
