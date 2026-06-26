@@ -554,6 +554,7 @@ def _render_cd_cover_inventory(
         mask_alpha=mask_alpha,
         preset=CD_COVER_INVENTORY_PRESET,
     )
+    masked_cover = _apply_mask_alpha(masked_cover, mask_alpha)
     base = Image.new("RGBA", mask_image.size, (0, 0, 0, 0))
     base.alpha_composite(masked_cover)
     with Image.open(outer_path) as outer_source:
@@ -604,7 +605,7 @@ def _render_cd_cover_world(
     with Image.open(mask_path) as mask_source:
         mask_image = mask_source.convert("RGBA")
     mask_alpha = _alpha_mask(mask_image)
-    masked_cover = _build_masked_cover_to_mask_height(
+    masked_cover = _build_masked_cover_from_mask_alpha(
         source_path=source_path,
         size=mask_image.size,
         mask_alpha=mask_alpha,

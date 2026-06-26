@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import pytest
-from PIL import Image
+from PIL import Image, ImageChops
 
 from new_music_builder.services.cover_texture_generator import (
     CASSETTE_INVENTORY_PRESET,
@@ -263,6 +263,40 @@ def test_cd_cover_inventory_transform_covers_mask_region(tmp_path: Path) -> None
         mask_alpha,
         alpha_threshold=CD_COVER_INVENTORY_PRESET.coverage_alpha_threshold,
     ) is True
+
+
+def test_generate_cd_cover_inventory_is_clipped_to_mask(tmp_path: Path) -> None:
+    cover_path = tmp_path / "cover.png"
+    Image.new("RGBA", (540, 540), (0, 255, 0, 255)).save(cover_path)
+
+    result = generate_cd_cover_textures_from_cover(
+        cover_path,
+        mask_root=ASSETS_ROOT / "Mask",
+        output_root=tmp_path / "Generated Textures",
+    )
+
+    inventory = Image.open(result.record.inventory_full).convert("RGBA")
+    with Image.open(ASSETS_ROOT / "Mask" / "Inventory" / "CD" / "Item_NM_CDCover_Mask.png") as mask_source:
+        mask_alpha = _alpha_mask(mask_source.convert("RGBA"))
+    for x in range(inventory.width):
+        for y in range(inventory.height):
+            if mask_alpha.getpixel((x, y)) > 0:
+                continue
+            red, green, blue, alpha = inventory.getpixel((x, y))
+            assert not (alpha > 0 and green > 200 and red < 40 and blue < 40)
+
+
+def test_generate_cd_cover_world_fills_wider_mask_dimension(tmp_path: Path) -> None:
+    cover_path = tmp_path / "cover.png"
+    Image.new("RGBA", (540, 540), (255, 0, 0, 255)).save(cover_path)
+    with Image.open(ASSETS_ROOT / "Mask" / "World" / "CDCover" / "World_NM_CDCover_Mask.png") as mask_source:
+        mask_alpha = _alpha_mask(mask_source.convert("RGBA"))
+
+    fitted = _fit_cover_to_mask_width(cover_path, mask_alpha.size, mask_alpha)
+    alpha = fitted.getchannel("A")
+    bbox = alpha.getbbox()
+    assert bbox is not None
+    assert _mask_region_is_fully_covered(fitted, mask_alpha, alpha_threshold=1) is True
 
 
 def test_generate_jacket_textures_from_cover_world_is_letterboxed_square(tmp_path: Path) -> None:
