@@ -103,9 +103,19 @@ def test_render_square_image_keeps_small_preview_overlay_readable(tmp_path: Path
 
     assert bbox is not None
     assert bbox[0] >= 35
-    assert bbox[2] <= 124
+    assert bbox[2] <= 128
     assert (bbox[2] - bbox[0]) >= 30
     assert (bbox[3] - bbox[1]) >= 20
+
+
+def test_render_square_image_uses_same_overlay_layout_for_preview_and_export(tmp_path: Path) -> None:
+    poster_path = tmp_path / 'poster.png'
+    Image.new('RGBA', (300, 200), (255, 0, 0, 255)).save(poster_path)
+
+    preview = render_square_image(poster_path, 132, 'Olive Test', add_name_overlay=True)
+    export_downscaled = render_square_image(poster_path, 1024, 'Olive Test', add_name_overlay=True).resize((132, 132), Image.Resampling.LANCZOS)
+
+    assert ImageChops.difference(preview.convert('RGBA'), export_downscaled.convert('RGBA')).getbbox() is None
 
 
 def test_wrap_text_keeps_spaced_name_without_early_ellipsis() -> None:

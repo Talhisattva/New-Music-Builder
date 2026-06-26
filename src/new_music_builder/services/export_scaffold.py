@@ -22,6 +22,8 @@ from new_music_builder.services.export_script_writer import write_export_scripts
 from new_music_builder.services.export_texture_writer import write_export_textures
 from new_music_builder.services.export_workshop_writer import build_workshop_txt_lines
 
+_POSTER_OVERLAY_CANONICAL_SIZE = 1024
+
 
 def validate_export_request(project: ProjectConfig, plan: ExportPlan) -> list[str]:
     errors: list[str] = []
@@ -206,9 +208,12 @@ def render_square_image(
     *,
     add_name_overlay: bool,
 ) -> Image.Image:
-    image = _square_letterbox(source, out_size)
+    render_size = max(out_size, _POSTER_OVERLAY_CANONICAL_SIZE) if add_name_overlay and mod_name.strip() else out_size
+    image = _square_letterbox(source, render_size)
     if add_name_overlay and mod_name.strip():
         image = _apply_mod_name_overlay(image, mod_name.strip())
+    if image.size != (out_size, out_size):
+        image = image.resize((out_size, out_size), Image.Resampling.LANCZOS)
     return image
 
 
