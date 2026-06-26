@@ -622,16 +622,14 @@ def _apply_inventory_shear(image: Image.Image, preset: InventoryShearPreset) -> 
     vertical_offset = max(1, int(round(abs(shear_ratio) * width)))
     output_height = height + vertical_offset
     output = Image.new("RGBA", (width, output_height), (0, 0, 0, 0))
-    # Positive shear drops the right edge downward while keeping the left edge anchored.
-    data = (1.0, 0.0, 0.0, shear_ratio, 1.0, 0.0)
-    pasted = image.transform(
-        (width, output_height),
-        Image.Transform.AFFINE,
-        data,
-        resample=Image.Resampling.BICUBIC,
-        fillcolor=(0, 0, 0, 0),
-    )
-    output.alpha_composite(pasted)
+    width_divisor = max(1, width - 1)
+    for x in range(width):
+        column = image.crop((x, 0, x + 1, height))
+        if shear_ratio >= 0:
+            y_offset = int(round((x / width_divisor) * vertical_offset))
+        else:
+            y_offset = int(round(((width_divisor - x) / width_divisor) * vertical_offset))
+        output.alpha_composite(column, (x, y_offset))
     return output
 
 
