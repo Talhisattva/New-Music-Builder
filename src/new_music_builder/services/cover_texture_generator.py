@@ -519,7 +519,11 @@ def _render_jacket_inventory(
         preset=JACKET_INVENTORY_PRESET,
     )
     with Image.open(overlay_path) as overlay_source:
-        base = _soft_light_overlay(masked_cover, overlay_source.convert("RGBA"))
+        base = _multiply_with_second_pass(
+            masked_cover,
+            overlay_source.convert("RGBA"),
+            second_pass_ratio=0.5,
+        )
     base = _apply_mask_alpha(base, mask_alpha)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     base.save(output_path)
