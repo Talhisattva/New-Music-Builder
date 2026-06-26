@@ -63,6 +63,11 @@ class LoadingOverlay(tk.Frame):
             height=spec.MODULE_THREE_GRID_LOADING_ICON_SIZE[1],
         )
 
+    def set_bg_color(self, color: str) -> None:
+        self._bg_color = color
+        self.configure(bg=color)
+        self._label.configure(bg=color)
+
     def hide(self) -> None:
         self._cancel_tick()
         self.place_forget()

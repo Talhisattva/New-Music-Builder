@@ -205,6 +205,7 @@ class _AppearanceTab(_BorderSurface):
         kind: AppearanceKind,
         label: str,
         on_selected: Callable[[AppearanceKind], None],
+        loading_icon_path: str | None = None,
     ) -> None:
         super().__init__(
             parent,
@@ -244,6 +245,14 @@ class _AppearanceTab(_BorderSurface):
         )
         self.icon_label.lift()
         self.text_label.lift()
+        self._loading_overlay = LoadingOverlay(
+            self,
+            size=spec.MODULE_THREE_TAB_ICON_SIZE,
+            icon_path=loading_icon_path,
+            bg_color=spec.MODULE_THREE_TAB_BG,
+        )
+        self._loading_overlay.resize(spec.MODULE_THREE_TAB_ICON_SIZE)
+        self._loading_overlay.place_forget()
 
         self._hovered = False
         self._selected = False
@@ -257,6 +266,19 @@ class _AppearanceTab(_BorderSurface):
         self._image = load_tk_photoimage_contained(path, spec.MODULE_THREE_TAB_ICON_SIZE)
         self.icon_label.configure(image=self._image if self._image is not None else '')
         self.icon_label.image = self._image
+
+    def show_loading(self) -> None:
+        fill = self.fill_color
+        self._loading_overlay.set_bg_color(fill)
+        self._loading_overlay.show(
+            x=(spec.MODULE_THREE_TAB_SIZE[0] - spec.MODULE_THREE_TAB_ICON_SIZE[0]) // 2,
+            y=int((spec.MODULE_THREE_TAB_SIZE[1] - spec.MODULE_THREE_TAB_ICON_SIZE[1]) // 2),
+        )
+        self._loading_overlay.lift()
+        self.text_label.lift()
+
+    def hide_loading(self) -> None:
+        self._loading_overlay.hide()
 
     def set_selected(self, selected: bool) -> None:
         self._selected = selected
@@ -272,6 +294,7 @@ class _AppearanceTab(_BorderSurface):
         self.set_colors(fill_color=fill, border_color=border)
         self.icon_label.configure(bg=fill)
         self.text_label.configure(bg=fill)
+        self._loading_overlay.set_bg_color(fill)
 
     def _on_enter(self, _event: tk.Event) -> None:
         if self._locked:
@@ -525,6 +548,7 @@ class AppearanceSelector:
         self._dual_phase_after_id: str | None = None
         self._grid_build_after_id: str | None = None
         self._grid_build_generation = 0
+        self._tab_loading_after_id: str | None = None
         self._tooltip_hide_after_id: str | None = None
         self._cursor_tooltip = CursorTooltip(self.shell)
         self._grid_loading_overlay = LoadingOverlay(
@@ -594,6 +618,7 @@ class AppearanceSelector:
             self._cancel_tooltip_hide()
             self._cursor_tooltip.hide()
             self._grid_loading_overlay.hide()
+            self._cancel_tab_loading_indicator()
             self._active_kind = None
             self._apply_tab_visibility(())
             return
@@ -616,7 +641,13 @@ class AppearanceSelector:
 
     def _build_tabs(self) -> None:
         for index, (kind, label) in enumerate(TAB_KINDS):
-            tab = _AppearanceTab(self.shell.tabs_pane, kind=kind, label=label, on_selected=self._handle_tab_selected)
+            tab = _AppearanceTab(
+                self.shell.tabs_pane,
+                kind=kind,
+                label=label,
+                on_selected=self._handle_tab_selected,
+                loading_icon_path=self._loading_icon_path,
+            )
             tab.place(x=index * spec.MODULE_THREE_TAB_SIZE[0], y=0)
             self._tab_widgets[kind] = tab
 
@@ -851,6 +882,7 @@ class AppearanceSelector:
         self._grid_loading_overlay.show(x=0, y=spec.MODULE_THREE_GRID_VIEWPORT_Y)
         self._grid_build_generation += 1
         generation = self._grid_build_generation
+        self._schedule_tab_loading_indicator(generation=generation)
         self._build_grid_entries_chunk(
             generation=generation,
             entries=entries,
@@ -1100,6 +1132,34 @@ class AppearanceSelector:
             except tk.TclError:
                 pass
             self._grid_build_after_id = None
+        self._cancel_tab_loading_indicator()
+
+    def _schedule_tab_loading_indicator(self, *, generation: int) -> None:
+        self._cancel_tab_loading_indicator()
+        self._tab_loading_after_id = self.shell.after(
+            spec.MODULE_THREE_TAB_LOADING_DELAY_MS,
+            lambda: self._show_tab_loading_indicator(generation),
+        )
+
+    def _show_tab_loading_indicator(self, generation: int) -> None:
+        self._tab_loading_after_id = None
+        if generation != self._grid_build_generation or self._grid_build_after_id is None:
+            return
+        if self._active_kind is None:
+            return
+        tab = self._tab_widgets.get(self._active_kind)
+        if tab is not None:
+            tab.show_loading()
+
+    def _cancel_tab_loading_indicator(self) -> None:
+        if self._tab_loading_after_id is not None:
+            try:
+                self.shell.after_cancel(self._tab_loading_after_id)
+            except tk.TclError:
+                pass
+            self._tab_loading_after_id = None
+        for tab in self._tab_widgets.values():
+            tab.hide_loading()
 
     def _build_grid_entries_chunk(
         self,
@@ -1145,6 +1205,7 @@ class AppearanceSelector:
             )
             return
         self._grid_build_after_id = None
+        self._cancel_tab_loading_indicator()
         self._grid_loading_overlay.hide()
         self._update_active_tab_icon()
         self._scroll_tile_into_view(selected_key)
