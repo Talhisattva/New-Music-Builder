@@ -120,6 +120,7 @@ else:
 
 
 LOGGER = logging.getLogger('new_music_builder')
+_SUPPORTED_IMAGE_DROP_SUFFIXES = {'.png', '.jpg', '.jpeg', '.bmp', '.gif', '.webp', '.tif', '.tiff'}
 
 
 @dataclass(frozen=True, slots=True)
@@ -886,6 +887,9 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self.module_one_midground,
             folder_icon_path=self._folder_button_icon_path(),
             command=self._select_workshop_poster_image,
+            dnd_type=DND_FILES,
+            can_accept_drop=self._can_accept_image_drop,
+            on_drop_files=self._drop_workshop_poster_files,
         )
         self.module_one_cover_picker.place(x=spec.COVER_OFFSET[0], y=5)
         self.module_one_cover_border = self.module_one_cover_picker.cover_border
@@ -1051,6 +1055,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
             on_side_selected=self._set_module_two_media_side,
             on_preview_mode_selected=self._set_module_two_preview_mode,
             on_cover_selected=self._select_module_two_media_cover,
+            can_accept_cover_drop=self._can_accept_image_drop,
+            on_cover_drop=self._drop_module_two_media_cover_files,
             on_remove_row=self._remove_module_two_media_row,
             on_add_song=self._add_module_two_songs,
             on_remove_song=self._remove_module_two_selected_songs_or_last,
@@ -1728,6 +1734,9 @@ class MainWindow(_DnDCompat, ctk.CTk):
         )
         if not selected:
             return
+        self._apply_workshop_poster_image(selected)
+
+    def _apply_workshop_poster_image(self, selected: str) -> None:
         remember_dialog_selection(self.dialog_folder_memory, 'image', selected)
         self._save_session_snapshot()
         self.session.project.workshop_poster_path = selected
@@ -1748,6 +1757,12 @@ class MainWindow(_DnDCompat, ctk.CTk):
         )
         if not selected:
             return
+        self._apply_module_two_media_cover(row_id, selected)
+
+    def _apply_module_two_media_cover(self, row_id: int, selected: str) -> None:
+        target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
+        if target_row is None:
+            return
         remember_dialog_selection(self.dialog_folder_memory, 'image', selected)
         self._save_session_snapshot()
         target_row.cover_path = selected
@@ -1762,6 +1777,31 @@ class MainWindow(_DnDCompat, ctk.CTk):
             return
         self._refresh_module_three_appearance_selector()
         self.on_project_change()
+
+    def _can_accept_image_drop(self, paths: list[str]) -> bool:
+        return self._first_valid_image_drop_path(paths) is not None
+
+    def _first_valid_image_drop_path(self, paths: list[str]) -> str | None:
+        for raw_path in paths:
+            candidate = Path(str(raw_path).strip())
+            if candidate.suffix.lower() not in _SUPPORTED_IMAGE_DROP_SUFFIXES:
+                continue
+            if not candidate.exists() or not candidate.is_file():
+                continue
+            return str(candidate)
+        return None
+
+    def _drop_workshop_poster_files(self, paths: list[str]) -> None:
+        selected = self._first_valid_image_drop_path(paths)
+        if not selected:
+            return
+        self._apply_workshop_poster_image(selected)
+
+    def _drop_module_two_media_cover_files(self, row_id: int, paths: list[str]) -> None:
+        selected = self._first_valid_image_drop_path(paths)
+        if not selected:
+            return
+        self._apply_module_two_media_cover(row_id, selected)
 
     def _can_accept_song_drop(self, paths: list[str]) -> bool:
         return bool(filter_supported_audio_paths(paths))

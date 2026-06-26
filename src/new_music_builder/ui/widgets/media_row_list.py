@@ -131,6 +131,8 @@ class MediaRowShell(tk.Frame):
         on_side_selected: Callable[[int, str], None] | None = None,
         on_preview_mode_selected: Callable[[int, str], None] | None = None,
         on_cover_selected: Callable[[int], None] | None = None,
+        can_accept_cover_drop: Callable[[list[str]], bool] | None = None,
+        on_cover_drop: Callable[[int, list[str]], None] | None = None,
         on_remove_row: Callable[[int], None] | None = None,
         on_add_song: Callable[[int], None] | None = None,
         on_remove_song: Callable[[int], None] | None = None,
@@ -200,6 +202,9 @@ class MediaRowShell(tk.Frame):
             folder_icon_path=folder_icon_path,
             cover_path=row.cover_path,
             command=(lambda: on_cover_selected(row.row_id)) if on_cover_selected is not None else None,
+            dnd_type=dnd_type,
+            can_accept_drop=can_accept_cover_drop,
+            on_drop_files=(lambda paths: on_cover_drop(row.row_id, paths)) if on_cover_drop is not None else None,
         )
         self.expanded_cover.place(
             x=spec.MEDIA_ROW_EXPANDED_COVER_POS[0],
@@ -665,6 +670,8 @@ class MediaRowList(tk.Frame):
         on_side_selected: Callable[[int, str], None] | None = None,
         on_preview_mode_selected: Callable[[int, str], None] | None = None,
         on_cover_selected: Callable[[int], None] | None = None,
+        can_accept_cover_drop: Callable[[list[str]], bool] | None = None,
+        on_cover_drop: Callable[[int, list[str]], None] | None = None,
         on_remove_row: Callable[[int], None] | None = None,
         on_add_song: Callable[[int], None] | None = None,
         on_remove_song: Callable[[int], None] | None = None,
@@ -714,6 +721,8 @@ class MediaRowList(tk.Frame):
         self._on_side_selected = on_side_selected
         self._on_preview_mode_selected = on_preview_mode_selected
         self._on_cover_selected = on_cover_selected
+        self._can_accept_cover_drop = can_accept_cover_drop
+        self._on_cover_drop = on_cover_drop
         self._on_remove_row = on_remove_row
         self._on_add_song = on_add_song
         self._on_remove_song = on_remove_song
@@ -778,6 +787,8 @@ class MediaRowList(tk.Frame):
             on_side_selected=self._on_side_selected,
             on_preview_mode_selected=self._on_preview_mode_selected,
             on_cover_selected=self._on_cover_selected,
+            can_accept_cover_drop=self._can_accept_cover_drop,
+            on_cover_drop=self._on_cover_drop,
             on_remove_row=self._on_remove_row,
             on_add_song=self._on_add_song,
             on_remove_song=self._on_remove_song,

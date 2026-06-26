@@ -195,6 +195,39 @@ def test_select_module_two_media_cover_refreshes_row_cover_before_async_generati
     assert window.__dict__.get("_project_changed", False) is False
 
 
+def test_drop_module_two_media_cover_files_triggers_automatic_textures(monkeypatch, tmp_path) -> None:
+    row = default_media_row(1)
+    session = ProjectSession(project=ProjectConfig(media_rows=[row]))
+    row_widget = _FakeRowWidget(True, row_id=1)
+    image_dir = tmp_path / "art"
+    image_dir.mkdir()
+    selected_cover = image_dir / "drop-cover.png"
+    selected_cover.write_bytes(b"png")
+    window = MainWindow.__new__(MainWindow)
+    window.session = session
+    window.dialog_folder_memory = type("DialogFolderMemory", (), {"song_folder": "", "image_folder": ""})()
+    session_saves: list[tuple[str, str]] = []
+    window._save_session_snapshot = lambda: session_saves.append(
+        (window.dialog_folder_memory.song_folder, window.dialog_folder_memory.image_folder)
+    )
+    window.module_two_row_list = type("RowList", (), {"row_widgets": [row_widget]})()
+    window._repair_active_generated_appearance_selections = lambda: []
+    window._refresh_module_two_live_preview_for_row = lambda _row_id: None
+    window._automatic_textures_enabled = lambda: True
+    window._generate_module_three_from_cover = lambda row_id: setattr(window, "_generated_row_id", row_id)
+    window._refresh_module_three_appearance_selector = lambda: setattr(window, "_refreshed_module_three", True)
+    window.on_project_change = lambda: setattr(window, "_project_changed", True)
+
+    MainWindow._drop_module_two_media_cover_files(window, 1, [str(selected_cover)])
+
+    assert row.cover_path == str(selected_cover)
+    assert row_widget.refreshed_covers == [str(selected_cover)]
+    assert session_saves == [("", str(image_dir))]
+    assert window.__dict__.get("_generated_row_id") == 1
+    assert window.__dict__.get("_refreshed_module_three", False) is False
+    assert window.__dict__.get("_project_changed", False) is False
+
+
 def test_cover_generation_success_ignores_stale_tokens_and_applies_current_result(monkeypatch) -> None:
     row = default_media_row(1)
     session = ProjectSession(project=ProjectConfig(media_rows=[row]))
@@ -321,6 +354,28 @@ def test_select_workshop_poster_image_uses_image_lane_and_remembers_selection(mo
     assert window.__dict__.get("_project_changed", False) is True
 
 
+def test_drop_workshop_poster_files_updates_project_and_image_lane(tmp_path) -> None:
+    session = ProjectSession(project=ProjectConfig())
+    selected_dir = tmp_path / "new-posters"
+    selected_dir.mkdir()
+    selected_path = selected_dir / "poster.png"
+    selected_path.write_bytes(b"png")
+    window = MainWindow.__new__(MainWindow)
+    window.session = session
+    window.dialog_folder_memory = type("DialogFolderMemory", (), {"song_folder": "", "image_folder": ""})()
+    window._refresh_module_one_poster_preview = lambda: setattr(window, "_poster_refreshed", True)
+    window.on_project_change = lambda: setattr(window, "_project_changed", True)
+    window._save_session_snapshot = lambda: setattr(window, "_saved_session", True)
+
+    MainWindow._drop_workshop_poster_files(window, [str(selected_path)])
+
+    assert window.session.project.workshop_poster_path == str(selected_path)
+    assert window.dialog_folder_memory.image_folder == str(selected_dir)
+    assert window.__dict__.get("_saved_session", False) is True
+    assert window.__dict__.get("_poster_refreshed", False) is True
+    assert window.__dict__.get("_project_changed", False) is True
+
+
 def test_pick_module_three_custom_image_uses_image_lane_and_remembers_selection(monkeypatch, tmp_path) -> None:
     row = default_media_row(1)
     session = ProjectSession(project=ProjectConfig(media_rows=[row]))
@@ -387,3 +442,15 @@ def test_add_module_two_songs_uses_song_lane_and_remembers_selection(monkeypatch
     assert window.dialog_folder_memory.song_folder == str(selected_dir)
     assert window.__dict__.get("_saved_session", False) is True
     assert added_paths == [(1, [str(first_song), str(second_song)])]
+
+
+def test_can_accept_image_drop_requires_supported_existing_file(tmp_path) -> None:
+    image_path = tmp_path / "cover.png"
+    image_path.write_bytes(b"png")
+    text_path = tmp_path / "cover.txt"
+    text_path.write_bytes(b"text")
+    window = MainWindow.__new__(MainWindow)
+
+    assert MainWindow._can_accept_image_drop(window, [str(image_path)]) is True
+    assert MainWindow._can_accept_image_drop(window, [str(text_path)]) is False
+    assert MainWindow._can_accept_image_drop(window, [str(tmp_path / "missing.png")]) is False

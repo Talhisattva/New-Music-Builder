@@ -18,6 +18,9 @@ class CoverPicker(tk.Frame):
         *,
         folder_icon_path: str | Path | None,
         command: Callable[[], None] | None = None,
+        dnd_type: str | None = None,
+        can_accept_drop: Callable[[list[str]], bool] | None = None,
+        on_drop_files: Callable[[list[str]], None] | None = None,
         cover_bg: str = spec.COVER_BG,
         cover_outline: str = spec.COVER_OUTLINE,
         cover_size: tuple[int, int] = spec.COVER_SIZE,
@@ -29,6 +32,10 @@ class CoverPicker(tk.Frame):
         super().__init__(parent, bg=parent.cget('bg'), bd=0, highlightthickness=0, width=width, height=height)
         self._cover_size = cover_size
         self._cover_image = None
+        self._default_outline = cover_outline
+        self._dnd_type = dnd_type
+        self._can_accept_drop = can_accept_drop
+        self._on_drop_files = on_drop_files
 
         self.cover_border = tk.Frame(
             self,
@@ -56,6 +63,7 @@ class CoverPicker(tk.Frame):
             size=button_size,
         )
         self.folder_button.place(x=button_x, y=0)
+        self._bind_drop_target()
 
     def set_cover_path(self, cover_path: str | Path | None) -> None:
         self._cover_image = load_tk_photoimage_contained(
@@ -81,3 +89,56 @@ class CoverPicker(tk.Frame):
 
     def set_enabled(self, enabled: bool) -> None:
         self.folder_button.set_enabled(enabled)
+        if not enabled:
+            self.set_drop_highlight(False)
+
+    def set_drop_highlight(self, active: bool) -> None:
+        self.cover_border.configure(bg=spec.MEDIA_ROW_SONGLIST_DROP_HIGHLIGHT_BORDER if active else self._default_outline)
+
+    def _bind_drop_target(self) -> None:
+        if self._dnd_type is None or self._can_accept_drop is None or self._on_drop_files is None:
+            return
+        for widget in (self.cover_border, self.cover_surface):
+            if not hasattr(widget, 'drop_target_register'):
+                continue
+            try:
+                widget.drop_target_register(self._dnd_type)
+                widget.dnd_bind('<<DropEnter>>', self._on_drop_enter, add='+')
+                widget.dnd_bind('<<DropPosition>>', self._on_drop_position, add='+')
+                widget.dnd_bind('<<DropLeave>>', self._on_drop_leave, add='+')
+                widget.dnd_bind('<<Drop>>', self._on_drop, add='+')
+            except tk.TclError:
+                self._dnd_type = None
+                self.set_drop_highlight(False)
+                return
+
+    def _split_drop_paths(self, raw_data: str) -> list[str]:
+        try:
+            return [item for item in self.tk.splitlist(raw_data) if item]
+        except tk.TclError:
+            return [raw_data] if raw_data else []
+
+    def _drop_is_valid(self, raw_data: str) -> bool:
+        if self._can_accept_drop is None:
+            return False
+        return self._can_accept_drop(self._split_drop_paths(raw_data))
+
+    def _on_drop_enter(self, event: tk.Event) -> str:
+        self.set_drop_highlight(self._drop_is_valid(getattr(event, 'data', '')))
+        return getattr(event, 'action', 'copy')
+
+    def _on_drop_position(self, event: tk.Event) -> str:
+        self.set_drop_highlight(self._drop_is_valid(getattr(event, 'data', '')))
+        return getattr(event, 'action', 'copy')
+
+    def _on_drop_leave(self, event: tk.Event) -> str:
+        self.set_drop_highlight(False)
+        return getattr(event, 'action', 'copy')
+
+    def _on_drop(self, event: tk.Event) -> str:
+        paths = self._split_drop_paths(getattr(event, 'data', ''))
+        valid = self._can_accept_drop(paths) if self._can_accept_drop is not None else False
+        if valid and self._on_drop_files is not None:
+            self._on_drop_files(paths)
+        self.set_drop_highlight(False)
+        return getattr(event, 'action', 'copy')
