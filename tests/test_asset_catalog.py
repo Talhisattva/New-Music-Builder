@@ -20,8 +20,11 @@ def test_asset_catalog_finds_expected_families() -> None:
     assert 'jacket:19' in jacket_keys
 
 
-def test_asset_catalog_places_preferred_cassette_and_case_entries_first() -> None:
+def test_asset_catalog_places_preferred_entries_first() -> None:
     catalog = AssetCatalog(ASSETS_ROOT).scan()
 
     assert catalog['cassette'][0].key == 'cassette:7'
+    assert catalog['vinyl'][0].key == 'vinyl:10'
     assert catalog['case'][0].key == 'case:4'
+    assert catalog['jacket'][0].key == 'jacket:4'
+    assert catalog['cd_cover'][0].key == 'cd_cover:4'

@@ -102,7 +102,7 @@ class AssetCatalog:
             world_path = world_dir / world_name
             if world_path.exists():
                 entries.append(AssetEntry(key=f'jacket:{stem}', label=label, inventory_path=str(inv_path), world_path=str(world_path), sprite_mode=sprite_mode, kind='jacket'))
-        return entries
+        return self._with_preferred_default_first('jacket', entries)
 
     def _scan_cd_covers(self) -> list[AssetEntry]:
         entries: list[AssetEntry] = []
@@ -127,7 +127,7 @@ class AssetCatalog:
             world_path = world_dir / world_name
             if world_path.exists():
                 entries.append(AssetEntry(key=f'cd_cover:{stem}', label=label, inventory_path=str(inv_path), world_path=str(world_path), kind='cd_cover'))
-        return entries
+        return self._with_preferred_default_first('cd_cover', entries)
 
     def _with_preferred_default_first(self, kind: str, entries: list[AssetEntry]) -> list[AssetEntry]:
         preferred_key = preferred_default_asset_key(kind, {entry.key for entry in entries})

@@ -51,9 +51,12 @@ def test_build_generated_asset_failure_log_line_uses_error_style_and_reason() ->
     assert line.timestamp
 
 
-def test_preferred_default_asset_key_uses_black_outer_cassette_and_case_defaults() -> None:
+def test_preferred_default_asset_key_uses_media_cover_defaults() -> None:
     assert preferred_default_asset_key('cassette', {'cassette:1', 'cassette:7'}) == 'cassette:7'
+    assert preferred_default_asset_key('vinyl', {'vinyl:1', 'vinyl:10'}) == 'vinyl:10'
     assert preferred_default_asset_key('case', {'case:1', 'case:4'}) == 'case:4'
+    assert preferred_default_asset_key('jacket', {'jacket:1', 'jacket:4'}) == 'jacket:4'
+    assert preferred_default_asset_key('cd_cover', {'cd_cover:1', 'cd_cover:4'}) == 'cd_cover:4'
 
 
 def test_preferred_default_asset_key_falls_back_when_preferred_key_missing() -> None:

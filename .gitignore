@@ -13,6 +13,9 @@ htmlcov/
 # Builder state
 .cache/
 output/
+/Generated Textures/
+/logs/*.log
+/workspace/diagnostics/
 
 # Packaging artifacts
 build/

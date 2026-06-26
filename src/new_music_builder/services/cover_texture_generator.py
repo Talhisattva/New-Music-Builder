@@ -62,7 +62,7 @@ JACKET_INVENTORY_PRESET = InventoryShearPreset(
 CD_COVER_INVENTORY_PRESET = InventoryShearPreset(
     initial_edge=24,
     max_edge=40,
-    shear_degrees=50.0,
+    shear_degrees=60.0,
 )
 
 WORLD_OVERLAY_SECOND_MULTIPLY_RATIO = 0.50
@@ -107,9 +107,7 @@ def generate_cassette_textures_from_cover(
     cassette_output_root.mkdir(parents=True, exist_ok=True)
 
     inventory_mask = resolved_mask_root / "Inventory" / "Cassette" / "Item_NM_Cassette_Mask.png"
-    inventory_outer_mask = resolved_mask_root / "Inventory" / "Cassette" / "Item_NM_Cassette_Outer_Mask.png"
     world_mask = resolved_mask_root / "World" / "Cassette" / "Cassette_World_Mask.png"
-    world_outer_mask = resolved_mask_root / "World" / "Cassette" / "Cassette_World_Outer_Mask.png"
     world_outer = resolved_mask_root / "World" / "Cassette" / "Cassette_World_Outer.png"
     world_overlay = resolved_mask_root / "World" / "Cassette" / "Cassette_World_Overlay.png"
     world_overlay_detail = resolved_mask_root / "World" / "Cassette" / "Cassette_World_Overlay_02.png"
@@ -121,14 +119,12 @@ def generate_cassette_textures_from_cover(
         source_path=source_path,
         donor_inventory_path=donor_source_path,
         mask_path=inventory_mask,
-        outer_mask_path=inventory_outer_mask,
         output_path=inventory_output,
     )
     _render_cassette_world(
         source_path=source_path,
         mask_path=world_mask,
         donor_world_path=donor_world_source_path,
-        outer_mask_path=world_outer_mask,
         outer_path=world_outer,
         overlay_paths=(world_overlay, world_overlay_detail),
         output_path=world_output,
@@ -233,7 +229,6 @@ def generate_case_textures_from_cover(
     case_output_root.mkdir(parents=True, exist_ok=True)
 
     inventory_mask = resolved_mask_root / "Inventory" / "CassetteCase" / "Item_NM_Case_Mask.png"
-    inventory_outer_mask = resolved_mask_root / "Inventory" / "CassetteCase" / "Item_NM_Case_Outer_Mask.png"
     inventory_outer = resolved_mask_root / "Inventory" / "CassetteCase" / "Item_NM_Case_Outer.png"
     world_mask = resolved_mask_root / "World" / "CassetteCase" / "World_NM_CassetteCase_Mask.png"
     world_outer = resolved_mask_root / "World" / "CassetteCase" / "World_NM_CassetteCase_Outer.png"
@@ -248,7 +243,6 @@ def generate_case_textures_from_cover(
         source_path=source_path,
         donor_inventory_path=Path(normalized_donor_inventory) if normalized_donor_inventory else None,
         mask_path=inventory_mask,
-        outer_mask_path=inventory_outer_mask,
         fallback_outer_path=inventory_outer,
         output_path=inventory_output,
     )
@@ -380,14 +374,12 @@ def _render_cassette_inventory(
     source_path: Path,
     donor_inventory_path: Path,
     mask_path: Path,
-    outer_mask_path: Path,
     output_path: Path,
 ) -> None:
     with Image.open(mask_path) as mask_source:
         mask_image = mask_source.convert("RGBA")
     mask_alpha = _alpha_mask(mask_image)
-    with Image.open(outer_mask_path) as outer_mask_source:
-        outer_mask_alpha = _alpha_mask(outer_mask_source.convert("RGBA"))
+    outer_mask_alpha = _inverse_mask_alpha(mask_alpha)
     masked_cover = _build_inventory_masked_cover(
         source_path=source_path,
         mask_size=mask_image.size,
@@ -409,7 +401,6 @@ def _render_cassette_world(
     source_path: Path,
     donor_world_path: Path,
     mask_path: Path,
-    outer_mask_path: Path,
     outer_path: Path,
     overlay_paths: tuple[Path, ...],
     output_path: Path,
@@ -417,8 +408,7 @@ def _render_cassette_world(
     with Image.open(mask_path) as mask_source:
         mask_image = mask_source.convert("RGBA")
     mask_alpha = _alpha_mask(mask_image)
-    with Image.open(outer_mask_path) as outer_mask_source:
-        outer_mask_alpha = _alpha_mask(outer_mask_source.convert("RGBA"))
+    outer_mask_alpha = _inverse_mask_alpha(mask_alpha)
     masked_cover = _build_masked_cover_from_mask_alpha(
         source_path=source_path,
         size=mask_image.size,
@@ -508,15 +498,13 @@ def _render_case_inventory(
     source_path: Path,
     donor_inventory_path: Path | None,
     mask_path: Path,
-    outer_mask_path: Path,
     fallback_outer_path: Path,
     output_path: Path,
 ) -> None:
     with Image.open(mask_path) as mask_source:
         mask_image = mask_source.convert("RGBA")
     mask_alpha = _alpha_mask(mask_image)
-    with Image.open(outer_mask_path) as outer_mask_source:
-        outer_mask_alpha = _alpha_mask(outer_mask_source.convert("RGBA"))
+    outer_mask_alpha = _inverse_mask_alpha(mask_alpha)
     masked_cover = _build_case_inventory_masked_cover(
         source_path=source_path,
         mask_size=mask_image.size,
@@ -1208,3 +1196,7 @@ def _alpha_mask(image: Image.Image) -> Image.Image:
     if alpha.getbbox() is not None:
         return alpha
     return image.convert("L")
+
+
+def _inverse_mask_alpha(mask_alpha: Image.Image) -> Image.Image:
+    return ImageChops.invert(mask_alpha)

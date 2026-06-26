@@ -5,7 +5,10 @@ from new_music_builder.domain.models import MediaRow
 
 _PREFERRED_DEFAULT_ASSET_KEYS: dict[str, str] = {
     'cassette': 'cassette:7',
+    'vinyl': 'vinyl:10',
     'case': 'case:4',
+    'jacket': 'jacket:4',
+    'cd_cover': 'cd_cover:4',
 }
 
 
