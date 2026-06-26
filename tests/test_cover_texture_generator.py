@@ -313,6 +313,31 @@ def test_generate_vinyl_textures_from_cover_uses_requested_inventory_target_regi
     assert alpha.getbbox() == expected_bbox
 
 
+def test_generate_vinyl_textures_from_cover_uses_average_color_for_inventory_center(tmp_path: Path) -> None:
+    cover_path = tmp_path / "cover.png"
+    cover = Image.new("RGBA", (20, 10), (0, 0, 0, 0))
+    for x in range(10):
+        for y in range(10):
+            cover.putpixel((x, y), (255, 0, 0, 255))
+    for x in range(10, 20):
+        for y in range(10):
+            cover.putpixel((x, y), (0, 0, 255, 255))
+    cover.save(cover_path)
+
+    result = generate_vinyl_textures_from_cover(
+        cover_path,
+        mask_root=ASSETS_ROOT / "Mask",
+        output_root=tmp_path / "Generated Textures",
+    )
+
+    inventory = Image.open(result.record.inventory_full).convert("RGBA")
+    with Image.open(ASSETS_ROOT / "Mask" / "Inventory" / "Vinyl" / "Item_NM_Vinyl_Mask.png") as mask_source:
+        bbox = _alpha_mask(mask_source.convert("RGBA")).getbbox()
+    assert bbox is not None
+    center_pixel = inventory.getpixel(((bbox[0] + bbox[2]) // 2, (bbox[1] + bbox[3]) // 2))
+    assert abs(center_pixel[0] - center_pixel[2]) <= 20
+
+
 def test_generate_vinyl_textures_from_cover_uses_requested_world_target_region(tmp_path: Path) -> None:
     cover_path = tmp_path / "cover.png"
     Image.new("RGBA", (540, 540), (255, 0, 0, 255)).save(cover_path)

@@ -179,6 +179,7 @@ def generate_vinyl_textures_from_cover(
         overlay_second_pass_ratio=VINYL_OVERLAY_SECOND_MULTIPLY_RATIO,
         cover_target_size=VINYL_INVENTORY_TARGET_SIZE,
         preserve_square=False,
+        use_average_cover_fill=True,
         output_path=inventory_output,
     )
     _render_single_mask_composite(
@@ -400,12 +401,19 @@ def _render_single_mask_composite(
     overlay_second_pass_ratio: float,
     cover_target_size: tuple[int, int] | None = None,
     preserve_square: bool = True,
+    use_average_cover_fill: bool = False,
     output_path: Path,
 ) -> None:
     with Image.open(mask_path) as mask_source:
         mask_image = mask_source.convert("RGBA")
     mask_alpha = _alpha_mask(mask_image)
-    if cover_target_size is None:
+    if use_average_cover_fill:
+        masked_cover = _build_average_color_masked_cover(
+            source_path=source_path,
+            size=mask_image.size,
+            mask_alpha=mask_alpha,
+        )
+    elif cover_target_size is None:
         masked_cover = _build_masked_cover_from_mask_alpha(
             source_path=source_path,
             size=mask_image.size,
@@ -688,6 +696,17 @@ def _build_masked_cover(*, source_path: Path, mask_path: Path) -> Image.Image:
     )
 
 
+def _build_average_color_masked_cover(
+    *,
+    source_path: Path,
+    size: tuple[int, int],
+    mask_alpha: Image.Image,
+) -> Image.Image:
+    average_color = _average_visible_cover_color(source_path)
+    filled = Image.new("RGBA", size, average_color)
+    return _apply_mask_alpha(filled, mask_alpha)
+
+
 def _prepare_square_source(source_path: Path, target_size: int) -> Image.Image:
     with Image.open(source_path) as source_image:
         source = source_image.convert("RGBA")
@@ -696,6 +715,25 @@ def _prepare_square_source(source_path: Path, target_size: int) -> Image.Image:
     top = (source.height - crop_size) // 2
     square = source.crop((left, top, left + crop_size, top + crop_size))
     return square.resize((target_size, target_size), INVENTORY_COVER_RESAMPLE)
+
+
+def _average_visible_cover_color(source_path: Path) -> tuple[int, int, int, int]:
+    with Image.open(source_path) as source_image:
+        source = source_image.convert("RGBA")
+    alpha = np.asarray(source.getchannel("A"), dtype=np.float32)
+    visible = alpha > 0
+    if not np.any(visible):
+        return (0, 0, 0, 0)
+    rgb = np.asarray(source.convert("RGB"), dtype=np.float32)
+    weights = (alpha / 255.0)[visible]
+    visible_rgb = rgb[visible]
+    weighted = (visible_rgb * weights[:, None]).sum(axis=0) / max(weights.sum(), 1e-6)
+    return (
+        int(round(float(weighted[0]))),
+        int(round(float(weighted[1]))),
+        int(round(float(weighted[2]))),
+        255,
+    )
 
 
 def _apply_inventory_warp(image: Image.Image, preset: InventoryWarpPreset) -> Image.Image:
