@@ -201,7 +201,6 @@ def build_menu_action_map(window: object) -> dict[str, list[MenuAction]]:
         preferences[0] = MenuAction(
             label=first.label,
             command=first.command,
-            shortcut_label=first.shortcut_label,
             show_check_column=True,
         )
     preferences.append(

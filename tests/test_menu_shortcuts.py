@@ -44,7 +44,7 @@ def test_build_menu_action_map_uses_open_label_and_shortcuts() -> None:
         "Exit",
     ]
     assert action_map["FILE"][1].shortcut_label == "(Ctrl + O)"
-    assert action_map["PREFERENCES"][0].shortcut_label == "(Ctrl + P)"
+    assert action_map["PREFERENCES"][0].shortcut_label == ""
     assert [action.label for action in action_map["PREFERENCES"]] == [
         "Audio Settings",
         "Automatic Textures",
