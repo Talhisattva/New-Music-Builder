@@ -31,6 +31,8 @@ class _WindowStub:
 
 def test_build_menu_action_map_uses_open_label_and_shortcuts() -> None:
     window = _WindowStub()
+    window._toggle_automatic_textures_preference = lambda: window.calls.append("toggle_auto")
+    window._automatic_textures_enabled = lambda: True
 
     action_map = build_menu_action_map(window)
 
@@ -43,6 +45,14 @@ def test_build_menu_action_map_uses_open_label_and_shortcuts() -> None:
     ]
     assert action_map["FILE"][1].shortcut_label == "(Ctrl + O)"
     assert action_map["PREFERENCES"][0].shortcut_label == "(Ctrl + P)"
+    assert [action.label for action in action_map["PREFERENCES"]] == [
+        "Audio Settings",
+        "Automatic Textures",
+    ]
+    assert action_map["PREFERENCES"][0].show_check_column is True
+    assert action_map["PREFERENCES"][1].show_check_column is True
+    assert action_map["PREFERENCES"][1].close_after_invoke is False
+    assert action_map["PREFERENCES"][1].checked_getter is not None
     action_map["FILE"][1].command()
     assert window.calls == ["load_project"]
 
@@ -65,6 +75,18 @@ def test_measure_menu_action_width_includes_shortcut_text() -> None:
     )
 
     assert width == (4 * 10) + (10 * 5) + 8
+
+
+def test_measure_menu_action_width_includes_check_column_when_requested() -> None:
+    action = MenuAction(label="Automatic Textures", command=lambda: None, show_check_column=True)
+
+    width = measure_menu_action_width(
+        action,
+        label_measure=lambda text: len(text) * 10,
+        accelerator_measure=lambda text: len(text) * 5,
+    )
+
+    assert width == (18 * 10) + 16 + 8
 
 
 def test_bind_app_shortcuts_registers_sequences_and_dispatches_handlers() -> None:

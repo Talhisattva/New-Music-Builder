@@ -12,6 +12,7 @@ from new_music_builder.ui.widgets.appearance_selector import (
     fallback_selected_asset_key_after_delete,
     generate_button_text_for_state,
     merge_appearance_grid_entries,
+    resolve_module_three_control_layout,
     should_show_dual_sprite_controls,
     visible_tab_kinds_for_enabled_media,
 )
@@ -369,3 +370,28 @@ def test_generate_button_text_for_state_keeps_label_for_general_disabled_cases()
         kind='cassette',
         enabled=True,
     ) == 'GENERATE FROM COVER'
+
+
+def test_resolve_module_three_control_layout_uses_old_single_row_when_automatic_textures_enabled() -> None:
+    layout = resolve_module_three_control_layout(
+        automatic_textures_enabled=True,
+        dual_visible=True,
+    )
+
+    assert layout.show_generate is False
+    assert layout.preview_row_y == spec.MODULE_THREE_DUAL_SPRITE_ROW_Y
+    assert layout.preview_row_size == spec.MODULE_THREE_PREVIEW_MODE_ROW_SIZE
+    assert layout.dual_left_x == spec.MODULE_THREE_PREVIEW_MODE_ROW_SIZE[0]
+
+
+def test_resolve_module_three_control_layout_uses_two_rows_when_automatic_textures_disabled() -> None:
+    layout = resolve_module_three_control_layout(
+        automatic_textures_enabled=False,
+        dual_visible=True,
+    )
+
+    assert layout.show_generate is True
+    assert layout.preview_row_y == spec.MODULE_THREE_PREVIEW_MODE_ROW_Y
+    assert layout.preview_row_size == spec.MODULE_THREE_PREVIEW_MODE_FULL_SIZE
+    assert layout.generate_row_size == spec.MODULE_THREE_GENERATE_BUTTON_ROW_SIZE
+    assert layout.dual_left_x == spec.MODULE_THREE_GENERATE_BUTTON_ROW_SIZE[0]

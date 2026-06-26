@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 import tkinter as tk
 import tkinter.font as tkfont
@@ -48,6 +49,40 @@ def generate_button_text_for_state(
     if cover_path and Path(cover_path).is_file():
         return ''
     return 'GENERATE FROM COVER'
+
+
+@dataclass(frozen=True, slots=True)
+class ModuleThreeControlLayout:
+    show_generate: bool
+    preview_row_y: int
+    preview_row_size: tuple[int, int]
+    dual_row_y: int
+    dual_left_x: int
+    generate_row_size: tuple[int, int]
+
+
+def resolve_module_three_control_layout(
+    *,
+    automatic_textures_enabled: bool,
+    dual_visible: bool,
+) -> ModuleThreeControlLayout:
+    if automatic_textures_enabled:
+        return ModuleThreeControlLayout(
+            show_generate=False,
+            preview_row_y=spec.MODULE_THREE_DUAL_SPRITE_ROW_Y,
+            preview_row_size=spec.MODULE_THREE_PREVIEW_MODE_ROW_SIZE if dual_visible else spec.MODULE_THREE_PREVIEW_MODE_FULL_SIZE,
+            dual_row_y=spec.MODULE_THREE_DUAL_SPRITE_ROW_Y,
+            dual_left_x=spec.MODULE_THREE_PREVIEW_MODE_ROW_SIZE[0],
+            generate_row_size=spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE,
+        )
+    return ModuleThreeControlLayout(
+        show_generate=True,
+        preview_row_y=spec.MODULE_THREE_PREVIEW_MODE_ROW_Y,
+        preview_row_size=spec.MODULE_THREE_PREVIEW_MODE_FULL_SIZE,
+        dual_row_y=spec.MODULE_THREE_DUAL_SPRITE_ROW_Y,
+        dual_left_x=spec.MODULE_THREE_GENERATE_BUTTON_ROW_SIZE[0],
+        generate_row_size=spec.MODULE_THREE_GENERATE_BUTTON_ROW_SIZE if dual_visible else spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE,
+    )
 
 
 class _BorderSurface(tk.Frame):
@@ -430,6 +465,7 @@ class AppearanceSelector:
         on_delete_generated: Callable[[str], None],
         can_generate_from_cover: Callable[[MediaRow | None], bool],
         on_generate_from_cover: Callable[[int], None] | None,
+        automatic_textures_enabled_getter: Callable[[], bool],
         on_preview_mode_selected: Callable[[int, str], None] | None,
         on_selection_changed: Callable[[int], None] | None,
         on_change: Callable[[], None],
@@ -448,6 +484,7 @@ class AppearanceSelector:
         self._on_delete_generated = on_delete_generated
         self._can_generate_from_cover = can_generate_from_cover
         self._on_generate_from_cover = on_generate_from_cover
+        self._automatic_textures_enabled_getter = automatic_textures_enabled_getter
         self._on_preview_mode_selected = on_preview_mode_selected
         self._on_selection_changed = on_selection_changed
         self._on_change = on_change
@@ -479,6 +516,9 @@ class AppearanceSelector:
         self._build_generate_row()
         self._build_dual_sprite_row()
         self._build_footer()
+
+    def _automatic_textures_enabled(self) -> bool:
+        return bool(self._automatic_textures_enabled_getter())
 
     @property
     def active_kind(self) -> AppearanceKind | None:
@@ -615,30 +655,51 @@ class AppearanceSelector:
         row = self._active_row
         if row is None:
             return
+        automatic_textures_enabled = self._automatic_textures_enabled()
         self.dual_checkbox.set_enabled(True)
         if self._preview_mode_toggle is not None:
             self._preview_mode_toggle.set_mode(self._preview_mode())
+            if automatic_textures_enabled and self._active_kind is not None and should_show_dual_sprite_controls(self._active_kind):
+                left_width = spec.MODULE_THREE_PREVIEW_MODE_HALF_INVENTORY_SIZE[0]
+                right_width = spec.MODULE_THREE_PREVIEW_MODE_HALF_WORLD_SIZE[0]
+            else:
+                left_width = spec.MODULE_THREE_PREVIEW_MODE_INVENTORY_SIZE[0]
+                right_width = spec.MODULE_THREE_PREVIEW_MODE_WORLD_SIZE[0]
             self._preview_mode_toggle.resize(
-                left_width=spec.MODULE_THREE_PREVIEW_MODE_INVENTORY_SIZE[0],
-                right_width=spec.MODULE_THREE_PREVIEW_MODE_WORLD_SIZE[0],
+                left_width=left_width,
+                right_width=right_width,
                 height=spec.MODULE_THREE_PREVIEW_MODE_ROW_SIZE[1],
             )
             self._preview_mode_toggle.place(x=0, y=0)
         if self._active_kind is None:
             self.dual_checkbox.place_forget()
             self.dual_label.place_forget()
+            self.shell.preview_mode_pane.resize(spec.MODULE_THREE_PREVIEW_MODE_FULL_SIZE)
+            self.shell.preview_mode_pane.place(x=0, y=spec.MODULE_THREE_PREVIEW_MODE_ROW_Y)
             self.shell.generate_button_pane.resize(spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE)
-            self.shell.generate_button_pane.place(x=0, y=spec.MODULE_THREE_DUAL_SPRITE_ROW_Y)
+            if automatic_textures_enabled:
+                self.shell.generate_button_pane.place_forget()
+            else:
+                self.shell.generate_button_pane.place(x=0, y=spec.MODULE_THREE_DUAL_SPRITE_ROW_Y)
             self.shell.dual_sprite_left_pane.place_forget()
             return
         visible = should_show_dual_sprite_controls(self._active_kind)
+        layout = resolve_module_three_control_layout(
+            automatic_textures_enabled=automatic_textures_enabled,
+            dual_visible=visible,
+        )
+        self.shell.preview_mode_pane.resize(layout.preview_row_size)
+        self.shell.preview_mode_pane.place(x=0, y=layout.preview_row_y)
         if visible:
-            self.shell.generate_button_pane.resize(spec.MODULE_THREE_GENERATE_BUTTON_ROW_SIZE)
-            self.shell.generate_button_pane.place(x=0, y=spec.MODULE_THREE_DUAL_SPRITE_ROW_Y)
+            self.shell.generate_button_pane.resize(layout.generate_row_size)
+            if layout.show_generate:
+                self.shell.generate_button_pane.place(x=0, y=spec.MODULE_THREE_DUAL_SPRITE_ROW_Y)
+            else:
+                self.shell.generate_button_pane.place_forget()
             self.shell.dual_sprite_left_pane.resize(spec.MODULE_THREE_DUAL_SPRITE_LEFT_SIZE)
             self.shell.dual_sprite_left_pane.place(
-                x=spec.MODULE_THREE_GENERATE_BUTTON_ROW_SIZE[0],
-                y=spec.MODULE_THREE_DUAL_SPRITE_ROW_Y,
+                x=layout.dual_left_x,
+                y=layout.dual_row_y,
             )
             selection = row.appearances[self._active_kind]
             self.dual_checkbox.set_checked(selection.sprite_mode == 'dual')
@@ -648,32 +709,37 @@ class AppearanceSelector:
             )
             label_x = spec.MODULE_THREE_DUAL_SPRITE_CHECKBOX_POS[0] + spec.MODULE_THREE_DUAL_SPRITE_CHECKBOX_SIZE[0] + spec.MODULE_THREE_DUAL_SPRITE_LABEL_GAP_X
             self._place_dual_label(label_x)
-            self.generate_from_cover_button.configure(
-                font=ctk.CTkFont(
-                    family=spec.MODULE_THREE_GENERATE_BUTTON_FONT_FAMILY,
-                    size=spec.MODULE_THREE_GENERATE_BUTTON_HALF_FONT_SIZE,
-                    weight='bold',
-                ),
-                width=spec.MODULE_THREE_GENERATE_BUTTON_ROW_SIZE[0],
-                height=spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE[1],
-            )
-            self.generate_from_cover_button.place_configure(x=0, y=0)
+            if layout.show_generate:
+                self.generate_from_cover_button.configure(
+                    font=ctk.CTkFont(
+                        family=spec.MODULE_THREE_GENERATE_BUTTON_FONT_FAMILY,
+                        size=spec.MODULE_THREE_GENERATE_BUTTON_HALF_FONT_SIZE,
+                        weight='bold',
+                    ),
+                    width=spec.MODULE_THREE_GENERATE_BUTTON_ROW_SIZE[0],
+                    height=spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE[1],
+                )
+                self.generate_from_cover_button.place_configure(x=0, y=0)
         else:
-            self.shell.generate_button_pane.resize(spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE)
-            self.shell.generate_button_pane.place(x=0, y=spec.MODULE_THREE_DUAL_SPRITE_ROW_Y)
+            self.shell.generate_button_pane.resize(layout.generate_row_size)
+            if layout.show_generate:
+                self.shell.generate_button_pane.place(x=0, y=spec.MODULE_THREE_DUAL_SPRITE_ROW_Y)
+            else:
+                self.shell.generate_button_pane.place_forget()
             self.shell.dual_sprite_left_pane.place_forget()
             self.dual_checkbox.place_forget()
             self.dual_label.place_forget()
-            self.generate_from_cover_button.configure(
-                font=ctk.CTkFont(
-                    family=spec.MODULE_THREE_GENERATE_BUTTON_FONT_FAMILY,
-                    size=spec.MODULE_THREE_GENERATE_BUTTON_FONT_SIZE,
-                    weight='bold',
-                ),
-                width=spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE[0],
-                height=spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE[1],
-            )
-            self.generate_from_cover_button.place_configure(x=0, y=0)
+            if layout.show_generate:
+                self.generate_from_cover_button.configure(
+                    font=ctk.CTkFont(
+                        family=spec.MODULE_THREE_GENERATE_BUTTON_FONT_FAMILY,
+                        size=spec.MODULE_THREE_GENERATE_BUTTON_FONT_SIZE,
+                        weight='bold',
+                    ),
+                    width=spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE[0],
+                    height=spec.MODULE_THREE_DUAL_SPRITE_ROW_SIZE[1],
+                )
+                self.generate_from_cover_button.place_configure(x=0, y=0)
         self._refresh_generate_button_state()
 
     def _refresh_footer(self) -> None:

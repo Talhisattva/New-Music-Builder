@@ -111,6 +111,7 @@ class ProjectConfig:
     sample_rate: int = 44100
     compression_quality: float = DEFAULT_COMPRESSION_QUALITY
     reencode_existing_ogg: bool = True
+    automatic_textures_enabled: bool = True
     media_rows: list[MediaRow] = field(default_factory=list)
     custom_assets: dict[str, list[dict[str, str]]] = field(default_factory=dict)
     generated_assets: list[GeneratedAssetRecord] = field(default_factory=list)
@@ -681,6 +682,7 @@ def project_from_dict(data: dict[str, Any]) -> ProjectConfig:
         sample_rate=_coerce_int(data.get("sample_rate", 44100), 44100, minimum=1),
         compression_quality=snap_compression_quality(data.get("compression_quality", DEFAULT_COMPRESSION_QUALITY)),
         reencode_existing_ogg=bool(data.get("reencode_existing_ogg", True)),
+        automatic_textures_enabled=bool(data.get("automatic_textures_enabled", True)),
         media_rows=rows,
         custom_assets=_coerce_custom_assets(data.get("custom_assets", {})),
         generated_assets=_coerce_generated_assets(data.get("generated_assets", [])),

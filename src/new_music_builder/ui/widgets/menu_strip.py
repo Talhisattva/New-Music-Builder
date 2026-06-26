@@ -8,6 +8,7 @@ import tkinter.font as tkfont
 import customtkinter as ctk
 
 from new_music_builder.ui import spec
+from new_music_builder.ui.widgets.images import load_tk_photoimage_contained
 
 
 @dataclass(slots=True)
@@ -15,6 +16,9 @@ class MenuAction:
     label: str
     command: Callable[[], None]
     shortcut_label: str = ""
+    show_check_column: bool = False
+    checked_getter: Callable[[], bool] | None = None
+    close_after_invoke: bool = True
 
 
 def measure_menu_action_width(
@@ -24,6 +28,8 @@ def measure_menu_action_width(
     accelerator_measure: Callable[[str], int],
 ) -> int:
     width = label_measure(action.label)
+    if action.show_check_column:
+        width += spec.MENU_DROPDOWN_CHECK_COLUMN_WIDTH + spec.MENU_DROPDOWN_INLINE_GAP_X
     if action.shortcut_label:
         width += spec.MENU_DROPDOWN_INLINE_GAP_X + accelerator_measure(action.shortcut_label)
     return width
@@ -45,6 +51,9 @@ class _DropdownItem(ctk.CTkFrame):
         accelerator_color: str = spec.MENU_DROPDOWN_ACCELERATOR_COLOR,
         accelerator_font: ctk.CTkFont | None = None,
         enabled_getter: Callable[[], bool] | None = None,
+        show_check_column: bool = False,
+        checked_getter: Callable[[], bool] | None = None,
+        check_icon_path: str | None = None,
     ) -> None:
         super().__init__(
             parent,
@@ -62,6 +71,7 @@ class _DropdownItem(ctk.CTkFrame):
         self._disabled_text_color = '#8f8a92'
         self._accelerator_color = accelerator_color
         self._accelerator_font = accelerator_font or font
+        self._checked_getter = checked_getter
         self._content = tk.Frame(
             self,
             bg=bg_color,
@@ -69,6 +79,23 @@ class _DropdownItem(ctk.CTkFrame):
             highlightthickness=0,
         )
         self._content.pack(fill='both', expand=True, padx=spec.MENU_DROPDOWN_PAD_X, pady=0)
+        self._check_image = load_tk_photoimage_contained(check_icon_path, spec.MENU_DROPDOWN_CHECK_ICON_SIZE)
+        self._check_label: tk.Label | None = None
+        if show_check_column:
+            self._check_label = tk.Label(
+                self._content,
+                bg=bg_color,
+                bd=0,
+                highlightthickness=0,
+                anchor='center',
+                justify='center',
+            )
+            self._check_label.pack(
+                side='left',
+                padx=(0, spec.MENU_DROPDOWN_INLINE_GAP_X),
+                pady=0,
+            )
+            self._check_label.configure(width=spec.MENU_DROPDOWN_CHECK_COLUMN_WIDTH)
         self.label = ctk.CTkLabel(
             self._content,
             text=text,
@@ -91,6 +118,8 @@ class _DropdownItem(ctk.CTkFrame):
             )
             self.accelerator_label.pack(side='left', padx=(spec.MENU_DROPDOWN_INLINE_GAP_X, 0), pady=0)
         widgets = [self, self._content, self.label]
+        if self._check_label is not None:
+            widgets.append(self._check_label)
         if self.accelerator_label is not None:
             widgets.append(self.accelerator_label)
         for widget in widgets:
@@ -98,6 +127,7 @@ class _DropdownItem(ctk.CTkFrame):
             widget.bind('<Leave>', self._on_leave, add='+')
             widget.bind('<ButtonPress-1>', self._on_press, add='+')
         self._apply_enabled_state()
+        self._apply_checked_state()
         self._set_visual_bg(bg_color)
 
     def _enabled(self) -> bool:
@@ -108,9 +138,18 @@ class _DropdownItem(ctk.CTkFrame):
         if self.accelerator_label is not None:
             self.accelerator_label.configure(fg=self._accelerator_color if self._enabled() else self._disabled_text_color)
 
+    def _apply_checked_state(self) -> None:
+        if self._check_label is None:
+            return
+        checked = self._checked_getter() if self._checked_getter is not None else False
+        self._check_label.configure(image=self._check_image if checked else '')
+        self._check_label.image = self._check_image if checked else None
+
     def _set_visual_bg(self, color: str) -> None:
         self.configure(fg_color=color)
         self._content.configure(bg=color)
+        if self._check_label is not None:
+            self._check_label.configure(bg=color)
         if self.accelerator_label is not None:
             self.accelerator_label.configure(bg=color)
 
@@ -143,6 +182,7 @@ class _DropdownMenu(tk.Frame):
         font: ctk.CTkFont,
         accelerator_font: ctk.CTkFont,
         enabled_getter: Callable[[str], bool] | None = None,
+        check_icon_path: str | None = None,
     ) -> None:
         border_width = spec.MENU_DROPDOWN_BORDER_WIDTH
         super().__init__(
@@ -176,6 +216,9 @@ class _DropdownMenu(tk.Frame):
                 accelerator_text=item.shortcut_label,
                 accelerator_font=accelerator_font,
                 enabled_getter=(lambda label=item.label: enabled_getter(label)) if enabled_getter is not None else None,
+                show_check_column=item.show_check_column,
+                checked_getter=item.checked_getter,
+                check_icon_path=check_icon_path,
             )
             menu_item.place(
                 x=0,
@@ -193,6 +236,7 @@ class MenuStrip(ctk.CTkFrame):
         bg_color: str = spec.MENU_BG,
         hover_color: str = spec.MENU_HOVER,
         text_color: str = spec.HEADER_TEXT,
+        check_icon_path: str | None = None,
     ) -> None:
         super().__init__(parent, fg_color=bg_color, corner_radius=0, height=spec.MENU_HEIGHT)
         self.pack_propagate(False)
@@ -200,6 +244,7 @@ class MenuStrip(ctk.CTkFrame):
         self._hover_color = hover_color
         self._text_color = text_color
         self._menu_actions = menu_actions or {}
+        self._check_icon_path = check_icon_path
         self._action_enabled: dict[tuple[str, str], bool] = {}
         self._item_widgets: dict[str, tuple[ctk.CTkFrame, ctk.CTkLabel]] = {}
         self._open_menu_name: str | None = None
@@ -282,8 +327,16 @@ class MenuStrip(ctk.CTkFrame):
             items=[
                 MenuAction(
                     label=item.label,
-                    command=lambda action=item.command, label=item.label, name=menu_name: self._run_action(name, label, action),
+                    command=lambda action=item.command, label=item.label, name=menu_name, close_after_invoke=item.close_after_invoke: self._run_action(
+                        name,
+                        label,
+                        action,
+                        close_after_invoke=close_after_invoke,
+                    ),
                     shortcut_label=item.shortcut_label,
+                    show_check_column=item.show_check_column,
+                    checked_getter=item.checked_getter,
+                    close_after_invoke=item.close_after_invoke,
                 )
                 for item in actions
             ],
@@ -294,18 +347,24 @@ class MenuStrip(ctk.CTkFrame):
             font=self._top_font,
             accelerator_font=self._accelerator_font,
             enabled_getter=lambda label: self.is_action_enabled(menu_name, label),
+            check_icon_path=self._check_icon_path,
         )
         x, y = self._dropdown_position(menu_name)
         self._dropdown.place(x=x, y=y)
         self._dropdown.lift()
         self._bind_global_handlers()
 
-    def _run_action(self, menu_name: str, item_label: str, command: Callable[[], None]) -> None:
+    def _run_action(self, menu_name: str, item_label: str, command: Callable[[], None], *, close_after_invoke: bool = True) -> None:
         if not self.is_action_enabled(menu_name, item_label):
             self.close_menu()
             return
-        self.close_menu()
+        if close_after_invoke:
+            self.close_menu()
+            command()
+            return
         command()
+        if self._open_menu_name == menu_name:
+            self._open_dropdown(menu_name)
 
     def is_action_enabled(self, menu_name: str, item_label: str) -> bool:
         return self._action_enabled.get((menu_name, item_label), True)

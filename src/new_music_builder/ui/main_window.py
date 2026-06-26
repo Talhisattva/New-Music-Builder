@@ -195,6 +195,24 @@ def build_menu_action_map(window: object) -> dict[str, list[MenuAction]]:
                 shortcut_label=spec.shortcut_label,
             )
         )
+    preferences = menu_actions.setdefault('PREFERENCES', [])
+    if preferences:
+        first = preferences[0]
+        preferences[0] = MenuAction(
+            label=first.label,
+            command=first.command,
+            shortcut_label=first.shortcut_label,
+            show_check_column=True,
+        )
+    preferences.append(
+        MenuAction(
+            label='Automatic Textures',
+            command=getattr(window, '_toggle_automatic_textures_preference'),
+            show_check_column=True,
+            checked_getter=getattr(window, '_automatic_textures_enabled'),
+            close_after_invoke=False,
+        )
+    )
     return menu_actions
 
 
@@ -574,7 +592,11 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.header.pack(fill='x')
 
     def _build_menu_strip(self) -> None:
-        self.menu_strip = MenuStrip(self, menu_actions=build_menu_action_map(self))
+        self.menu_strip = MenuStrip(
+            self,
+            menu_actions=build_menu_action_map(self),
+            check_icon_path=str(self._check_icon_path()),
+        )
         self.menu_strip.pack(fill='x')
 
     def _bind_app_shortcuts(self) -> None:
@@ -820,6 +842,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             on_delete_generated=self._delete_module_three_generated_asset_set,
             can_generate_from_cover=self._module_three_can_generate_from_cover,
             on_generate_from_cover=self._generate_module_three_from_cover,
+            automatic_textures_enabled_getter=self._automatic_textures_enabled,
             on_preview_mode_selected=self._set_module_two_preview_mode,
             on_selection_changed=self._refresh_module_two_live_preview_for_row,
             on_change=self.on_project_change,
@@ -977,6 +1000,16 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.session.project.sample_rate = int(sample_rate)
         self.session.project.compression_quality = float(compression_quality)
         self.session.project.reencode_existing_ogg = bool(reencode_existing_ogg)
+        self.on_project_change()
+
+    def _automatic_textures_enabled(self) -> bool:
+        return bool(self.session.project.automatic_textures_enabled)
+
+    def _toggle_automatic_textures_preference(self) -> None:
+        if self._is_build_locked():
+            return
+        self.session.project.automatic_textures_enabled = not self.session.project.automatic_textures_enabled
+        self._refresh_module_three_appearance_selector()
         self.on_project_change()
 
     def _build_module_two_row_list(self) -> None:
@@ -1229,6 +1262,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         return visible_generated_entries_for_kind(self.session.project, kind)
 
     def _module_three_can_generate_from_cover(self, row) -> bool:
+        if self._automatic_textures_enabled():
+            return False
         return can_generate_cover_for_row(self.session.project, row)
 
     def _module_three_selected_path_for_row(self, row, kind: AppearanceKind, mode: str) -> str:
@@ -1633,6 +1668,9 @@ class MainWindow(_DnDCompat, ctk.CTk):
             expanded_widget.refresh_cover(selected)
         for repaired_row_id in repaired_rows:
             self._refresh_module_two_live_preview_for_row(repaired_row_id)
+        if self._automatic_textures_enabled():
+            self._generate_module_three_from_cover(row_id)
+            return
         self._refresh_module_three_appearance_selector()
         self.on_project_change()
 

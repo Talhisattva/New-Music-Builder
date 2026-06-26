@@ -24,6 +24,7 @@ def test_project_roundtrip(tmp_path: Path) -> None:
     assert loaded.media_rows[0].media_name == 'Example Album'
     assert loaded.media_rows[0].tracks_a[0].display_label == '01 Artist - Song'
     assert loaded.media_rows[0].appearances['cassette'].selected_asset_key == 'cassette:1'
+    assert loaded.automatic_textures_enabled is True
 
 def test_project_roundtrip_preserves_stateful_row_fields(tmp_path: Path) -> None:
     project = ProjectConfig(
@@ -213,3 +214,33 @@ def test_session_store_roundtrip_preserves_unsaved_row_covers_and_generated_asse
     assert loaded_project.media_rows[1].cover_path == 'C:/covers/row-two.png'
     assert loaded_project.media_rows[0].appearances['cassette'].selected_asset_key == 'generated:cassette:abc'
     assert loaded_project.generated_assets[0].asset_key == 'generated:cassette:abc'
+
+
+def test_project_and_session_roundtrip_preserve_automatic_textures_preference(tmp_path: Path) -> None:
+    project = ProjectConfig(automatic_textures_enabled=False)
+
+    project_target = tmp_path / 'test.nmbproj.json'
+    ProjectStore().save(project, project_target)
+    loaded_project = ProjectStore().load(project_target)
+    assert loaded_project.automatic_textures_enabled is False
+
+    session_target = tmp_path / 'last_session.json'
+    store = SessionStore(session_target)
+    store.save(project, '')
+    loaded_session_project, _current_path = store.load()
+    assert loaded_session_project.automatic_textures_enabled is False
+
+
+def test_project_load_defaults_automatic_textures_enabled_for_legacy_payload(tmp_path: Path) -> None:
+    payload = {
+        'schema_version': 1,
+        'mod_name': 'Legacy Pack',
+        'mod_id': 'LegacyPack',
+        'media_rows': [],
+    }
+    target = tmp_path / 'legacy.nmbproj.json'
+    target.write_text(json.dumps(payload), encoding='utf-8')
+
+    loaded = ProjectStore().load(target)
+
+    assert loaded.automatic_textures_enabled is True
