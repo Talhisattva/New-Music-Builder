@@ -221,3 +221,51 @@ def test_cover_generation_error_clears_current_token_and_logs_failure() -> None:
 
     assert window._module_three_cover_generation_tokens == {}
     assert window.__dict__.get("_failure") == ("C:/art/fail.png", "boom")
+
+
+def test_show_audio_settings_dialog_updates_project_and_persists_session(monkeypatch, tmp_path) -> None:
+    project = ProjectConfig(sample_rate=44100, compression_quality=0.5, reencode_existing_ogg=True)
+    session = ProjectSession(project=project)
+    session.current_path = "C:/projects/test.nmbproj.json"
+    window = MainWindow.__new__(MainWindow)
+    window.session = session
+    window._is_build_locked = lambda: False
+    window._native_icon_path = lambda: tmp_path / "icon.ico"
+    window._check_icon_path = lambda: tmp_path / "check.png"
+
+    session_saves: list[tuple[int, float, bool, str]] = []
+    window.session_store = type(
+        "SessionStore",
+        (),
+        {
+            "save": lambda _self, project, current_path: session_saves.append(
+                (
+                    project.sample_rate,
+                    project.compression_quality,
+                    project.reencode_existing_ogg,
+                    current_path,
+                )
+            )
+        },
+    )()
+    window._commit_phase_one_project_state = lambda: None
+    window._refresh_module_one_poster_preview = lambda: None
+    window.on_project_change = lambda: MainWindow.on_project_change(window)
+    window.module_two_row_list = type("RowList", (), {"refresh_collapsed_details": lambda _self: None})()
+    window.build_summary = type("BuildSummary", (), {"refresh": lambda _self: None})()
+
+    class _FakeDialog:
+        def __init__(self, *_args, **_kwargs) -> None:
+            pass
+
+        def show(self):
+            return (48000, 0.65, False)
+
+    monkeypatch.setattr("new_music_builder.ui.main_window.AudioSettingsDialog", _FakeDialog)
+
+    MainWindow._show_audio_settings_dialog(window)
+
+    assert window.session.project.sample_rate == 48000
+    assert window.session.project.compression_quality == 0.65
+    assert window.session.project.reencode_existing_ogg is False
+    assert session_saves == [(48000, 0.65, False, "C:/projects/test.nmbproj.json")]
