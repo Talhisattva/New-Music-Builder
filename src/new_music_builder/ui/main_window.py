@@ -1783,15 +1783,12 @@ class MainWindow(_DnDCompat, ctk.CTk):
             return
         self._cancel_module_two_song_drag()
         self._cancel_module_two_row_drag()
-        for row in self.session.project.media_rows:
-            row.expanded = False
-
         new_row_id = self.session.add_media_row()
-        for row in self.session.project.media_rows:
-            row.expanded = row.row_id == new_row_id
-
-        self._build_module_two_row_list()
-        self.module_two_content_viewport.yview_moveto(1.0)
+        new_row = next((row for row in self.session.project.media_rows if row.row_id == new_row_id), None)
+        if new_row is None:
+            return
+        self.module_two_row_list.append_row(new_row)
+        self.module_two_row_list.set_expanded_row(new_row_id)
         self.module_two_scroll_area.refresh_scroll_region()
         self.module_two_content_viewport.yview_moveto(1.0)
         self._refresh_module_three_appearance_selector()
@@ -1822,22 +1819,31 @@ class MainWindow(_DnDCompat, ctk.CTk):
             return
 
         current_view = self.module_two_content_viewport.yview()
+        surviving_old_row_ids = [
+            row.row_id for row in self.session.project.media_rows
+            if row.row_id not in target_row_ids
+        ]
         self.session.remove_media_rows(target_row_ids)
+        surviving_new_row_ids = [row.row_id for row in self.session.project.media_rows]
+        row_id_map = dict(zip(surviving_old_row_ids, surviving_new_row_ids))
         self.module_two_selected_row_ids = {
-            row_id for row_id in self.module_two_selected_row_ids if row_id not in target_row_ids
+            row_id_map[row_id]
+            for row_id in self.module_two_selected_row_ids
+            if row_id in row_id_map
         }
-        self.module_two_selection_anchor_row_id = None
+        self.module_two_selection_anchor_row_id = row_id_map.get(self.module_two_selection_anchor_row_id)
         self.module_two_song_selected_indices = {
-            key: value
+            (row_id_map[key[0]], key[1]): value
             for key, value in self.module_two_song_selected_indices.items()
-            if key[0] not in target_row_ids
+            if key[0] in row_id_map
         }
         self.module_two_song_selection_anchor_indices = {
-            key: value
+            (row_id_map[key[0]], key[1]): value
             for key, value in self.module_two_song_selection_anchor_indices.items()
-            if key[0] not in target_row_ids
+            if key[0] in row_id_map
         }
-        self._build_module_two_row_list()
+        self.module_two_row_list.remove_rows(target_row_ids, rows=self.session.project.media_rows)
+        self.module_two_row_list.set_selection_state(self.module_two_selected_row_ids)
         self.module_two_content_viewport.yview_moveto(current_view[0])
         self._refresh_module_three_appearance_selector()
         self.on_project_change()

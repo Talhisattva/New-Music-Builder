@@ -755,6 +755,47 @@ class MediaRowList(tk.Frame):
         self._build_rows()
         self._locked = False
 
+    def _create_row_widget(self, row: MediaRow) -> MediaRowShell:
+        return MediaRowShell(
+            self,
+            row=row,
+            expanded=row.expanded,
+            folder_icon_path=self._folder_icon_path,
+            check_icon_path=self._check_icon_path,
+            edit_icon_path=self._edit_icon_path,
+            ear_icon_path=self._ear_icon_path,
+            grab_icon_path=self._grab_icon_path,
+            table_check_icon_path=self._table_check_icon_path,
+            preview_audio_icon_path=self._preview_audio_icon_path,
+            resolve_live_preview_path=self._resolve_live_preview_path,
+            resolve_media_strip_path=self._resolve_media_strip_path,
+            on_select=self._on_row_selected,
+            selected=(row.row_id in self._selected_row_ids),
+            selected_count=self._selected_count,
+            on_background_selected=self._on_background_selected,
+            on_enabled_media_changed=self._on_enabled_media_changed,
+            on_name_committed=self._on_name_committed,
+            on_side_selected=self._on_side_selected,
+            on_preview_mode_selected=self._on_preview_mode_selected,
+            on_cover_selected=self._on_cover_selected,
+            on_remove_row=self._on_remove_row,
+            on_add_song=self._on_add_song,
+            on_remove_song=self._on_remove_song,
+            selected_song_indices=self._selected_song_indices_by_key.get((row.row_id, row.selected_side), set()),
+            on_song_selected=self._on_song_selected,
+            on_song_remove_requested=self._on_song_remove_requested,
+            on_song_sort_requested=self._on_song_sort_requested,
+            on_song_drag_started=self._on_song_drag_started,
+            on_song_drag_moved=self._on_song_drag_moved,
+            on_song_drag_finished=self._on_song_drag_finished,
+            on_row_drag_started=self._on_row_drag_started,
+            on_row_drag_moved=self._on_row_drag_moved,
+            on_row_drag_finished=self._on_row_drag_finished,
+            dnd_type=self._dnd_type,
+            can_accept_song_drop=self._can_accept_song_drop,
+            on_song_drop=self._on_song_drop,
+        )
+
     def resize(self, width: int) -> None:
         if self._last_width == width:
             return
@@ -784,45 +825,7 @@ class MediaRowList(tk.Frame):
 
     def _build_rows(self) -> None:
         for row in self.rows:
-            widget = MediaRowShell(
-                self,
-                row=row,
-                expanded=row.expanded,
-                folder_icon_path=self._folder_icon_path,
-                check_icon_path=self._check_icon_path,
-                edit_icon_path=self._edit_icon_path,
-                ear_icon_path=self._ear_icon_path,
-                grab_icon_path=self._grab_icon_path,
-                table_check_icon_path=self._table_check_icon_path,
-                preview_audio_icon_path=self._preview_audio_icon_path,
-                resolve_live_preview_path=self._resolve_live_preview_path,
-                resolve_media_strip_path=self._resolve_media_strip_path,
-                on_select=self._on_row_selected,
-                selected=(row.row_id in self._selected_row_ids),
-                selected_count=self._selected_count,
-                on_background_selected=self._on_background_selected,
-                on_enabled_media_changed=self._on_enabled_media_changed,
-                on_name_committed=self._on_name_committed,
-                on_side_selected=self._on_side_selected,
-                on_preview_mode_selected=self._on_preview_mode_selected,
-                on_cover_selected=self._on_cover_selected,
-                on_remove_row=self._on_remove_row,
-                on_add_song=self._on_add_song,
-                on_remove_song=self._on_remove_song,
-                selected_song_indices=self._selected_song_indices_by_key.get((row.row_id, row.selected_side), set()),
-                on_song_selected=self._on_song_selected,
-                on_song_remove_requested=self._on_song_remove_requested,
-                on_song_sort_requested=self._on_song_sort_requested,
-                on_song_drag_started=self._on_song_drag_started,
-                on_song_drag_moved=self._on_song_drag_moved,
-                on_song_drag_finished=self._on_song_drag_finished,
-                on_row_drag_started=self._on_row_drag_started,
-                on_row_drag_moved=self._on_row_drag_moved,
-                on_row_drag_finished=self._on_row_drag_finished,
-                dnd_type=self._dnd_type,
-                can_accept_song_drop=self._can_accept_song_drop,
-                on_song_drop=self._on_song_drop,
-            )
+            widget = self._create_row_widget(row)
             self.row_widgets.append(widget)
         self.refresh_row_layouts()
 
@@ -848,8 +851,9 @@ class MediaRowList(tk.Frame):
             row_widget._row = row
         self.refresh_row_layouts()
 
-    def refresh_badge_numbers(self) -> None:
-        for index, row_widget in enumerate(self.row_widgets, start=1):
+    def refresh_badge_numbers(self, start_index: int = 0) -> None:
+        start_index = max(0, min(start_index, len(self.row_widgets)))
+        for index, row_widget in enumerate(self.row_widgets[start_index:], start=start_index + 1):
             row_widget.expanded_badge.set_row_number(index)
             row_widget.collapsed_badge.set_row_number(index)
 
@@ -873,24 +877,42 @@ class MediaRowList(tk.Frame):
 
     def set_expanded_row(self, row_id: int | None) -> None:
         self._display_expanded_row_id = None
-        for row, row_widget in zip(self.rows, self.row_widgets):
-            row.expanded = row.row_id == row_id if row_id is not None else False
-            row_widget.set_expanded(row.expanded)
-        self.refresh_badge_numbers()
-        self.refresh_row_layouts()
+        affected_indices: list[int] = []
+        for index, (row, row_widget) in enumerate(zip(self.rows, self.row_widgets)):
+            should_expand = row.row_id == row_id if row_id is not None else False
+            if row.expanded == should_expand and row_widget._expanded == should_expand:
+                continue
+            row.expanded = should_expand
+            row_widget.set_expanded(should_expand)
+            affected_indices.append(index)
+        if not affected_indices:
+            return
+        start_index = min(affected_indices)
+        self.refresh_badge_numbers(start_index)
+        self.refresh_row_layouts(start_index=start_index, refresh_badges=False)
 
     def set_browse_expanded_row(self, row_id: int | None) -> None:
+        previous_row_id = self._display_expanded_row_id
         self._display_expanded_row_id = row_id
-        self.refresh_row_layouts()
+        if previous_row_id == row_id:
+            return
+        affected_indices = [
+            index
+            for index, row in enumerate(self.rows)
+            if row.row_id == previous_row_id or row.row_id == row_id
+        ]
+        self.refresh_row_layouts(start_index=min(affected_indices) if affected_indices else 0)
 
-    def refresh_row_layouts(self) -> None:
-        self.refresh_badge_numbers()
+    def refresh_row_layouts(self, start_index: int = 0, *, refresh_badges: bool = True) -> None:
+        start_index = max(0, min(start_index, len(self.row_widgets)))
+        if refresh_badges:
+            self.refresh_badge_numbers(start_index)
         if self._row_drag_active:
             self._layout_during_row_drag()
             return
-        current_y = spec.MEDIA_ROW_INSET_Y
+        current_y = self._row_y_for_index(start_index)
         row_width = int(self.cget('width')) - spec.MEDIA_ROW_INSET_X
-        for row, row_widget in zip(self.rows, self.row_widgets):
+        for row, row_widget in zip(self.rows[start_index:], self.row_widgets[start_index:]):
             target_expanded = self._expansion_state_for_row(row)
             if row_widget._expanded != target_expanded:
                 row_widget.set_expanded(target_expanded)
@@ -898,6 +920,40 @@ class MediaRowList(tk.Frame):
             row_widget.place(x=spec.MEDIA_ROW_INSET_X, y=current_y)
             current_y += row_widget.winfo_reqheight() + spec.MEDIA_ROW_GAP_Y
         self.configure(height=self._total_height_for_rows(self.rows))
+
+    def append_row(self, row: MediaRow) -> None:
+        self.rows.append(row)
+        widget = self._create_row_widget(row)
+        if self._locked:
+            widget.set_locked(True)
+        self.row_widgets.append(widget)
+        start_index = max(0, len(self.row_widgets) - 1)
+        self.refresh_badge_numbers(start_index)
+        self.refresh_row_layouts(start_index=start_index, refresh_badges=False)
+
+    def remove_rows(self, row_ids: set[int], rows: list[MediaRow] | None = None) -> None:
+        if not row_ids:
+            return
+        kept_rows: list[MediaRow] = []
+        kept_widgets: list[MediaRowShell] = []
+        first_removed_index: int | None = None
+        for index, (row, row_widget) in enumerate(zip(self.rows, self.row_widgets)):
+            if row.row_id in row_ids:
+                if first_removed_index is None:
+                    first_removed_index = index
+                row_widget.destroy()
+                continue
+            kept_rows.append(row)
+            kept_widgets.append(row_widget)
+        if first_removed_index is None:
+            return
+        self.rows = list(rows) if rows is not None else kept_rows
+        self.row_widgets = kept_widgets
+        for row, row_widget in zip(self.rows, self.row_widgets):
+            row_widget._row = row
+            row_widget._row_id = row.row_id
+        self.refresh_badge_numbers(first_removed_index)
+        self.refresh_row_layouts(start_index=first_removed_index, refresh_badges=False)
 
     def begin_row_drag(self, dragged_row_ids: set[int], anchor_row_id: int, x_root: int, y_root: int) -> None:
         ordered_drag_ids = [
@@ -1011,6 +1067,13 @@ class MediaRowList(tk.Frame):
         if self._display_expanded_row_id is None:
             return row.expanded
         return row.row_id == self._display_expanded_row_id
+
+    def _row_y_for_index(self, index: int) -> int:
+        if index <= 0:
+            return spec.MEDIA_ROW_INSET_Y
+        previous_widget = self.row_widgets[index - 1]
+        previous_height = previous_widget.winfo_height() or previous_widget.winfo_reqheight()
+        return previous_widget.winfo_y() + previous_height + spec.MEDIA_ROW_GAP_Y
 
     def _row_insertion_index_from_local_y(self, local_y: int) -> int:
         dragged_id_set = set(self._row_drag_ids)
