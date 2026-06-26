@@ -7,6 +7,7 @@ from typing import Literal
 from new_music_builder.domain.models import AppearanceKind, GeneratedAssetRecord, MediaRow, ProjectConfig
 from new_music_builder.services.cover_texture_generator import (
     CoverGenerationResult,
+    generate_cd_cover_textures_from_cover,
     generate_case_textures_from_cover,
     generate_cassette_textures_from_cover,
     generate_jacket_textures_from_cover,
@@ -20,7 +21,7 @@ from new_music_builder.services.generated_asset_registry import (
 )
 from new_music_builder.ui.widgets.appearance_entries import AppearanceGridEntry, apply_selection_from_grid_entry
 
-SupportedGeneratedKind = Literal["cassette", "case", "vinyl", "jacket"]
+SupportedGeneratedKind = Literal["cassette", "case", "vinyl", "jacket", "cd_cover"]
 GenerationStatus = Literal["generated", "skipped", "failed"]
 
 
@@ -50,6 +51,8 @@ def supported_generated_kinds_for_row(row: MediaRow) -> tuple[SupportedGenerated
         supported.extend(("cassette", "case"))
     if row.enabled_media.get("vinyl", False):
         supported.extend(("vinyl", "jacket"))
+    if row.enabled_media.get("cd", False):
+        supported.append("cd_cover")
     return tuple(supported)
 
 
@@ -67,6 +70,7 @@ def generate_supported_cover_set_for_row(
     case_generator=generate_case_textures_from_cover,
     vinyl_generator=generate_vinyl_textures_from_cover,
     jacket_generator=generate_jacket_textures_from_cover,
+    cd_cover_generator=generate_cd_cover_textures_from_cover,
 ) -> GeneratedCoverSetResult:
     normalized_cover = normalize_cover_path(row.cover_path)
     if not normalized_cover:
@@ -112,6 +116,7 @@ def generate_supported_cover_set_for_row(
                 case_generator=case_generator,
                 vinyl_generator=vinyl_generator,
                 jacket_generator=jacket_generator,
+                cd_cover_generator=cd_cover_generator,
             )
         except Exception as exc:
             failed_kinds.append(kind)
@@ -162,6 +167,7 @@ def _generate_kind_from_cover(
     case_generator,
     vinyl_generator,
     jacket_generator,
+    cd_cover_generator,
 ) -> CoverGenerationResult:
     if kind == "cassette":
         return cassette_generator(
@@ -181,6 +187,12 @@ def _generate_kind_from_cover(
         )
     if kind == "jacket":
         return jacket_generator(
+            cover_path,
+            mask_root=mask_root,
+            output_root=output_root,
+        )
+    if kind == "cd_cover":
+        return cd_cover_generator(
             cover_path,
             mask_root=mask_root,
             output_root=output_root,

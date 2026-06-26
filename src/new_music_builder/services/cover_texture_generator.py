@@ -59,6 +59,11 @@ JACKET_INVENTORY_PRESET = InventoryShearPreset(
     max_edge=46,
     shear_degrees=60.0,
 )
+CD_COVER_INVENTORY_PRESET = InventoryShearPreset(
+    initial_edge=24,
+    max_edge=40,
+    shear_degrees=50.0,
+)
 
 WORLD_OVERLAY_SECOND_MULTIPLY_RATIO = 0.50
 VINYL_OVERLAY_SECOND_MULTIPLY_RATIO = 0.50
@@ -317,6 +322,59 @@ def generate_jacket_textures_from_cover(
     return CoverGenerationResult(record=record, successful_outputs=2, total_outputs=2)
 
 
+def generate_cd_cover_textures_from_cover(
+    cover_path: str | Path,
+    *,
+    mask_root: Path | None = None,
+    output_root: Path | None = None,
+) -> CoverGenerationResult:
+    normalized_cover = normalize_cover_path(cover_path)
+    if not normalized_cover:
+        raise FileNotFoundError("Cover image was not provided.")
+
+    source_path = Path(normalized_cover)
+    if not source_path.is_file():
+        raise FileNotFoundError(f"Cover image was not found: {source_path}")
+
+    resolved_mask_root = mask_root or (assets_root() / "Mask")
+    resolved_output_root = output_root or generated_textures_root()
+    cover_id = build_generated_cover_id(normalized_cover)
+    output_root_dir = resolved_output_root / "CDCover" / cover_id
+    output_root_dir.mkdir(parents=True, exist_ok=True)
+
+    inventory_mask = resolved_mask_root / "Inventory" / "CD" / "Item_NM_CDCover_Mask.png"
+    inventory_outer = resolved_mask_root / "Inventory" / "CD" / "Item_NM_CDCover_Outer.png"
+    world_mask = resolved_mask_root / "World" / "CDCover" / "World_NM_CDCover_Mask.png"
+    world_outer = resolved_mask_root / "World" / "CDCover" / "World_NM_CDCover_Outer.png"
+
+    inventory_output = output_root_dir / "Item_NM_CDCover_Generated.png"
+    world_output = output_root_dir / "World_NM_CDCover_Generated.png"
+
+    _render_cd_cover_inventory(
+        source_path=source_path,
+        mask_path=inventory_mask,
+        outer_path=inventory_outer,
+        output_path=inventory_output,
+    )
+    _render_cd_cover_world(
+        source_path=source_path,
+        mask_path=world_mask,
+        outer_path=world_outer,
+        output_path=world_output,
+    )
+
+    record = GeneratedAssetRecord(
+        kind="cd_cover",
+        cover_path=normalized_cover,
+        asset_key=build_generated_asset_key("cd_cover", normalized_cover),
+        label=f"{source_path.stem} Generated",
+        inventory_full=str(inventory_output),
+        world_full=str(world_output),
+        source_name=source_path.name,
+    )
+    return CoverGenerationResult(record=record, successful_outputs=2, total_outputs=2)
+
+
 def _render_cassette_inventory(
     *,
     source_path: Path,
@@ -480,6 +538,30 @@ def _render_case_inventory(
     base.save(output_path)
 
 
+def _render_cd_cover_inventory(
+    *,
+    source_path: Path,
+    mask_path: Path,
+    outer_path: Path,
+    output_path: Path,
+) -> None:
+    with Image.open(mask_path) as mask_source:
+        mask_image = mask_source.convert("RGBA")
+    mask_alpha = _alpha_mask(mask_image)
+    masked_cover = _build_inventory_sheared_cover(
+        source_path=source_path,
+        mask_size=mask_image.size,
+        mask_alpha=mask_alpha,
+        preset=CD_COVER_INVENTORY_PRESET,
+    )
+    base = Image.new("RGBA", mask_image.size, (0, 0, 0, 0))
+    base.alpha_composite(masked_cover)
+    with Image.open(outer_path) as outer_source:
+        base.alpha_composite(outer_source.convert("RGBA"))
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    base.save(output_path)
+
+
 def _render_case_world(
     *,
     source_path: Path,
@@ -508,6 +590,29 @@ def _render_case_world(
     base.alpha_composite(fallback_outer)
     if donor_outer is not None:
         base.alpha_composite(donor_outer)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    base.save(output_path)
+
+
+def _render_cd_cover_world(
+    *,
+    source_path: Path,
+    mask_path: Path,
+    outer_path: Path,
+    output_path: Path,
+) -> None:
+    with Image.open(mask_path) as mask_source:
+        mask_image = mask_source.convert("RGBA")
+    mask_alpha = _alpha_mask(mask_image)
+    masked_cover = _build_masked_cover_to_mask_height(
+        source_path=source_path,
+        size=mask_image.size,
+        mask_alpha=mask_alpha,
+    )
+    base = Image.new("RGBA", mask_image.size, (0, 0, 0, 0))
+    base.alpha_composite(masked_cover)
+    with Image.open(outer_path) as outer_source:
+        base.alpha_composite(outer_source.convert("RGBA"))
     output_path.parent.mkdir(parents=True, exist_ok=True)
     base.save(output_path)
 

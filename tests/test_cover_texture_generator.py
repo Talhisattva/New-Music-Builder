@@ -6,6 +6,7 @@ from PIL import Image
 from new_music_builder.services.cover_texture_generator import (
     CASSETTE_INVENTORY_PRESET,
     CASE_INVENTORY_PRESET,
+    CD_COVER_INVENTORY_PRESET,
     JACKET_INVENTORY_PRESET,
     JACKET_WORLD_OUTPUT_SIZE,
     VINYL_INVENTORY_TARGET_SIZE,
@@ -23,6 +24,7 @@ from new_music_builder.services.cover_texture_generator import (
     _multiply_with_second_pass,
     _prepare_square_source,
     WORLD_OVERLAY_SECOND_MULTIPLY_RATIO,
+    generate_cd_cover_textures_from_cover,
     generate_case_textures_from_cover,
     generate_jacket_textures_from_cover,
     generate_vinyl_textures_from_cover,
@@ -141,6 +143,30 @@ def test_generate_jacket_textures_from_cover_writes_expected_outputs(tmp_path: P
     assert world.mode == "RGBA"
 
 
+def test_generate_cd_cover_textures_from_cover_writes_expected_outputs(tmp_path: Path) -> None:
+    cover_path = tmp_path / "cover.png"
+    Image.new("RGBA", (500, 300), (255, 0, 0, 255)).save(cover_path)
+
+    result = generate_cd_cover_textures_from_cover(
+        cover_path,
+        mask_root=ASSETS_ROOT / "Mask",
+        output_root=tmp_path / "Generated Textures",
+    )
+
+    assert result.successful_outputs == 2
+    assert result.total_outputs == 2
+    assert Path(result.record.inventory_full).is_file()
+    assert Path(result.record.world_full).is_file()
+    assert result.record.asset_key.startswith("generated:cd_cover:")
+
+    inventory = Image.open(result.record.inventory_full)
+    world = Image.open(result.record.world_full)
+    assert inventory.size == (32, 32)
+    assert world.size == (256, 256)
+    assert inventory.mode == "RGBA"
+    assert world.mode == "RGBA"
+
+
 def test_generate_cassette_textures_from_rectangular_cover_keeps_outputs_valid(tmp_path: Path) -> None:
     cover_path = tmp_path / "wide-cover.png"
     donor_path = tmp_path / "donor.png"
@@ -218,6 +244,24 @@ def test_jacket_inventory_transform_covers_mask_region(tmp_path: Path) -> None:
         fitted,
         mask_alpha,
         alpha_threshold=JACKET_INVENTORY_PRESET.coverage_alpha_threshold,
+    ) is True
+
+
+def test_cd_cover_inventory_transform_covers_mask_region(tmp_path: Path) -> None:
+    cover_path = tmp_path / "cover.png"
+    Image.new("RGBA", (540, 540), (255, 0, 0, 255)).save(cover_path)
+    with Image.open(ASSETS_ROOT / "Mask" / "Inventory" / "CD" / "Item_NM_CDCover_Mask.png") as mask_source:
+        mask_alpha = _alpha_mask(mask_source.convert("RGBA"))
+    fitted = _build_inventory_sheared_cover(
+        source_path=cover_path,
+        mask_size=mask_alpha.size,
+        mask_alpha=mask_alpha,
+        preset=CD_COVER_INVENTORY_PRESET,
+    )
+    assert _mask_region_is_fully_covered(
+        fitted,
+        mask_alpha,
+        alpha_threshold=CD_COVER_INVENTORY_PRESET.coverage_alpha_threshold,
     ) is True
 
 

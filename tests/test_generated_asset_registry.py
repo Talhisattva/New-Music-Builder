@@ -118,6 +118,37 @@ def test_can_generate_cover_for_kind_allows_vinyl_cover_and_blocks_existing_gene
     assert can_generate_cover_for_kind(project, row, "jacket") is True
 
 
+def test_can_generate_cover_for_kind_allows_cd_cover_and_blocks_existing_generation(tmp_path: Path) -> None:
+    cover_path = tmp_path / "cover.png"
+    inventory_path = tmp_path / "inventory.png"
+    world_path = tmp_path / "world.png"
+    Image.new("RGBA", (300, 300), (255, 0, 0, 255)).save(cover_path)
+    Image.new("RGBA", (32, 32), (255, 255, 255, 255)).save(inventory_path)
+    Image.new("RGBA", (256, 256), (255, 255, 255, 255)).save(world_path)
+
+    row = default_media_row(1)
+    project = ProjectConfig(media_rows=[row])
+
+    assert can_generate_cover_for_kind(project, row, "cd_cover") is False
+
+    row.cover_path = str(cover_path)
+    assert can_generate_cover_for_kind(project, row, "cd_cover") is True
+
+    upsert_generated_asset_record(
+        project,
+        GeneratedAssetRecord(
+            kind="cd_cover",
+            cover_path=str(cover_path),
+            asset_key="generated:cd_cover:abc",
+            label="cover Generated",
+            inventory_full=str(inventory_path),
+            world_full=str(world_path),
+            source_name="cover.png",
+        ),
+    )
+    assert can_generate_cover_for_kind(project, row, "cd_cover") is False
+
+
 def test_can_generate_cover_for_row_requires_valid_cover_and_any_missing_supported_kind(tmp_path: Path) -> None:
     cover_path = tmp_path / "cover.png"
     inventory_path = tmp_path / "inventory.png"
@@ -189,6 +220,20 @@ def test_can_generate_cover_for_row_requires_valid_cover_and_any_missing_support
             source_name="cover.png",
         ),
     )
+    assert can_generate_cover_for_row(project, row) is True
+
+    upsert_generated_asset_record(
+        project,
+        GeneratedAssetRecord(
+            kind="cd_cover",
+            cover_path=str(cover_path),
+            asset_key="generated:cd_cover:abc",
+            label="cover Generated",
+            inventory_full=str(inventory_path),
+            world_full=str(world_path),
+            source_name="cover.png",
+        ),
+    )
     assert can_generate_cover_for_row(project, row) is False
 
 
@@ -238,6 +283,18 @@ def test_remove_generated_cover_set_removes_all_records_for_same_cover(tmp_path:
     upsert_generated_asset_record(
         project,
         GeneratedAssetRecord(
+            kind="cd_cover",
+            cover_path=str(first_cover),
+            asset_key="generated:cd_cover:first",
+            label="first CD Cover",
+            inventory_full="C:/generated/first-cd-cover-inventory.png",
+            world_full="C:/generated/first-cd-cover-world.png",
+            source_name="cover-a.png",
+        ),
+    )
+    upsert_generated_asset_record(
+        project,
+        GeneratedAssetRecord(
             kind="cassette",
             cover_path=str(second_cover),
             asset_key="generated:cassette:second",
@@ -249,11 +306,21 @@ def test_remove_generated_cover_set_removes_all_records_for_same_cover(tmp_path:
     )
 
     cover_set = generated_records_for_asset_key(project, "generated:cassette:first")
-    assert {record.asset_key for record in cover_set} == {"generated:cassette:first", "generated:case:first", "generated:jacket:first"}
+    assert {record.asset_key for record in cover_set} == {
+        "generated:cassette:first",
+        "generated:case:first",
+        "generated:jacket:first",
+        "generated:cd_cover:first",
+    }
 
     removed = remove_generated_cover_set(project, "generated:cassette:first")
 
-    assert {record.asset_key for record in removed} == {"generated:cassette:first", "generated:case:first", "generated:jacket:first"}
+    assert {record.asset_key for record in removed} == {
+        "generated:cassette:first",
+        "generated:case:first",
+        "generated:jacket:first",
+        "generated:cd_cover:first",
+    }
     assert [record.asset_key for record in project.generated_assets] == ["generated:cassette:second"]
 
 
