@@ -109,20 +109,23 @@ class _DropdownItem(ctk.CTkFrame):
                 height=spec.MENU_DROPDOWN_ROW_HEIGHT,
             )
             self._check_label.configure(width=check_column_width)
-        self.label = ctk.CTkLabel(
+        label_width = max(1, (width - (spec.MENU_DROPDOWN_PAD_X * 2)) - text_x - (accelerator_width + (spec.MENU_DROPDOWN_INLINE_GAP_X if accelerator_text else 0)))
+        self.label = tk.Label(
             self._content,
             text=text,
-            text_color=text_color,
-            font=font,
+            bg=bg_color,
+            fg=text_color,
+            bd=0,
+            highlightthickness=0,
+            font=(font.cget('family'), font.cget('size')),
             anchor='w',
             justify='left',
+            width=label_width,
+            height=spec.MENU_DROPDOWN_ROW_HEIGHT,
         )
-        label_width = max(1, (width - (spec.MENU_DROPDOWN_PAD_X * 2)) - text_x - (accelerator_width + (spec.MENU_DROPDOWN_INLINE_GAP_X if accelerator_text else 0)))
         self.label.place(
             x=text_x,
             y=0,
-            width=label_width,
-            height=spec.MENU_DROPDOWN_ROW_HEIGHT,
         )
         self.accelerator_label: tk.Label | None = None
         if accelerator_text:
@@ -161,7 +164,7 @@ class _DropdownItem(ctk.CTkFrame):
         return self._enabled_getter() if self._enabled_getter is not None else True
 
     def _apply_enabled_state(self) -> None:
-        self.label.configure(text_color=self._text_color if self._enabled() else self._disabled_text_color)
+        self.label.configure(fg=self._text_color if self._enabled() else self._disabled_text_color)
         if self.accelerator_label is not None:
             self.accelerator_label.configure(fg=self._accelerator_color if self._enabled() else self._disabled_text_color)
 
@@ -175,6 +178,7 @@ class _DropdownItem(ctk.CTkFrame):
     def _set_visual_bg(self, color: str) -> None:
         self.configure(fg_color=color)
         self._content.configure(bg=color)
+        self.label.configure(bg=color)
         if self._check_label is not None:
             self._check_label.configure(bg=color)
         if self.accelerator_label is not None:
