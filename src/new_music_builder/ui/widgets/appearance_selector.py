@@ -268,7 +268,7 @@ class _AppearanceTab(_BorderSurface):
         self.icon_label.image = self._image
 
     def show_loading(self) -> None:
-        fill = self.fill_color
+        fill = self._fill_color
         self._loading_overlay.set_bg_color(fill)
         self._loading_overlay.show(
             x=(spec.MODULE_THREE_TAB_SIZE[0] - spec.MODULE_THREE_TAB_ICON_SIZE[0]) // 2,
