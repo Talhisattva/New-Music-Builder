@@ -152,16 +152,23 @@ def test_media_row_list_set_expanded_row_only_touches_changed_widgets() -> None:
     assert layout_calls == [(0, False)]
 
 
-def test_select_module_two_media_cover_refreshes_row_cover_before_async_generation(monkeypatch) -> None:
+def test_select_module_two_media_cover_refreshes_row_cover_before_async_generation(monkeypatch, tmp_path) -> None:
     row = default_media_row(1)
     session = ProjectSession(project=ProjectConfig(media_rows=[row]))
     row_widget = _FakeRowWidget(True, row_id=1)
     window = MainWindow.__new__(MainWindow)
     window.session = session
+    image_dir = tmp_path / "art"
+    image_dir.mkdir()
+    selected_cover = image_dir / "new-cover.png"
+    window.dialog_folder_memory = type("DialogFolderMemory", (), {"song_folder": "", "image_folder": str(image_dir)})()
+    session_saves: list[tuple[str, str]] = []
+    window._save_session_snapshot = lambda: session_saves.append(
+        (window.dialog_folder_memory.song_folder, window.dialog_folder_memory.image_folder)
+    )
     window.module_two_row_list = type("RowList", (), {"row_widgets": [row_widget]})()
     window._is_build_locked = lambda: False
     window._image_filetypes = lambda: [("Images", "*.png")]
-    window._initial_image_dir = lambda _path: ""
     window._repair_active_generated_appearance_selections = lambda: []
     window._refresh_module_two_live_preview_for_row = lambda _row_id: None
     window._automatic_textures_enabled = lambda: True
@@ -169,12 +176,20 @@ def test_select_module_two_media_cover_refreshes_row_cover_before_async_generati
     window._refresh_module_three_appearance_selector = lambda: setattr(window, "_refreshed_module_three", True)
     window.on_project_change = lambda: setattr(window, "_project_changed", True)
 
-    monkeypatch.setattr("new_music_builder.ui.main_window.fd.askopenfilename", lambda **_kwargs: "C:/art/new-cover.png")
+    dialog_calls: list[str] = []
+
+    def _askopenfilename(**kwargs):
+        dialog_calls.append(kwargs["initialdir"])
+        return str(selected_cover)
+
+    monkeypatch.setattr("new_music_builder.ui.main_window.fd.askopenfilename", _askopenfilename)
 
     MainWindow._select_module_two_media_cover(window, 1)
 
-    assert row.cover_path == "C:/art/new-cover.png"
-    assert row_widget.refreshed_covers == ["C:/art/new-cover.png"]
+    assert dialog_calls == [str(image_dir)]
+    assert row.cover_path == str(selected_cover)
+    assert row_widget.refreshed_covers == [str(selected_cover)]
+    assert session_saves == [("", str(image_dir))]
     assert window.__dict__.get("_generated_row_id") == 1
     assert window.__dict__.get("_refreshed_module_three", False) is False
     assert window.__dict__.get("_project_changed", False) is False
@@ -238,7 +253,7 @@ def test_show_audio_settings_dialog_updates_project_and_persists_session(monkeyp
         "SessionStore",
         (),
         {
-            "save": lambda _self, project, current_path: session_saves.append(
+            "save": lambda _self, project, current_path, dialog_folder_memory=None: session_saves.append(
                 (
                     project.sample_rate,
                     project.compression_quality,
@@ -253,6 +268,7 @@ def test_show_audio_settings_dialog_updates_project_and_persists_session(monkeyp
     window.on_project_change = lambda: MainWindow.on_project_change(window)
     window.module_two_row_list = type("RowList", (), {"refresh_collapsed_details": lambda _self: None})()
     window.build_summary = type("BuildSummary", (), {"refresh": lambda _self: None})()
+    window.dialog_folder_memory = type("DialogFolderMemory", (), {"song_folder": "", "image_folder": ""})()
 
     class _FakeDialog:
         def __init__(self, *_args, **_kwargs) -> None:
@@ -269,3 +285,105 @@ def test_show_audio_settings_dialog_updates_project_and_persists_session(monkeyp
     assert window.session.project.compression_quality == 0.65
     assert window.session.project.reencode_existing_ogg is False
     assert session_saves == [(48000, 0.65, False, "C:/projects/test.nmbproj.json")]
+
+
+def test_select_workshop_poster_image_uses_image_lane_and_remembers_selection(monkeypatch, tmp_path) -> None:
+    session = ProjectSession(project=ProjectConfig())
+    window = MainWindow.__new__(MainWindow)
+    window.session = session
+    image_dir = tmp_path / "posters"
+    image_dir.mkdir()
+    selected_poster = (tmp_path / "new-posters")
+    selected_poster.mkdir()
+    selected_path = selected_poster / "poster.png"
+    window.dialog_folder_memory = type("DialogFolderMemory", (), {"song_folder": "", "image_folder": str(image_dir)})()
+    window._is_build_locked = lambda: False
+    window._image_filetypes = lambda: [("Images", "*.png")]
+    window._refresh_module_one_poster_preview = lambda: setattr(window, "_poster_refreshed", True)
+    window._save_session_snapshot = lambda: setattr(window, "_saved_session", True)
+    window.on_project_change = lambda: setattr(window, "_project_changed", True)
+
+    dialog_calls: list[str] = []
+
+    def _askopenfilename(**kwargs):
+        dialog_calls.append(kwargs["initialdir"])
+        return str(selected_path)
+
+    monkeypatch.setattr("new_music_builder.ui.main_window.fd.askopenfilename", _askopenfilename)
+
+    MainWindow._select_workshop_poster_image(window)
+
+    assert dialog_calls == [str(image_dir)]
+    assert window.session.project.workshop_poster_path == str(selected_path)
+    assert window.dialog_folder_memory.image_folder == str(selected_poster)
+    assert window.__dict__.get("_saved_session", False) is True
+    assert window.__dict__.get("_poster_refreshed", False) is True
+    assert window.__dict__.get("_project_changed", False) is True
+
+
+def test_pick_module_three_custom_image_uses_image_lane_and_remembers_selection(monkeypatch, tmp_path) -> None:
+    row = default_media_row(1)
+    session = ProjectSession(project=ProjectConfig(media_rows=[row]))
+    window = MainWindow.__new__(MainWindow)
+    window.session = session
+    image_dir = tmp_path / "custom-art"
+    image_dir.mkdir()
+    selected_dir = tmp_path / "picked-art"
+    selected_dir.mkdir()
+    selected_path = selected_dir / "world.png"
+    window.dialog_folder_memory = type("DialogFolderMemory", (), {"song_folder": "", "image_folder": str(image_dir)})()
+    window._image_filetypes = lambda: [("Images", "*.png")]
+    window._active_module_three_row = lambda: row
+    window._refresh_module_three_appearance_selector = lambda: setattr(window, "_appearance_refreshed", True)
+    window.module_three_staged_custom_images = {}
+    window._save_session_snapshot = lambda: setattr(window, "_saved_session", True)
+
+    dialog_calls: list[str] = []
+
+    def _askopenfilename(**kwargs):
+        dialog_calls.append(kwargs["initialdir"])
+        return str(selected_path)
+
+    monkeypatch.setattr("new_music_builder.ui.main_window.fd.askopenfilename", _askopenfilename)
+
+    MainWindow._pick_module_three_custom_image(window, "cassette", "world_full")
+
+    assert dialog_calls == [str(image_dir)]
+    assert window.module_three_staged_custom_images["cassette"]["world_full"] == str(selected_path)
+    assert window.dialog_folder_memory.image_folder == str(selected_dir)
+    assert window.__dict__.get("_saved_session", False) is True
+    assert window.__dict__.get("_appearance_refreshed", False) is True
+
+
+def test_add_module_two_songs_uses_song_lane_and_remembers_selection(monkeypatch, tmp_path) -> None:
+    row = default_media_row(1)
+    session = ProjectSession(project=ProjectConfig(media_rows=[row]))
+    window = MainWindow.__new__(MainWindow)
+    window.session = session
+    song_dir = tmp_path / "music"
+    song_dir.mkdir()
+    selected_dir = tmp_path / "mixes"
+    selected_dir.mkdir()
+    first_song = selected_dir / "a.ogg"
+    second_song = selected_dir / "b.ogg"
+    window.dialog_folder_memory = type("DialogFolderMemory", (), {"song_folder": str(song_dir), "image_folder": ""})()
+    window._is_build_locked = lambda: False
+    window._audio_filetypes = lambda: [("Audio", "*.ogg")]
+    window._save_session_snapshot = lambda: setattr(window, "_saved_session", True)
+    added_paths: list[tuple[int, list[str]]] = []
+    window._add_module_two_songs_from_paths = lambda row_id, paths: added_paths.append((row_id, list(paths)))
+
+    dialog_calls: list[str] = []
+
+    def _askopenfilenames(**kwargs):
+        dialog_calls.append(kwargs["initialdir"])
+        return (str(first_song), str(second_song))
+
+    monkeypatch.setattr("new_music_builder.ui.main_window.fd.askopenfilenames", _askopenfilenames)
+
+    MainWindow._add_module_two_songs(window, 1)
+
+    assert dialog_calls == [str(song_dir)]
+    assert window.dialog_folder_memory.song_folder == str(selected_dir)
+    assert window.__dict__.get("_saved_session", False) is True
+    assert added_paths == [(1, [str(first_song), str(second_song)])]

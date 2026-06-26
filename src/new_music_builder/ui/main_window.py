@@ -39,6 +39,11 @@ from new_music_builder.services.asset_catalog import AssetCatalog
 from new_music_builder.services.build_event_pump import BuildEventPump
 from new_music_builder.services.cover_texture_generator import generate_case_textures_from_cover, generate_cassette_textures_from_cover, generate_cd_cover_textures_from_cover, generate_jacket_textures_from_cover, generate_vinyl_textures_from_cover
 from new_music_builder.services.default_appearance_selection import apply_preferred_row_defaults, preferred_default_asset_key
+from new_music_builder.services.dialog_folder_memory import (
+    DialogFolderMemory,
+    remember_dialog_selection,
+    resolve_initial_dialog_dir,
+)
 from new_music_builder.services.export_build_runner import run_staged_export
 from new_music_builder.services.export_planning import build_export_plan, build_preview_scenario
 from new_music_builder.services.export_scaffold import (
@@ -281,6 +286,10 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.session_store = SessionStore()
         self.session, saved_path = self.session_store.load()
         self.session = ProjectSession(project=self.session, current_path=saved_path)
+        self.dialog_folder_memory = DialogFolderMemory(
+            song_folder=self.session_store.last_dialog_folder_memory.song_folder,
+            image_folder=self.session_store.last_dialog_folder_memory.image_folder,
+        )
         self.module_two_selected_row_ids: set[int] = set()
         self.module_two_selection_anchor_row_id: int | None = None
         self.module_two_song_selected_indices: dict[tuple[int, str], set[int]] = {}
@@ -1227,11 +1236,11 @@ class MainWindow(_DnDCompat, ctk.CTk):
         ]
 
     def _initial_image_dir(self, current_path: str | None) -> str:
-        if current_path:
-            resolved = Path(current_path)
-            if resolved.exists():
-                return str(resolved.parent if resolved.is_file() else resolved)
-        return str(Path.home())
+        return resolve_initial_dialog_dir(
+            self.dialog_folder_memory,
+            'image',
+            current_path=current_path,
+        )
 
     def _module_three_staged_custom_for_kind(self, kind: AppearanceKind) -> dict[str, str]:
         return self.module_three_staged_custom_images.setdefault(kind, {})
@@ -1507,6 +1516,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         )
         if not selected:
             return
+        remember_dialog_selection(self.dialog_folder_memory, 'image', selected)
+        self._save_session_snapshot()
         staged[slot] = selected
         self._refresh_module_three_appearance_selector()
 
@@ -1610,15 +1621,18 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.on_project_change()
 
     def _initial_audio_dir(self, row_id: int | None = None) -> str:
+        current_path = ""
         if row_id is not None:
             target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
             if target_row is not None:
                 active_tracks = target_row.tracks_a if target_row.selected_side == 'A' else target_row.tracks_b
                 if active_tracks:
-                    first_path = Path(active_tracks[-1].source_path)
-                    if first_path.exists():
-                        return str(first_path.parent)
-        return str(Path.home())
+                    current_path = active_tracks[-1].source_path
+        return resolve_initial_dialog_dir(
+            self.dialog_folder_memory,
+            'song',
+            current_path=current_path,
+        )
 
     def _expanded_row_widget(self, row_id: int) -> object | None:
         if not hasattr(self, 'module_two_row_list'):
@@ -1714,6 +1728,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         )
         if not selected:
             return
+        remember_dialog_selection(self.dialog_folder_memory, 'image', selected)
+        self._save_session_snapshot()
         self.session.project.workshop_poster_path = selected
         self._refresh_module_one_poster_preview()
         self.on_project_change()
@@ -1732,6 +1748,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         )
         if not selected:
             return
+        remember_dialog_selection(self.dialog_folder_memory, 'image', selected)
+        self._save_session_snapshot()
         target_row.cover_path = selected
         repaired_rows = self._repair_active_generated_appearance_selections()
         row_widget = self._row_widget_by_id(row_id)
@@ -1759,6 +1777,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         )
         if not selected:
             return
+        remember_dialog_selection(self.dialog_folder_memory, 'song', selected[0])
+        self._save_session_snapshot()
         self._add_module_two_songs_from_paths(row_id, list(selected))
 
     def _on_module_two_song_drop(self, row_id: int, paths: list[str]) -> None:
@@ -2271,7 +2291,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self.module_two_row_list.refresh_collapsed_details()
         if hasattr(self, 'build_summary'):
             self.build_summary.refresh()
-        self.session_store.save(self.session.project, self.session.current_path)
+        self._save_session_snapshot()
 
     def refresh_all(self) -> None:
         self._apply_default_asset_selections()
@@ -2369,7 +2389,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         if self.session.current_path:
             self.project_store.save(self.session.project, Path(self.session.current_path))
             self.recent_store.push(Path(self.session.current_path))
-            self.session_store.save(self.session.project, self.session.current_path)
+            self._save_session_snapshot()
             self._append_project_saved_log(self.session.current_path)
             return
         self.save_project_as()
@@ -2423,7 +2443,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._build_module_two_row_list()
         self._refresh_module_three_appearance_selector()
         self.refresh_all()
-        self.session_store.save(self.session.project, self.session.current_path)
+        self._save_session_snapshot()
 
     def run_build_preview(self) -> None:
         overall_started = time.perf_counter()
@@ -3127,9 +3147,16 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._phase_one_sync_after_id = None
         self._commit_phase_one_project_state()
         self._refresh_module_one_poster_preview()
-        self.session_store.save(self.session.project, self.session.current_path)
+        self._save_session_snapshot()
         if hasattr(self, 'build_summary'):
             self.build_summary.refresh()
+
+    def _save_session_snapshot(self) -> None:
+        self.session_store.save(
+            self.session.project,
+            self.session.current_path,
+            dialog_folder_memory=self.dialog_folder_memory,
+        )
 
     def _commit_phase_one_project_state(self) -> None:
         if self._phase_one_sync_after_id is not None:
@@ -3179,7 +3206,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         if self._is_build_locked():
             return
         self._commit_phase_one_project_state()
-        self.session_store.save(self.session.project, self.session.current_path)
+        self._save_session_snapshot()
         self.destroy()
 
     def report_callback_exception(self, exc, val, tb) -> None:

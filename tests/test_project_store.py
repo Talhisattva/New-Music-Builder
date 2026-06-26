@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 from new_music_builder.domain.models import GeneratedAssetRecord, ProjectConfig, TrackEntry, default_media_row
+from new_music_builder.services.dialog_folder_memory import DialogFolderMemory
 from new_music_builder.services.project_store import ProjectStore
 from new_music_builder.services.session_store import SessionStore
 
@@ -152,6 +153,8 @@ def test_session_store_load_returns_default_project_for_invalid_payload(tmp_path
     assert project.reencode_existing_ogg is True
     assert project.write_mod_name_on_poster is True
     assert len(project.media_rows) == 1
+    assert store.last_dialog_folder_memory.song_folder == ''
+    assert store.last_dialog_folder_memory.image_folder == ''
     assert store.last_load_used_default is True
 
 
@@ -193,6 +196,25 @@ def test_session_store_roundtrip_preserves_generated_assets(tmp_path: Path) -> N
     assert current_path == 'C:/projects/test.nmbproj.json'
     assert loaded_project.generated_assets[0].asset_key == 'generated:cassette:abc'
     assert store.last_load_used_default is False
+
+
+def test_session_store_roundtrip_preserves_dialog_folder_memory(tmp_path: Path) -> None:
+    target = tmp_path / 'last_session.json'
+    store = SessionStore(target)
+
+    store.save(
+        ProjectConfig(mod_name='Folder Memory'),
+        'C:/projects/test.nmbproj.json',
+        dialog_folder_memory=DialogFolderMemory(
+            song_folder='C:/music',
+            image_folder='C:/art',
+        ),
+    )
+    _loaded_project, current_path = store.load()
+
+    assert current_path == 'C:/projects/test.nmbproj.json'
+    assert store.last_dialog_folder_memory.song_folder == 'C:/music'
+    assert store.last_dialog_folder_memory.image_folder == 'C:/art'
 
 
 def test_session_store_roundtrip_preserves_unsaved_row_covers_and_generated_assets(tmp_path: Path) -> None:
@@ -246,6 +268,27 @@ def test_project_and_session_roundtrip_preserve_automatic_textures_preference(tm
     store.save(project, '')
     loaded_session_project, _current_path = store.load()
     assert loaded_session_project.automatic_textures_enabled is False
+
+
+def test_session_store_load_defaults_dialog_folder_memory_for_legacy_payload(tmp_path: Path) -> None:
+    payload = {
+        'current_path': 'C:/projects/legacy.nmbproj.json',
+        'project': {
+            'schema_version': 1,
+            'mod_name': 'Legacy Session',
+            'mod_id': 'LegacySession',
+            'media_rows': [],
+        },
+    }
+    target = tmp_path / 'legacy-session.json'
+    target.write_text(json.dumps(payload), encoding='utf-8')
+
+    store = SessionStore(target)
+    _project, current_path = store.load()
+
+    assert current_path == 'C:/projects/legacy.nmbproj.json'
+    assert store.last_dialog_folder_memory.song_folder == ''
+    assert store.last_dialog_folder_memory.image_folder == ''
 
 
 def test_project_load_defaults_automatic_textures_enabled_for_legacy_payload(tmp_path: Path) -> None:
