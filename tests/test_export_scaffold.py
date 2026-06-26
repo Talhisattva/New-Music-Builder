@@ -89,7 +89,7 @@ def test_render_square_image_places_name_overlay_in_lower_right_region(tmp_path:
 
     assert bbox is not None
     assert bbox[0] > 300
-    assert bbox[1] > 500
+    assert bbox[1] > 350
 
 
 def test_render_square_image_keeps_small_preview_overlay_readable(tmp_path: Path) -> None:
@@ -116,6 +116,19 @@ def test_render_square_image_uses_same_overlay_layout_for_preview_and_export(tmp
     export_downscaled = render_square_image(poster_path, 1024, 'Olive Test', add_name_overlay=True).resize((132, 132), Image.Resampling.LANCZOS)
 
     assert ImageChops.difference(preview.convert('RGBA'), export_downscaled.convert('RGBA')).getbbox() is None
+
+
+def test_render_square_image_adds_logo_above_title_region(tmp_path: Path) -> None:
+    poster_path = tmp_path / 'poster.png'
+    Image.new('RGBA', (300, 200), (255, 0, 0, 255)).save(poster_path)
+
+    plain = render_square_image(poster_path, 1024, 'My Fun Mix', add_name_overlay=False)
+    overlaid = render_square_image(poster_path, 1024, 'My Fun Mix', add_name_overlay=True)
+
+    plain_crop = plain.crop((600, 820, 980, 990))
+    overlaid_crop = overlaid.crop((600, 820, 980, 990))
+
+    assert ImageChops.difference(plain_crop.convert('RGBA'), overlaid_crop.convert('RGBA')).getbbox() is not None
 
 
 def test_wrap_text_keeps_spaced_name_without_early_ellipsis() -> None:

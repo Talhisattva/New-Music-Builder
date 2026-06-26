@@ -241,6 +241,17 @@ def _load_overlay_font(size: int) -> ImageFont.ImageFont:
     return ImageFont.load_default()
 
 
+def _load_overlay_logo() -> Image.Image | None:
+    logo_path = assets_root() / "NewMusicLogo.png"
+    if not logo_path.exists():
+        return None
+    try:
+        with Image.open(logo_path) as raw:
+            return raw.convert("RGBA")
+    except Exception:
+        return None
+
+
 def _overlay_font_candidate_paths() -> list[Path]:
     configured = os.getenv("NMB_OVERLAY_FONT", "").strip()
     candidates: list[Path] = []
@@ -357,8 +368,18 @@ def _apply_mod_name_overlay(image: Image.Image, mod_name: str) -> Image.Image:
     inner = max(6, width // 24) if compact_preview else max(14, width // 40)
     max_width = max(24, (box[2] - box[0]) - inner * 2)
     max_height = max(18, (box[3] - box[1]) - inner * 2)
+    logo_gap = max(4, height // 72) if compact_preview else max(10, height // 120)
     stroke = max(1, height // 64) if compact_preview else max(3, height // 180)
     line_spacing = max(1, height // 56) if compact_preview else max(4, height // 192)
+    logo_image = _load_overlay_logo()
+    logo_render: Image.Image | None = None
+    logo_height = 0
+    if logo_image is not None:
+        logo_target_width = min(max_width, max(24, width // 3))
+        scale_ratio = logo_target_width / max(1, logo_image.width)
+        logo_target_height = max(1, int(round(logo_image.height * scale_ratio)))
+        logo_render = logo_image.resize((logo_target_width, logo_target_height), Image.Resampling.LANCZOS)
+        logo_height = logo_render.height + logo_gap
 
     lines: list[str] = [text]
     font: ImageFont.ImageFont = ImageFont.load_default()
@@ -384,7 +405,7 @@ def _apply_mod_name_overlay(image: Image.Image, mod_name: str) -> Image.Image:
         )
         text_width = bounds[2] - bounds[0]
         text_height = bounds[3] - bounds[1]
-        if text_width <= max_width and text_height <= max_height:
+        if text_width <= max_width and (text_height + logo_height) <= max_height:
             lines = trial_lines
             font = trial_font
             break
@@ -398,6 +419,21 @@ def _apply_mod_name_overlay(image: Image.Image, mod_name: str) -> Image.Image:
             max_lines=4 if compact_preview else 6,
             truncate_with_ellipsis=True,
         )
+        if logo_render is not None:
+            bounds = draw.multiline_textbbox(
+                (0, 0),
+                "\n".join(lines),
+                font=font,
+                spacing=line_spacing,
+                align="right",
+                stroke_width=stroke,
+            )
+            text_height = bounds[3] - bounds[1]
+            available_logo_height = max(1, max_height - text_height - logo_gap)
+            if available_logo_height < logo_render.height:
+                resized_width = max(1, int(round(logo_render.width * (available_logo_height / max(1, logo_render.height)))))
+                logo_render = logo_render.resize((resized_width, available_logo_height), Image.Resampling.LANCZOS)
+                logo_height = logo_render.height + logo_gap
 
     rendered = "\n".join(lines)
     bounds = draw.multiline_textbbox(
@@ -414,6 +450,10 @@ def _apply_mod_name_overlay(image: Image.Image, mod_name: str) -> Image.Image:
     text_y = box[3] - inner - text_height
     lift = max(3, height // 72)
     text_y = max(box[1] + inner, text_y - lift)
+    if logo_render is not None:
+        logo_x = box[2] - inner - logo_render.width
+        logo_y = max(box[1] + inner, text_y - logo_gap - logo_render.height)
+        output.alpha_composite(logo_render, (logo_x, logo_y))
     draw.multiline_text(
         (text_x, text_y),
         rendered,

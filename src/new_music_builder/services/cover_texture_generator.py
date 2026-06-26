@@ -191,6 +191,7 @@ def generate_vinyl_textures_from_cover(
         overlay_second_pass_ratio=VINYL_OVERLAY_SECOND_MULTIPLY_RATIO,
         cover_target_size=VINYL_WORLD_TARGET_SIZE,
         preserve_square=True,
+        fill_target_background_with_average_color=True,
         output_path=world_output,
     )
 
@@ -450,6 +451,7 @@ def _render_single_mask_composite(
     cover_target_size: tuple[int, int] | None = None,
     preserve_square: bool = True,
     use_average_cover_fill: bool = False,
+    fill_target_background_with_average_color: bool = False,
     output_path: Path,
 ) -> None:
     with Image.open(mask_path) as mask_source:
@@ -474,6 +476,7 @@ def _render_single_mask_composite(
             mask_alpha=mask_alpha,
             target_size=cover_target_size,
             preserve_square=preserve_square,
+            fill_background_with_average_color=fill_target_background_with_average_color,
         )
     base = Image.new("RGBA", masked_cover.size, (0, 0, 0, 0))
     base.alpha_composite(masked_cover)
@@ -541,6 +544,12 @@ def _render_cd_cover_inventory(
         mask_size=mask_image.size,
         mask_alpha=mask_alpha,
         preset=CD_COVER_INVENTORY_PRESET,
+    )
+    masked_cover = _apply_preferred_canvas_shift(
+        masked_cover,
+        mask_alpha=mask_alpha,
+        preferred_dx=2,
+        alpha_threshold=CD_COVER_INVENTORY_PRESET.coverage_alpha_threshold,
     )
     masked_cover = _apply_mask_alpha(masked_cover, mask_alpha)
     base = Image.new("RGBA", mask_image.size, (0, 0, 0, 0))
@@ -639,7 +648,13 @@ def _render_letterboxed_square_cover(
     output_size: tuple[int, int],
     output_path: Path,
 ) -> None:
-    image = _fit_cover_to_canvas(source_path, output_size, allow_upscale=True, crop_to_visible_bounds=True)
+    image = _fit_cover_to_canvas(
+        source_path,
+        output_size,
+        allow_upscale=True,
+        crop_to_visible_bounds=True,
+        fill_background_with_average_color=True,
+    )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     image.save(output_path)
 
@@ -702,6 +717,7 @@ def _build_targeted_masked_cover(
     mask_alpha: Image.Image,
     target_size: tuple[int, int],
     preserve_square: bool,
+    fill_background_with_average_color: bool = False,
 ) -> Image.Image:
     fitted_cover = _fit_cover_to_target_region(
         source_path=source_path,
@@ -709,6 +725,7 @@ def _build_targeted_masked_cover(
         mask_alpha=mask_alpha,
         target_size=target_size,
         preserve_square=preserve_square,
+        fill_background_with_average_color=fill_background_with_average_color,
     )
     return _apply_mask_alpha(fitted_cover, mask_alpha)
 
@@ -957,18 +974,46 @@ def _composite_image_on_canvas(
     return canvas
 
 
+def _apply_preferred_canvas_shift(
+    image: Image.Image,
+    *,
+    mask_alpha: Image.Image,
+    preferred_dx: int = 0,
+    preferred_dy: int = 0,
+    alpha_threshold: int = 8,
+) -> Image.Image:
+    if preferred_dx == 0 and preferred_dy == 0:
+        return image
+    step_x = -1 if preferred_dx > 0 else 1
+    step_y = -1 if preferred_dy > 0 else 1
+    x_candidates = [0] if preferred_dx == 0 else list(range(preferred_dx, 0, step_x)) + [0]
+    y_candidates = [0] if preferred_dy == 0 else list(range(preferred_dy, 0, step_y)) + [0]
+    for dx in x_candidates:
+        for dy in y_candidates:
+            shifted = _composite_image_on_canvas(image, image.size, dx, dy)
+            if _mask_region_is_fully_covered(shifted, mask_alpha, alpha_threshold=alpha_threshold):
+                return shifted
+    return image
+
+
 def _fit_cover_to_canvas(
     source_path: Path,
     size: tuple[int, int],
     *,
     allow_upscale: bool = False,
     crop_to_visible_bounds: bool = False,
+    fill_background_with_average_color: bool = False,
 ) -> Image.Image:
     with Image.open(source_path) as source_image:
         source = source_image.convert("RGBA")
     if crop_to_visible_bounds:
         source = _crop_image_to_visible_bounds(source)
-    fitted = Image.new("RGBA", size, (0, 0, 0, 0))
+    background_color = (
+        _average_visible_cover_color(source_path)
+        if fill_background_with_average_color
+        else (0, 0, 0, 0)
+    )
+    fitted = Image.new("RGBA", size, background_color)
     if allow_upscale:
         scale_ratio = min(size[0] / max(1, source.width), size[1] / max(1, source.height))
         target_size = (
@@ -981,7 +1026,7 @@ def _fit_cover_to_canvas(
         contained.thumbnail(size, Image.Resampling.LANCZOS)
     paste_x = (size[0] - contained.width) // 2
     paste_y = (size[1] - contained.height) // 2
-    fitted.paste(contained, (paste_x, paste_y), contained)
+    fitted.alpha_composite(contained, (paste_x, paste_y))
     return fitted
 
 
@@ -1053,6 +1098,7 @@ def _fit_cover_to_target_region(
     mask_alpha: Image.Image,
     target_size: tuple[int, int],
     preserve_square: bool,
+    fill_background_with_average_color: bool = False,
 ) -> Image.Image:
     with Image.open(source_path) as source_image:
         source = source_image.convert("RGBA")
@@ -1062,7 +1108,8 @@ def _fit_cover_to_target_region(
     square = source.crop((left, top, left + crop_size, top + crop_size))
     resized_size = _resolved_target_cover_size(target_size, preserve_square=preserve_square)
     resized = square.resize(resized_size, Image.Resampling.LANCZOS)
-    fitted = Image.new("RGBA", size, (0, 0, 0, 0))
+    average_color = _average_visible_cover_color(source_path) if fill_background_with_average_color else None
+    fitted = Image.new("RGBA", size, average_color or (0, 0, 0, 0))
     bbox = mask_alpha.getbbox()
     if bbox is None:
         paste_x = (size[0] - resized.width) // 2
@@ -1072,7 +1119,7 @@ def _fit_cover_to_target_region(
         mask_center_y = (bbox[1] + bbox[3]) // 2
         paste_x = mask_center_x - (resized.width // 2)
         paste_y = mask_center_y - (resized.height // 2)
-    fitted.paste(resized, (paste_x, paste_y), resized)
+    fitted.alpha_composite(resized, (paste_x, paste_y))
     return fitted
 
 

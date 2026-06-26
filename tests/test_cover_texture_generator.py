@@ -11,6 +11,7 @@ from new_music_builder.services.cover_texture_generator import (
     JACKET_WORLD_OUTPUT_SIZE,
     VINYL_INVENTORY_TARGET_SIZE,
     VINYL_WORLD_TARGET_SIZE,
+    _apply_preferred_canvas_shift,
     _apply_inventory_warp,
     _alpha_mask,
     _build_inventory_transformed_cover,
@@ -286,6 +287,35 @@ def test_generate_cd_cover_inventory_is_clipped_to_mask(tmp_path: Path) -> None:
             assert not (alpha > 0 and green > 200 and red < 40 and blue < 40)
 
 
+def test_apply_preferred_canvas_shift_moves_cd_cover_right_without_losing_mask_coverage(tmp_path: Path) -> None:
+    cover_path = tmp_path / "cover.png"
+    Image.new("RGBA", (540, 540), (255, 0, 0, 255)).save(cover_path)
+    with Image.open(ASSETS_ROOT / "Mask" / "Inventory" / "CD" / "Item_NM_CDCover_Mask.png") as mask_source:
+        mask_alpha = _alpha_mask(mask_source.convert("RGBA"))
+
+    fitted = _build_inventory_sheared_cover(
+        source_path=cover_path,
+        mask_size=mask_alpha.size,
+        mask_alpha=mask_alpha,
+        preset=CD_COVER_INVENTORY_PRESET,
+    )
+    shifted = _apply_preferred_canvas_shift(
+        fitted,
+        mask_alpha=mask_alpha,
+        preferred_dx=2,
+        alpha_threshold=CD_COVER_INVENTORY_PRESET.coverage_alpha_threshold,
+    )
+
+    assert _mask_region_is_fully_covered(
+        shifted,
+        mask_alpha,
+        alpha_threshold=CD_COVER_INVENTORY_PRESET.coverage_alpha_threshold,
+    ) is True
+    assert shifted.getchannel("A").getbbox() is not None
+    assert fitted.getchannel("A").getbbox() is not None
+    assert shifted.getchannel("A").getbbox()[0] >= fitted.getchannel("A").getbbox()[0]
+
+
 def test_generate_cd_cover_world_fills_wider_mask_dimension(tmp_path: Path) -> None:
     cover_path = tmp_path / "cover.png"
     Image.new("RGBA", (540, 540), (255, 0, 0, 255)).save(cover_path)
@@ -311,8 +341,32 @@ def test_generate_jacket_textures_from_cover_world_is_letterboxed_square(tmp_pat
 
     world = Image.open(result.record.world_full).convert("RGBA")
     assert world.size == JACKET_WORLD_OUTPUT_SIZE
-    assert world.getpixel((0, 0))[3] == 0
+    assert world.getpixel((0, 0)) == (255, 0, 0, 255)
     assert world.getpixel((512, 512))[3] > 0
+
+
+def test_generate_jacket_textures_from_tall_cover_fills_side_padding_with_average_color(tmp_path: Path) -> None:
+    cover_path = tmp_path / "tall-cover.png"
+    cover = Image.new("RGBA", (300, 600), (0, 0, 0, 0))
+    for x in range(50, 250):
+        for y in range(50, 550):
+            if y < 300:
+                cover.putpixel((x, y), (255, 0, 0, 255))
+            else:
+                cover.putpixel((x, y), (0, 0, 255, 255))
+    cover.save(cover_path)
+
+    result = generate_jacket_textures_from_cover(
+        cover_path,
+        mask_root=ASSETS_ROOT / "Mask",
+        output_root=tmp_path / "Generated Textures",
+    )
+
+    world = Image.open(result.record.world_full).convert("RGBA")
+    left_padding_pixel = world.getpixel((16, 512))
+    right_padding_pixel = world.getpixel((1008, 512))
+    assert left_padding_pixel[3] == 255
+    assert right_padding_pixel[3] == 255
 
 
 def test_generate_jacket_textures_from_small_cover_upscales_world_preview_square(tmp_path: Path) -> None:
@@ -362,7 +416,9 @@ def test_generate_jacket_textures_crops_transparent_padding_before_world_fit(tmp
 
     world = Image.open(result.record.world_full).convert("RGBA")
     assert world.size == JACKET_WORLD_OUTPUT_SIZE
-    assert world.getchannel("A").getbbox() == (205, 0, 819, 1024)
+    assert world.getchannel("A").getbbox() == (0, 0, 1024, 1024)
+    assert world.getpixel((16, 512))[3] == 255
+    assert world.getpixel((512, 512))[3] == 255
 
 
 def test_generate_vinyl_textures_from_cover_uses_requested_inventory_target_region(tmp_path: Path) -> None:
@@ -440,6 +496,42 @@ def test_generate_vinyl_textures_from_cover_uses_requested_world_target_region(t
         mask_center_y - (VINYL_WORLD_TARGET_SIZE[1] // 2) + VINYL_WORLD_TARGET_SIZE[1],
     )
     assert alpha.getbbox() == expected_bbox
+
+
+def test_fit_cover_to_target_region_fills_vinyl_world_padding_with_average_color_for_non_square_cover(tmp_path: Path) -> None:
+    cover_path = tmp_path / "cover.png"
+    cover = Image.new("RGBA", (10, 20), (0, 0, 0, 0))
+    for x in range(10):
+        for y in range(5, 15):
+            if x < 5:
+                cover.putpixel((x, y), (255, 0, 0, 255))
+            else:
+                cover.putpixel((x, y), (0, 0, 255, 255))
+    cover.save(cover_path)
+
+    with Image.open(ASSETS_ROOT / "Mask" / "World" / "Vinyl" / "World_NM_Vinyl_Mask.png") as mask_source:
+        mask_image = mask_source.convert("RGBA")
+    mask_alpha = _alpha_mask(mask_image)
+    without_fill = _fit_cover_to_target_region(
+        source_path=cover_path,
+        size=mask_image.size,
+        mask_alpha=mask_alpha,
+        target_size=VINYL_WORLD_TARGET_SIZE,
+        preserve_square=True,
+        fill_background_with_average_color=False,
+    )
+    fitted = _fit_cover_to_target_region(
+        source_path=cover_path,
+        size=mask_image.size,
+        mask_alpha=mask_alpha,
+        target_size=VINYL_WORLD_TARGET_SIZE,
+        preserve_square=True,
+        fill_background_with_average_color=True,
+    )
+    sample_point = (0, 0)
+    assert without_fill.getpixel(sample_point)[3] == 0
+    padding_pixel = fitted.getpixel(sample_point)
+    assert padding_pixel[3] == 255
 
 
 def test_inventory_transform_returns_mask_sized_rgba_and_covers_mask(tmp_path: Path) -> None:
