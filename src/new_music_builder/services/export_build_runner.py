@@ -17,6 +17,7 @@ from new_music_builder.services.export_scaffold import write_export_scaffold
 BuildEventEmitter = Callable[[AudioRunEvent], None]
 CancelCheck = Callable[[], bool]
 LOGGER = logging.getLogger('new_music_builder')
+_EMPTY_EXPORT_ERROR = "Unknown export error: emitted pack is empty (0 KB). Please try different songs or images."
 
 
 def run_staged_export(
@@ -87,7 +88,14 @@ def run_staged_export(
         _raise_if_cancelled(cancel_requested)
         LOGGER.info("[run=%s] run_staged_export promote start staging=%s final=%s", log_run_id, staging_root, final_root)
         _promote_staging_export_root(staging_root, final_root)
-        result.mod_size_text = _format_size_text(_directory_size_bytes(final_root))
+        final_size_bytes = _directory_size_bytes(final_root)
+        result.mod_size_text = _format_size_text(final_size_bytes)
+        if final_size_bytes == 0:
+            result.fatal_error = f"{_EMPTY_EXPORT_ERROR} Output: {final_root}"
+            result.errors.append(result.fatal_error)
+            LOGGER.error("[run=%s] run_staged_export empty final export root=%s", log_run_id, final_root)
+            _emit(emit, "run_failed", message=result.fatal_error)
+            return result
         LOGGER.info("[run=%s] run_staged_export promote complete size=%s", log_run_id, result.mod_size_text)
         return result
     except ExportAbortedError as exc:
