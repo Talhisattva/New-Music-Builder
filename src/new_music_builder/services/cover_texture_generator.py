@@ -694,6 +694,7 @@ def _build_case_inventory_masked_cover(
         mask_size=mask_size,
         mask_alpha=mask_alpha,
         preset=CASE_INVENTORY_PRESET,
+        rotate_quarter_turns=1,
     )
     return _apply_mask_alpha(transformed, mask_alpha)
 
@@ -789,11 +790,16 @@ def _build_inventory_sheared_cover(
     mask_size: tuple[int, int],
     mask_alpha: Image.Image,
     preset: InventoryShearPreset,
+    rotate_quarter_turns: int = 0,
 ) -> Image.Image:
     edge = max(1, preset.initial_edge)
     max_edge = max(edge, preset.max_edge)
     while edge <= max_edge:
-        square_source = _prepare_square_source(source_path, edge)
+        square_source = _prepare_square_source(
+            source_path,
+            edge,
+            rotate_quarter_turns=rotate_quarter_turns,
+        )
         sheared = _apply_inventory_shear(square_source, preset)
         placed = _place_transformed_cover_on_canvas(
             sheared,
@@ -804,7 +810,11 @@ def _build_inventory_sheared_cover(
         if _mask_region_is_fully_covered(placed, mask_alpha, alpha_threshold=preset.coverage_alpha_threshold):
             return placed
         edge += max(1, preset.edge_step)
-    square_source = _prepare_square_source(source_path, max_edge)
+    square_source = _prepare_square_source(
+        source_path,
+        max_edge,
+        rotate_quarter_turns=rotate_quarter_turns,
+    )
     sheared = _apply_inventory_shear(square_source, preset)
     return _place_transformed_cover_on_canvas(
         sheared,

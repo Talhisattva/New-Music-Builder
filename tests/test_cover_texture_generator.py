@@ -230,6 +230,39 @@ def test_case_inventory_transform_is_centered_in_requested_target_region(tmp_pat
     ) is True
 
 
+def test_case_inventory_transform_rotates_source_counterclockwise_before_shear(tmp_path: Path) -> None:
+    cover_path = tmp_path / "cover.png"
+    rotated_cover_path = tmp_path / "cover-rotated.png"
+    cover = Image.new("RGBA", (320, 540), (0, 0, 0, 0))
+    for x in range(0, 160):
+        for y in range(0, 540):
+            cover.putpixel((x, y), (255, 0, 0, 255))
+    for x in range(160, 320):
+        for y in range(0, 540):
+            cover.putpixel((x, y), (0, 0, 255, 255))
+    cover.save(cover_path)
+    cover.rotate(90, resample=Image.Resampling.BILINEAR, expand=True).save(rotated_cover_path)
+
+    with Image.open(ASSETS_ROOT / "Mask" / "Inventory" / "CassetteCase" / "Item_NM_Case_Mask.png") as mask_source:
+        mask_alpha = _alpha_mask(mask_source.convert("RGBA"))
+
+    transformed = _build_inventory_sheared_cover(
+        source_path=cover_path,
+        mask_size=mask_alpha.size,
+        mask_alpha=mask_alpha,
+        preset=CASE_INVENTORY_PRESET,
+        rotate_quarter_turns=1,
+    )
+    expected = _build_inventory_sheared_cover(
+        source_path=rotated_cover_path,
+        mask_size=mask_alpha.size,
+        mask_alpha=mask_alpha,
+        preset=CASE_INVENTORY_PRESET,
+    )
+
+    assert ImageChops.difference(transformed, expected).getbbox() is None
+
+
 def test_jacket_inventory_transform_covers_mask_region(tmp_path: Path) -> None:
     cover_path = tmp_path / "cover.png"
     Image.new("RGBA", (540, 540), (255, 0, 0, 255)).save(cover_path)
