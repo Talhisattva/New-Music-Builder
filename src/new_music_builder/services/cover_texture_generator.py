@@ -833,9 +833,21 @@ def _build_average_color_masked_cover(
     return _apply_mask_alpha(filled, mask_alpha)
 
 
-def _prepare_square_source(source_path: Path, target_size: int) -> Image.Image:
+def _prepare_square_source(
+    source_path: Path,
+    target_size: int,
+    *,
+    rotate_quarter_turns: int = 0,
+) -> Image.Image:
     with Image.open(source_path) as source_image:
         source = source_image.convert("RGBA")
+    normalized_turns = rotate_quarter_turns % 4
+    if normalized_turns:
+        source = source.rotate(
+            90 * normalized_turns,
+            resample=INVENTORY_COVER_RESAMPLE,
+            expand=True,
+        )
     crop_size = min(source.width, source.height)
     left = (source.width - crop_size) // 2
     top = (source.height - crop_size) // 2
