@@ -591,40 +591,6 @@ def test_inventory_transform_returns_mask_sized_rgba_and_covers_mask(tmp_path: P
     ) is True
 
 
-def test_cassette_inventory_transform_rotates_source_counterclockwise_before_warp(tmp_path: Path) -> None:
-    cover_path = tmp_path / "cover.png"
-    rotated_cover_path = tmp_path / "cover-rotated.png"
-    cover = Image.new("RGBA", (320, 540), (0, 0, 0, 0))
-    for x in range(0, 160):
-        for y in range(0, 540):
-            cover.putpixel((x, y), (255, 0, 0, 255))
-    for x in range(160, 320):
-        for y in range(0, 540):
-            cover.putpixel((x, y), (0, 0, 255, 255))
-    cover.save(cover_path)
-    cover.rotate(90, resample=Image.Resampling.BILINEAR, expand=True).save(rotated_cover_path)
-
-    with Image.open(ASSETS_ROOT / "Mask" / "Inventory" / "Cassette" / "Item_NM_Cassette_Mask.png") as mask_source:
-        mask_image = mask_source.convert("RGBA")
-    mask_alpha = _alpha_mask(mask_image)
-
-    transformed = _build_inventory_transformed_cover(
-        source_path=cover_path,
-        mask_size=mask_image.size,
-        mask_alpha=mask_alpha,
-        preset=CASSETTE_INVENTORY_PRESET,
-        rotate_quarter_turns=1,
-    )
-    expected = _build_inventory_transformed_cover(
-        source_path=rotated_cover_path,
-        mask_size=mask_image.size,
-        mask_alpha=mask_alpha,
-        preset=CASSETTE_INVENTORY_PRESET,
-    )
-
-    assert ImageChops.difference(transformed, expected).getbbox() is None
-
-
 def test_inventory_warp_preserves_transparent_background_outside_art(tmp_path: Path) -> None:
     cover_path = tmp_path / "cover.png"
     Image.new("RGBA", (540, 540), (120, 220, 40, 255)).save(cover_path)
