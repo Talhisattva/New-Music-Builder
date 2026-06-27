@@ -9,6 +9,9 @@ $distRoot = Join-Path $repoRoot 'dist'
 $releaseRoot = Join-Path $repoRoot 'release'
 $specPath = Join-Path $repoRoot 'NewMusicBuilder.spec'
 $appDistRoot = Join-Path $distRoot 'NewMusicBuilder'
+$workspaceRoot = Join-Path $repoRoot 'workspace'
+$logsRoot = Join-Path $repoRoot 'logs'
+$diagnosticsRoot = Join-Path $workspaceRoot 'diagnostics'
 
 function Invoke-Step {
     param(
@@ -22,6 +25,47 @@ function Invoke-Step {
     if ($LASTEXITCODE -ne 0) {
         throw $FailureMessage
     }
+}
+
+function Reset-RuntimeState {
+    $workspacePath = [System.IO.Path]::GetFullPath($workspaceRoot)
+    $logsPath = [System.IO.Path]::GetFullPath($logsRoot)
+    $diagnosticsPath = [System.IO.Path]::GetFullPath($diagnosticsRoot)
+
+    New-Item -ItemType Directory -Path $workspacePath -Force | Out-Null
+    New-Item -ItemType Directory -Path $logsPath -Force | Out-Null
+    New-Item -ItemType Directory -Path $diagnosticsPath -Force | Out-Null
+
+    Get-ChildItem -Path $diagnosticsPath -Force -ErrorAction SilentlyContinue | Remove-Item -Force
+
+    Set-Content -Path (Join-Path $logsPath 'new_music_builder.log') -Value '' -NoNewline
+    Set-Content -Path (Join-Path $logsPath 'startup_fatal.log') -Value '' -NoNewline
+    Set-Content -Path (Join-Path $logsPath 'runtime_fatal.log') -Value '' -NoNewline
+
+    $runtimeReset = @'
+from pathlib import Path
+import json
+import sys
+
+sys.path.insert(0, str(Path("src").resolve()))
+
+from new_music_builder.domain.models import ProjectConfig
+from new_music_builder.services.recent_projects import RecentProjectsStore
+from new_music_builder.services.session_store import SessionStore
+
+workspace = Path("workspace")
+workspace.mkdir(parents=True, exist_ok=True)
+
+store = SessionStore(workspace / "last_session.json")
+store.last_automatic_textures_enabled = True
+store.last_text_tooltips_enabled = True
+store.save(ProjectConfig(), "")
+
+recent = RecentProjectsStore(workspace / "recent.json")
+recent.file_path.write_text(json.dumps({"recent": []}, indent=2), encoding="utf-8")
+'@
+
+    Invoke-Step -Action { $runtimeReset | python - } -FailureMessage 'Runtime state reset failed.'
 }
 
 Push-Location $repoRoot
@@ -40,6 +84,8 @@ try {
         Invoke-Step -Action { python -m compileall src } -FailureMessage 'compileall validation failed.'
         Invoke-Step -Action { pytest -q } -FailureMessage 'pytest validation failed.'
     }
+
+    Reset-RuntimeState
 
     if (Test-Path $appDistRoot) {
         Remove-Item -LiteralPath $appDistRoot -Recurse -Force

@@ -6,6 +6,7 @@ from new_music_builder.ui.main_window import build_menu_action_map
 from new_music_builder.ui.widgets.cursor_tooltip import (
     compute_tooltip_placement,
     layout_tooltip_segments,
+    pick_inward_horizontal_direction,
     pick_inward_tooltip_direction,
 )
 
@@ -14,6 +15,8 @@ class _WindowStub:
     def __init__(self) -> None:
         self._toggle_automatic_textures_preference = lambda: None
         self._automatic_textures_enabled = lambda: True
+        self._toggle_text_tooltips_preference = lambda: None
+        self._text_tooltips_enabled = lambda: True
         self._show_audio_settings_dialog = lambda: None
         self.new_project = lambda: None
         self.load_project = lambda: None
@@ -28,6 +31,11 @@ def test_pick_inward_tooltip_direction_chooses_cardinal_side_toward_window_cente
     assert pick_inward_tooltip_direction(cursor_x=860, cursor_y=300, window_left=100, window_top=100, window_width=800, window_height=600) == 'left'
     assert pick_inward_tooltip_direction(cursor_x=500, cursor_y=120, window_left=100, window_top=100, window_width=800, window_height=600) == 'down'
     assert pick_inward_tooltip_direction(cursor_x=500, cursor_y=660, window_left=100, window_top=100, window_width=800, window_height=600) == 'up'
+
+
+def test_pick_inward_horizontal_direction_uses_left_right_only() -> None:
+    assert pick_inward_horizontal_direction(cursor_x=120, window_left=100, window_width=800) == 'right'
+    assert pick_inward_horizontal_direction(cursor_x=860, window_left=100, window_width=800) == 'left'
 
 
 def test_compute_tooltip_placement_supports_vertical_tooltips() -> None:
@@ -147,3 +155,4 @@ def test_build_menu_action_map_assigns_submenu_tooltip_ids() -> None:
 
     assert action_map['PREFERENCES'][0].tooltip_id == 'menu.preferences.audio_settings'
     assert action_map['PREFERENCES'][1].tooltip_id == 'menu.preferences.automatic_textures'
+    assert action_map['PREFERENCES'][2].tooltip_id == 'menu.preferences.tooltips'

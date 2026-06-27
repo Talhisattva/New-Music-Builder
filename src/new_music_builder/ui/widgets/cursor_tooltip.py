@@ -6,6 +6,8 @@ import re
 import tkinter as tk
 import tkinter.font as tkfont
 
+from PIL import Image, ImageTk
+
 from new_music_builder.ui import spec
 from new_music_builder.ui.help_tooltip_registry import TooltipSegment
 from new_music_builder.ui.widgets.images import load_tk_photoimage_contained
@@ -65,6 +67,16 @@ def pick_inward_horizontal_anchor(
 ) -> str:
     center_x = window_left + (window_width / 2)
     return 'left' if cursor_x <= center_x else 'right'
+
+
+def pick_inward_horizontal_direction(
+    *,
+    cursor_x: int,
+    window_left: int,
+    window_width: int,
+) -> str:
+    center_x = window_left + (window_width / 2)
+    return 'right' if cursor_x <= center_x else 'left'
 
 
 def compute_tooltip_placement(
@@ -304,6 +316,7 @@ class CursorTooltip:
         self._last_cursor: tuple[int, int] = (0, 0)
         self._content_renderer = None
         self._image_path: str | None = None
+        self._pil_image: Image.Image | None = None
         self._image = None
         self._watch_after_id: str | None = None
         self.owner.bind('<Destroy>', self._hide_from_event, add='+')
@@ -319,9 +332,19 @@ class CursorTooltip:
 
     def set_image(self, path: str | None) -> None:
         self._image_path = path
+        self._pil_image = None
         if self._image_label is None:
             return
         self._image = load_tk_photoimage_contained(path, spec.MODULE_THREE_TOOLTIP_IMAGE_SIZE, allow_upscale=True) if path else None
+        self._image_label.configure(image=self._image if self._image is not None else '')
+        self._image_label.image = self._image
+
+    def set_pil_image(self, image: Image.Image | None) -> None:
+        self._image_path = None
+        self._pil_image = image.copy() if image is not None else None
+        if self._image_label is None:
+            return
+        self._image = self._photoimage_for_pil_image(self._pil_image)
         self._image_label.configure(image=self._image if self._image is not None else '')
         self._image_label.image = self._image
 
@@ -397,7 +420,10 @@ class CursorTooltip:
             width=spec.MODULE_THREE_TOOLTIP_IMAGE_SIZE[0],
             height=spec.MODULE_THREE_TOOLTIP_IMAGE_SIZE[1],
         )
-        self.set_image(self._image_path)
+        if self._pil_image is not None:
+            self.set_pil_image(self._pil_image)
+        else:
+            self.set_image(self._image_path)
         if self._content_renderer is not None:
             self._content_renderer(self._content_frame)
         self._window.withdraw()
@@ -406,15 +432,20 @@ class CursorTooltip:
         self._window.bind('<Unmap>', self._hide_from_event, add='+')
 
     def _compute_placement(self, x_root: int, y_root: int) -> TooltipPlacement:
-        if self._direction != 'left':
+        if self._direction not in {'left', 'right'}:
             raise ValueError(f'Unsupported tooltip direction: {self._direction}')
-        return compute_left_tooltip_placement(
+        return compute_tooltip_placement(
             cursor_x=x_root,
             cursor_y=y_root,
             window_left=self.owner.winfo_toplevel().winfo_rootx(),
             window_top=self.owner.winfo_toplevel().winfo_rooty(),
             window_width=self.owner.winfo_toplevel().winfo_width(),
             window_height=self.owner.winfo_toplevel().winfo_height(),
+            body_size=spec.MODULE_THREE_TOOLTIP_SQUARE_SIZE,
+            direction=self._direction,
+            cursor_offset=spec.MODULE_THREE_TOOLTIP_CURSOR_OFFSET_X,
+            pointer_protrusion=spec.MODULE_THREE_TOOLTIP_POINTER_PROTRUSION,
+            pointer_size=spec.MODULE_THREE_TOOLTIP_POINTER_SIZE,
         )
 
     def _redraw(self, placement: TooltipPlacement) -> None:
@@ -481,6 +512,25 @@ class CursorTooltip:
         except tk.TclError:
             return False
 
+    def _photoimage_for_pil_image(self, image: Image.Image | None) -> tk.PhotoImage | None:
+        if image is None:
+            return None
+        contained = image.convert('RGBA')
+        scale_ratio = min(
+            spec.MODULE_THREE_TOOLTIP_IMAGE_SIZE[0] / max(1, contained.width),
+            spec.MODULE_THREE_TOOLTIP_IMAGE_SIZE[1] / max(1, contained.height),
+        )
+        contained_size = (
+            max(1, int(round(contained.width * scale_ratio))),
+            max(1, int(round(contained.height * scale_ratio))),
+        )
+        contained = contained.resize(contained_size, Image.Resampling.LANCZOS)
+        fitted = Image.new('RGBA', spec.MODULE_THREE_TOOLTIP_IMAGE_SIZE, (0, 0, 0, 0))
+        paste_x = (fitted.width - contained.width) // 2
+        paste_y = (fitted.height - contained.height) // 2
+        fitted.paste(contained, (paste_x, paste_y), contained)
+        return ImageTk.PhotoImage(fitted)
+
     def _is_owner_descendant(self, widget: tk.Misc | None) -> bool:
         current = widget
         while current is not None:
@@ -542,14 +592,21 @@ class HelpCursorTooltip:
             return
         body_width, body_height, layout = self._measure_text_body()
         toplevel = self.owner.winfo_toplevel()
-        direction = preferred_direction or pick_inward_tooltip_direction(
-            cursor_x=x_root,
-            cursor_y=y_root,
-            window_left=toplevel.winfo_rootx(),
-            window_top=toplevel.winfo_rooty(),
-            window_width=toplevel.winfo_width(),
-            window_height=toplevel.winfo_height(),
-        )
+        if preferred_direction == 'horizontal-auto':
+            direction = pick_inward_horizontal_direction(
+                cursor_x=x_root,
+                window_left=toplevel.winfo_rootx(),
+                window_width=toplevel.winfo_width(),
+            )
+        else:
+            direction = preferred_direction or pick_inward_tooltip_direction(
+                cursor_x=x_root,
+                cursor_y=y_root,
+                window_left=toplevel.winfo_rootx(),
+                window_top=toplevel.winfo_rooty(),
+                window_width=toplevel.winfo_width(),
+                window_height=toplevel.winfo_height(),
+            )
         placement = compute_tooltip_placement(
             cursor_x=x_root,
             cursor_y=y_root,

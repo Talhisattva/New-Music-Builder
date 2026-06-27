@@ -164,6 +164,9 @@ class _IconActionButton(tk.Canvas):
         self.bind('<ButtonPress-1>', self._on_press, add='+')
         self.bind('<ButtonRelease-1>', self._on_release, add='+')
 
+    def tooltip_widgets(self) -> tuple[tk.Misc, ...]:
+        return (self,)
+
     def _current_fill(self) -> str:
         if self._pressed:
             return self._pressed_bg_color

@@ -97,7 +97,7 @@ from new_music_builder.ui.widgets.main_button import MainButton
 from new_music_builder.ui.widgets.media_creation_header import MediaCreationHeader
 from new_music_builder.ui.widgets.media_row_list import MediaRowList, RowSelectionModifiers
 from new_music_builder.ui.widgets.media_songlist_table import TrackSelectionModifiers
-from new_music_builder.ui.widgets.help_tooltip import bind_help_tooltip
+from new_music_builder.ui.widgets.help_tooltip import bind_help_tooltip, set_text_tooltips_enabled
 from new_music_builder.ui.widgets.menu_strip import MenuAction, MenuStrip
 from new_music_builder.ui.widgets.module_four_panel import ModuleFourPanel
 from new_music_builder.ui.widgets.module_five_panel import ModuleFivePanel
@@ -223,6 +223,16 @@ def build_menu_action_map(window: object) -> dict[str, list[MenuAction]]:
             tooltip_id='menu.preferences.automatic_textures',
         )
     )
+    preferences.append(
+        MenuAction(
+            label='Tooltips',
+            command=getattr(window, '_toggle_text_tooltips_preference'),
+            show_check_column=True,
+            checked_getter=getattr(window, '_text_tooltips_enabled'),
+            close_after_invoke=False,
+            tooltip_id='menu.preferences.tooltips',
+        )
+    )
     return menu_actions
 
 
@@ -300,6 +310,10 @@ class MainWindow(_DnDCompat, ctk.CTk):
             song_folder=self.session_store.last_dialog_folder_memory.song_folder,
             image_folder=self.session_store.last_dialog_folder_memory.image_folder,
         )
+        self._automatic_textures_preference_enabled = bool(self.session_store.last_automatic_textures_enabled)
+        self._text_tooltips_preference_enabled = bool(self.session_store.last_text_tooltips_enabled)
+        set_text_tooltips_enabled(self._text_tooltips_preference_enabled)
+        self._apply_master_project_preferences()
         self.module_two_selected_row_ids: set[int] = set()
         self.module_two_selection_anchor_row_id: int | None = None
         self.module_two_song_selected_indices: dict[tuple[int, str], set[int]] = {}
@@ -860,6 +874,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._module_four_export_tooltip = bind_help_tooltip(
             self.phase_three_combo_header.tooltip_widgets(),
             tooltip_id='module_four.export',
+            preferred_direction='horizontal-auto',
         )
         self.phase_three_combo_phase_icon = self.phase_three_combo_header.icon_label
         self.phase_three_combo_phase_label = self.phase_three_combo_header.text_label
@@ -884,6 +899,10 @@ class MainWindow(_DnDCompat, ctk.CTk):
             on_reset=self.reset_project_to_defaults,
         )
         self.module_six_panel.place(x=0, y=0)
+        self._module_six_reset_tooltip = bind_help_tooltip(
+            self.module_six_panel.reset_button.tooltip_widgets(),
+            tooltip_id='module_six.reset',
+        )
 
         self.phase_three_combo_content_area = tk.Frame(
             self.phase_three_combo_midground,
@@ -1013,13 +1032,9 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.module_one_cover_surface = self.module_one_cover_picker.cover_surface
         self.module_one_cover_button = self.module_one_cover_picker.folder_button
         self._module_one_cover_tooltip = bind_help_tooltip(
-            (
-                self.module_one_cover_picker,
-                self.module_one_cover_border,
-                self.module_one_cover_surface,
-                self.module_one_cover_button,
-            ),
+            self.module_one_cover_picker.tooltip_widgets(),
             tooltip_id='module_one.workshop_preview',
+            should_show=lambda _event: not self.module_one_cover_picker.has_preview_image(),
         )
 
         checkbox_x = (
@@ -1225,14 +1240,24 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.on_project_change()
 
     def _automatic_textures_enabled(self) -> bool:
-        return bool(self.session.project.automatic_textures_enabled)
+        return bool(self.__dict__.get('_automatic_textures_preference_enabled', self.session.project.automatic_textures_enabled))
 
     def _toggle_automatic_textures_preference(self) -> None:
         if self._is_build_locked():
             return
-        self.session.project.automatic_textures_enabled = not self.session.project.automatic_textures_enabled
+        self._automatic_textures_preference_enabled = not self._automatic_textures_enabled()
+        self.session.project.automatic_textures_enabled = self._automatic_textures_enabled()
         self._refresh_module_three_appearance_selector()
+        self._save_session_snapshot()
         self.on_project_change()
+
+    def _text_tooltips_enabled(self) -> bool:
+        return bool(self._text_tooltips_preference_enabled)
+
+    def _toggle_text_tooltips_preference(self) -> None:
+        self._text_tooltips_preference_enabled = not self._text_tooltips_preference_enabled
+        set_text_tooltips_enabled(self._text_tooltips_preference_enabled)
+        self._save_session_snapshot()
 
     def _build_module_two_row_list(self) -> None:
         current_row_ids = {row.row_id for row in self.session.project.media_rows}
@@ -1262,6 +1287,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             on_side_selected=self._set_module_two_media_side,
             on_preview_mode_selected=self._set_module_two_preview_mode,
             on_cover_selected=self._select_module_two_media_cover,
+            automatic_textures_enabled_getter=self._automatic_textures_enabled,
             can_accept_cover_drop=self._can_accept_image_drop,
             on_cover_drop=self._drop_module_two_media_cover_files,
             on_remove_row=self._remove_module_two_media_row,
@@ -2596,7 +2622,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._cancel_module_two_song_drag()
         self._cancel_module_two_row_drag()
         self.session.reset()
-        self._apply_master_audio_preferences_to_project()
+        self._apply_master_project_preferences()
         self._restore_unsaved_phase_two_default()
         self._sync_phase_one_ui_from_project()
         self.module_three_staged_custom_images.clear()
@@ -2678,6 +2704,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             return
         self.session.project = project
         self.session.current_path = str(path)
+        self._apply_master_project_preferences()
         self._sync_phase_one_ui_from_project()
         self.recent_store.push(path)
         self.module_three_staged_custom_images.clear()
@@ -3404,6 +3431,10 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self.build_summary.refresh()
 
     def _save_session_snapshot(self) -> None:
+        self.session_store.last_automatic_textures_enabled = bool(
+            self.__dict__.get('_automatic_textures_preference_enabled', self.session.project.automatic_textures_enabled)
+        )
+        self.session_store.last_text_tooltips_enabled = bool(self.__dict__.get('_text_tooltips_preference_enabled', True))
         self.session_store.save(
             self.session.project,
             self.session.current_path,
@@ -3411,10 +3442,13 @@ class MainWindow(_DnDCompat, ctk.CTk):
             audio_preferences=self.audio_preferences,
         )
 
-    def _apply_master_audio_preferences_to_project(self) -> None:
+    def _apply_master_project_preferences(self) -> None:
         self.session.project.sample_rate = int(self.audio_preferences.sample_rate)
         self.session.project.compression_quality = float(self.audio_preferences.compression_quality)
         self.session.project.reencode_existing_ogg = bool(self.audio_preferences.reencode_existing_ogg)
+        self.session.project.automatic_textures_enabled = bool(
+            self.__dict__.get('_automatic_textures_preference_enabled', self.session.project.automatic_textures_enabled)
+        )
 
     def _commit_phase_one_project_state(self) -> None:
         if self._phase_one_sync_after_id is not None:
@@ -3447,10 +3481,12 @@ class MainWindow(_DnDCompat, ctk.CTk):
         poster_path = (self.session.project.workshop_poster_path or '').strip()
         if not poster_path:
             self.module_one_cover_picker.set_cover_image(None)
+            self.module_one_cover_picker.set_tooltip_image(None)
             return
         source = Path(poster_path)
         if not source.exists() or not source.is_file():
             self.module_one_cover_picker.set_cover_image(None)
+            self.module_one_cover_picker.set_tooltip_image(None)
             return
         rendered = render_square_image(
             source,
@@ -3458,7 +3494,14 @@ class MainWindow(_DnDCompat, ctk.CTk):
             (self.session.project.mod_name or '').strip(),
             add_name_overlay=bool(self.session.project.write_mod_name_on_poster),
         )
+        tooltip_rendered = render_square_image(
+            source,
+            spec.MODULE_THREE_TOOLTIP_IMAGE_SIZE[0],
+            (self.session.project.mod_name or '').strip(),
+            add_name_overlay=bool(self.session.project.write_mod_name_on_poster),
+        )
         self.module_one_cover_picker.set_cover_image(rendered)
+        self.module_one_cover_picker.set_tooltip_image(tooltip_rendered)
 
     def on_close(self) -> None:
         if self._is_build_locked():

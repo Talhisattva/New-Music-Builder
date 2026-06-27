@@ -6,6 +6,7 @@ import tkinter as tk
 
 from new_music_builder.domain.models import AppearanceKind, MediaKind, MediaRow, SongSortColumn
 from new_music_builder.ui import spec
+from new_music_builder.ui.help_tooltip_registry import TooltipSegment, tooltip_segments_for_id
 from new_music_builder.ui.widgets.help_tooltip import bind_help_tooltip
 from new_music_builder.ui.widgets.collapsed_row_chevron import CollapsedRowChevron
 from new_music_builder.ui.widgets.collapsed_row_details import CollapsedRowDetails
@@ -132,6 +133,7 @@ class MediaRowShell(tk.Frame):
         on_side_selected: Callable[[int, str], None] | None = None,
         on_preview_mode_selected: Callable[[int, str], None] | None = None,
         on_cover_selected: Callable[[int], None] | None = None,
+        automatic_textures_enabled_getter: Callable[[], bool] | None = None,
         can_accept_cover_drop: Callable[[list[str]], bool] | None = None,
         on_cover_drop: Callable[[int, list[str]], None] | None = None,
         on_remove_row: Callable[[int], None] | None = None,
@@ -167,6 +169,7 @@ class MediaRowShell(tk.Frame):
         self._row_expanded = row.expanded
         self._selected = selected
         self._selected_count = selected_count
+        self._automatic_textures_enabled_getter = automatic_textures_enabled_getter
         self._hovered = False
         self._on_background_selected = on_background_selected
         self._on_row_drag_started = on_row_drag_started
@@ -214,6 +217,7 @@ class MediaRowShell(tk.Frame):
         self._expanded_cover_tooltip = bind_help_tooltip(
             self.expanded_cover.tooltip_widgets(),
             tooltip_id='module_two.media_cover',
+            segments_getter=self._media_cover_tooltip_segments,
         )
         self.expanded_badge = MediaRowBadge(
             self.expanded_container,
@@ -422,6 +426,16 @@ class MediaRowShell(tk.Frame):
         self._last_songlist_width: int | None = None
         self.set_expanded(expanded)
         self._apply_background_state()
+
+    def _media_cover_tooltip_segments(self) -> tuple[TooltipSegment, ...]:
+        base_segments = tooltip_segments_for_id('module_two.media_cover') or ()
+        if self._automatic_textures_enabled_getter is None or self._automatic_textures_enabled_getter():
+            return base_segments
+        return tuple(
+            segment
+            for segment in base_segments
+            if segment.tone not in {'tag', 'break'}
+        )
 
     def resize(self, width: int) -> None:
         if self._last_resized_width == width:
@@ -744,6 +758,7 @@ class MediaRowList(tk.Frame):
         on_side_selected: Callable[[int, str], None] | None = None,
         on_preview_mode_selected: Callable[[int, str], None] | None = None,
         on_cover_selected: Callable[[int], None] | None = None,
+        automatic_textures_enabled_getter: Callable[[], bool] | None = None,
         can_accept_cover_drop: Callable[[list[str]], bool] | None = None,
         on_cover_drop: Callable[[int, list[str]], None] | None = None,
         on_remove_row: Callable[[int], None] | None = None,
@@ -795,6 +810,7 @@ class MediaRowList(tk.Frame):
         self._on_side_selected = on_side_selected
         self._on_preview_mode_selected = on_preview_mode_selected
         self._on_cover_selected = on_cover_selected
+        self._automatic_textures_enabled_getter = automatic_textures_enabled_getter
         self._can_accept_cover_drop = can_accept_cover_drop
         self._on_cover_drop = on_cover_drop
         self._on_remove_row = on_remove_row
@@ -861,6 +877,7 @@ class MediaRowList(tk.Frame):
             on_side_selected=self._on_side_selected,
             on_preview_mode_selected=self._on_preview_mode_selected,
             on_cover_selected=self._on_cover_selected,
+            automatic_textures_enabled_getter=self._automatic_textures_enabled_getter,
             can_accept_cover_drop=self._can_accept_cover_drop,
             on_cover_drop=self._on_cover_drop,
             on_remove_row=self._on_remove_row,

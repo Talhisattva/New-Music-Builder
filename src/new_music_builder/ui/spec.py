@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from new_music_builder import __version__
+
 APP_WIDTH = 1600
 APP_HEIGHT = 900
 APP_MIN_WIDTH = APP_WIDTH
@@ -16,7 +18,7 @@ HEADER_LOGO_X = 15
 HEADER_LOGO_GAP = 10
 HEADER_TITLE = 'NEW MUSIC BUILDER'
 HEADER_TITLE_SIZE = 20
-HEADER_VERSION = 'v0.2.0'
+HEADER_VERSION = f'v{__version__}'
 HEADER_VERSION_SIZE = 13
 HEADER_BYLINE = 'TALISMON'
 HEADER_BYLINE_FONT_FAMILY = 'Perfect DOS VGA 437 Win'

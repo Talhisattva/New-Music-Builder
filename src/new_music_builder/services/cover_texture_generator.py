@@ -52,7 +52,7 @@ CASSETTE_INVENTORY_PRESET = InventoryWarpPreset(
 CASE_INVENTORY_PRESET = InventoryShearPreset(
     initial_edge=23,
     max_edge=40,
-    shear_degrees=50.0,
+    shear_degrees=60.0,
 )
 JACKET_INVENTORY_PRESET = InventoryShearPreset(
     initial_edge=30,

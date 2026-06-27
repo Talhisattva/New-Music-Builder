@@ -7,6 +7,7 @@ import tkinter as tk
 from PIL import Image, ImageTk
 
 from new_music_builder.ui import spec
+from new_music_builder.ui.widgets.cursor_tooltip import CursorTooltip
 from new_music_builder.ui.widgets.icon_button import FolderIconButton
 from new_music_builder.ui.widgets.images import load_tk_photoimage_contained
 
@@ -32,10 +33,14 @@ class CoverPicker(tk.Frame):
         super().__init__(parent, bg=parent.cget('bg'), bd=0, highlightthickness=0, width=width, height=height)
         self._cover_size = cover_size
         self._cover_image = None
+        self._cover_preview_image: Image.Image | None = None
+        self._tooltip_preview_image: Image.Image | None = None
         self._default_outline = cover_outline
         self._dnd_type = dnd_type
         self._can_accept_drop = can_accept_drop
         self._on_drop_files = on_drop_files
+        self._cursor_tooltip = CursorTooltip(self)
+        self._tooltip_hide_after_id: str | None = None
 
         self.cover_border = tk.Frame(
             self,
@@ -64,8 +69,11 @@ class CoverPicker(tk.Frame):
         )
         self.folder_button.place(x=button_x, y=0)
         self._bind_drop_target()
+        self._bind_preview_tooltip()
 
     def set_cover_path(self, cover_path: str | Path | None) -> None:
+        self._cover_preview_image = None
+        self._tooltip_preview_image = None
         self._cover_image = load_tk_photoimage_contained(
             cover_path,
             (self._cover_size[0] - 2, self._cover_size[1] - 2),
@@ -74,6 +82,7 @@ class CoverPicker(tk.Frame):
         self.cover_surface.image = self._cover_image
 
     def set_cover_image(self, image: Image.Image | None) -> None:
+        self._cover_preview_image = image.copy() if image is not None else None
         if image is None:
             self._cover_image = None
         else:
@@ -86,6 +95,24 @@ class CoverPicker(tk.Frame):
             self._cover_image = ImageTk.PhotoImage(fitted)
         self.cover_surface.configure(image=self._cover_image if self._cover_image is not None else '')
         self.cover_surface.image = self._cover_image
+
+    def set_tooltip_image(self, image: Image.Image | None) -> None:
+        self._tooltip_preview_image = image.copy() if image is not None else None
+
+    def tooltip_widgets(self) -> tuple[tk.Misc, ...]:
+        return (
+            self,
+            self.cover_border,
+            self.cover_surface,
+            self.folder_button,
+        )
+
+    def has_preview_image(self) -> bool:
+        return (
+            self._tooltip_preview_image is not None
+            or self._cover_preview_image is not None
+            or self._cover_image is not None
+        )
 
     def set_enabled(self, enabled: bool) -> None:
         self.folder_button.set_enabled(enabled)
@@ -142,3 +169,44 @@ class CoverPicker(tk.Frame):
             self._on_drop_files(paths)
         self.set_drop_highlight(False)
         return getattr(event, 'action', 'copy')
+
+    def _bind_preview_tooltip(self) -> None:
+        for widget in self.tooltip_widgets():
+            widget.bind('<Enter>', self._on_preview_enter, add='+')
+            widget.bind('<Motion>', self._on_preview_motion, add='+')
+            widget.bind('<Leave>', self._on_preview_leave, add='+')
+
+    def _on_preview_enter(self, event: tk.Event) -> None:
+        if not self.has_preview_image():
+            self._cursor_tooltip.hide()
+            return
+        self._cancel_tooltip_hide()
+        self._cursor_tooltip.set_pil_image(self._tooltip_preview_image or self._cover_preview_image)
+        self._cursor_tooltip.show_at_cursor(int(event.x_root), int(event.y_root), direction='right')
+
+    def _on_preview_motion(self, event: tk.Event) -> None:
+        if not self.has_preview_image():
+            self._cursor_tooltip.hide()
+            return
+        self._cancel_tooltip_hide()
+        self._cursor_tooltip.set_pil_image(self._tooltip_preview_image or self._cover_preview_image)
+        self._cursor_tooltip.move_to_cursor(int(event.x_root), int(event.y_root))
+
+    def _on_preview_leave(self, _event: tk.Event) -> None:
+        self._schedule_tooltip_hide()
+
+    def _schedule_tooltip_hide(self) -> None:
+        self._cancel_tooltip_hide()
+        self._tooltip_hide_after_id = self.after(spec.MODULE_THREE_GRID_HOVER_HIDE_DELAY_MS, self._hide_tooltip_now)
+
+    def _cancel_tooltip_hide(self) -> None:
+        if self._tooltip_hide_after_id is not None:
+            try:
+                self.after_cancel(self._tooltip_hide_after_id)
+            except tk.TclError:
+                pass
+            self._tooltip_hide_after_id = None
+
+    def _hide_tooltip_now(self) -> None:
+        self._tooltip_hide_after_id = None
+        self._cursor_tooltip.hide()
