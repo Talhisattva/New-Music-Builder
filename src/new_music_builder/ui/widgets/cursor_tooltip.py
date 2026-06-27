@@ -431,10 +431,10 @@ class CursorTooltip:
             fill=spec.MODULE_THREE_TOOLTIP_BG,
         )
         self._canvas.create_polygon(
-            placement.square_x + placement.square_width,
-            placement.square_y,
-            placement.square_x + placement.square_width,
-            placement.square_y + placement.square_height,
+            placement.pointer_base_x,
+            placement.pointer_tip_y - placement.pointer_half_height,
+            placement.pointer_base_x,
+            placement.pointer_tip_y + placement.pointer_half_height,
             placement.pointer_tip_x,
             placement.pointer_tip_y,
             outline='',

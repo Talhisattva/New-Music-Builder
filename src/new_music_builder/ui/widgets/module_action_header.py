@@ -106,6 +106,14 @@ class ModuleActionHeader(tk.Frame):
             if command is not None:
                 self._bind_interaction(self.right_text_label)
 
+    def tooltip_widgets(self) -> tuple[tk.Misc, ...]:
+        widgets: list[tk.Misc] = [self, self.text_label]
+        if self.icon_label is not None:
+            widgets.append(self.icon_label)
+        if self.right_text_label is not None:
+            widgets.append(self.right_text_label)
+        return tuple(widgets)
+
     def resize(self, width: int) -> None:
         self.configure(width=width)
         if self.right_text_label is not None:

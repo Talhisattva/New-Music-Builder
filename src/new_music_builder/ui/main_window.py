@@ -857,6 +857,10 @@ class MainWindow(_DnDCompat, ctk.CTk):
             command=self.run_build_preview,
         )
         self.phase_three_combo_header.place(x=0, y=0)
+        self._module_four_export_tooltip = bind_help_tooltip(
+            self.phase_three_combo_header.tooltip_widgets(),
+            tooltip_id='module_four.export',
+        )
         self.phase_three_combo_phase_icon = self.phase_three_combo_header.icon_label
         self.phase_three_combo_phase_label = self.phase_three_combo_header.text_label
 
