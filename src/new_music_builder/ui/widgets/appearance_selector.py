@@ -11,6 +11,7 @@ from new_music_builder.domain.models import AppearanceKind, AppearanceSelection,
 from new_music_builder.services.asset_catalog import AssetEntry
 from new_music_builder.services.default_appearance_selection import preferred_default_asset_key
 from new_music_builder.ui import spec, theme
+from new_music_builder.ui.help_tooltip_registry import TooltipSegment, tooltip_segments_for_id
 from new_music_builder.ui.widgets.help_tooltip import bind_help_tooltip
 from new_music_builder.ui.widgets.buttons import make_builder_button
 from new_music_builder.ui.widgets.appearance_entries import (
@@ -567,6 +568,7 @@ class AppearanceSelector:
         )
         self._preview_mode_toggle: PreviewModeToggle | None = None
         self._help_tooltips: list[object | None] = []
+        self._tab_tooltip_bindings: dict[AppearanceKind, object] = {}
 
         self._build_tabs()
         self._build_generate_row()
@@ -667,13 +669,14 @@ class AppearanceSelector:
             'cd_cover': 'module_three.tab.cd_cover',
         }
         for kind, tooltip_id in tab_tooltip_ids.items():
-            self._help_tooltips.append(
-                bind_help_tooltip(
-                    self._tab_widgets[kind].tooltip_widgets(),
-                    tooltip_id=tooltip_id,
-                    preferred_direction='down',
-                )
+            binding = bind_help_tooltip(
+                self._tab_widgets[kind].tooltip_widgets(),
+                tooltip_id=tooltip_id,
+                preferred_direction='down',
             )
+            self._help_tooltips.append(binding)
+            if binding is not None:
+                self._tab_tooltip_bindings[kind] = binding
         if self._preview_mode_toggle is not None:
             self._help_tooltips.append(
                 bind_help_tooltip(
@@ -851,12 +854,26 @@ class AppearanceSelector:
         )
         self.dual_custom_footer.place_forget()
 
+    def _refresh_tab_tooltip_copy(self) -> None:
+        mode_label = 'Inventory' if self._preview_mode() == 'inventory' else 'World Model'
+        for kind, binding in self._tab_tooltip_bindings.items():
+            base_segments = tooltip_segments_for_id(f'module_three.tab.{kind}')
+            if not base_segments:
+                continue
+            binding.set_segments(
+                (
+                    *base_segments[:-1],
+                    TooltipSegment(f'For {mode_label}', tone='tag'),
+                )
+            )
+
     def _refresh_dual_sprite_row(self) -> None:
         row = self._active_row
         if row is None:
             return
         automatic_textures_enabled = self._automatic_textures_enabled()
         self._apply_vertical_layout(automatic_textures_enabled=automatic_textures_enabled)
+        self._refresh_tab_tooltip_copy()
         self.dual_checkbox.set_enabled(True)
         if self._preview_mode_toggle is not None:
             self._preview_mode_toggle.set_mode(self._preview_mode())
