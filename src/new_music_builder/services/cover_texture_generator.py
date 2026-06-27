@@ -388,6 +388,7 @@ def _render_cassette_inventory(
         mask_size=mask_image.size,
         mask_alpha=mask_alpha,
         preset=CASSETTE_INVENTORY_PRESET,
+        rotate_quarter_turns=1,
     )
     donor_outer = _build_masked_donor_layer(
         source_path=donor_inventory_path,
@@ -670,12 +671,14 @@ def _build_inventory_masked_cover(
     mask_size: tuple[int, int],
     mask_alpha: Image.Image,
     preset: InventoryWarpPreset,
+    rotate_quarter_turns: int = 0,
 ) -> Image.Image:
     transformed = _build_inventory_transformed_cover(
         source_path=source_path,
         mask_size=mask_size,
         mask_alpha=mask_alpha,
         preset=preset,
+        rotate_quarter_turns=rotate_quarter_turns,
     )
     return _apply_mask_alpha(transformed, mask_alpha)
 
@@ -741,6 +744,7 @@ def _build_inventory_transformed_cover(
     mask_size: tuple[int, int],
     mask_alpha: Image.Image,
     preset: InventoryWarpPreset,
+    rotate_quarter_turns: int = 0,
 ) -> Image.Image:
     target_edge = max(mask_size)
     base_square_size = target_edge * preset.initial_scale_ratio
@@ -748,7 +752,11 @@ def _build_inventory_transformed_cover(
     square_size = max(target_edge, int(ceil(base_square_size)))
     max_size = max(square_size, int(ceil(max_square_size)))
     while square_size <= max_size:
-        square_source = _prepare_square_source(source_path, square_size)
+        square_source = _prepare_square_source(
+            source_path,
+            square_size,
+            rotate_quarter_turns=rotate_quarter_turns,
+        )
         warped = _apply_inventory_warp(square_source, preset)
         placed = _place_transformed_cover_on_canvas(
             warped,
@@ -761,7 +769,11 @@ def _build_inventory_transformed_cover(
         square_size = int(ceil(square_size * (1.0 + preset.scale_step_ratio)))
         if square_size <= target_edge:
             square_size = target_edge + 1
-    final_square = _prepare_square_source(source_path, max_size)
+    final_square = _prepare_square_source(
+        source_path,
+        max_size,
+        rotate_quarter_turns=rotate_quarter_turns,
+    )
     final_warped = _apply_inventory_warp(final_square, preset)
     return _place_transformed_cover_on_canvas(
         final_warped,
@@ -823,9 +835,21 @@ def _build_average_color_masked_cover(
     return _apply_mask_alpha(filled, mask_alpha)
 
 
-def _prepare_square_source(source_path: Path, target_size: int) -> Image.Image:
+def _prepare_square_source(
+    source_path: Path,
+    target_size: int,
+    *,
+    rotate_quarter_turns: int = 0,
+) -> Image.Image:
     with Image.open(source_path) as source_image:
         source = source_image.convert("RGBA")
+    normalized_turns = rotate_quarter_turns % 4
+    if normalized_turns:
+        source = source.rotate(
+            90 * normalized_turns,
+            resample=INVENTORY_COVER_RESAMPLE,
+            expand=True,
+        )
     crop_size = min(source.width, source.height)
     left = (source.width - crop_size) // 2
     top = (source.height - crop_size) // 2
