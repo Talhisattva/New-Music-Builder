@@ -553,6 +553,8 @@ class AppearanceSelector:
         self._dual_phase_after_id: str | None = None
         self._grid_build_after_id: str | None = None
         self._grid_build_generation = 0
+        self._cover_generation_loading_row_id: int | None = None
+        self._cover_generation_loading_token: int | None = None
         self._tab_loading_after_id: str | None = None
         self._tooltip_hide_after_id: str | None = None
         self._cursor_tooltip = CursorTooltip(self.shell)
@@ -625,7 +627,7 @@ class AppearanceSelector:
             self._cancel_grid_build()
             self._cancel_tooltip_hide()
             self._cursor_tooltip.hide()
-            self._grid_loading_overlay.hide()
+            self._sync_loading_overlay()
             self._cancel_tab_loading_indicator()
             self._active_kind = None
             self._apply_tab_visibility(())
@@ -646,6 +648,21 @@ class AppearanceSelector:
         self._refresh_generate_button_state()
         self._refresh_footer()
         self._rebuild_grid()
+
+    def begin_cover_generation_loading(self, row_id: int, token: int) -> None:
+        self._cover_generation_loading_row_id = row_id
+        self._cover_generation_loading_token = token
+        self._sync_loading_overlay()
+
+    def end_cover_generation_loading(self, row_id: int, token: int) -> None:
+        if (
+            self._cover_generation_loading_row_id != row_id
+            or self._cover_generation_loading_token != token
+        ):
+            return
+        self._cover_generation_loading_row_id = None
+        self._cover_generation_loading_token = None
+        self._sync_loading_overlay()
 
     def _build_tabs(self) -> None:
         for index, (kind, label) in enumerate(TAB_KINDS):
@@ -1017,7 +1034,7 @@ class AppearanceSelector:
             height=content_height,
         )
         self.shell.grid_viewport.refresh_scroll_region()
-        self._grid_loading_overlay.show(x=0, y=spec.MODULE_THREE_GRID_VIEWPORT_Y)
+        self._sync_loading_overlay()
         self._grid_build_generation += 1
         generation = self._grid_build_generation
         self._schedule_tab_loading_indicator(generation=generation)
@@ -1344,10 +1361,27 @@ class AppearanceSelector:
             return
         self._grid_build_after_id = None
         self._cancel_tab_loading_indicator()
-        self._grid_loading_overlay.hide()
+        self._sync_loading_overlay()
         self._update_active_tab_icon()
         self._scroll_tile_into_view(selected_key)
         self._schedule_dual_phase_loop_if_needed()
+
+    def _should_show_loading_overlay(self) -> bool:
+        if self._grid_build_after_id is not None:
+            return True
+        row = self._active_row
+        if row is None:
+            return False
+        return (
+            self._cover_generation_loading_row_id == row.row_id
+            and self._cover_generation_loading_token is not None
+        )
+
+    def _sync_loading_overlay(self) -> None:
+        if self._should_show_loading_overlay():
+            self._grid_loading_overlay.show(x=0, y=spec.MODULE_THREE_GRID_VIEWPORT_Y)
+            return
+        self._grid_loading_overlay.hide()
 
     def _scroll_tile_into_view(self, key: str) -> None:
         tile = self._grid_tiles.get(key)

@@ -1540,6 +1540,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._module_three_cover_generation_seq += 1
         request_token = self._module_three_cover_generation_seq
         self._module_three_cover_generation_tokens[row_id] = request_token
+        if hasattr(self, 'module_three_appearance_selector'):
+            self.module_three_appearance_selector.begin_cover_generation_loading(row_id, request_token)
         donor_inventory_path = ""
         donor_world_path = ""
         case_donor_inventory_path = ""
@@ -1618,6 +1620,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
             return
         target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
         self._module_three_cover_generation_tokens.pop(row_id, None)
+        if hasattr(self, 'module_three_appearance_selector'):
+            self.module_three_appearance_selector.end_cover_generation_loading(row_id, request_token)
         if target_row is None:
             return
         apply_generated_cover_set_result(self.session.project, target_row, result)
@@ -1636,6 +1640,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         if self._module_three_cover_generation_tokens.get(row_id) != request_token:
             return
         self._module_three_cover_generation_tokens.pop(row_id, None)
+        if hasattr(self, 'module_three_appearance_selector'):
+            self.module_three_appearance_selector.end_cover_generation_loading(row_id, request_token)
         self._append_generated_asset_failure_log(cover_path, reason)
 
     def _append_generated_asset_success_log(

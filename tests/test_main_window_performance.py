@@ -360,6 +360,12 @@ def test_cover_generation_success_ignores_stale_tokens_and_applies_current_resul
     window = MainWindow.__new__(MainWindow)
     window.session = session
     window._module_three_cover_generation_tokens = {1: 7}
+    ended_loading: list[tuple[int, int]] = []
+    window.module_three_appearance_selector = type(
+        "Selector",
+        (),
+        {"end_cover_generation_loading": lambda _self, row_id, token: ended_loading.append((row_id, token))},
+    )()
     window._append_generated_cover_set_logs = lambda cover_path, result: setattr(window, "_logged_cover_path", cover_path)
     window._refresh_module_two_live_preview_for_row = lambda row_id: setattr(window, "_refreshed_row_id", row_id)
     window._refresh_module_three_appearance_selector = lambda: setattr(window, "_refreshed_module_three", True)
@@ -380,6 +386,7 @@ def test_cover_generation_success_ignores_stale_tokens_and_applies_current_resul
 
     assert apply_calls == [row.cover_path]
     assert window._module_three_cover_generation_tokens == {}
+    assert ended_loading == [(1, 7)]
     assert window.__dict__.get("_logged_cover_path") == "C:/art/new.png"
     assert window.__dict__.get("_refreshed_row_id") == 1
     assert window.__dict__.get("_refreshed_module_three", False) is True
@@ -389,12 +396,54 @@ def test_cover_generation_success_ignores_stale_tokens_and_applies_current_resul
 def test_cover_generation_error_clears_current_token_and_logs_failure() -> None:
     window = MainWindow.__new__(MainWindow)
     window._module_three_cover_generation_tokens = {4: 11}
+    ended_loading: list[tuple[int, int]] = []
+    window.module_three_appearance_selector = type(
+        "Selector",
+        (),
+        {"end_cover_generation_loading": lambda _self, row_id, token: ended_loading.append((row_id, token))},
+    )()
     window._append_generated_asset_failure_log = lambda cover_path, reason: setattr(window, "_failure", (cover_path, reason))
 
     MainWindow._finish_module_three_cover_generation_error(window, 4, 11, "C:/art/fail.png", "boom")
 
     assert window._module_three_cover_generation_tokens == {}
+    assert ended_loading == [(4, 11)]
     assert window.__dict__.get("_failure") == ("C:/art/fail.png", "boom")
+
+
+def test_generate_module_three_from_cover_marks_loading_before_worker_start(monkeypatch) -> None:
+    row = default_media_row(3)
+    row.cover_path = "C:/art/cover.png"
+    session = ProjectSession(project=ProjectConfig(media_rows=[row]))
+    window = MainWindow.__new__(MainWindow)
+    window.session = session
+    window._is_build_locked = lambda: False
+    window._module_three_cover_generation_seq = 0
+    window._module_three_cover_generation_tokens = {}
+    window.module_three_appearance_selector = type(
+        "Selector",
+        (),
+        {"begin_cover_generation_loading": lambda _self, row_id, token: setattr(window, "_loading_begin", (row_id, token))},
+    )()
+    window._module_three_selected_path_for_row = lambda *_args, **_kwargs: ""
+
+    class _ImmediateThread:
+        def __init__(self, *, target, name, daemon) -> None:
+            self.target = target
+            self.name = name
+            self.daemon = daemon
+
+        def start(self) -> None:
+            return None
+
+    monkeypatch.setattr("new_music_builder.ui.main_window.can_generate_cover_for_kind", lambda *_args, **_kwargs: False)
+    monkeypatch.setattr("new_music_builder.ui.main_window.deepcopy", lambda project: project)
+    monkeypatch.setattr("new_music_builder.ui.main_window.threading.Thread", _ImmediateThread)
+
+    MainWindow._generate_module_three_from_cover(window, 3)
+
+    assert window._module_three_cover_generation_tokens == {3: 1}
+    assert window.__dict__.get("_loading_begin") == (3, 1)
 
 
 def test_show_audio_settings_dialog_updates_project_and_persists_session(monkeypatch, tmp_path) -> None:
