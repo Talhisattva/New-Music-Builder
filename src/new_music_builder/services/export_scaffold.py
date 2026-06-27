@@ -368,9 +368,9 @@ def _apply_mod_name_overlay(image: Image.Image, mod_name: str) -> Image.Image:
     inner = max(6, width // 24) if compact_preview else max(14, width // 40)
     max_width = max(24, (box[2] - box[0]) - inner * 2)
     max_height = max(18, (box[3] - box[1]) - inner * 2)
-    logo_gap = max(4, height // 72) if compact_preview else max(10, height // 120)
+    logo_gap = (max(4, height // 72) + 1) if compact_preview else (max(10, height // 120) + 2)
     stroke = max(1, height // 64) if compact_preview else max(3, height // 180)
-    line_spacing = max(1, height // 56) if compact_preview else max(4, height // 192)
+    line_spacing = max(1, (height // 56) - 1) if compact_preview else max(3, (height // 192) - 1)
     logo_image = _load_overlay_logo()
     logo_render: Image.Image | None = None
     logo_height = 0
