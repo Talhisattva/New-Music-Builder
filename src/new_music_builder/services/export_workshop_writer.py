@@ -26,7 +26,7 @@ def build_workshop_txt_lines(project: ProjectConfig, plan: ExportPlan) -> list[s
     lines.extend(
         [
             "tags=Build 42;Audio",
-            "visibility=private",
+            "visibility=public",
             "",
         ]
     )

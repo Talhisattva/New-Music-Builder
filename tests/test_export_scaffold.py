@@ -475,3 +475,18 @@ def test_write_export_scaffold_keeps_duplicate_album_titles_as_separate_workshop
     assert workshop_text.count('description=[table]') == 2
     assert workshop_text.count('description=[tr][th]Same Album[/th][/tr]') == 2
     assert workshop_text.find('description=[tr][td]01 First Song[/td][/tr]') < workshop_text.find('description=[tr][td]01 Second Song[/td][/tr]')
+
+
+def test_write_export_scaffold_marks_workshop_visibility_public(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    row = project.media_rows[0]
+    row.tracks_a.append(_track())
+    catalog = AssetCatalog(ASSETS_ROOT).scan()
+    plan = build_export_plan(project, catalog)
+    targets = resolve_export_target(plan, project.workshop_output_folder, mod_name=project.mod_name, mod_id=project.mod_id)
+
+    result = write_export_scaffold(project, plan, targets, catalog)
+
+    assert not result.errors
+    workshop_text = (Path(targets.root) / 'workshop.txt').read_text(encoding='utf-8')
+    assert 'visibility=public' in workshop_text
