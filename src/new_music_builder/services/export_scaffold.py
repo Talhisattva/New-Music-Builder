@@ -20,6 +20,7 @@ from new_music_builder.services.export_lua_writer import write_export_lua
 from new_music_builder.services.export_naming import sanitize_filesystem_component
 from new_music_builder.services.export_script_writer import write_export_scripts
 from new_music_builder.services.export_texture_writer import write_export_textures
+from new_music_builder.services.export_translation_writer import write_export_translations
 from new_music_builder.services.export_workshop_writer import build_workshop_txt_lines
 
 _POSTER_OVERLAY_CANONICAL_SIZE = 1024
@@ -105,6 +106,7 @@ def write_export_scaffold(
         _write_images(project, plan, targets, asset_catalog)
         write_export_scripts(project, plan, targets)
         write_export_lua(project, plan, targets)
+        write_export_translations(project, plan, targets)
         texture_result = write_export_textures(project, plan, targets)
         result.mod_size_text = _format_size_text(_directory_size_bytes(root))
         result.log_lines = _success_log_lines(root, result.mod_size_text, texture_result.written_file_count)

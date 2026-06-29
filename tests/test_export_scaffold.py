@@ -214,6 +214,8 @@ def test_write_export_scaffold_creates_expected_files(tmp_path: Path) -> None:
     assert (Path(targets.v42) / 'poster.png').exists()
     assert (Path(targets.common) / 'icon.png').exists()
     assert (Path(targets.v42) / 'icon.png').exists()
+    assert (Path(targets.common) / 'media' / 'lua' / 'shared' / 'Translate' / 'EN' / 'UI_EN.txt').exists()
+    assert (Path(targets.common) / 'media' / 'lua' / 'shared' / 'Translate' / 'EN' / 'UI.json').exists()
     assert Image.open(Path(targets.common) / 'icon.png').size == (32, 32)
     assert Image.open(Path(targets.v42) / 'icon.png').size == (32, 32)
     assert (Path(targets.common) / 'mod.info').read_text(encoding='utf-8').count('require=NewMusic') == 1
@@ -238,6 +240,35 @@ def test_write_export_scaffold_omits_require_when_parent_blank(tmp_path: Path) -
 
     assert not result.errors
     assert 'require=' not in (Path(targets.common) / 'mod.info').read_text(encoding='utf-8')
+
+
+def test_write_export_scaffold_writes_translation_resources_for_song_labels(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    row = project.media_rows[0]
+    row.media_name = 'Media Mix 1'
+    row.tracks_a = [
+        TrackEntry(source_path='C:/a1.ogg', display_label='КИНО - Пачка сигарет', duration='00:01:00'),
+        TrackEntry(source_path='C:/a2.ogg', display_label='Finale', duration='00:02:00'),
+    ]
+    catalog = AssetCatalog(ASSETS_ROOT).scan()
+    plan = build_export_plan(project, catalog)
+    targets = resolve_export_target(plan, project.workshop_output_folder, mod_name=project.mod_name, mod_id=project.mod_id)
+
+    result = write_export_scaffold(project, plan, targets, catalog)
+
+    assert not result.errors
+    translation_root = Path(targets.common) / 'media' / 'lua' / 'shared' / 'Translate' / 'EN'
+    ui_en = (translation_root / 'UI_EN.txt').read_text(encoding='utf-8')
+    ui_json = (translation_root / 'UI.json').read_text(encoding='utf-8')
+    album_text = (Path(targets.v42) / 'media' / 'lua' / 'shared' / 'MyFunMix_Album_MediaMix1.lua').read_text(encoding='utf-8')
+
+    assert 'UI_MyFunMix_MediaMix1_Song_01' in album_text
+    assert 'UI_MyFunMix_MediaMix1_Song_02' in album_text
+    assert 'КИНО - Пачка сигарет' not in album_text
+    assert 'UI_MyFunMix_MediaMix1_Song_01 = "01 КИНО - Пачка сигарет"' in ui_en
+    assert 'UI_MyFunMix_MediaMix1_Song_02 = "02 Finale"' in ui_en
+    assert '"UI_MyFunMix_MediaMix1_Song_01": "01 КИНО - Пачка сигарет"' in ui_json
+    assert '"UI_MyFunMix_MediaMix1_Song_02": "02 Finale"' in ui_json
 
 
 def test_write_export_scaffold_exports_custom_media_textures_with_expected_sizes(tmp_path: Path) -> None:
