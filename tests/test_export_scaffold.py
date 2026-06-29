@@ -324,6 +324,25 @@ def test_write_export_scaffold_emits_stable_translation_keys_across_repeated_exp
     assert first_ui_json == second_ui_json
 
 
+def test_write_export_scaffold_reports_missing_translation_payload(monkeypatch, tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    row = project.media_rows[0]
+    row.tracks_a = [_track()]
+    catalog = AssetCatalog(ASSETS_ROOT).scan()
+    plan = build_export_plan(project, catalog)
+    targets = resolve_export_target(plan, project.workshop_output_folder, mod_name=project.mod_name, mod_id=project.mod_id)
+
+    monkeypatch.setattr(
+        "new_music_builder.services.export_scaffold.write_export_translations",
+        lambda *args, **kwargs: [Path(targets.common) / "media" / "lua" / "shared" / "Translate" / "EN" / "UI_EN.txt"],
+    )
+
+    result = write_export_scaffold(project, plan, targets, catalog)
+
+    assert result.errors
+    assert "Missing generated translation resources" in result.errors[0]
+
+
 def test_write_export_scaffold_exports_custom_media_textures_with_expected_sizes(tmp_path: Path) -> None:
     project = _project(tmp_path)
     row = project.media_rows[0]

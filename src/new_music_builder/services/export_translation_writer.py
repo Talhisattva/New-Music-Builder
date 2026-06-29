@@ -11,7 +11,7 @@ def write_export_translations(
     project: ProjectConfig,
     plan: ExportPlan,
     targets: ExportTargetPaths,
-) -> None:
+) -> list[Path]:
     lua_pack = build_export_lua_plan(project, plan)
     translation_root = Path(targets.common) / "media" / "lua" / "shared" / "Translate" / "EN"
     translation_root.mkdir(parents=True, exist_ok=True)
@@ -21,8 +21,11 @@ def write_export_translations(
         for album in lua_pack.albums
         for label in album.track_labels
     ]
-    (translation_root / "UI_EN.txt").write_text(_render_ui_en(track_labels), encoding="utf-8")
-    (translation_root / "UI.json").write_text(_render_ui_json(track_labels), encoding="utf-8")
+    ui_en_path = translation_root / "UI_EN.txt"
+    ui_json_path = translation_root / "UI.json"
+    ui_en_path.write_text(_render_ui_en(track_labels), encoding="utf-8")
+    ui_json_path.write_text(_render_ui_json(track_labels), encoding="utf-8")
+    return [ui_en_path, ui_json_path]
 
 
 def _render_ui_en(track_labels: list[LuaTrackLabel]) -> str:

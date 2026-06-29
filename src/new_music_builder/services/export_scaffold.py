@@ -106,7 +106,8 @@ def write_export_scaffold(
         _write_images(project, plan, targets, asset_catalog)
         write_export_scripts(project, plan, targets)
         write_export_lua(project, plan, targets)
-        write_export_translations(project, plan, targets)
+        translation_paths = write_export_translations(project, plan, targets)
+        _validate_translation_payload(translation_paths)
         texture_result = write_export_textures(project, plan, targets)
         result.mod_size_text = _format_size_text(_directory_size_bytes(root))
         result.log_lines = _success_log_lines(root, result.mod_size_text, texture_result.written_file_count)
@@ -121,6 +122,13 @@ def _ensure_layout(root: Path, common: Path, v42: Path) -> None:
     (common / "media").mkdir(parents=True, exist_ok=True)
     (v42 / "media" / "lua" / "shared").mkdir(parents=True, exist_ok=True)
     (v42 / "media" / "scripts").mkdir(parents=True, exist_ok=True)
+
+
+def _validate_translation_payload(paths: list[Path]) -> None:
+    missing = [path for path in paths if not path.exists()]
+    if missing:
+        missing_text = ", ".join(str(path) for path in missing)
+        raise FileNotFoundError(f"Missing generated translation resources: {missing_text}")
 
 
 def _write_mod_info(project: ProjectConfig, target: Path) -> None:
