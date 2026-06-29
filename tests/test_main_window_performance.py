@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
+import tkinter as tk
 
 from new_music_builder.domain.models import ProjectConfig, TrackEntry, default_media_row
 from new_music_builder.services.project_session import ProjectSession
@@ -416,6 +418,115 @@ def test_select_module_two_media_cover_refreshes_row_cover_before_async_generati
     assert window.__dict__.get("_generated_row_id") == 1
     assert window.__dict__.get("_refreshed_module_three", False) is False
     assert window.__dict__.get("_project_changed", False) is False
+
+
+def test_safe_askopenfilename_retries_with_safer_initialdirs(monkeypatch, tmp_path) -> None:
+    window = MainWindow.__new__(MainWindow)
+    preferred_dir = tmp_path / "preferred"
+    preferred_dir.mkdir()
+    selected_path = preferred_dir / "cover.png"
+    call_args: list[tuple[str | None, bool]] = []
+
+    def _askopenfilename(**kwargs):
+        call_args.append((kwargs.get("initialdir"), "parent" in kwargs))
+        if len(call_args) == 1:
+            raise tk.TclError("Nieokreslony blad.")
+        return str(selected_path)
+
+    monkeypatch.setattr("new_music_builder.ui.main_window.fd.askopenfilename", _askopenfilename)
+    monkeypatch.setattr("new_music_builder.ui.main_window.messagebox.showerror", lambda *args, **kwargs: None)
+
+    selected = MainWindow._safe_askopenfilename(
+        window,
+        title="Select Image",
+        filetypes=[("Images", "*.png")],
+        preferred_initialdir=str(preferred_dir),
+    )
+
+    assert selected == str(selected_path)
+    assert call_args[0] == (str(preferred_dir), True)
+    assert call_args[1] == (str(Path.home()), True)
+
+
+def test_safe_askopenfilename_shows_friendly_error_when_all_retries_fail(monkeypatch, tmp_path) -> None:
+    window = MainWindow.__new__(MainWindow)
+    preferred_dir = tmp_path / "preferred"
+    preferred_dir.mkdir()
+    call_args: list[tuple[str | None, bool]] = []
+    error_messages: list[tuple[str, str]] = []
+
+    def _askopenfilename(**kwargs):
+        call_args.append((kwargs.get("initialdir"), "parent" in kwargs))
+        raise tk.TclError("Nieokreslony blad.")
+
+    monkeypatch.setattr("new_music_builder.ui.main_window.fd.askopenfilename", _askopenfilename)
+    monkeypatch.setattr(
+        "new_music_builder.ui.main_window.messagebox.showerror",
+        lambda title, message, **kwargs: error_messages.append((title, message)),
+    )
+
+    selected = MainWindow._safe_askopenfilename(
+        window,
+        title="Select Image",
+        filetypes=[("Images", "*.png")],
+        preferred_initialdir=str(preferred_dir),
+    )
+
+    assert selected == ""
+    assert call_args == [
+        (str(preferred_dir), True),
+        (str(Path.home()), True),
+        (None, True),
+        (None, False),
+    ]
+    assert error_messages
+    assert error_messages[0][0] == "Open File Dialog Failed"
+    assert "Could not open the file browser." in error_messages[0][1]
+
+
+def test_select_module_two_media_cover_recovers_after_initial_dialog_failure(monkeypatch, tmp_path) -> None:
+    row = default_media_row(1)
+    session = ProjectSession(project=ProjectConfig(media_rows=[row]))
+    row_widget = _FakeRowWidget(True, row_id=1)
+    window = MainWindow.__new__(MainWindow)
+    window.session = session
+    preferred_dir = tmp_path / "art"
+    preferred_dir.mkdir()
+    selected_cover = preferred_dir / "new-cover.png"
+    window.dialog_folder_memory = type("DialogFolderMemory", (), {"song_folder": "", "image_folder": str(preferred_dir)})()
+    session_saves: list[tuple[str, str]] = []
+    window._save_session_snapshot = lambda: session_saves.append(
+        (window.dialog_folder_memory.song_folder, window.dialog_folder_memory.image_folder)
+    )
+    window.module_two_row_list = type("RowList", (), {"row_widgets": [row_widget]})()
+    window._is_build_locked = lambda: False
+    window._image_filetypes = lambda: [("Images", "*.png")]
+    window._repair_active_generated_appearance_selections = lambda: []
+    window._refresh_module_two_live_preview_for_row = lambda _row_id: None
+    window._automatic_textures_enabled = lambda: True
+    window._generate_module_three_from_cover = lambda row_id: setattr(window, "_generated_row_id", row_id)
+    window._refresh_module_three_appearance_selector = lambda: setattr(window, "_refreshed_module_three", True)
+    window.on_project_change = lambda: setattr(window, "_project_changed", True)
+
+    dialog_calls: list[tuple[str | None, bool]] = []
+
+    def _askopenfilename(**kwargs):
+        dialog_calls.append((kwargs.get("initialdir"), "parent" in kwargs))
+        if len(dialog_calls) == 1:
+            raise tk.TclError("Nieokreslony blad.")
+        return str(selected_cover)
+
+    monkeypatch.setattr("new_music_builder.ui.main_window.fd.askopenfilename", _askopenfilename)
+    monkeypatch.setattr("new_music_builder.ui.main_window.messagebox.showerror", lambda *args, **kwargs: None)
+
+    MainWindow._select_module_two_media_cover(window, 1)
+
+    assert row.cover_path == str(selected_cover)
+    assert row_widget.refreshed_covers == [str(selected_cover)]
+    assert session_saves == [("", str(preferred_dir))]
+    assert window.__dict__.get("_generated_row_id") == 1
+    assert dialog_calls[0] == (str(preferred_dir), True)
+    assert dialog_calls[1] == (str(Path.home()), True)
 
 
 def test_drop_module_two_media_cover_files_triggers_automatic_textures(monkeypatch, tmp_path) -> None:

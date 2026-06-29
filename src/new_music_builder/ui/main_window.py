@@ -4,6 +4,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
 import logging
+import os
 from pathlib import Path
 import queue
 import sys
@@ -1481,6 +1482,74 @@ class MainWindow(_DnDCompat, ctk.CTk):
             current_path=current_path,
         )
 
+    def _normalized_existing_dialog_dir(self, value: str | Path | None) -> str | None:
+        if value is None:
+            return None
+        raw = str(value).strip()
+        if not raw:
+            return None
+        try:
+            normalized = os.path.abspath(os.fsdecode(raw))
+        except (TypeError, ValueError, OSError):
+            return None
+        try:
+            candidate = Path(normalized)
+        except (TypeError, ValueError, OSError):
+            return None
+        if candidate.exists() and candidate.is_dir():
+            return str(candidate)
+        return None
+
+    def _safe_askopenfilename(
+        self,
+        *,
+        title: str,
+        filetypes: list[tuple[str, str]],
+        preferred_initialdir: str | Path | None = None,
+    ) -> str:
+        attempts: list[dict[str, object]] = []
+        seen_signatures: set[tuple[object, object]] = set()
+
+        def add_attempt(initialdir: str | None, parent: tk.Misc | None) -> None:
+            signature = (initialdir, parent is not None)
+            if signature in seen_signatures:
+                return
+            seen_signatures.add(signature)
+            options: dict[str, object] = {
+                'title': title,
+                'filetypes': filetypes,
+            }
+            if initialdir is not None:
+                options['initialdir'] = initialdir
+            if parent is not None:
+                options['parent'] = parent
+            attempts.append(options)
+
+        normalized_preferred = self._normalized_existing_dialog_dir(preferred_initialdir)
+        normalized_home = self._normalized_existing_dialog_dir(Path.home())
+
+        add_attempt(normalized_preferred, self)
+        add_attempt(normalized_home, self)
+        add_attempt(None, self)
+        add_attempt(None, None)
+
+        last_error: tk.TclError | None = None
+        for options in attempts:
+            try:
+                return str(fd.askopenfilename(**options))
+            except tk.TclError as exc:
+                last_error = exc
+
+        detail = str(last_error) if last_error is not None else 'Unknown error.'
+        messagebox.showerror(
+            'Open File Dialog Failed',
+            'Could not open the file browser.\n\n'
+            'Please try again, or move the target file/folder to a simpler path if the problem persists.\n\n'
+            f'Details: {detail}',
+            parent=self,
+        )
+        return ''
+
     def _module_three_staged_custom_for_kind(self, kind: AppearanceKind) -> dict[str, str]:
         return self.module_three_staged_custom_images.setdefault(kind, {})
 
@@ -1753,11 +1822,10 @@ class MainWindow(_DnDCompat, ctk.CTk):
                 initial_path = selection.inventory_empty
             else:
                 initial_path = selection.world_empty
-        selected = fd.askopenfilename(
+        selected = self._safe_askopenfilename(
             title=f"Select {slot.replace('_', ' ').title()} Texture",
             filetypes=self._image_filetypes(),
-            initialdir=self._initial_image_dir(initial_path),
-            parent=self,
+            preferred_initialdir=self._initial_image_dir(initial_path),
         )
         if not selected:
             return
@@ -1965,11 +2033,10 @@ class MainWindow(_DnDCompat, ctk.CTk):
     def _select_workshop_poster_image(self) -> None:
         if self._is_build_locked():
             return
-        selected = fd.askopenfilename(
+        selected = self._safe_askopenfilename(
             title='Select Workshop Poster Image',
             filetypes=self._image_filetypes(),
-            initialdir=self._initial_image_dir(self.session.project.workshop_poster_path),
-            parent=self,
+            preferred_initialdir=self._initial_image_dir(self.session.project.workshop_poster_path),
         )
         if not selected:
             return
@@ -1988,11 +2055,10 @@ class MainWindow(_DnDCompat, ctk.CTk):
         target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
         if target_row is None:
             return
-        selected = fd.askopenfilename(
+        selected = self._safe_askopenfilename(
             title=f'Select Cover Image For Media Row {row_id}',
             filetypes=self._image_filetypes(),
-            initialdir=self._initial_image_dir(target_row.cover_path),
-            parent=self,
+            preferred_initialdir=self._initial_image_dir(target_row.cover_path),
         )
         if not selected:
             return
