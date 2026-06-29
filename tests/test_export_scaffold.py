@@ -326,6 +326,66 @@ def test_write_export_scaffold_localizes_item_display_names_for_all_supported_lo
         assert '"伟大的2 (Cassette)"' in item_name_json
 
 
+def test_write_export_scaffold_keeps_translation_keys_and_payloads_in_sync_for_workshop_failure_shape(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    first = project.media_rows[0]
+    first.media_name = 'Punk Hits'
+    first.tracks_a = [
+        TrackEntry(source_path='C:/a1.ogg', display_label='Black Flag - Black Coffee', duration='00:01:00'),
+        TrackEntry(source_path='C:/a2.ogg', display_label='dead kennedys - nazi punks fuck off', duration='00:02:00'),
+    ]
+    first.tracks_b = [
+        TrackEntry(source_path='C:/b1.ogg', display_label='Joy Division - Disorder', duration='00:03:00'),
+    ]
+    catalog = AssetCatalog(ASSETS_ROOT).scan()
+    plan = build_export_plan(project, catalog)
+    targets = resolve_export_target(plan, project.workshop_output_folder, mod_name=project.mod_name, mod_id=project.mod_id)
+
+    result = write_export_scaffold(project, plan, targets, catalog)
+
+    assert not result.errors
+    translation_root = Path(targets.common) / 'media' / 'lua' / 'shared' / 'Translate'
+    album_text = (Path(targets.v42) / 'media' / 'lua' / 'shared' / 'MyFunMix_Album_PunkHits.lua').read_text(encoding='utf-8')
+    ui_en = (translation_root / 'EN' / 'UI_EN.txt').read_text(encoding='utf-8')
+
+    assert '"UI_MyFunMix_PunkHits_Song_01"' in album_text
+    assert '"UI_MyFunMix_PunkHits_Song_02"' in album_text
+    assert 'UI_MyFunMix_PunkHits_Song_01 = "01 Black Flag - Black Coffee"' in ui_en
+    assert 'UI_MyFunMix_PunkHits_Song_02 = "02 dead kennedys - nazi punks fuck off"' in ui_en
+
+
+def test_write_export_scaffold_uses_ascii_safe_sound_paths_for_punctuation_heavy_titles(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    row = project.media_rows[0]
+    row.media_name = 'Rock, Pop & Rap Hits Vol 1'
+    row.tracks_a = [
+        TrackEntry(
+            source_path='C:/a1.ogg',
+            display_label='Beastie Boys - (You Gotta) Fight For Your Right (To Party)',
+            duration='00:01:00',
+        ),
+        TrackEntry(
+            source_path='C:/a2.ogg',
+            display_label='Tag Team - Whoomp. There it is.',
+            duration='00:02:00',
+        ),
+    ]
+    catalog = AssetCatalog(ASSETS_ROOT).scan()
+    plan = build_export_plan(project, catalog)
+    targets = resolve_export_target(plan, project.workshop_output_folder, mod_name=project.mod_name, mod_id=project.mod_id)
+
+    result = write_export_scaffold(project, plan, targets, catalog)
+
+    assert not result.errors
+    sounds_text = (Path(targets.v42) / 'media' / 'scripts' / 'NMB_MyFunMix_Sounds.txt').read_text(encoding='utf-8')
+    sound_lines = [line.strip() for line in sounds_text.splitlines() if 'clip { file =' in line]
+
+    assert any('file = media/sound/MyFunMix/RockPopRapHitsVol1/A-Side/01 RockPopRapHitsVol1SideA1' in line for line in sound_lines)
+    assert any('file = media/sound/MyFunMix/RockPopRapHitsVol1/A-Side/02 RockPopRapHitsVol1SideA2TagTeamWhoompThereitis.ogg' in line for line in sound_lines)
+    assert '(You Gotta)' not in sounds_text
+    assert 'Whoomp. There it is.' not in sounds_text
+
+
 def test_write_export_scaffold_uses_album_scoped_translation_keys_for_multiple_rows(tmp_path: Path) -> None:
     project = _project(tmp_path)
     first = project.media_rows[0]
