@@ -15,6 +15,7 @@ from new_music_builder.services.export_scaffold import (
     validate_export_request,
     write_export_scaffold,
 )
+from new_music_builder.services.export_translation_writer import SUPPORTED_TRANSLATION_LOCALES
 
 
 ASSETS_ROOT = Path(__file__).resolve().parents[1] / 'assets'
@@ -216,6 +217,8 @@ def test_write_export_scaffold_creates_expected_files(tmp_path: Path) -> None:
     assert (Path(targets.v42) / 'icon.png').exists()
     assert (Path(targets.common) / 'media' / 'lua' / 'shared' / 'Translate' / 'EN' / 'UI_EN.txt').exists()
     assert (Path(targets.common) / 'media' / 'lua' / 'shared' / 'Translate' / 'EN' / 'UI.json').exists()
+    assert (Path(targets.common) / 'media' / 'lua' / 'shared' / 'Translate' / 'CN' / 'UI_CN.txt').exists()
+    assert (Path(targets.common) / 'media' / 'lua' / 'shared' / 'Translate' / 'RU' / 'UI_RU.txt').exists()
     assert Image.open(Path(targets.common) / 'icon.png').size == (32, 32)
     assert Image.open(Path(targets.v42) / 'icon.png').size == (32, 32)
     assert (Path(targets.common) / 'mod.info').read_text(encoding='utf-8').count('require=NewMusic') == 1
@@ -269,6 +272,29 @@ def test_write_export_scaffold_writes_translation_resources_for_song_labels(tmp_
     assert 'UI_MyFunMix_MediaMix1_Song_02 = "02 Finale"' in ui_en
     assert '"UI_MyFunMix_MediaMix1_Song_01": "01 КИНО - Пачка сигарет"' in ui_json
     assert '"UI_MyFunMix_MediaMix1_Song_02": "02 Finale"' in ui_json
+
+
+def test_write_export_scaffold_writes_song_label_translations_for_all_supported_locales(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    row = project.media_rows[0]
+    row.media_name = 'Media Mix 1'
+    row.tracks_a = [
+        TrackEntry(source_path='C:/a1.ogg', display_label='伟大的2', duration='00:01:00'),
+    ]
+    catalog = AssetCatalog(ASSETS_ROOT).scan()
+    plan = build_export_plan(project, catalog)
+    targets = resolve_export_target(plan, project.workshop_output_folder, mod_name=project.mod_name, mod_id=project.mod_id)
+
+    result = write_export_scaffold(project, plan, targets, catalog)
+
+    assert not result.errors
+    translation_root = Path(targets.common) / 'media' / 'lua' / 'shared' / 'Translate'
+
+    for locale in SUPPORTED_TRANSLATION_LOCALES:
+        ui_text = (translation_root / locale / f'UI_{locale}.txt').read_text(encoding='utf-8')
+        ui_json = (translation_root / locale / 'UI.json').read_text(encoding='utf-8')
+        assert 'UI_MyFunMix_MediaMix1_Song_01 = "01 伟大的2"' in ui_text
+        assert '"UI_MyFunMix_MediaMix1_Song_01": "01 伟大的2"' in ui_json
 
 
 def test_write_export_scaffold_uses_album_scoped_translation_keys_for_multiple_rows(tmp_path: Path) -> None:
