@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from new_music_builder.domain.models import MediaRow, ProjectConfig, SongSortColumn, SongSortState, TrackEntry, default_media_row, next_row_id
+from new_music_builder.domain.models import ProjectConfig, SongSortColumn, SongSortState, TrackEntry, default_media_row, next_row_id
 from new_music_builder.services.default_appearance_selection import apply_preferred_row_defaults
 from new_music_builder.services.track_import import build_track_entry, filter_supported_audio_paths
 
@@ -37,7 +37,6 @@ class ProjectSession:
 
     def remove_media_rows(self, row_ids: set[int]) -> None:
         self.project.media_rows = [row for row in self.project.media_rows if row.row_id not in row_ids]
-        self._renumber_media_rows()
 
     def move_media_rows(self, selected_row_ids: set[int], target_index: int) -> list[int]:
         rows = list(self.project.media_rows)
@@ -190,25 +189,3 @@ class ProjectSession:
         for part in parts:
             total = (total * 60) + int(part)
         return total
-
-    def _renumber_media_rows(self) -> None:
-        for index, row in enumerate(self.project.media_rows, start=1):
-            generated_names = {
-                f'Media Row {row.row_id}',
-                f'Media Mix {row.row_id}',
-            }
-            media_name = f'Media Mix {index}' if row.media_name in generated_names else row.media_name
-            self.project.media_rows[index - 1] = MediaRow(
-                row_id=index,
-                media_name=media_name,
-                selected_side=row.selected_side,
-                preview_mode=row.preview_mode,
-                enabled_media=dict(row.enabled_media),
-                cover_path=row.cover_path,
-                tracks_a=list(row.tracks_a),
-                tracks_b=list(row.tracks_b),
-                song_sort_a=SongSortState(column=row.song_sort_a.column, direction=row.song_sort_a.direction),
-                song_sort_b=SongSortState(column=row.song_sort_b.column, direction=row.song_sort_b.direction),
-                appearances=dict(row.appearances),
-                expanded=row.expanded,
-            )

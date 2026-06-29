@@ -106,7 +106,7 @@ def test_add_module_two_media_row_uses_incremental_row_list() -> None:
     assert getattr(window, "_project_changed", False) is True
 
 
-def test_remove_module_two_media_row_set_remaps_selection_and_updates_remaining_rows() -> None:
+def test_remove_module_two_media_row_set_prunes_selection_and_updates_remaining_rows() -> None:
     rows = [default_media_row(1), default_media_row(2), default_media_row(3)]
     session = ProjectSession(project=ProjectConfig(media_rows=rows))
     window = MainWindow.__new__(MainWindow)
@@ -126,14 +126,14 @@ def test_remove_module_two_media_row_set_remaps_selection_and_updates_remaining_
 
     MainWindow._remove_module_two_media_row_set(window, {1})
 
-    assert [row.row_id for row in window.session.project.media_rows] == [1, 2]
-    assert window.module_two_selected_row_ids == {1, 2}
-    assert window.module_two_selection_anchor_row_id == 2
-    assert window.module_two_song_selected_indices == {(1, "A"): {0}, (2, "B"): {1}}
-    assert window.module_two_song_selection_anchor_indices == {(1, "A"): 0, (2, "B"): 1}
+    assert [row.row_id for row in window.session.project.media_rows] == [2, 3]
+    assert window.module_two_selected_row_ids == {2, 3}
+    assert window.module_two_selection_anchor_row_id == 3
+    assert window.module_two_song_selected_indices == {(2, "A"): {0}, (3, "B"): {1}}
+    assert window.module_two_song_selection_anchor_indices == {(2, "A"): 0, (3, "B"): 1}
     assert window.module_two_row_list.removed_row_ids == [{1}]
-    assert window.module_two_row_list.remove_rows_payloads == [[1, 2]]
-    assert window.module_two_row_list.selection_states == [{1, 2}]
+    assert window.module_two_row_list.remove_rows_payloads == [[2, 3]]
+    assert window.module_two_row_list.selection_states == [{2, 3}]
     assert window.module_two_content_viewport.moved_to == [0.25]
     assert getattr(window, "_refreshed_module_three", False) is True
     assert getattr(window, "_project_changed", False) is True

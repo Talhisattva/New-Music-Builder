@@ -2195,23 +2195,22 @@ class MainWindow(_DnDCompat, ctk.CTk):
             if row.row_id not in target_row_ids
         ]
         self.session.remove_media_rows(target_row_ids)
-        surviving_new_row_ids = [row.row_id for row in self.session.project.media_rows]
-        row_id_map = dict(zip(surviving_old_row_ids, surviving_new_row_ids))
         self.module_two_selected_row_ids = {
-            row_id_map[row_id]
+            row_id
             for row_id in self.module_two_selected_row_ids
-            if row_id in row_id_map
+            if row_id in surviving_old_row_ids
         }
-        self.module_two_selection_anchor_row_id = row_id_map.get(self.module_two_selection_anchor_row_id)
+        if self.module_two_selection_anchor_row_id not in surviving_old_row_ids:
+            self.module_two_selection_anchor_row_id = None
         self.module_two_song_selected_indices = {
-            (row_id_map[key[0]], key[1]): value
+            key: value
             for key, value in self.module_two_song_selected_indices.items()
-            if key[0] in row_id_map
+            if key[0] in surviving_old_row_ids
         }
         self.module_two_song_selection_anchor_indices = {
-            (row_id_map[key[0]], key[1]): value
+            key: value
             for key, value in self.module_two_song_selection_anchor_indices.items()
-            if key[0] in row_id_map
+            if key[0] in surviving_old_row_ids
         }
         self.module_two_row_list.remove_rows(target_row_ids, rows=self.session.project.media_rows)
         self.module_two_row_list.set_selection_state(self.module_two_selected_row_ids)
