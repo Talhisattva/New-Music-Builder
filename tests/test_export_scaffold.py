@@ -271,6 +271,59 @@ def test_write_export_scaffold_writes_translation_resources_for_song_labels(tmp_
     assert '"UI_MyFunMix_MediaMix1_Song_02": "02 Finale"' in ui_json
 
 
+def test_write_export_scaffold_uses_album_scoped_translation_keys_for_multiple_rows(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    first = project.media_rows[0]
+    first.media_name = 'Album One'
+    first.tracks_a = [TrackEntry(source_path='C:/a1.ogg', display_label='Song A', duration='00:01:00')]
+    second = default_media_row(2)
+    second.media_name = 'Album Two'
+    second.tracks_a = [TrackEntry(source_path='C:/b1.ogg', display_label='Песня Б', duration='00:02:00')]
+    project.media_rows = [first, second]
+    catalog = AssetCatalog(ASSETS_ROOT).scan()
+    plan = build_export_plan(project, catalog)
+    targets = resolve_export_target(plan, project.workshop_output_folder, mod_name=project.mod_name, mod_id=project.mod_id)
+
+    result = write_export_scaffold(project, plan, targets, catalog)
+
+    assert not result.errors
+    translation_root = Path(targets.common) / 'media' / 'lua' / 'shared' / 'Translate' / 'EN'
+    ui_en = (translation_root / 'UI_EN.txt').read_text(encoding='utf-8')
+    album_one_text = (Path(targets.v42) / 'media' / 'lua' / 'shared' / 'MyFunMix_Album_AlbumOne.lua').read_text(encoding='utf-8')
+    album_two_text = (Path(targets.v42) / 'media' / 'lua' / 'shared' / 'MyFunMix_Album_AlbumTwo.lua').read_text(encoding='utf-8')
+
+    assert '"UI_MyFunMix_AlbumOne_Song_01"' in album_one_text
+    assert '"UI_MyFunMix_AlbumTwo_Song_01"' in album_two_text
+    assert 'UI_MyFunMix_AlbumOne_Song_01 = "01 Song A"' in ui_en
+    assert 'UI_MyFunMix_AlbumTwo_Song_01 = "01 Песня Б"' in ui_en
+
+
+def test_write_export_scaffold_emits_stable_translation_keys_across_repeated_exports(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    row = project.media_rows[0]
+    row.media_name = 'Media Mix 1'
+    row.tracks_a = [
+        TrackEntry(source_path='C:/a1.ogg', display_label='Alpha', duration='00:01:00'),
+        TrackEntry(source_path='C:/a2.ogg', display_label='Beta', duration='00:02:00'),
+    ]
+    catalog = AssetCatalog(ASSETS_ROOT).scan()
+    plan = build_export_plan(project, catalog)
+    targets = resolve_export_target(plan, project.workshop_output_folder, mod_name=project.mod_name, mod_id=project.mod_id)
+
+    first_result = write_export_scaffold(project, plan, targets, catalog)
+    assert not first_result.errors
+    first_album_text = (Path(targets.v42) / 'media' / 'lua' / 'shared' / 'MyFunMix_Album_MediaMix1.lua').read_text(encoding='utf-8')
+    first_ui_json = (Path(targets.common) / 'media' / 'lua' / 'shared' / 'Translate' / 'EN' / 'UI.json').read_text(encoding='utf-8')
+
+    second_result = write_export_scaffold(project, plan, targets, catalog)
+    assert not second_result.errors
+    second_album_text = (Path(targets.v42) / 'media' / 'lua' / 'shared' / 'MyFunMix_Album_MediaMix1.lua').read_text(encoding='utf-8')
+    second_ui_json = (Path(targets.common) / 'media' / 'lua' / 'shared' / 'Translate' / 'EN' / 'UI.json').read_text(encoding='utf-8')
+
+    assert first_album_text == second_album_text
+    assert first_ui_json == second_ui_json
+
+
 def test_write_export_scaffold_exports_custom_media_textures_with_expected_sizes(tmp_path: Path) -> None:
     project = _project(tmp_path)
     row = project.media_rows[0]
