@@ -52,8 +52,8 @@ def build_export_plan(project: ProjectConfig, asset_catalog: dict[str, list[Asse
     for row in project.media_rows:
         row.ensure_appearances()
         sides: list[PlannedSide] = []
-        row_folder_name = build_audio_row_folder_name(row.media_name, row.row_id)
         row_export_id = unique_export_id(row.media_name, used_row_ids, fallback=f"MediaRow{row.row_id}")
+        row_folder_name = build_audio_row_folder_name(row.media_name, row.row_id, export_id=row_export_id)
         for side_name, tracks in (("A", row.tracks_a), ("B", row.tracks_b)):
             if not tracks:
                 continue
@@ -72,6 +72,7 @@ def build_export_plan(project: ProjectConfig, asset_catalog: dict[str, list[Asse
                         _build_planned_track(
                             row_id=row.row_id,
                             media_name=row.media_name,
+                            row_export_id=row_export_id,
                             side_name=side_name,
                             track=track,
                             track_number=index,
@@ -130,6 +131,7 @@ def _build_planned_track(
     *,
     row_id: int,
     media_name: str,
+    row_export_id: str,
     side_name: str,
     track: TrackEntry,
     track_number: int,
@@ -150,13 +152,15 @@ def _build_planned_track(
         duration_text=str(track.duration or ""),
         duration_seconds=_seconds_from_duration_text(str(track.duration or "")),
         needs_conversion=Path(source_path).suffix.lower() != ".ogg",
-        export_file_name=build_audio_track_file_name(display_label, track_number),
+        export_file_name=build_audio_track_file_name(display_label, track_number, track_id=track_id),
         export_relative_path=build_audio_track_relative_path(
             media_name=media_name,
             row_id=row_id,
             side=side_name,
             display_label=display_label,
             track_number=track_number,
+            export_id=row_export_id,
+            track_id=track_id,
         ),
         track_id=track_id,
         sound_id=track_id,

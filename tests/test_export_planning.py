@@ -172,3 +172,27 @@ def test_preview_scenario_respects_enabled_media_filtering() -> None:
 def test_audio_export_naming_removes_commas_from_sound_script_paths() -> None:
     assert build_audio_row_folder_name('Dark Side, Textures', row_id=1) == 'Dark Side Textures'
     assert build_audio_track_file_name('Unlike Pluto - Revenge, And A Little More', track_number=4) == '04 Unlike Pluto - Revenge And A Little More.ogg'
+
+
+def test_audio_export_naming_prefers_ascii_safe_export_identity_when_provided() -> None:
+    assert build_audio_row_folder_name('伟大的2', row_id=1, export_id='MediaRow1_ABC123') == 'MediaRow1_ABC123'
+    assert build_audio_track_file_name('伟大的2', track_number=1, track_id='MediaRow1SideA1_ABC123') == '01 MediaRow1SideA1_ABC123.ogg'
+
+
+def test_export_plan_uses_stable_ascii_safe_audio_paths_for_non_ascii_labels() -> None:
+    catalog = AssetCatalog(ASSETS_ROOT).scan()
+    row = default_media_row(1)
+    row.media_name = '伟大的2'
+    row.tracks_a = [_track('C:/music/track-a.ogg', 'КИНО - Пачка сигарет', '00:03:00')]
+    project = ProjectConfig(media_rows=[row])
+
+    plan = build_export_plan(project, catalog)
+    row_plan = plan.rows[0]
+    track = plan.sides[0].tracks[0]
+    normalized_row_export_id = row_plan.export_id.replace('_', '')
+
+    assert row_plan.export_id.startswith('2_')
+    assert '伟' not in row_plan.export_id
+    assert track.track_id.startswith(f'{normalized_row_export_id}SideA1')
+    assert 'КИНО' not in track.track_id
+    assert track.export_relative_path.replace('\\', '/') == f'{row_plan.export_id}/A-Side/01 {track.track_id}.ogg'
