@@ -263,6 +263,36 @@ def test_case_inventory_transform_rotates_source_counterclockwise_before_shear(t
     assert ImageChops.difference(transformed, expected).getbbox() is None
 
 
+def test_case_inventory_transform_prefers_small_downward_shift_when_coverage_allows(tmp_path: Path) -> None:
+    cover_path = tmp_path / "cover.png"
+    Image.new("RGBA", (540, 540), (255, 0, 0, 255)).save(cover_path)
+
+    with Image.open(ASSETS_ROOT / "Mask" / "Inventory" / "CassetteCase" / "Item_NM_Case_Mask.png") as mask_source:
+        mask_alpha = _alpha_mask(mask_source.convert("RGBA"))
+
+    baseline = _build_inventory_sheared_cover(
+        source_path=cover_path,
+        mask_size=mask_alpha.size,
+        mask_alpha=mask_alpha,
+        preset=CASE_INVENTORY_PRESET,
+        rotate_quarter_turns=1,
+    )
+    shifted = _build_case_inventory_masked_cover(
+        source_path=cover_path,
+        mask_size=mask_alpha.size,
+        mask_alpha=mask_alpha,
+    )
+
+    assert _mask_region_is_fully_covered(
+        shifted,
+        mask_alpha,
+        alpha_threshold=CASE_INVENTORY_PRESET.coverage_alpha_threshold,
+    ) is True
+    assert shifted.getchannel("A").getbbox() is not None
+    assert baseline.getchannel("A").getbbox() is not None
+    assert shifted.getchannel("A").getbbox()[1] >= baseline.getchannel("A").getbbox()[1]
+
+
 def test_jacket_inventory_transform_covers_mask_region(tmp_path: Path) -> None:
     cover_path = tmp_path / "cover.png"
     Image.new("RGBA", (540, 540), (255, 0, 0, 255)).save(cover_path)

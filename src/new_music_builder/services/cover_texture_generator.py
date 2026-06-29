@@ -693,6 +693,12 @@ def _build_case_inventory_masked_cover(
         preset=CASE_INVENTORY_PRESET,
         rotate_quarter_turns=1,
     )
+    transformed = _apply_preferred_canvas_shift(
+        transformed,
+        mask_alpha=mask_alpha,
+        preferred_dy=2,
+        alpha_threshold=CASE_INVENTORY_PRESET.coverage_alpha_threshold,
+    )
     return _apply_mask_alpha(transformed, mask_alpha)
 
 
