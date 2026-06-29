@@ -5,6 +5,7 @@ from new_music_builder.domain.models import (
     LuaAlbumMediaItems,
     LuaAlbumMediaRegistration,
     LuaAlbumRegistration,
+    LuaTrackLabel,
     LuaCoverGroup,
     LuaPackRegistration,
     MediaKind,
@@ -42,7 +43,10 @@ def _build_lua_album(module_id: str, album: RegisteredAlbum, row: PlannedMediaRo
         table_name=f"NM{module_id}Album_{album.album_id}",
         require_name=f"{module_id}_Album_{album.album_id}",
         track_labels=[
-            f"{track.sequence_number:02d} {track.display_label}"
+            LuaTrackLabel(
+                key=f"UI_{module_id}_{album.album_id}_Song_{track.sequence_number:02d}",
+                text=f"{track.sequence_number:02d} {track.display_label}",
+            )
             for side in album.sides
             for track in side.tracks
         ],

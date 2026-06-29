@@ -63,7 +63,7 @@ def _render_album(album: LuaAlbumRegistration) -> str:
         f'        soundPrefix = "{_escape(album.sound_prefix)}",',
         "        labels = {",
     ]
-    lines.extend(f'            "{_escape(label)}",' for label in album.track_labels)
+    lines.extend(f'            "{_escape(label.key)}",' for label in album.track_labels)
     lines.extend(
         [
             "        },",

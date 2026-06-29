@@ -82,8 +82,10 @@ def test_write_export_scaffold_generates_script_files_for_registered_media(tmp_p
 
     assert 'NMRoadTripMixAlbum_RoadTripVol1 = {' in album_text
     assert 'soundPrefix = "RoadTripMixRoadTripVol1"' in album_text
-    assert '"01 Intro"' in album_text
-    assert '"02 Finale"' in album_text
+    assert '"UI_RoadTripMix_RoadTripVol1_Song_01"' in album_text
+    assert '"UI_RoadTripMix_RoadTripVol1_Song_02"' in album_text
+    assert '"01 Intro"' not in album_text
+    assert '"02 Finale"' not in album_text
     assert 'cassette = {' in album_text
     assert 'mode = "split"' in album_text
     assert 'a = "RoadTripVol1CassetteA"' in album_text
@@ -153,6 +155,10 @@ def test_write_export_scaffold_generates_full_mode_lua_and_custom_texture_refs(t
     assert 'mode = "full"' in album_text
     assert 'full = "NightDriveCassette"' in album_text
     assert 'full = "NightDriveVinyl"' in album_text
+    assert '"UI_NightDrive_NightDrive_Song_01"' in album_text
+    assert '"UI_NightDrive_NightDrive_Song_02"' in album_text
+    assert '"01 One More Song"' not in album_text
+    assert '"02 Two More Song"' not in album_text
     assert "ranges = {" not in album_text
     assert 'cd = {' not in album_text
     assert 'texture = "WorldItems/Vinyl/World_NM_Cover_NightDrive_NightDrive"' in album_text
