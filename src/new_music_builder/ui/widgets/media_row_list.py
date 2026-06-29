@@ -189,6 +189,7 @@ class MediaRowShell(tk.Frame):
         self._on_song_drag_started = on_song_drag_started
         self._on_song_drag_moved = on_song_drag_moved
         self._on_song_drag_finished = on_song_drag_finished
+        self._on_song_drop = on_song_drop
         self._on_row_drag_started = on_row_drag_started
         self._on_row_drag_moved = on_row_drag_moved
         self._on_row_drag_finished = on_row_drag_finished
