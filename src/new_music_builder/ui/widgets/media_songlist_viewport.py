@@ -266,3 +266,7 @@ class MediaSonglistViewport(tk.Frame):
 
     def _on_destroy(self, _event: tk.Event) -> None:
         self.cancel_drag()
+
+    def set_row(self, row: MediaRow) -> None:
+        self._row = row
+        self.refresh_content()

@@ -23,7 +23,7 @@ class MediaTypeStrip(tk.Frame):
         check_icon_path: str | None,
         bg_color: str | None = None,
         resolve_media_strip_path: Callable[[MediaRow, MediaKind, PreviewMode], str | None] | None = None,
-        on_enabled_media_changed: Callable[[int, MediaKind, bool], None] | None = None,
+        on_enabled_media_changed: Callable[[MediaKind, bool], None] | None = None,
     ) -> None:
         resolved_bg = bg_color if bg_color is not None else parent.cget('bg')
         size = spec.MEDIA_ROW_MEDIA_STRIP_EXPANDED_SIZE if expanded else spec.MEDIA_ROW_MEDIA_STRIP_COLLAPSED_SIZE
@@ -93,7 +93,7 @@ class MediaTypeStrip(tk.Frame):
 
     def _on_checkbox_toggled(self, kind: MediaKind, checked: bool) -> None:
         if self._on_enabled_media_changed is not None:
-            self._on_enabled_media_changed(self._row.row_id, kind, checked)
+            self._on_enabled_media_changed(kind, checked)
 
     def set_bg_color(self, bg_color: str) -> None:
         self._bg_color = bg_color
@@ -143,3 +143,9 @@ class MediaTypeStrip(tk.Frame):
         if not self._expanded or kind not in self.checkboxes:
             return ()
         return (self.checkboxes[kind],)
+
+    def set_row(self, row: MediaRow) -> None:
+        self._row = row
+        for kind, checkbox in self.checkboxes.items():
+            checkbox.set_checked(row.enabled_media[kind])
+        self.refresh_content()

@@ -171,7 +171,24 @@ class MediaRowShell(tk.Frame):
         self._selected_count = selected_count
         self._automatic_textures_enabled_getter = automatic_textures_enabled_getter
         self._hovered = False
+        self._on_select = on_select
         self._on_background_selected = on_background_selected
+        self._on_enabled_media_changed = on_enabled_media_changed
+        self._on_name_committed = on_name_committed
+        self._on_side_selected = on_side_selected
+        self._on_preview_mode_selected = on_preview_mode_selected
+        self._on_cover_selected = on_cover_selected
+        self._can_accept_cover_drop = can_accept_cover_drop
+        self._on_cover_drop = on_cover_drop
+        self._on_remove_row = on_remove_row
+        self._on_add_song = on_add_song
+        self._on_remove_song = on_remove_song
+        self._on_song_selected = on_song_selected
+        self._on_song_remove_requested = on_song_remove_requested
+        self._on_song_sort_requested = on_song_sort_requested
+        self._on_song_drag_started = on_song_drag_started
+        self._on_song_drag_moved = on_song_drag_moved
+        self._on_song_drag_finished = on_song_drag_finished
         self._on_row_drag_started = on_row_drag_started
         self._on_row_drag_moved = on_row_drag_moved
         self._on_row_drag_finished = on_row_drag_finished
@@ -205,10 +222,10 @@ class MediaRowShell(tk.Frame):
             self.expanded_container,
             folder_icon_path=folder_icon_path,
             cover_path=row.cover_path,
-            command=(lambda: on_cover_selected(row.row_id)) if on_cover_selected is not None else None,
+            command=self._handle_cover_selected if on_cover_selected is not None else None,
             dnd_type=dnd_type,
             can_accept_drop=can_accept_cover_drop,
-            on_drop_files=(lambda paths: on_cover_drop(row.row_id, paths)) if on_cover_drop is not None else None,
+            on_drop_files=self._handle_cover_drop if on_cover_drop is not None else None,
         )
         self.expanded_cover.place(
             x=spec.MEDIA_ROW_EXPANDED_COVER_POS[0],
@@ -222,7 +239,7 @@ class MediaRowShell(tk.Frame):
         self.expanded_badge = MediaRowBadge(
             self.expanded_container,
             row_number=row.row_id,
-            command=(lambda: on_select(row.row_id)) if on_select is not None else None,
+            command=self._handle_select if on_select is not None else None,
         )
         self.expanded_badge.place(x=spec.MEDIA_ROW_BADGE_EXPANDED_POS[0], y=spec.MEDIA_ROW_BADGE_EXPANDED_POS[1])
         self._expanded_badge_tooltip = bind_help_tooltip(
@@ -234,7 +251,7 @@ class MediaRowShell(tk.Frame):
             row=row,
             edit_icon_path=edit_icon_path,
             bg_color=spec.MEDIA_ROW_RENAME_BG,
-            on_name_committed=on_name_committed,
+            on_name_committed=self._handle_name_committed,
         )
         self.rename_field.place(x=spec.MEDIA_ROW_RENAME_POS[0], y=spec.MEDIA_ROW_RENAME_POS[1])
         self._rename_field_tooltip = bind_help_tooltip(
@@ -245,7 +262,7 @@ class MediaRowShell(tk.Frame):
             self.expanded_container,
             row=row,
             bg_color=spec.MEDIA_ROW_BG,
-            on_side_selected=on_side_selected,
+            on_side_selected=self._handle_side_selected,
         )
         self.side_toggle.place(x=spec.MEDIA_ROW_SIDE_TOGGLE_POS[0], y=spec.MEDIA_ROW_SIDE_TOGGLE_POS[1])
         self._side_a_tooltip = bind_help_tooltip(
@@ -265,15 +282,15 @@ class MediaRowShell(tk.Frame):
             table_check_icon_path=table_check_icon_path,
             preview_audio_icon_path=preview_audio_icon_path,
             selected_track_indices=selected_song_indices,
-            on_track_selected=(lambda track_index, modifiers: on_song_selected(row.row_id, track_index, modifiers)) if on_song_selected is not None else None,
-            on_track_remove_requested=(lambda track_index: on_song_remove_requested(row.row_id, track_index)) if on_song_remove_requested is not None else None,
-            on_header_sort_requested=(lambda column: on_song_sort_requested(row.row_id, column)) if on_song_sort_requested is not None else None,
-            on_track_drag_started=(lambda track_index, x_root, y_root: on_song_drag_started(row.row_id, track_index, x_root, y_root)) if on_song_drag_started is not None else None,
-            on_track_drag_moved=(lambda x_root, y_root: on_song_drag_moved(row.row_id, x_root, y_root)) if on_song_drag_moved is not None else None,
-            on_track_drag_finished=(lambda x_root, y_root: on_song_drag_finished(row.row_id, x_root, y_root)) if on_song_drag_finished is not None else None,
+            on_track_selected=self._handle_song_selected,
+            on_track_remove_requested=self._handle_song_remove_requested,
+            on_header_sort_requested=self._handle_song_sort_requested,
+            on_track_drag_started=self._handle_song_drag_started,
+            on_track_drag_moved=self._handle_song_drag_moved,
+            on_track_drag_finished=self._handle_song_drag_finished,
             dnd_type=dnd_type,
             can_accept_drop=can_accept_song_drop,
-            on_drop_files=(lambda paths: on_song_drop(row.row_id, paths)) if on_song_drop is not None else None,
+            on_drop_files=self._handle_song_drop if on_song_drop is not None else None,
         )
         self.songlist_viewport.place(x=spec.MEDIA_ROW_SONGLIST_VIEWPORT_POS[0], y=spec.MEDIA_ROW_SONGLIST_VIEWPORT_POS[1])
         self._song_table_tooltip = bind_help_tooltip(
@@ -284,8 +301,8 @@ class MediaRowShell(tk.Frame):
         self.song_actions = MediaSongActions(
             self.expanded_container,
             bg_color=spec.MEDIA_ROW_BG,
-            on_add_song=(lambda: on_add_song(row.row_id)) if on_add_song is not None else None,
-            on_remove_song=(lambda: on_remove_song(row.row_id)) if on_remove_song is not None else None,
+            on_add_song=self._handle_add_song if on_add_song is not None else None,
+            on_remove_song=self._handle_remove_song if on_remove_song is not None else None,
         )
         self.song_actions.place(x=spec.MEDIA_ROW_SONG_ACTIONS_POS[0], y=spec.MEDIA_ROW_SONG_ACTIONS_POS[1])
         self._add_song_tooltip = bind_help_tooltip(
@@ -303,7 +320,7 @@ class MediaRowShell(tk.Frame):
             row=row,
             bg_color=spec.MEDIA_ROW_BG,
             resolve_preview_path=resolve_live_preview_path,
-            on_mode_selected=on_preview_mode_selected,
+            on_mode_selected=self._handle_preview_mode_selected,
         )
         self.live_preview.place(x=spec.MEDIA_ROW_LIVE_PREVIEW_POS[0], y=spec.MEDIA_ROW_LIVE_PREVIEW_POS[1])
         self._live_preview_tooltip = bind_help_tooltip(
@@ -318,7 +335,7 @@ class MediaRowShell(tk.Frame):
             check_icon_path=check_icon_path,
             bg_color=spec.MEDIA_ROW_BG,
             resolve_media_strip_path=resolve_media_strip_path,
-            on_enabled_media_changed=on_enabled_media_changed,
+            on_enabled_media_changed=self._handle_enabled_media_changed,
         )
         self.expanded_media_type_strip.place(
             x=spec.MEDIA_ROW_MEDIA_STRIP_EXPANDED_POS[0],
@@ -342,7 +359,7 @@ class MediaRowShell(tk.Frame):
         self.collapsed_badge = MediaRowBadge(
             self.collapsed_container,
             row_number=row.row_id,
-            command=(lambda: on_select(row.row_id)) if on_select is not None else None,
+            command=self._handle_select if on_select is not None else None,
         )
         self.collapsed_badge.place(x=spec.MEDIA_ROW_BADGE_COLLAPSED_POS[0], y=spec.MEDIA_ROW_BADGE_COLLAPSED_POS[1])
         self._collapsed_badge_tooltip = bind_help_tooltip(
@@ -361,7 +378,7 @@ class MediaRowShell(tk.Frame):
             check_icon_path=check_icon_path,
             bg_color=spec.MEDIA_ROW_BG,
             resolve_media_strip_path=resolve_media_strip_path,
-            on_enabled_media_changed=on_enabled_media_changed,
+            on_enabled_media_changed=self._handle_enabled_media_changed,
         )
         self.collapsed_media_type_strip.place(
             x=spec.MEDIA_ROW_MEDIA_STRIP_COLLAPSED_POS[0],
@@ -401,7 +418,7 @@ class MediaRowShell(tk.Frame):
         self.collapsed_remove_button = _CollapsedRowRemoveButton(
             self.collapsed_container,
             bg_color=spec.MEDIA_ROW_BG,
-            command=(lambda: on_remove_row(row.row_id)) if on_remove_row is not None else None,
+            command=self._handle_remove_row if on_remove_row is not None else None,
         )
         for background_widget in (
             self.collapsed_cover,
@@ -613,7 +630,6 @@ class MediaRowShell(tk.Frame):
 
     def refresh_collapsed_details(self) -> None:
         self.collapsed_details.refresh_content(self._row)
-        self._bind_widget_to_background_interactions(self.collapsed_details)
 
     def set_song_selection_state(self, selected_song_indices: set[int]) -> None:
         self.songlist_viewport.set_selection_state(selected_song_indices)
@@ -679,6 +695,86 @@ class MediaRowShell(tk.Frame):
             self.cover = self.collapsed_cover
             self.media_type_strip = self.collapsed_media_type_strip
         self._apply_background_state()
+
+    def set_row(self, row: MediaRow) -> None:
+        self._row = row
+        self._row_id = row.row_id
+        self.rename_field.set_row(row)
+        self.side_toggle.set_row(row)
+        self.songlist_viewport.set_row(row)
+        self.live_preview.set_row(row)
+        self.expanded_media_type_strip.set_row(row)
+        self.collapsed_media_type_strip.set_row(row)
+        self.refresh_cover(row.cover_path)
+        self.refresh_collapsed_details()
+
+    def _handle_select(self) -> None:
+        if self._on_select is not None:
+            self._on_select(self._row_id)
+
+    def _handle_cover_selected(self) -> None:
+        if self._on_cover_selected is not None:
+            self._on_cover_selected(self._row_id)
+
+    def _handle_cover_drop(self, paths: list[str]) -> None:
+        if self._on_cover_drop is not None:
+            self._on_cover_drop(self._row_id, paths)
+
+    def _handle_enabled_media_changed(self, kind: MediaKind, enabled: bool) -> None:
+        if self._on_enabled_media_changed is not None:
+            self._on_enabled_media_changed(self._row_id, kind, enabled)
+
+    def _handle_name_committed(self, value: str) -> None:
+        if self._on_name_committed is not None:
+            self._on_name_committed(self._row_id, value)
+
+    def _handle_side_selected(self, side: str) -> None:
+        if self._on_side_selected is not None:
+            self._on_side_selected(self._row_id, side)
+
+    def _handle_preview_mode_selected(self, mode: str) -> None:
+        if self._on_preview_mode_selected is not None:
+            self._on_preview_mode_selected(self._row_id, mode)
+
+    def _handle_remove_row(self) -> None:
+        if self._on_remove_row is not None:
+            self._on_remove_row(self._row_id)
+
+    def _handle_add_song(self) -> None:
+        if self._on_add_song is not None:
+            self._on_add_song(self._row_id)
+
+    def _handle_remove_song(self) -> None:
+        if self._on_remove_song is not None:
+            self._on_remove_song(self._row_id)
+
+    def _handle_song_selected(self, track_index: int, modifiers: TrackSelectionModifiers) -> None:
+        if self._on_song_selected is not None:
+            self._on_song_selected(self._row_id, track_index, modifiers)
+
+    def _handle_song_remove_requested(self, track_index: int) -> None:
+        if self._on_song_remove_requested is not None:
+            self._on_song_remove_requested(self._row_id, track_index)
+
+    def _handle_song_sort_requested(self, column: SongSortColumn) -> None:
+        if self._on_song_sort_requested is not None:
+            self._on_song_sort_requested(self._row_id, column)
+
+    def _handle_song_drag_started(self, track_index: int, x_root: int, y_root: int) -> None:
+        if self._on_song_drag_started is not None:
+            self._on_song_drag_started(self._row_id, track_index, x_root, y_root)
+
+    def _handle_song_drag_moved(self, x_root: int, y_root: int) -> None:
+        if self._on_song_drag_moved is not None:
+            self._on_song_drag_moved(self._row_id, x_root, y_root)
+
+    def _handle_song_drag_finished(self, x_root: int, y_root: int) -> None:
+        if self._on_song_drag_finished is not None:
+            self._on_song_drag_finished(self._row_id, x_root, y_root)
+
+    def _handle_song_drop(self, paths: list[str]) -> None:
+        if self._on_song_drop is not None:
+            self._on_song_drop(self._row_id, paths)
 
     def _decode_selection_modifiers(self, event: tk.Event) -> RowSelectionModifiers:
         state = int(getattr(event, 'state', 0))
@@ -949,8 +1045,6 @@ class MediaRowList(tk.Frame):
         self.rows = list(rows)
         widget_by_id = {widget._row_id: widget for widget in self.row_widgets}
         self.row_widgets = [widget_by_id[row.row_id] for row in self.rows if row.row_id in widget_by_id]
-        for row, row_widget in zip(self.rows, self.row_widgets):
-            row_widget._row = row
         self.refresh_row_layouts()
 
     def refresh_badge_numbers(self, start_index: int = 0) -> None:
@@ -1051,9 +1145,6 @@ class MediaRowList(tk.Frame):
             return
         self.rows = list(rows) if rows is not None else kept_rows
         self.row_widgets = kept_widgets
-        for row, row_widget in zip(self.rows, self.row_widgets):
-            row_widget._row = row
-            row_widget._row_id = row.row_id
         self.refresh_badge_numbers(first_removed_index)
         self.refresh_row_layouts(start_index=first_removed_index, refresh_badges=False)
 

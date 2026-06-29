@@ -15,7 +15,7 @@ class MediaSideToggle(tk.Frame):
         *,
         row: MediaRow,
         bg_color: str,
-        on_side_selected: Callable[[int, str], None] | None = None,
+        on_side_selected: Callable[[str], None] | None = None,
     ) -> None:
         width = (spec.MEDIA_ROW_SIDE_TOGGLE_BUTTON_SIZE[0] * 2) + spec.MEDIA_ROW_SIDE_TOGGLE_GAP_X
         height = spec.MEDIA_ROW_SIDE_TOGGLE_BUTTON_SIZE[1]
@@ -29,7 +29,7 @@ class MediaSideToggle(tk.Frame):
         )
         self.pack_propagate(False)
         self._bg_color = bg_color
-        self._row_id = row.row_id
+        self._row = row
         self._selected_side = row.selected_side
         self._on_side_selected = on_side_selected
 
@@ -60,7 +60,7 @@ class MediaSideToggle(tk.Frame):
         self._selected_side = side
         self._apply_state()
         if self._on_side_selected is not None:
-            self._on_side_selected(self._row_id, side)
+            self._on_side_selected(side)
 
     def _apply_state(self) -> None:
         self.a_button.set_active(self._selected_side == 'A')
@@ -78,3 +78,8 @@ class MediaSideToggle(tk.Frame):
         if side == 'A':
             return (self.a_button,)
         return (self.b_button,)
+
+    def set_row(self, row: MediaRow) -> None:
+        self._row = row
+        self._selected_side = row.selected_side
+        self._apply_state()

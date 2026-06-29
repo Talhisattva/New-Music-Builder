@@ -109,7 +109,7 @@ class MediaRenameField(tk.Frame):
         row: MediaRow,
         edit_icon_path: str | Path | None,
         bg_color: str = spec.MEDIA_ROW_RENAME_BG,
-        on_name_committed: Callable[[int, str], None] | None = None,
+        on_name_committed: Callable[[str], None] | None = None,
     ) -> None:
         super().__init__(
             parent,
@@ -273,7 +273,7 @@ class MediaRenameField(tk.Frame):
         self._entry_var.set(committed_name)
         self._exit_edit_mode()
         if self._on_name_committed is not None:
-            self._on_name_committed(self._row.row_id, committed_name)
+            self._on_name_committed(committed_name)
 
     def _commit_from_event(self, _event: tk.Event | None = None) -> str:
         self._commit_name()
@@ -370,3 +370,13 @@ class MediaRenameField(tk.Frame):
 
     def tooltip_widgets(self) -> tuple[tk.Misc, ...]:
         return (self, self.surface, self.text_area, self.display_label, self.edit_button)
+
+    def set_row(self, row: MediaRow) -> None:
+        self._row = row
+        if self._editing:
+            return
+        self._display_name = canonical_media_name(row.row_id, row.media_name)
+        self._pre_edit_name = self._display_name
+        self._last_valid_entry_value = self._display_name
+        self._entry_var.set(self._display_name)
+        self.display_label.configure(text=self._display_name)

@@ -18,7 +18,7 @@ class MediaLivePreview(tk.Frame):
         row: MediaRow,
         bg_color: str,
         resolve_preview_path: Callable[[MediaRow, AppearanceKind, str, bool], str | None] | None = None,
-        on_mode_selected: Callable[[int, str], None] | None = None,
+        on_mode_selected: Callable[[str], None] | None = None,
     ) -> None:
         super().__init__(
             parent,
@@ -30,7 +30,6 @@ class MediaLivePreview(tk.Frame):
         )
         self.pack_propagate(False)
         self._row = row
-        self._row_id = row.row_id
         self._selected_mode = row.preview_mode
         self._resolve_preview_path = resolve_preview_path
         self._on_mode_selected = on_mode_selected
@@ -247,7 +246,7 @@ class MediaLivePreview(tk.Frame):
         self._selected_mode = mode
         self._apply_state()
         if self._on_mode_selected is not None:
-            self._on_mode_selected(self._row_id, mode)
+            self._on_mode_selected(mode)
 
     def _apply_state(self) -> None:
         self.mode_toggle.set_mode(self._selected_mode)
@@ -362,3 +361,7 @@ class MediaLivePreview(tk.Frame):
     def _hide_tooltip_now(self) -> None:
         self._tooltip_hide_after_id = None
         self._cursor_tooltip.hide()
+
+    def set_row(self, row: MediaRow) -> None:
+        self._row = row
+        self.refresh_content()
