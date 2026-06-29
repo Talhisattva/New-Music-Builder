@@ -829,6 +829,11 @@ class MediaRowShell(tk.Frame):
         self._cancel_collapsed_row_drag()
         return 'break'
 
+    def destroy(self) -> None:
+        self.cancel_song_drag()
+        self._cancel_collapsed_row_drag()
+        super().destroy()
+
 
 class MediaRowList(tk.Frame):
     def __init__(
@@ -1130,6 +1135,8 @@ class MediaRowList(tk.Frame):
     def remove_rows(self, row_ids: set[int], rows: list[MediaRow] | None = None) -> None:
         if not row_ids:
             return
+        if self._row_drag_active and any(row_id in set(self._row_drag_ids) for row_id in row_ids):
+            self.cancel_row_drag()
         kept_rows: list[MediaRow] = []
         kept_widgets: list[MediaRowShell] = []
         first_removed_index: int | None = None
@@ -1289,3 +1296,7 @@ class MediaRowList(tk.Frame):
 
     def _local_y_from_root(self, y_root: int) -> int:
         return int(y_root - self.winfo_rooty())
+
+    def destroy(self) -> None:
+        self.cancel_row_drag()
+        super().destroy()
