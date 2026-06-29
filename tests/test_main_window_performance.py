@@ -6,7 +6,7 @@ from new_music_builder.domain.models import ProjectConfig, TrackEntry, default_m
 from new_music_builder.services.project_session import ProjectSession
 from new_music_builder.services.session_store import SessionAudioPreferences
 from new_music_builder.ui.main_window import MainWindow
-from new_music_builder.ui.widgets.media_row_list import MediaRowList
+from new_music_builder.ui.widgets.media_row_list import MediaRowList, MediaRowShell
 
 
 @dataclass
@@ -78,6 +78,14 @@ class _FakeRowWidget:
 
     def set_song_selection_state(self, selected_indices: set[int]) -> None:
         self.song_selection_states.append(set(selected_indices))
+
+
+class _FakeCollapsedDetails:
+    def __init__(self) -> None:
+        self.refreshed_rows: list[object] = []
+
+    def refresh_content(self, row) -> None:
+        self.refreshed_rows.append(row)
 
 
 def test_add_module_two_media_row_uses_incremental_row_list() -> None:
@@ -276,6 +284,95 @@ def test_media_row_list_set_expanded_row_only_touches_changed_widgets() -> None:
     assert row_list.row_widgets[2].set_expanded_calls == []
     assert badge_calls == [0]
     assert layout_calls == [(0, False)]
+
+
+def test_media_row_list_reorder_rows_preserves_widget_row_ownership() -> None:
+    first_row = default_media_row(1)
+    second_row = default_media_row(2)
+    row_list = MediaRowList.__new__(MediaRowList)
+    row_list.rows = [first_row, second_row]
+    first_widget = type("Widget", (), {"_row_id": 1, "_row": first_row})()
+    second_widget = type("Widget", (), {"_row_id": 2, "_row": second_row})()
+    row_list.row_widgets = [first_widget, second_widget]
+    layout_calls: list[int] = []
+    row_list.refresh_row_layouts = lambda start_index=0: layout_calls.append(start_index)
+
+    MediaRowList.reorder_rows(row_list, [second_row, first_row])
+
+    assert row_list.rows == [second_row, first_row]
+    assert row_list.row_widgets == [second_widget, first_widget]
+    assert second_widget._row is second_row
+    assert first_widget._row is first_row
+    assert layout_calls == [0]
+
+
+def test_media_row_list_remove_rows_keeps_survivor_widget_ids_stable() -> None:
+    first_row = default_media_row(1)
+    second_row = default_media_row(2)
+    third_row = default_media_row(3)
+    row_list = MediaRowList.__new__(MediaRowList)
+    row_list.rows = [first_row, second_row, third_row]
+    first_widget = type("Widget", (), {"_row_id": 1, "_row": first_row, "destroy": lambda self: None})()
+    second_widget = type("Widget", (), {"_row_id": 2, "_row": second_row, "destroy": lambda self: None})()
+    third_widget = type("Widget", (), {"_row_id": 3, "_row": third_row, "destroy": lambda self: None})()
+    row_list.row_widgets = [first_widget, second_widget, third_widget]
+    row_list._row_drag_active = False
+    row_list._row_drag_ids = []
+    badge_calls: list[int] = []
+    layout_calls: list[tuple[int, bool]] = []
+    row_list.refresh_badge_numbers = lambda start_index=0: badge_calls.append(start_index)
+    row_list.refresh_row_layouts = lambda start_index=0, refresh_badges=False: layout_calls.append((start_index, refresh_badges))
+
+    MediaRowList.remove_rows(row_list, {2}, rows=[first_row, third_row])
+
+    assert row_list.rows == [first_row, third_row]
+    assert row_list.row_widgets == [first_widget, third_widget]
+    assert first_widget._row_id == 1
+    assert third_widget._row_id == 3
+    assert badge_calls == [1]
+    assert layout_calls == [(1, False)]
+
+
+def test_media_row_shell_callback_wrappers_use_shell_row_identity() -> None:
+    shell = MediaRowShell.__new__(MediaRowShell)
+    shell._row_id = 7
+    selected: list[int] = []
+    removed: list[int] = []
+    covers: list[int] = []
+    names: list[tuple[int, str]] = []
+    song_drops: list[tuple[int, list[str]]] = []
+    shell._on_select = lambda row_id: selected.append(row_id)
+    shell._on_remove_row = lambda row_id: removed.append(row_id)
+    shell._on_cover_selected = lambda row_id: covers.append(row_id)
+    shell._on_name_committed = lambda row_id, value: names.append((row_id, value))
+    shell._on_song_drop = lambda row_id, paths: song_drops.append((row_id, list(paths)))
+
+    shell._handle_select()
+    shell._handle_remove_row()
+    shell._handle_cover_selected()
+    shell._handle_name_committed("Night Drive")
+    shell._handle_song_drop(["A.ogg"])
+
+    assert selected == [7]
+    assert removed == [7]
+    assert covers == [7]
+    assert names == [(7, "Night Drive")]
+    assert song_drops == [(7, ["A.ogg"])]
+
+
+def test_media_row_shell_refresh_collapsed_details_does_not_rebind_background_handlers() -> None:
+    row = default_media_row(4)
+    shell = MediaRowShell.__new__(MediaRowShell)
+    shell._row = row
+    shell.collapsed_details = _FakeCollapsedDetails()
+    bind_calls: list[object] = []
+    shell._bind_widget_to_background_interactions = lambda widget: bind_calls.append(widget)
+
+    MediaRowShell.refresh_collapsed_details(shell)
+    MediaRowShell.refresh_collapsed_details(shell)
+
+    assert shell.collapsed_details.refreshed_rows == [row, row]
+    assert bind_calls == []
 
 
 def test_select_module_two_media_cover_refreshes_row_cover_before_async_generation(monkeypatch, tmp_path) -> None:
