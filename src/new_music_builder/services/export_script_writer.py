@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from new_music_builder.domain.models import (
@@ -70,6 +71,8 @@ _CONTAINER_WEIGHT: dict[str, str] = {
     "vinyl": "0.12",
     "cd": "0.10",
 }
+
+_SCRIPT_DISPLAY_WHITESPACE_RE = re.compile(r"\s+")
 
 
 def write_export_scripts(
@@ -186,12 +189,17 @@ def _render_item_block(
         "        DisplayCategory = Entertainment,",
         f"        Weight = {weight},",
         f"        Icon = {icon_reference},",
-        f"        DisplayName = {display_name},",
+        f"        DisplayName = {_pz_safe_display_name(display_name)},",
         f"        WorldStaticModel = {module_name}.{model_name},",
         "        CanSpawn = true,",
         "    }",
         "",
     ]
+
+
+def _pz_safe_display_name(value: str) -> str:
+    normalized = str(value).replace(",", " - ")
+    return _SCRIPT_DISPLAY_WHITESPACE_RE.sub(" ", normalized).strip()
 
 
 def _render_models(registration) -> str:

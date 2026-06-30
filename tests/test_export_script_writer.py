@@ -6,6 +6,7 @@ from new_music_builder.domain.models import ProjectConfig, TrackEntry, default_m
 from new_music_builder.services.asset_catalog import AssetCatalog
 from new_music_builder.services.export_planning import build_export_plan
 from new_music_builder.services.export_scaffold import resolve_export_target, write_export_scaffold
+from new_music_builder.services.export_script_writer import _pz_safe_display_name
 
 
 ASSETS_ROOT = Path(__file__).resolve().parents[1] / "assets"
@@ -165,3 +166,36 @@ def test_write_export_scaffold_generates_full_mode_lua_and_custom_texture_refs(t
     assert 'includePlayable = { "cassette", "vinyl" }' in album_text
     assert 'includeContainers = { "cassette", "vinyl" }' in album_text
     assert 'includeEmptyContainers = { "cassette", "vinyl" }' in album_text
+
+
+def test_pz_safe_display_name_normalizes_commas_and_whitespace() -> None:
+    assert _pz_safe_display_name("Rock,  Pop\t& Rap Hits Vol 1") == "Rock - Pop & Rap Hits Vol 1"
+    assert _pz_safe_display_name("伟大的2") == "伟大的2"
+
+
+def test_write_export_scaffold_normalizes_comma_bearing_item_display_names(tmp_path: Path) -> None:
+    workshop_root = tmp_path / "Workshop"
+    workshop_root.mkdir()
+    project = ProjectConfig(
+        mod_name="Road Trip Mix",
+        mod_id="RoadTripMix",
+        workshop_output_folder=str(workshop_root),
+    )
+    row = default_media_row(1)
+    row.media_name = "Rock, Pop & Rap Hits Vol 1"
+    row.tracks_a = [_track("C:/music/intro.ogg", "КИНО - Пачка сигарет", "00:01:00")]
+    project.media_rows = [row]
+
+    catalog = AssetCatalog(ASSETS_ROOT).scan()
+    plan = build_export_plan(project, catalog)
+    targets = resolve_export_target(plan, project.workshop_output_folder, mod_name=project.mod_name, mod_id=project.mod_id)
+
+    result = write_export_scaffold(project, plan, targets, catalog)
+
+    assert not result.errors
+    items_text = (Path(targets.v42) / "media" / "scripts" / "NMB_RoadTripMix_Items.txt").read_text(encoding="utf-8")
+    sounds_text = (Path(targets.v42) / "media" / "scripts" / "NMB_RoadTripMix_Sounds.txt").read_text(encoding="utf-8")
+
+    assert "DisplayName = Rock, Pop & Rap Hits Vol 1 (Cassette)" not in items_text
+    assert "DisplayName = Rock - Pop & Rap Hits Vol 1 (Cassette)" in items_text
+    assert "media/sound/RoadTripMix/Rock, Pop & Rap Hits Vol 1/" not in sounds_text
