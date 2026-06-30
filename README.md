@@ -1,4 +1,4 @@
-![New Music Builder](docs/images/NewMusicBuilder0.2.4-640-transparent.png)
+![New Music Builder](docs/images/NewMusicBuilder0.2.5-640-transparent.png)
 
 # New Music Builder
 
@@ -26,9 +26,9 @@ Created specifically for media packs where multiple tracks and media appearances
 
 ## Version
 
-Current version: `0.2.4`
+Current version: `0.2.5`
 
-This is a small patch release on top of `0.2.3`: it keeps the `0.2.x` feature set intact while tightening song-pack export, translation-backed labels, and release polish.
+This is a small patch release on top of `0.2.4`: it keeps the `0.2.x` feature set intact while tightening song-pack export, translation-backed labels, encoding compatibility, and release polish.
 
 ## Platform Support
 
