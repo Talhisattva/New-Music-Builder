@@ -299,7 +299,7 @@ def test_write_export_scaffold_writes_song_label_translations_for_all_supported_
         assert '"UI_MyFunMix_MediaMix1_Song_01": "01 伟大的2"' in ui_json
 
 
-def test_write_export_scaffold_localizes_item_display_names_for_all_supported_locales(tmp_path: Path) -> None:
+def test_write_export_scaffold_keeps_item_name_translation_resources_but_uses_display_text_in_scripts(tmp_path: Path) -> None:
     project = _project(tmp_path)
     row = project.media_rows[0]
     row.media_name = '伟大的2'
@@ -316,8 +316,8 @@ def test_write_export_scaffold_localizes_item_display_names_for_all_supported_lo
     translation_root = Path(targets.common) / 'media' / 'lua' / 'shared' / 'Translate'
     items_text = (Path(targets.v42) / 'media' / 'scripts' / 'NMB_MyFunMix_Items.txt').read_text(encoding='utf-8')
 
-    assert 'DisplayName = ItemName_MyFunMix_' in items_text
-    assert 'DisplayName = 伟大的2' not in items_text
+    assert 'DisplayName = ItemName_MyFunMix_' not in items_text
+    assert 'DisplayName = 伟大的2 (Cassette)' in items_text
 
     for locale in SUPPORTED_TRANSLATION_LOCALES:
         item_name_text = (translation_root / locale / f'ItemName_{locale}.txt').read_text(encoding='utf-8')

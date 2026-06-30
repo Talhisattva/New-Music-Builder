@@ -146,15 +146,11 @@ def test_write_export_scaffold_generates_full_mode_lua_and_custom_texture_refs(t
     album_text = (lua_root / "NightDrive_Album_NightDrive.lua").read_text(encoding="utf-8")
 
     assert "item NightDriveCassette" in items_text
-    assert "DisplayName = ItemName_NightDrive_NightDriveCassette" in items_text
+    assert "DisplayName = Night Drive (Cassette)" in items_text
     assert "item NightDriveVinyl" in items_text
     assert "item NightDriveJacketEmpty" in items_text
     assert "Icon = NM_Cassette_NightDrive_NightDrive" in items_text
     assert "Icon = NM_Jacket_NightDrive_NightDrive_Empty" in items_text
-    translation_root = Path(targets.common) / "media" / "lua" / "shared" / "Translate" / "EN"
-    item_name_text = (translation_root / "ItemName_EN.txt").read_text(encoding="utf-8")
-    assert 'ItemName_NightDrive_NightDriveCassette = "Night Drive (Cassette)"' in item_name_text
-    assert 'ItemName_NightDrive_NightDriveJacketEmpty = "Night Drive Jacket (Empty)"' in item_name_text
 
     assert 'mode = "full"' in album_text
     assert 'full = "NightDriveCassette"' in album_text

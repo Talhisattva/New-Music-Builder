@@ -11,7 +11,6 @@ from new_music_builder.domain.models import (
     RegisteredMediaVariant,
 )
 from new_music_builder.services.export_registration_plan import build_export_registration_plan
-from new_music_builder.services.export_translation_writer import build_item_name_key
 
 _PLAYABLE_MODEL_SUFFIX: dict[str, str] = {
     "cassette": "Cassette",
@@ -127,7 +126,7 @@ def _render_items(registration) -> str:
                 lines.extend(
                         _render_item_block(
                             item_id=variant.full_item_id,
-                            display_name=build_item_name_key(module_name, variant.full_item_id),
+                            display_name=variant.full_display_name,
                             icon_reference=variant.icon_reference,
                             model_name=model_name,
                             module_name=module_name,
@@ -139,7 +138,7 @@ def _render_items(registration) -> str:
                     lines.extend(
                         _render_item_block(
                             item_id=variant.item_ids[side_name],
-                            display_name=build_item_name_key(module_name, variant.item_ids[side_name]),
+                            display_name=variant.display_names[side_name],
                             icon_reference=variant.icon_reference,
                             model_name=model_name,
                             module_name=module_name,
@@ -150,7 +149,7 @@ def _render_items(registration) -> str:
             lines.extend(
                 _render_item_block(
                     item_id=variant.empty_item_id,
-                    display_name=build_item_name_key(module_name, variant.empty_item_id),
+                    display_name=variant.empty_display_name,
                     icon_reference=variant.empty_icon_reference,
                     model_name=_container_model_name(album, variant, "Empty"),
                     module_name=module_name,
@@ -160,7 +159,7 @@ def _render_items(registration) -> str:
             lines.extend(
                 _render_item_block(
                     item_id=variant.full_item_id,
-                    display_name=build_item_name_key(module_name, variant.full_item_id),
+                    display_name=variant.full_display_name,
                     icon_reference=variant.full_icon_reference,
                     model_name=_container_model_name(album, variant, "Full"),
                     module_name=module_name,
