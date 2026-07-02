@@ -41,6 +41,8 @@ def test_project_roundtrip_preserves_stateful_row_fields(tmp_path: Path) -> None
     first.selected_side = 'B'
     first.preview_mode = 'world'
     first.enabled_media['cd'] = False
+    first.media_modes['cassette'] = 'single'
+    first.media_modes['vinyl'] = 'single'
     first.expanded = False
     first.tracks_b.append(
         TrackEntry(
@@ -96,6 +98,7 @@ def test_project_roundtrip_preserves_stateful_row_fields(tmp_path: Path) -> None
     assert loaded.media_rows[0].selected_side == 'B'
     assert loaded.media_rows[0].preview_mode == 'world'
     assert loaded.media_rows[0].enabled_media['cd'] is False
+    assert loaded.media_rows[0].media_modes == {'cassette': 'single', 'vinyl': 'single', 'cd': 'single'}
     assert loaded.media_rows[0].tracks_b[0].cached_ogg_path == 'C:/cache/track.ogg'
     assert loaded.media_rows[0].song_sort_b.column == 'length'
     assert loaded.media_rows[0].song_sort_b.direction == 'desc'
@@ -368,3 +371,50 @@ def test_project_load_defaults_automatic_textures_enabled_for_legacy_payload(tmp
     loaded = ProjectStore().load(target)
 
     assert loaded.automatic_textures_enabled is True
+
+
+def test_project_load_defaults_media_modes_for_legacy_payload(tmp_path: Path) -> None:
+    payload = {
+        'schema_version': 1,
+        'mod_name': 'Legacy Pack',
+        'mod_id': 'LegacyPack',
+        'media_rows': [
+            {
+                'row_id': 1,
+                'media_name': 'Legacy Album',
+                'tracks_a': [{'display_label': 'Song'}],
+            }
+        ],
+    }
+    target = tmp_path / 'legacy-media-modes.nmbproj.json'
+    target.write_text(json.dumps(payload), encoding='utf-8')
+
+    loaded = ProjectStore().load(target)
+
+    assert loaded.media_rows[0].media_modes == {'cassette': 'split', 'vinyl': 'split', 'cd': 'single'}
+
+
+def test_project_load_coerces_invalid_media_modes_to_defaults(tmp_path: Path) -> None:
+    payload = {
+        'schema_version': 1,
+        'mod_name': 'Invalid Modes',
+        'mod_id': 'InvalidModes',
+        'media_rows': [
+            {
+                'row_id': 1,
+                'media_name': 'Odd Album',
+                'media_modes': {
+                    'cassette': 'full',
+                    'vinyl': 'split',
+                    'cd': 'banana',
+                },
+                'tracks_a': [{'display_label': 'Song'}],
+            }
+        ],
+    }
+    target = tmp_path / 'invalid-media-modes.nmbproj.json'
+    target.write_text(json.dumps(payload), encoding='utf-8')
+
+    loaded = ProjectStore().load(target)
+
+    assert loaded.media_rows[0].media_modes == {'cassette': 'split', 'vinyl': 'split', 'cd': 'single'}

@@ -80,6 +80,9 @@ class MediaRow:
     enabled_media: dict[MediaKind, bool] = field(
         default_factory=lambda: {"cassette": True, "vinyl": True, "cd": True}
     )
+    media_modes: dict[MediaKind, RegistrationMode] = field(
+        default_factory=lambda: {"cassette": "split", "vinyl": "split", "cd": "single"}
+    )
     cover_path: str = ""
     tracks_a: list[TrackEntry] = field(default_factory=list)
     tracks_b: list[TrackEntry] = field(default_factory=list)
@@ -308,6 +311,7 @@ class PlannedMediaRow:
     cover_path: str
     export_id: str = ""
     enabled_media: dict[MediaKind, bool] = field(default_factory=dict)
+    media_modes: dict[MediaKind, RegistrationMode] = field(default_factory=dict)
     appearances: ResolvedAppearanceSet = field(default_factory=ResolvedAppearanceSet)
     sides: list[PlannedSide] = field(default_factory=list)
 
@@ -661,6 +665,23 @@ def project_from_dict(data: dict[str, Any]) -> ProjectConfig:
                 "cassette": bool(raw_row.get("enabled_media", {}).get("cassette", True)),
                 "vinyl": bool(raw_row.get("enabled_media", {}).get("vinyl", True)),
                 "cd": bool(raw_row.get("enabled_media", {}).get("cd", True)),
+            },
+            media_modes={
+                "cassette": (
+                    str(raw_row.get("media_modes", {}).get("cassette", "split"))
+                    if str(raw_row.get("media_modes", {}).get("cassette", "split")) in {"single", "split"}
+                    else "split"
+                ),
+                "vinyl": (
+                    str(raw_row.get("media_modes", {}).get("vinyl", "split"))
+                    if str(raw_row.get("media_modes", {}).get("vinyl", "split")) in {"single", "split"}
+                    else "split"
+                ),
+                "cd": (
+                    str(raw_row.get("media_modes", {}).get("cd", "single"))
+                    if str(raw_row.get("media_modes", {}).get("cd", "single")) in {"single", "split"}
+                    else "single"
+                ),
             },
             cover_path=str(raw_row.get("cover_path", "")),
             tracks_a=[_coerce_track(item) for item in raw_row.get("tracks_a", [])],

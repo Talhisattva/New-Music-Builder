@@ -55,6 +55,22 @@ def test_export_plan_creates_separate_sides_and_preserves_order() -> None:
     ]
 
 
+def test_export_plan_preserves_per_media_modes_on_planned_rows() -> None:
+    catalog = AssetCatalog(ASSETS_ROOT).scan()
+    row = default_media_row(1)
+    row.media_name = 'Modeful Row'
+    row.media_modes['cassette'] = 'split'
+    row.media_modes['vinyl'] = 'single'
+    row.media_modes['cd'] = 'single'
+    row.tracks_a = [_track('C:/music/song.ogg', 'Song', '00:03:00')]
+    row.tracks_b = [_track('C:/music/song-b.ogg', 'Song B', '00:02:00')]
+    project = ProjectConfig(media_rows=[row])
+
+    plan = build_export_plan(project, catalog)
+
+    assert plan.rows[0].media_modes == {'cassette': 'split', 'vinyl': 'single', 'cd': 'single'}
+
+
 def test_export_plan_aggregates_duration_and_conversion_counts() -> None:
     catalog = AssetCatalog(ASSETS_ROOT).scan()
     row = default_media_row(1)

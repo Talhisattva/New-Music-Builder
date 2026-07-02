@@ -93,6 +93,7 @@ def build_export_plan(project: ProjectConfig, asset_catalog: dict[str, list[Asse
             cover_path=row.cover_path,
             export_id=row_export_id,
             enabled_media=dict(row.enabled_media),
+            media_modes=dict(row.media_modes),
             appearances=_resolve_appearance_set(project, row, asset_catalog),
             sides=sides,
         )
