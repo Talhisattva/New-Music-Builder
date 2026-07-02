@@ -63,7 +63,6 @@ def build_export_registration_plan(project: ProjectConfig, export_plan: ExportPl
 
 def _build_registered_album(module_id: str, row: PlannedMediaRow) -> RegisteredAlbum:
     ordered_sides = sorted(row.sides, key=lambda side: 0 if side.side == "A" else 1)
-    mode: RegistrationMode = "split" if len(ordered_sides) > 1 else "single"
     album_id = row.export_id or sanitize_export_id(row.media_name, fallback=f"MediaRow{row.row_id}")
     sound_prefix = f"{module_id}{album_id}"
     registered_sides: list[RegisteredSide] = []
@@ -72,6 +71,8 @@ def _build_registered_album(module_id: str, row: PlannedMediaRow) -> RegisteredA
         registered_side = _build_registered_side(module_id, sound_prefix, side, next_sequence_number)
         registered_sides.append(registered_side)
         next_sequence_number = registered_side.end_track_number + 1
+    media_variants = _build_media_variants(module_id, row)
+    mode: RegistrationMode = "split" if any(variant.mode == "split" for variant in media_variants) else "single"
     return RegisteredAlbum(
         row_id=row.row_id,
         album_id=album_id,
@@ -80,7 +81,7 @@ def _build_registered_album(module_id: str, row: PlannedMediaRow) -> RegisteredA
         mode=mode,
         sound_prefix=sound_prefix,
         sides=registered_sides,
-        media_variants=_build_media_variants(module_id, row, mode),
+        media_variants=media_variants,
         container_variants=_build_container_variants(module_id, row),
     )
 
@@ -112,12 +113,13 @@ def _build_registered_side(
     )
 
 
-def _build_media_variants(module_id: str, row: PlannedMediaRow, mode: RegistrationMode) -> list[RegisteredMediaVariant]:
+def _build_media_variants(module_id: str, row: PlannedMediaRow) -> list[RegisteredMediaVariant]:
     variants: list[RegisteredMediaVariant] = []
     available_sides = tuple(side.side for side in sorted(row.sides, key=lambda item: 0 if item.side == "A" else 1))
     for media_kind in ("cassette", "vinyl", "cd"):
         if not row.enabled_media.get(media_kind, False):
             continue
+        mode = _effective_media_mode(row, media_kind)
         appearance = row.appearances.for_kind(_PLAYABLE_APPEARANCE_KIND[media_kind])
         full_item_id = ""
         full_display_name = ""
@@ -152,6 +154,13 @@ def _build_media_variants(module_id: str, row: PlannedMediaRow, mode: Registrati
             variant.model_reference = exported_world_texture_stem(media_kind, module_id, row.export_id)
         variants.append(variant)
     return variants
+
+
+def _effective_media_mode(row: PlannedMediaRow, media_kind: MediaKind) -> RegistrationMode:
+    requested = row.media_modes.get(media_kind, "single" if media_kind == "cd" else "split")
+    if requested == "split" and len(row.sides) > 1:
+        return "split"
+    return "single"
 
 
 def _build_container_variants(module_id: str, row: PlannedMediaRow) -> list[RegisteredContainerVariant]:

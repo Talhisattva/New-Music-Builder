@@ -53,8 +53,7 @@ def _render_album(album: LuaAlbumRegistration) -> str:
     lines = [
         "-- Album guide:",
         "-- Edit the track list and keep it in numbered order.",
-        "-- One row maps to one album registration shape across enabled media.",
-        "-- For different full/split media releases, create separate rows in the builder.",
+        "-- Media entries may be full or split depending on each builder row toggle.",
         "",
         f"{album.table_name} = {{",
         f'    id = "{_escape(album.album_id)}",',

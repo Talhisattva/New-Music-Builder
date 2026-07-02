@@ -67,6 +67,9 @@ def test_write_export_scaffold_generates_script_files_for_registered_media(tmp_p
 
     assert "item RoadTripVol1CassetteA" in items_text
     assert "item RoadTripVol1CassetteB" in items_text
+    assert "item RoadTripVol1CD" in items_text
+    assert "item RoadTripVol1CDA" not in items_text
+    assert "item RoadTripVol1CDB" not in items_text
     assert "item RoadTripVol1JacketEmpty" in items_text
     assert "item RoadTripVol1JacketFull" in items_text
     assert "WorldStaticModel = RoadTripMix.RoadTripVol1JacketFull" in items_text
@@ -91,6 +94,8 @@ def test_write_export_scaffold_generates_script_files_for_registered_media(tmp_p
     assert 'mode = "split"' in album_text
     assert 'a = "RoadTripVol1CassetteA"' in album_text
     assert 'b = "RoadTripVol1CassetteB"' in album_text
+    assert 'cd = {' in album_text
+    assert 'full = "RoadTripVol1CD"' in album_text
     assert 'ranges = {' in album_text
     assert 'a = { 1, 1 }' in album_text
     assert 'b = { 2, 2 }' in album_text
@@ -98,6 +103,49 @@ def test_write_export_scaffold_generates_script_files_for_registered_media(tmp_p
     assert 'includePlayable = { "cassette", "vinyl", "cd" }' in album_text
     assert 'includeContainers = { "cassette", "vinyl", "cd" }' in album_text
     assert 'includeEmptyContainers = { "cassette", "vinyl", "cd" }' in album_text
+
+
+def test_write_export_scaffold_respects_mixed_per_media_modes(tmp_path: Path) -> None:
+    workshop_root = tmp_path / "Workshop"
+    workshop_root.mkdir()
+    project = ProjectConfig(
+        mod_name="Mode Mix",
+        mod_id="ModeMix",
+        workshop_output_folder=str(workshop_root),
+    )
+    row = default_media_row(1)
+    row.media_name = "Mode Mix"
+    row.media_modes["cassette"] = "single"
+    row.media_modes["vinyl"] = "split"
+    row.media_modes["cd"] = "split"
+    row.tracks_a = [_track("C:/music/a.ogg", "A Song", "00:01:00")]
+    row.tracks_b = [_track("C:/music/b.ogg", "B Song", "00:02:00")]
+    project.media_rows = [row]
+
+    catalog = AssetCatalog(ASSETS_ROOT).scan()
+    plan = build_export_plan(project, catalog)
+    targets = resolve_export_target(plan, project.workshop_output_folder, mod_name=project.mod_name, mod_id=project.mod_id)
+
+    result = write_export_scaffold(project, plan, targets, catalog)
+
+    assert not result.errors
+    scripts_root = Path(targets.v42) / "media" / "scripts"
+    lua_root = Path(targets.v42) / "media" / "lua" / "shared"
+    items_text = (scripts_root / "NMB_ModeMix_Items.txt").read_text(encoding="utf-8")
+    album_text = (lua_root / "ModeMix_Album_ModeMix.lua").read_text(encoding="utf-8")
+
+    assert "item ModeMixCassette" in items_text
+    assert "item ModeMixCassetteA" not in items_text
+    assert "item ModeMixCassetteB" not in items_text
+    assert "item ModeMixVinylA" in items_text
+    assert "item ModeMixVinylB" in items_text
+    assert "item ModeMixCDA" in items_text
+    assert "item ModeMixCDB" in items_text
+    assert 'full = "ModeMixCassette"' in album_text
+    assert 'a = "ModeMixVinylA"' in album_text
+    assert 'b = "ModeMixVinylB"' in album_text
+    assert 'a = "ModeMixCDA"' in album_text
+    assert 'b = "ModeMixCDB"' in album_text
 
 
 def test_write_export_scaffold_generates_full_mode_lua_and_custom_texture_refs(tmp_path: Path) -> None:
