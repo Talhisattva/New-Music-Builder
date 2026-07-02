@@ -9,6 +9,7 @@ ImageCacheToken = tuple[str, int, int]
 
 _RAW_IMAGE_CACHE: dict[tuple[ImageCacheToken, tuple[int, int] | None], ImageTk.PhotoImage] = {}
 _CONTAINED_IMAGE_CACHE: dict[tuple[ImageCacheToken, tuple[int, int], tuple[int, int, int, int]], ImageTk.PhotoImage] = {}
+_CONTAINED_OVERLAY_IMAGE_CACHE: dict[tuple[object, ...], ImageTk.PhotoImage] = {}
 _PIL_CONTAINED_CACHE: dict[tuple[ImageCacheToken, tuple[int, int], tuple[int, int, int, int]], Image.Image] = {}
 _HORIZONTAL_FILL_IMAGE_CACHE: dict[tuple[object, ...], ImageTk.PhotoImage] = {}
 
@@ -115,6 +116,35 @@ def load_tk_photoimage_contained(
         return None
     photo = ImageTk.PhotoImage(image)
     _CONTAINED_IMAGE_CACHE[cache_key] = photo
+    return photo
+
+
+def load_tk_photoimage_contained_with_overlay(
+    base_path: str | Path | None,
+    overlay_path: str | Path | None,
+    size: tuple[int, int],
+    *,
+    background: tuple[int, int, int, int] = (0, 0, 0, 0),
+) -> ImageTk.PhotoImage | None:
+    base_token = cache_token_for_path(base_path)
+    if base_token is None:
+        return None
+    overlay_token = cache_token_for_path(overlay_path)
+    cache_key = (base_token, overlay_token, size, background)
+    cached = _CONTAINED_OVERLAY_IMAGE_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+
+    image = load_contained_pil_image(base_token[0], size, background=background)
+    if image is None:
+        return None
+    if overlay_token is not None:
+        overlay = load_contained_pil_image(overlay_token[0], size, background=(0, 0, 0, 0), allow_upscale=True)
+        if overlay is not None:
+            image.alpha_composite(overlay)
+
+    photo = ImageTk.PhotoImage(image)
+    _CONTAINED_OVERLAY_IMAGE_CACHE[cache_key] = photo
     return photo
 
 

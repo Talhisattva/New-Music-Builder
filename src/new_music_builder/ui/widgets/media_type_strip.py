@@ -6,7 +6,7 @@ import tkinter as tk
 from new_music_builder.domain.models import MediaKind, MediaRow, RegistrationMode
 from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.appearance_entries import PreviewMode
-from new_music_builder.ui.widgets.images import cache_token_for_path, load_tk_photoimage_contained
+from new_music_builder.ui.widgets.images import cache_token_for_path, load_tk_photoimage_contained_with_overlay
 from new_music_builder.ui.widgets.labeled_checkbox import ImageCheckbox
 
 
@@ -49,11 +49,9 @@ class MediaTypeStrip(tk.Frame):
         self._on_enabled_media_changed = on_enabled_media_changed
         self._on_media_mode_changed = on_media_mode_changed
         self._enabled = True
-        self._icon_images: dict[tuple[PreviewMode, MediaKind, object], tk.PhotoImage | None] = {}
-        self._overlay_images: dict[tuple[MediaKind, RegistrationMode, object], tk.PhotoImage | None] = {}
+        self._icon_images: dict[tuple[object, ...], tk.PhotoImage | None] = {}
         self.icon_frames: dict[MediaKind, tk.Frame] = {}
         self.icon_labels: dict[MediaKind, tk.Label] = {}
-        self.overlay_labels: dict[MediaKind, tk.Label] = {}
         self.checkboxes: dict[MediaKind, ImageCheckbox] = {}
 
         self._build()
@@ -81,18 +79,9 @@ class MediaTypeStrip(tk.Frame):
                 highlightthickness=0,
             )
             self.icon_labels[kind] = label
+            label.bind('<ButtonRelease-1>', lambda _event, media_kind=kind: self._on_overlay_clicked(media_kind), add='+')
             if self._expanded or self._row.enabled_media[kind]:
                 label.place(relx=0.5, rely=0.5, anchor='center')
-
-            overlay = tk.Label(
-                slot,
-                bg=self._bg_color,
-                bd=0,
-                highlightthickness=0,
-                cursor='hand2',
-            )
-            overlay.bind('<ButtonRelease-1>', lambda _event, media_kind=kind: self._on_overlay_clicked(media_kind), add='+')
-            self.overlay_labels[kind] = overlay
 
             if not self._expanded:
                 continue
@@ -133,15 +122,13 @@ class MediaTypeStrip(tk.Frame):
             frame.configure(bg=bg_color)
         for label in self.icon_labels.values():
             label.configure(bg=bg_color)
-        for overlay in self.overlay_labels.values():
-            overlay.configure(bg=bg_color)
 
     def set_enabled(self, enabled: bool) -> None:
         self._enabled = enabled
         for checkbox in self.checkboxes.values():
             checkbox.set_enabled(enabled)
-        for overlay in self.overlay_labels.values():
-            overlay.configure(cursor='hand2' if enabled else 'arrow')
+        for label in self.icon_labels.values():
+            label.configure(cursor='hand2' if enabled else 'arrow')
 
     def refresh_content(self) -> None:
         mode = self._preview_mode()
@@ -150,26 +137,12 @@ class MediaTypeStrip(tk.Frame):
                 image = self._image_for_kind(kind, mode)
                 label.configure(image=image if image is not None else '')
                 label.image = image
+                label.configure(cursor='hand2' if self._enabled else 'arrow')
                 label.place(relx=0.5, rely=0.5, anchor='center')
-                overlay = self.overlay_labels[kind]
-                overlay_image = self._overlay_image_for_kind(kind)
-                if overlay_image is not None:
-                    overlay.configure(image=overlay_image)
-                    overlay.image = overlay_image
-                    overlay.place(relx=0.5, rely=0.5, anchor='center')
-                    overlay.lift()
-                else:
-                    overlay.configure(image='')
-                    overlay.image = None
-                    overlay.place_forget()
             else:
                 label.configure(image='')
                 label.image = None
                 label.place_forget()
-                overlay = self.overlay_labels[kind]
-                overlay.configure(image='')
-                overlay.image = None
-                overlay.place_forget()
 
     def _image_for_kind(self, kind: MediaKind, mode: PreviewMode) -> tk.PhotoImage | None:
         if self._resolve_media_strip_path is None:
@@ -177,28 +150,30 @@ class MediaTypeStrip(tk.Frame):
         path = self._resolve_media_strip_path(self._row, kind, mode)
         if not path:
             return None
-        cache_key = (mode, kind, cache_token_for_path(path) or path)
+        overlay_path = self._overlay_path_for_kind(kind)
+        cache_key = (
+            mode,
+            kind,
+            self._row.media_modes.get(kind, 'split'),
+            cache_token_for_path(path) or path,
+            cache_token_for_path(overlay_path) or overlay_path,
+        )
         if cache_key not in self._icon_images:
-            self._icon_images[cache_key] = load_tk_photoimage_contained(path, spec.MEDIA_ROW_MEDIA_STRIP_SLOT_SIZE)
+            self._icon_images[cache_key] = load_tk_photoimage_contained_with_overlay(
+                path,
+                overlay_path,
+                spec.MEDIA_ROW_MEDIA_STRIP_SLOT_SIZE,
+            )
         return self._icon_images[cache_key]
 
     def _preview_mode(self) -> PreviewMode:
         return 'world' if self._row.preview_mode == 'world' else 'inventory'
 
-    def _overlay_image_for_kind(self, kind: MediaKind) -> tk.PhotoImage | None:
-        path = self._single_side_icon_path if self._row.media_modes.get(kind, 'split') == 'single' else self._double_side_icon_path
-        if not path:
-            return None
-        mode = self._row.media_modes.get(kind, 'split')
-        cache_key = (kind, mode, cache_token_for_path(path) or path)
-        if cache_key not in self._overlay_images:
-            self._overlay_images[cache_key] = load_tk_photoimage_contained(path, spec.MEDIA_ROW_MEDIA_STRIP_SLOT_SIZE)
-        return self._overlay_images[cache_key]
+    def _overlay_path_for_kind(self, kind: MediaKind) -> str | None:
+        return self._single_side_icon_path if self._row.media_modes.get(kind, 'split') == 'single' else self._double_side_icon_path
 
     def collapsed_tooltip_widgets_for_kind(self, kind: MediaKind) -> tuple[tk.Misc, ...]:
-        if self._expanded or kind not in self.icon_labels:
-            return ()
-        return (self.icon_labels[kind],)
+        return ()
 
     def checkbox_tooltip_widgets_for_kind(self, kind: MediaKind) -> tuple[tk.Misc, ...]:
         if not self._expanded or kind not in self.checkboxes:
@@ -206,9 +181,9 @@ class MediaTypeStrip(tk.Frame):
         return (self.checkboxes[kind],)
 
     def mode_toggle_tooltip_widgets_for_kind(self, kind: MediaKind) -> tuple[tk.Misc, ...]:
-        if kind not in self.overlay_labels:
+        if kind not in self.icon_labels:
             return ()
-        return (self.overlay_labels[kind],)
+        return (self.icon_labels[kind],)
 
     def set_row(self, row: MediaRow) -> None:
         self._row = row
