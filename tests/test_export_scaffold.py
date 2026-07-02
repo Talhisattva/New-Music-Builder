@@ -269,10 +269,10 @@ def test_write_export_scaffold_writes_translation_resources_for_song_labels(tmp_
     assert 'UI_MyFunMix_MediaMix1_Song_01' in album_text
     assert 'UI_MyFunMix_MediaMix1_Song_02' in album_text
     assert 'КИНО - Пачка сигарет' not in album_text
-    assert 'UI_MyFunMix_MediaMix1_Song_01 = "01 КИНО - Пачка сигарет"' in ui_en
-    assert 'UI_MyFunMix_MediaMix1_Song_02 = "02 Finale"' in ui_en
-    assert '"UI_MyFunMix_MediaMix1_Song_01": "01 КИНО - Пачка сигарет"' in ui_json
-    assert '"UI_MyFunMix_MediaMix1_Song_02": "02 Finale"' in ui_json
+    assert 'UI_MyFunMix_MediaMix1_Song_01 = "КИНО - Пачка сигарет"' in ui_en
+    assert 'UI_MyFunMix_MediaMix1_Song_02 = "Finale"' in ui_en
+    assert '"UI_MyFunMix_MediaMix1_Song_01": "КИНО - Пачка сигарет"' in ui_json
+    assert '"UI_MyFunMix_MediaMix1_Song_02": "Finale"' in ui_json
 
 
 def test_write_export_scaffold_writes_song_label_translations_for_all_supported_locales(tmp_path: Path) -> None:
@@ -294,8 +294,8 @@ def test_write_export_scaffold_writes_song_label_translations_for_all_supported_
     for locale in SUPPORTED_TRANSLATION_LOCALES:
         ui_text = (translation_root / locale / f'UI_{locale}.txt').read_text(encoding='utf-8')
         ui_json = (translation_root / locale / 'UI.json').read_text(encoding='utf-8')
-        assert 'UI_MyFunMix_MediaMix1_Song_01 = "01 伟大的2"' in ui_text
-        assert '"UI_MyFunMix_MediaMix1_Song_01": "01 伟大的2"' in ui_json
+        assert 'UI_MyFunMix_MediaMix1_Song_01 = "伟大的2"' in ui_text
+        assert '"UI_MyFunMix_MediaMix1_Song_01": "伟大的2"' in ui_json
 
 
 def test_write_export_scaffold_uses_display_text_in_scripts_without_item_name_payloads(tmp_path: Path) -> None:
@@ -364,8 +364,8 @@ def test_write_export_scaffold_keeps_translation_keys_and_payloads_in_sync_for_w
 
     assert '"UI_MyFunMix_PunkHits_Song_01"' in album_text
     assert '"UI_MyFunMix_PunkHits_Song_02"' in album_text
-    assert 'UI_MyFunMix_PunkHits_Song_01 = "01 Black Flag - Black Coffee"' in ui_en
-    assert 'UI_MyFunMix_PunkHits_Song_02 = "02 dead kennedys - nazi punks fuck off"' in ui_en
+    assert 'UI_MyFunMix_PunkHits_Song_01 = "Black Flag - Black Coffee"' in ui_en
+    assert 'UI_MyFunMix_PunkHits_Song_02 = "dead kennedys - nazi punks fuck off"' in ui_en
 
 
 def test_write_export_scaffold_uses_ascii_safe_sound_paths_for_punctuation_heavy_titles(tmp_path: Path) -> None:
@@ -423,8 +423,8 @@ def test_write_export_scaffold_uses_album_scoped_translation_keys_for_multiple_r
 
     assert '"UI_MyFunMix_AlbumOne_Song_01"' in album_one_text
     assert '"UI_MyFunMix_AlbumTwo_Song_01"' in album_two_text
-    assert 'UI_MyFunMix_AlbumOne_Song_01 = "01 Song A"' in ui_en
-    assert 'UI_MyFunMix_AlbumTwo_Song_01 = "01 Песня Б"' in ui_en
+    assert 'UI_MyFunMix_AlbumOne_Song_01 = "Song A"' in ui_en
+    assert 'UI_MyFunMix_AlbumTwo_Song_01 = "Песня Б"' in ui_en
 
 
 def test_write_export_scaffold_emits_stable_translation_keys_across_repeated_exports(tmp_path: Path) -> None:

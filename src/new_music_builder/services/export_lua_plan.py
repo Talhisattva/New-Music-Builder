@@ -45,7 +45,7 @@ def _build_lua_album(module_id: str, album: RegisteredAlbum, row: PlannedMediaRo
         track_labels=[
             LuaTrackLabel(
                 key=f"UI_{module_id}_{album.album_id}_Song_{track.sequence_number:02d}",
-                text=f"{track.sequence_number:02d} {track.display_label}",
+                text=track.display_label,
             )
             for side in album.sides
             for track in side.tracks
