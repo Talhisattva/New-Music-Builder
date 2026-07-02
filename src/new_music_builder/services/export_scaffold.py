@@ -179,7 +179,7 @@ def _write_images(
     icon_source = _icon_source(plan, asset_catalog)
     icon_image = render_square_image(icon_source, 32, "", add_name_overlay=False)
 
-    preview_image.save(root / "Preview.png", format="PNG")
+    preview_image.save(root / "preview.png", format="PNG")
     poster_image.save(common / "poster.png", format="PNG")
     poster_image.save(v42 / "poster.png", format="PNG")
     icon_image.save(common / "icon.png", format="PNG")

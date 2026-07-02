@@ -210,7 +210,7 @@ def test_write_export_scaffold_creates_expected_files(tmp_path: Path) -> None:
 
     assert not result.errors
     root = Path(targets.root)
-    assert (root / 'Preview.png').exists()
+    assert (root / 'preview.png').exists()
     assert (Path(targets.common) / 'poster.png').exists()
     assert (Path(targets.v42) / 'poster.png').exists()
     assert (Path(targets.common) / 'icon.png').exists()
