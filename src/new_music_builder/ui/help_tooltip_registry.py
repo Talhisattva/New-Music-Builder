@@ -28,16 +28,19 @@ def tooltip_segments_for_id(tooltip_id: str | None) -> tuple[TooltipSegment, ...
 
 def media_mode_tooltip_segments(media_kind: MediaKind, mode: RegistrationMode) -> tuple[TooltipSegment, ...]:
     media_label = {'cassette': 'Cassette', 'vinyl': 'Vinyl', 'cd': 'CD'}[media_kind]
-    mode_label = 'Full: Side A and Side B combined' if mode == 'single' else 'Flip: Side A and Side B separated'
+    mode_label = 'FULL' if mode == 'single' else 'FLIP'
+    mode_detail = (
+        'Side A and Side B will be combined '
+        if mode == 'single'
+        else 'Side A and Side B will be separate.'
+    )
     return (
-        TooltipSegment('Click to toggle '),
-        TooltipSegment('Flip', tone='accent'),
-        TooltipSegment(' / '),
-        TooltipSegment('Full', tone='accent'),
-        TooltipSegment(' for '),
         TooltipSegment(media_label, tone='accent'),
+        TooltipSegment(' set to '),
+        TooltipSegment(mode_label, tone='accent'),
+        TooltipSegment(' mode.'),
         TooltipSegment.break_line(),
-        TooltipSegment(mode_label, tone='tag'),
+        TooltipSegment(mode_detail, tone='tag'),
     )
 
 

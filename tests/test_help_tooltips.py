@@ -154,7 +154,7 @@ def test_media_mode_tooltip_segments_describe_split_mode() -> None:
     segments = media_mode_tooltip_segments('cassette', 'split')
 
     assert ''.join(segment.text for segment in segments if segment.tone != 'break') == (
-        'Click to toggle Flip / Full for CassetteFlip: Side A and Side B separated'
+        'Cassette set to FLIP mode.Side A and Side B will be separate.'
     )
     assert segments[-1].tone == 'tag'
 
@@ -163,7 +163,7 @@ def test_media_mode_tooltip_segments_describe_single_mode() -> None:
     segments = media_mode_tooltip_segments('cd', 'single')
 
     assert ''.join(segment.text for segment in segments if segment.tone != 'break') == (
-        'Click to toggle Flip / Full for CDFull: Side A and Side B combined'
+        'CD set to FULL mode.Side A and Side B will be combined '
     )
     assert segments[-1].tone == 'tag'
 
