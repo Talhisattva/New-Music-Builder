@@ -394,8 +394,8 @@ def test_write_export_scaffold_uses_ascii_safe_sound_paths_for_punctuation_heavy
     sounds_text = (Path(targets.v42) / 'media' / 'scripts' / 'NMB_MyFunMix_Sounds.txt').read_text(encoding='utf-8')
     sound_lines = [line.strip() for line in sounds_text.splitlines() if 'clip { file =' in line]
 
-    assert any('file = media/sound/MyFunMix/RockPopRapHitsVol1/A-Side/01 RockPopRapHitsVol1SideA1' in line for line in sound_lines)
-    assert any('file = media/sound/MyFunMix/RockPopRapHitsVol1/A-Side/02 RockPopRapHitsVol1SideA2TagTeamWhoompThereitis.ogg' in line for line in sound_lines)
+    assert any('file = media/sound/MyFunMix/RockPopRapHitsVol1/A-Side/RockPopRapHitsVol1SideA1' in line for line in sound_lines)
+    assert any('file = media/sound/MyFunMix/RockPopRapHitsVol1/A-Side/RockPopRapHitsVol1SideA2TagTeamWhoompThereitis.ogg' in line for line in sound_lines)
     assert '(You Gotta)' not in sounds_text
     assert 'Whoomp. There it is.' not in sounds_text
 

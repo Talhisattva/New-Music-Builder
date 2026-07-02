@@ -63,7 +63,7 @@ def test_write_export_scaffold_generates_script_files_for_registered_media(tmp_p
 
     assert "module RoadTripMix" in sounds_text
     assert "sound RoadTripMixRoadTripVol101" in sounds_text
-    assert "file = media/sound/RoadTripMix/RoadTripVol1/A-Side/01 RoadTripVol1SideA1Intro.ogg" in sounds_text
+    assert "file = media/sound/RoadTripMix/RoadTripVol1/A-Side/RoadTripVol1SideA1Intro.ogg" in sounds_text
 
     assert "item RoadTripVol1CassetteA" in items_text
     assert "item RoadTripVol1CassetteB" in items_text

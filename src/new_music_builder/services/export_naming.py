@@ -25,12 +25,12 @@ def build_audio_side_folder_name(side: str) -> str:
 
 
 def build_audio_track_file_name(display_label: str, track_number: int, *, track_id: str | None = None) -> str:
-    fallback = f"Track {track_number:02d}"
+    fallback = f"Track{track_number:02d}"
     if track_id:
         cleaned_label = sanitize_filesystem_component(track_id, fallback=fallback)
     else:
         cleaned_label = sanitize_sound_script_path_component(display_label, fallback=fallback)
-    return f"{track_number:02d} {cleaned_label}.ogg"
+    return f"{cleaned_label}.ogg"
 
 
 def build_audio_track_relative_path(
