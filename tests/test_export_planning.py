@@ -185,6 +185,25 @@ def test_preview_scenario_respects_enabled_media_filtering() -> None:
     assert scenario.queue_groups[0].songs[0].song_label == 'Song'
 
 
+def test_preview_scenario_keeps_full_mode_media_visible_on_each_side_row() -> None:
+    catalog = AssetCatalog(ASSETS_ROOT).scan()
+    row = default_media_row(1)
+    row.media_name = 'Mixed Preview'
+    row.media_modes['cassette'] = 'split'
+    row.media_modes['vinyl'] = 'split'
+    row.media_modes['cd'] = 'single'
+    row.tracks_a = [_track('C:/music/a.ogg', 'A Song', '00:03:00')]
+    row.tracks_b = [_track('C:/music/b.ogg', 'B Song', '00:02:00')]
+    project = ProjectConfig(media_rows=[row])
+
+    plan = build_export_plan(project, catalog)
+    scenario = build_preview_scenario(plan, 'C:/output')
+
+    assert [(preview.row_id, preview.side) for preview in scenario.preview_rows] == [(1, 'A'), (1, 'B')]
+    assert scenario.preview_rows[0].inventory_cell.slot_paths[2]
+    assert scenario.preview_rows[1].inventory_cell.slot_paths[2]
+
+
 def test_audio_export_naming_removes_commas_from_sound_script_paths() -> None:
     assert build_audio_row_folder_name('Dark Side, Textures', row_id=1) == 'Dark Side Textures'
     assert build_audio_track_file_name('Unlike Pluto - Revenge, And A Little More', track_number=4) == '04 Unlike Pluto - Revenge And A Little More.ogg'
