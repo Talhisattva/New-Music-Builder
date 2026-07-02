@@ -30,6 +30,7 @@ from new_music_builder.domain.models import (
     ExportTargetPaths,
     GeneratedPreviewRow,
     MediaKind,
+    RegistrationMode,
     ScaffoldResult,
     SongSortColumn,
     default_media_row,
@@ -426,6 +427,12 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
     def _check_icon_path(self) -> Path:
         return assets_root() / 'Check.png'
+
+    def _single_side_icon_path(self) -> Path:
+        return assets_root() / 'SingleSide.png'
+
+    def _double_side_icon_path(self) -> Path:
+        return assets_root() / 'DoubleSide.png'
 
     def _small_check_icon_path(self) -> Path:
         return assets_root() / 'SmallCheck.png'
@@ -1272,6 +1279,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
             rows=self.session.project.media_rows,
             folder_icon_path=str(self._folder_button_icon_path()),
             check_icon_path=str(self._check_icon_path()),
+            single_side_icon_path=str(self._single_side_icon_path()),
+            double_side_icon_path=str(self._double_side_icon_path()),
             edit_icon_path=str(self._edit_icon_path()),
             ear_icon_path=str(self._ear_icon_path()),
             grab_icon_path=str(self._grab_icon_path()),
@@ -1284,6 +1293,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             selected_row_ids=self.module_two_selected_row_ids,
             on_background_selected=self._select_module_two_media_row,
             on_enabled_media_changed=self._set_module_two_media_enabled,
+            on_media_mode_changed=self._set_module_two_media_mode,
             on_name_committed=self._commit_module_two_media_name,
             on_side_selected=self._set_module_two_media_side,
             on_preview_mode_selected=self._set_module_two_preview_mode,
@@ -2302,6 +2312,20 @@ class MainWindow(_DnDCompat, ctk.CTk):
                 expanded_widget.refresh_live_preview()
             self.module_two_row_list.refresh_media_type_strips_for_row(row_id)
         self._refresh_module_three_appearance_selector()
+        self.on_project_change()
+
+    def _set_module_two_media_mode(self, row_id: int, kind: MediaKind, mode: RegistrationMode) -> None:
+        if self._is_build_locked():
+            return
+        target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
+        if target_row is None:
+            return
+        if target_row.media_modes.get(kind) == mode:
+            return
+        target_row.media_modes[kind] = mode
+        if hasattr(self, 'module_two_row_list') and self.module_two_row_list.row_widgets:
+            self.module_two_row_list.refresh_media_type_strips_for_row(row_id)
+            self.module_two_row_list.refresh_collapsed_details_for_row(row_id)
         self.on_project_change()
 
     def _commit_module_two_media_name(self, row_id: int, value: str) -> None:

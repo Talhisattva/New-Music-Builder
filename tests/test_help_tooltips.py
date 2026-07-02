@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from new_music_builder.ui import spec
-from new_music_builder.ui.help_tooltip_registry import tooltip_segments_for_id
+from new_music_builder.ui.help_tooltip_registry import media_mode_tooltip_segments, tooltip_segments_for_id
 from new_music_builder.ui.main_window import build_menu_action_map
 from new_music_builder.ui.widgets.cursor_tooltip import (
     compute_tooltip_placement,
@@ -129,6 +129,24 @@ def test_tooltip_registry_returns_module_two_media_segments() -> None:
     assert any(segment.tone == 'tag' for segment in expanded)
     assert song_table[0].tone == 'accent'
     assert any(segment.tone == 'tag' for segment in live_preview)
+
+
+def test_media_mode_tooltip_segments_describe_split_mode() -> None:
+    segments = media_mode_tooltip_segments('cassette', 'split')
+
+    assert ''.join(segment.text for segment in segments if segment.tone != 'break') == (
+        'Click to toggle Flip / Full for CassetteFlip: Side A and Side B separated'
+    )
+    assert segments[-1].tone == 'tag'
+
+
+def test_media_mode_tooltip_segments_describe_single_mode() -> None:
+    segments = media_mode_tooltip_segments('cd', 'single')
+
+    assert ''.join(segment.text for segment in segments if segment.tone != 'break') == (
+        'Click to toggle Flip / Full for CDFull: Side A and Side B combined'
+    )
+    assert segments[-1].tone == 'tag'
 
 
 def test_tooltip_registry_returns_module_three_segments() -> None:

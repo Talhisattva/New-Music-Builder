@@ -166,6 +166,9 @@ def bind_help_tooltip(
     preferred_direction: str | None = None,
 ) -> HelpTooltipBinding | None:
     segments = tooltip_segments_for_id(tooltip_id)
+    if segments is None and segments_getter is not None:
+        resolved_segments = tuple(segments_getter())
+        segments = resolved_segments if any(segment.text.strip() or segment.tone == 'break' for segment in resolved_segments) else None
     if not widgets or not segments:
         return None
     return HelpTooltipBinding(

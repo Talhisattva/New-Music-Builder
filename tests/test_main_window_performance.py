@@ -41,6 +41,9 @@ class _FakeRowList:
         self.remove_rows_payloads: list[list[int]] = []
         self.selection_states: list[set[int]] = []
         self.reordered_rows: list[list[int]] = []
+        self.media_strip_refreshes: list[int] = []
+        self.collapsed_detail_refreshes: list[int] = []
+        self.row_widgets: list[object] = [object()]
 
     def append_row(self, row) -> None:
         self.appended_row_ids.append(row.row_id)
@@ -57,6 +60,12 @@ class _FakeRowList:
 
     def reorder_rows(self, rows) -> None:
         self.reordered_rows.append([row.row_id for row in rows])
+
+    def refresh_media_type_strips_for_row(self, row_id: int) -> None:
+        self.media_strip_refreshes.append(row_id)
+
+    def refresh_collapsed_details_for_row(self, row_id: int) -> None:
+        self.collapsed_detail_refreshes.append(row_id)
 
 
 class _FakeRowWidget:
@@ -146,6 +155,23 @@ def test_remove_module_two_media_row_set_prunes_selection_and_updates_remaining_
     assert window.module_two_row_list.selection_states == [{2, 3}]
     assert window.module_two_content_viewport.moved_to == [0.25]
     assert getattr(window, "_refreshed_module_three", False) is True
+    assert getattr(window, "_project_changed", False) is True
+
+
+def test_set_module_two_media_mode_updates_row_and_refreshes_target_only() -> None:
+    row = default_media_row(1)
+    session = ProjectSession(project=ProjectConfig(media_rows=[row]))
+    window = MainWindow.__new__(MainWindow)
+    window.session = session
+    window.module_two_row_list = _FakeRowList()
+    window._is_build_locked = lambda: False
+    window.on_project_change = lambda: setattr(window, "_project_changed", True)
+
+    MainWindow._set_module_two_media_mode(window, 1, "cassette", "single")
+
+    assert row.media_modes["cassette"] == "single"
+    assert window.module_two_row_list.media_strip_refreshes == [1]
+    assert window.module_two_row_list.collapsed_detail_refreshes == [1]
     assert getattr(window, "_project_changed", False) is True
 
 

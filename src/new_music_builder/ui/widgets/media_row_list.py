@@ -4,9 +4,9 @@ from collections.abc import Callable
 from dataclasses import dataclass
 import tkinter as tk
 
-from new_music_builder.domain.models import AppearanceKind, MediaKind, MediaRow, SongSortColumn
+from new_music_builder.domain.models import AppearanceKind, MediaKind, MediaRow, RegistrationMode, SongSortColumn
 from new_music_builder.ui import spec
-from new_music_builder.ui.help_tooltip_registry import TooltipSegment, tooltip_segments_for_id
+from new_music_builder.ui.help_tooltip_registry import TooltipSegment, media_mode_tooltip_segments, tooltip_segments_for_id
 from new_music_builder.ui.widgets.help_tooltip import bind_help_tooltip
 from new_music_builder.ui.widgets.collapsed_row_chevron import CollapsedRowChevron
 from new_music_builder.ui.widgets.collapsed_row_details import CollapsedRowDetails
@@ -117,6 +117,8 @@ class MediaRowShell(tk.Frame):
         expanded: bool,
         folder_icon_path: str | None = None,
         check_icon_path: str | None = None,
+        single_side_icon_path: str | None = None,
+        double_side_icon_path: str | None = None,
         edit_icon_path: str | None = None,
         ear_icon_path: str | None = None,
         grab_icon_path: str | None = None,
@@ -129,6 +131,7 @@ class MediaRowShell(tk.Frame):
         selected_count: int = 0,
         on_background_selected: Callable[[int, RowSelectionModifiers], None] | None = None,
         on_enabled_media_changed: Callable[[int, MediaKind, bool], None] | None = None,
+        on_media_mode_changed: Callable[[int, MediaKind, RegistrationMode], None] | None = None,
         on_name_committed: Callable[[int, str], None] | None = None,
         on_side_selected: Callable[[int, str], None] | None = None,
         on_preview_mode_selected: Callable[[int, str], None] | None = None,
@@ -174,6 +177,7 @@ class MediaRowShell(tk.Frame):
         self._on_select = on_select
         self._on_background_selected = on_background_selected
         self._on_enabled_media_changed = on_enabled_media_changed
+        self._on_media_mode_changed = on_media_mode_changed
         self._on_name_committed = on_name_committed
         self._on_side_selected = on_side_selected
         self._on_preview_mode_selected = on_preview_mode_selected
@@ -334,9 +338,12 @@ class MediaRowShell(tk.Frame):
             row=row,
             expanded=True,
             check_icon_path=check_icon_path,
+            single_side_icon_path=single_side_icon_path,
+            double_side_icon_path=double_side_icon_path,
             bg_color=spec.MEDIA_ROW_BG,
             resolve_media_strip_path=resolve_media_strip_path,
             on_enabled_media_changed=self._handle_enabled_media_changed,
+            on_media_mode_changed=self._handle_media_mode_changed,
         )
         self.expanded_media_type_strip.place(
             x=spec.MEDIA_ROW_MEDIA_STRIP_EXPANDED_POS[0],
@@ -355,6 +362,17 @@ class MediaRowShell(tk.Frame):
                 self.expanded_media_type_strip.checkbox_tooltip_widgets_for_kind('cd'),
                 tooltip_id='module_two.media_checkbox.cd',
             ),
+        }
+        self._expanded_media_mode_tooltips = {
+            kind: bind_help_tooltip(
+                self.expanded_media_type_strip.mode_toggle_tooltip_widgets_for_kind(kind),
+                tooltip_id=None,
+                segments_getter=lambda media_kind=kind: media_mode_tooltip_segments(
+                    media_kind,
+                    self._row.media_modes.get(media_kind, 'split'),
+                ),
+            )
+            for kind in ('cassette', 'vinyl', 'cd')
         }
 
         self.collapsed_badge = MediaRowBadge(
@@ -377,9 +395,12 @@ class MediaRowShell(tk.Frame):
             row=row,
             expanded=False,
             check_icon_path=check_icon_path,
+            single_side_icon_path=single_side_icon_path,
+            double_side_icon_path=double_side_icon_path,
             bg_color=spec.MEDIA_ROW_BG,
             resolve_media_strip_path=resolve_media_strip_path,
             on_enabled_media_changed=self._handle_enabled_media_changed,
+            on_media_mode_changed=self._handle_media_mode_changed,
         )
         self.collapsed_media_type_strip.place(
             x=spec.MEDIA_ROW_MEDIA_STRIP_COLLAPSED_POS[0],
@@ -398,6 +419,17 @@ class MediaRowShell(tk.Frame):
                 self.collapsed_media_type_strip.collapsed_tooltip_widgets_for_kind('cd'),
                 tooltip_id='module_two.collapsed_media.cd',
             ),
+        }
+        self._collapsed_media_mode_tooltips = {
+            kind: bind_help_tooltip(
+                self.collapsed_media_type_strip.mode_toggle_tooltip_widgets_for_kind(kind),
+                tooltip_id=None,
+                segments_getter=lambda media_kind=kind: media_mode_tooltip_segments(
+                    media_kind,
+                    self._row.media_modes.get(media_kind, 'split'),
+                ),
+            )
+            for kind in ('cassette', 'vinyl', 'cd')
         }
         self.collapsed_chevron = CollapsedRowChevron(
             self.collapsed_container,
@@ -725,6 +757,10 @@ class MediaRowShell(tk.Frame):
         if self._on_enabled_media_changed is not None:
             self._on_enabled_media_changed(self._row_id, kind, enabled)
 
+    def _handle_media_mode_changed(self, kind: MediaKind, mode: RegistrationMode) -> None:
+        if self._on_media_mode_changed is not None:
+            self._on_media_mode_changed(self._row_id, kind, mode)
+
     def _handle_name_committed(self, value: str) -> None:
         if self._on_name_committed is not None:
             self._on_name_committed(self._row_id, value)
@@ -844,6 +880,8 @@ class MediaRowList(tk.Frame):
         rows: list[MediaRow],
         folder_icon_path: str | None = None,
         check_icon_path: str | None = None,
+        single_side_icon_path: str | None = None,
+        double_side_icon_path: str | None = None,
         edit_icon_path: str | None = None,
         ear_icon_path: str | None = None,
         grab_icon_path: str | None = None,
@@ -856,6 +894,7 @@ class MediaRowList(tk.Frame):
         selected_row_ids: set[int] | None = None,
         on_background_selected: Callable[[int, RowSelectionModifiers], None] | None = None,
         on_enabled_media_changed: Callable[[int, MediaKind, bool], None] | None = None,
+        on_media_mode_changed: Callable[[int, MediaKind, RegistrationMode], None] | None = None,
         on_name_committed: Callable[[int, str], None] | None = None,
         on_side_selected: Callable[[int, str], None] | None = None,
         on_preview_mode_selected: Callable[[int, str], None] | None = None,
@@ -896,6 +935,8 @@ class MediaRowList(tk.Frame):
         self.rows = normalized_rows
         self._folder_icon_path = folder_icon_path
         self._check_icon_path = check_icon_path
+        self._single_side_icon_path = single_side_icon_path
+        self._double_side_icon_path = double_side_icon_path
         self._edit_icon_path = edit_icon_path
         self._ear_icon_path = ear_icon_path
         self._grab_icon_path = grab_icon_path
@@ -908,6 +949,7 @@ class MediaRowList(tk.Frame):
         self._selected_count = len(self._selected_row_ids)
         self._on_background_selected = on_background_selected
         self._on_enabled_media_changed = on_enabled_media_changed
+        self._on_media_mode_changed = on_media_mode_changed
         self._on_name_committed = on_name_committed
         self._on_side_selected = on_side_selected
         self._on_preview_mode_selected = on_preview_mode_selected
@@ -963,6 +1005,8 @@ class MediaRowList(tk.Frame):
             expanded=row.expanded,
             folder_icon_path=self._folder_icon_path,
             check_icon_path=self._check_icon_path,
+            single_side_icon_path=self._single_side_icon_path,
+            double_side_icon_path=self._double_side_icon_path,
             edit_icon_path=self._edit_icon_path,
             ear_icon_path=self._ear_icon_path,
             grab_icon_path=self._grab_icon_path,
@@ -975,6 +1019,7 @@ class MediaRowList(tk.Frame):
             selected_count=self._selected_count,
             on_background_selected=self._on_background_selected,
             on_enabled_media_changed=self._on_enabled_media_changed,
+            on_media_mode_changed=self._on_media_mode_changed,
             on_name_committed=self._on_name_committed,
             on_side_selected=self._on_side_selected,
             on_preview_mode_selected=self._on_preview_mode_selected,

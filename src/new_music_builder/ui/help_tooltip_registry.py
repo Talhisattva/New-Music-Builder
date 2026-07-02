@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from new_music_builder.domain.models import MediaKind, RegistrationMode
+
 
 @dataclass(frozen=True, slots=True)
 class TooltipSegment:
@@ -22,6 +24,21 @@ def tooltip_segments_for_id(tooltip_id: str | None) -> tuple[TooltipSegment, ...
     if not any(segment.text.strip() or segment.tone == 'break' for segment in segments):
         return None
     return segments
+
+
+def media_mode_tooltip_segments(media_kind: MediaKind, mode: RegistrationMode) -> tuple[TooltipSegment, ...]:
+    media_label = {'cassette': 'Cassette', 'vinyl': 'Vinyl', 'cd': 'CD'}[media_kind]
+    mode_label = 'Full: Side A and Side B combined' if mode == 'single' else 'Flip: Side A and Side B separated'
+    return (
+        TooltipSegment('Click to toggle '),
+        TooltipSegment('Flip', tone='accent'),
+        TooltipSegment(' / '),
+        TooltipSegment('Full', tone='accent'),
+        TooltipSegment(' for '),
+        TooltipSegment(media_label, tone='accent'),
+        TooltipSegment.break_line(),
+        TooltipSegment(mode_label, tone='tag'),
+    )
 
 
 HELP_TOOLTIP_REGISTRY: dict[str, tuple[TooltipSegment, ...]] = {
