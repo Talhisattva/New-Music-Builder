@@ -5,7 +5,7 @@ from pathlib import Path
 
 from new_music_builder.domain.models import ExportPlan, ExportTargetPaths, LuaTrackLabel, ProjectConfig
 from new_music_builder.services.export_lua_plan import build_export_lua_plan
-SUPPORTED_TRANSLATION_LOCALES: tuple[str, ...] = ("CN", "DE", "EN", "ES", "FR", "JP", "KO", "PL", "PTBR", "RU")
+SUPPORTED_TRANSLATION_LOCALES: tuple[str, ...] = ("CH", "CN", "DE", "EN", "ES", "FR", "JP", "KO", "PL", "PTBR", "RU")
 
 
 def write_export_translations(

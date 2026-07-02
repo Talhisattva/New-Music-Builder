@@ -217,6 +217,7 @@ def test_write_export_scaffold_creates_expected_files(tmp_path: Path) -> None:
     assert (Path(targets.v42) / 'icon.png').exists()
     assert (Path(targets.common) / 'media' / 'lua' / 'shared' / 'Translate' / 'EN' / 'UI_EN.txt').exists()
     assert (Path(targets.common) / 'media' / 'lua' / 'shared' / 'Translate' / 'EN' / 'UI.json').exists()
+    assert (Path(targets.common) / 'media' / 'lua' / 'shared' / 'Translate' / 'CH' / 'UI_CH.txt').exists()
     assert (Path(targets.common) / 'media' / 'lua' / 'shared' / 'Translate' / 'CN' / 'UI_CN.txt').exists()
     assert (Path(targets.common) / 'media' / 'lua' / 'shared' / 'Translate' / 'RU' / 'UI_RU.txt').exists()
     assert Image.open(Path(targets.common) / 'icon.png').size == (32, 32)
