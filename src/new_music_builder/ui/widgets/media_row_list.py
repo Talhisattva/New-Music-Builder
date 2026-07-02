@@ -760,6 +760,13 @@ class MediaRowShell(tk.Frame):
     def _handle_media_mode_changed(self, kind: MediaKind, mode: RegistrationMode) -> None:
         if self._on_media_mode_changed is not None:
             self._on_media_mode_changed(self._row_id, kind, mode)
+        self._refresh_media_mode_tooltip(kind)
+
+    def _refresh_media_mode_tooltip(self, kind: MediaKind) -> None:
+        active_tooltips = self._expanded_media_mode_tooltips if self._expanded else self._collapsed_media_mode_tooltips
+        binding = active_tooltips.get(kind)
+        if binding is not None:
+            binding.refresh_now(show=True)
 
     def _handle_name_committed(self, value: str) -> None:
         if self._on_name_committed is not None:

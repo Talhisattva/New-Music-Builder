@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from new_music_builder.ui import spec
-from new_music_builder.ui.help_tooltip_registry import media_mode_tooltip_segments, tooltip_segments_for_id
+from new_music_builder.ui.help_tooltip_registry import TooltipSegment, media_mode_tooltip_segments, tooltip_segments_for_id
 from new_music_builder.ui.main_window import build_menu_action_map
 from new_music_builder.ui.widgets.cursor_tooltip import (
     compute_tooltip_placement,
@@ -9,6 +9,7 @@ from new_music_builder.ui.widgets.cursor_tooltip import (
     pick_inward_horizontal_direction,
     pick_inward_tooltip_direction,
 )
+from new_music_builder.ui.widgets.help_tooltip import HelpTooltipBinding
 
 
 class _WindowStub:
@@ -24,6 +25,24 @@ class _WindowStub:
         self.save_project_as = lambda: None
         self.on_close = lambda: None
         self._show_tutorial_placeholder = lambda: None
+
+
+class _TooltipWidgetStub:
+    def __init__(self) -> None:
+        self.bindings: list[tuple[str, object, str]] = []
+        self.cancelled: list[str] = []
+
+    def bind(self, sequence, handler, add=None):
+        self.bindings.append((sequence, handler, add))
+
+    def after_cancel(self, after_id):
+        self.cancelled.append(after_id)
+
+    def winfo_pointerx(self):
+        return 100
+
+    def winfo_pointery(self):
+        return 200
 
 
 def test_pick_inward_tooltip_direction_chooses_cardinal_side_toward_window_center() -> None:
@@ -147,6 +166,45 @@ def test_media_mode_tooltip_segments_describe_single_mode() -> None:
         'Click to toggle Flip / Full for CDFull: Side A and Side B combined'
     )
     assert segments[-1].tone == 'tag'
+
+
+def test_help_tooltip_binding_refresh_now_uses_dynamic_segments(monkeypatch) -> None:
+    widget = _TooltipWidgetStub()
+    shown: list[tuple[tuple[int, int], str | None]] = []
+    segment_state = {'text': 'before'}
+
+    class _FakeTooltip:
+        def __init__(self, _owner) -> None:
+            self.segments = ()
+
+        def set_segments(self, segments) -> None:
+            self.segments = tuple(segments)
+
+        def set_target_widgets(self, _widgets) -> None:
+            pass
+
+        def hide(self) -> None:
+            pass
+
+        def show_at_cursor(self, x, y, preferred_direction=None) -> None:
+            shown.append(((x, y), preferred_direction))
+
+        def move_to_cursor(self, *_args, **_kwargs) -> None:
+            pass
+
+    monkeypatch.setattr('new_music_builder.ui.widgets.help_tooltip.HelpCursorTooltip', _FakeTooltip)
+    binding = HelpTooltipBinding(
+        (widget,),
+        segments=(TooltipSegment('before'),),
+        segments_getter=lambda: (TooltipSegment(segment_state['text']),),
+        preferred_direction='down',
+    )
+    segment_state['text'] = 'after'
+
+    binding.refresh_now(show=True)
+
+    assert binding._segments == (TooltipSegment('after'),)
+    assert shown == [((0, 0), 'down')]
 
 
 def test_tooltip_registry_returns_module_three_segments() -> None:

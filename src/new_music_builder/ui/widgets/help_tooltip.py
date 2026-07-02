@@ -64,6 +64,13 @@ class HelpTooltipBinding:
         self._cancel_hide()
         self._tooltip.hide()
 
+    def refresh_now(self, *, show: bool = False) -> None:
+        self._cancel_show()
+        self._cancel_hide()
+        self._refresh_segments()
+        if show and self._can_show_for_event(None):
+            self._tooltip.show_at_cursor(*self._last_pointer, preferred_direction=self._preferred_direction)
+
     def _capture_pointer(self, event: tk.Event | None = None) -> None:
         owner = self._widgets[0]
         if event is not None and hasattr(event, 'x_root') and hasattr(event, 'y_root'):
