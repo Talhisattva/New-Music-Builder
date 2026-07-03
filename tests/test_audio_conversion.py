@@ -22,14 +22,15 @@ def test_write_ogg_vorbis_uses_fixed_export_profile(tmp_path: Path, monkeypatch)
         def __exit__(self, exc_type, exc, tb) -> bool:
             return False
 
-        def buffer_write(self, _data: bytes, *, dtype: str) -> None:
-            recorded["dtype"] = dtype
+        def write(self, data: np.ndarray) -> None:
+            recorded["dtype"] = str(data.dtype)
+            recorded["shape"] = data.shape
 
     monkeypatch.setattr(audio_conversion.sf, "SoundFile", _FakeSoundFile)
 
     audio_conversion._write_ogg_vorbis(
         tmp_path / "out.ogg",
-        np.zeros((32, 2), dtype=np.int16),
+        np.zeros((32, 2), dtype=np.float32),
         44100,
         0.65,
         emit_progress=lambda _percent, _message: None,
@@ -38,6 +39,85 @@ def test_write_ogg_vorbis_uses_fixed_export_profile(tmp_path: Path, monkeypatch)
     assert recorded["format"] == "OGG"
     assert recorded["subtype"] == "VORBIS"
     assert recorded["compression_level"] == 0.65
+    assert recorded["dtype"] == "float32"
+    assert recorded["shape"] == (32, 2)
+
+
+def test_write_ogg_vorbis_scales_hot_float_samples_before_encode(tmp_path: Path, monkeypatch) -> None:
+    recorded_chunks: list[np.ndarray] = []
+
+    class _FakeSoundFile:
+        def __init__(self, _file: str, mode: str = "r", **_kwargs: object) -> None:
+            self.mode = mode
+
+        def __enter__(self) -> "_FakeSoundFile":
+            return self
+
+        def __exit__(self, exc_type, exc, tb) -> bool:
+            return False
+
+        def write(self, data: np.ndarray) -> None:
+            recorded_chunks.append(np.array(data, copy=True))
+
+    monkeypatch.setattr(audio_conversion.sf, "SoundFile", _FakeSoundFile)
+
+    pcm = np.array([[1.25, -1.25], [0.5, -0.5]], dtype=np.float32)
+    audio_conversion._write_ogg_vorbis(
+        tmp_path / "out.ogg",
+        pcm,
+        44100,
+        0.5,
+        emit_progress=lambda _percent, _message: None,
+    )
+
+    assert len(recorded_chunks) == 1
+    expected = pcm * np.float32(0.98 / 1.25)
+    np.testing.assert_allclose(recorded_chunks[0], expected, rtol=0.0, atol=1e-6)
+    assert recorded_chunks[0].dtype == np.float32
+    assert float(np.max(np.abs(recorded_chunks[0]))) <= 0.980001
+
+
+def test_decode_with_miniaudio_normalizes_signed16_to_float(monkeypatch, tmp_path: Path) -> None:
+    source = tmp_path / "song.ogg"
+    source.write_bytes(b"ogg")
+
+    class _Decoded:
+        sample_rate = 48000
+        nchannels = 2
+        samples = np.array([-32768, 0, 16384, 32767], dtype=np.int16).tobytes()
+
+    monkeypatch.setattr(audio_conversion.miniaudio, "decode_file", lambda *_args, **_kwargs: _Decoded())
+
+    pcm, sample_rate = audio_conversion._decode_with_miniaudio(source, target_channels=2)
+
+    assert sample_rate == 48000
+    assert pcm.dtype == np.float32
+    assert pcm.shape == (2, 2)
+    np.testing.assert_allclose(
+        pcm,
+        np.array([[-1.0, 0.0], [0.5, 32767 / 32768]], dtype=np.float32),
+        rtol=0.0,
+        atol=1e-6,
+    )
+
+
+def test_resample_pcm_returns_float32_with_expected_shape() -> None:
+    data = np.array([[0.0, 0.0], [1.0, -1.0], [0.0, 0.0]], dtype=np.float32)
+
+    resampled = audio_conversion._resample_pcm(data, 3, 6)
+
+    assert resampled.dtype == np.float32
+    assert resampled.shape == (6, 2)
+    np.testing.assert_allclose(resampled[0], data[0], rtol=0.0, atol=1e-6)
+    np.testing.assert_allclose(resampled[2], data[1], rtol=0.0, atol=1e-6)
+
+
+def test_prepare_vorbis_pcm_leaves_in_range_audio_unchanged() -> None:
+    pcm = np.array([[0.25, -0.5], [0.75, -0.9]], dtype=np.float32)
+
+    prepared = audio_conversion._prepare_vorbis_pcm(pcm)
+
+    np.testing.assert_allclose(prepared, pcm, rtol=0.0, atol=1e-6)
 
 
 def test_cache_path_includes_ogg_profile_id(tmp_path: Path) -> None:
@@ -186,3 +266,22 @@ def test_run_audio_export_mixed_passthrough_and_conversion_behaviors(tmp_path: P
     assert succeeded_paths[0] == ""
     assert succeeded_paths[1].endswith(".ogg")
     assert Path(succeeded_paths[1]).exists()
+
+
+def test_decode_audio_uses_miniaudio_fallback_after_soundfile_failure(monkeypatch, tmp_path: Path) -> None:
+    source = tmp_path / "song.ogg"
+    source.write_bytes(b"ogg")
+
+    monkeypatch.setattr(audio_conversion.sf, "read", lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("sf fail")))
+
+    class _Decoded:
+        sample_rate = 44100
+        nchannels = 2
+        samples = np.array([0, 32767], dtype=np.int16).tobytes()
+
+    monkeypatch.setattr(audio_conversion.miniaudio, "decode_file", lambda *_args, **_kwargs: _Decoded())
+
+    pcm = audio_conversion._decode_audio(source, target_rate=44100, target_channels=2)
+
+    assert pcm.dtype == np.float32
+    np.testing.assert_allclose(pcm, np.array([[0.0, 32767 / 32768]], dtype=np.float32), rtol=0.0, atol=1e-6)
