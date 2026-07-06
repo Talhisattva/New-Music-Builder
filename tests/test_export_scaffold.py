@@ -4,6 +4,7 @@ from PIL import Image, ImageChops, ImageDraw
 
 from new_music_builder.domain.models import ProjectConfig, TrackEntry, default_media_row
 from new_music_builder.services.asset_catalog import AssetCatalog
+from new_music_builder.services.export_ids import sanitize_module_id
 from new_music_builder.services.export_planning import build_export_plan
 from new_music_builder.services.export_scaffold import (
     _overlay_font_candidate_paths,
@@ -49,6 +50,13 @@ def _write_image(path: Path, size: tuple[int, int], color: tuple[int, int, int, 
 def test_sanitize_filesystem_component_preserves_spaces_and_removes_invalid_chars() -> None:
     assert sanitize_filesystem_component('My: Fun* Mix?', fallback='X') == 'My_ Fun_ Mix_'
     assert sanitize_filesystem_component('   ', fallback='X') == 'X'
+
+
+def test_sanitize_module_id_preserves_underscores_and_strips_other_unsupported_chars() -> None:
+    assert sanitize_module_id('TM_NewGuppy') == 'TM_NewGuppy'
+    assert sanitize_module_id('NM_PackMod') == 'NM_PackMod'
+    assert sanitize_module_id('T M-!_Päck.Mod') == 'TM_Pack'
+    assert sanitize_module_id('!!!', fallback='Fallback_ID') == 'Fallback_ID'
 
 
 def test_overlay_font_candidates_prefer_explicit_override(monkeypatch) -> None:
@@ -180,6 +188,20 @@ def test_resolve_export_target_uses_outer_name_and_inner_id(tmp_path: Path) -> N
 
     assert Path(targets.root).name == 'My Fun Mix'
     assert Path(targets.mod_base).name == 'MyFunMix'
+
+
+def test_resolve_export_target_uses_sanitized_module_id_for_audio_root(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    project.mod_id = 'TM_NewGuppy'
+    catalog = AssetCatalog(ASSETS_ROOT).scan()
+    row = project.media_rows[0]
+    row.tracks_a = [_track()]
+    plan = build_export_plan(project, catalog)
+
+    targets = resolve_export_target(plan, project.workshop_output_folder, mod_name=project.mod_name, mod_id=project.mod_id)
+
+    assert Path(targets.mod_base).name == 'TM_NewGuppy'
+    assert Path(targets.audio_pack_root).name == 'TM_NewGuppy'
 
 
 def test_validate_export_request_blocks_missing_required_inputs(tmp_path: Path) -> None:

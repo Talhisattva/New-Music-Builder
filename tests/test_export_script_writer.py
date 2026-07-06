@@ -247,3 +247,40 @@ def test_write_export_scaffold_normalizes_comma_bearing_item_display_names(tmp_p
     assert "DisplayName = Rock, Pop & Rap Hits Vol 1 (Cassette)" not in items_text
     assert "DisplayName = Rock - Pop & Rap Hits Vol 1 (Cassette)" in items_text
     assert "media/sound/RoadTripMix/Rock, Pop & Rap Hits Vol 1/" not in sounds_text
+
+
+def test_write_export_scaffold_keeps_audio_folder_in_sync_with_sanitized_module_id(tmp_path: Path) -> None:
+    workshop_root = tmp_path / "Workshop"
+    workshop_root.mkdir()
+    project = ProjectConfig(
+        mod_name="Underscore Pack",
+        mod_id="TM_NewGuppy",
+        workshop_output_folder=str(workshop_root),
+    )
+    row = default_media_row(1)
+    row.media_name = "Single Test"
+    row.tracks_a = [_track("C:/music/test.ogg", "Test Song", "00:01:00")]
+    project.media_rows = [row]
+
+    catalog = AssetCatalog(ASSETS_ROOT).scan()
+    plan = build_export_plan(project, catalog)
+    targets = resolve_export_target(plan, project.workshop_output_folder, mod_name=project.mod_name, mod_id=project.mod_id)
+
+    result = write_export_scaffold(project, plan, targets, catalog)
+
+    assert not result.errors
+    scripts_root = Path(targets.v42) / "media" / "scripts"
+    lua_root = Path(targets.v42) / "media" / "lua" / "shared"
+    sounds_text = (scripts_root / "NMB_TM_NewGuppy_Sounds.txt").read_text(encoding="utf-8")
+    bootstrap_text = (lua_root / "TM_NewGuppy_PackBootstrap.lua").read_text(encoding="utf-8")
+    album_text = (lua_root / "TM_NewGuppy_Album_SingleTest.lua").read_text(encoding="utf-8")
+    ui_en = (Path(targets.common) / "media" / "lua" / "shared" / "Translate" / "EN" / "UI_EN.txt").read_text(encoding="utf-8")
+
+    assert "module TM_NewGuppy" in sounds_text
+    assert "file = media/sound/TM_NewGuppy/SingleTest/A-Side/SingleTestSideA1TestSong.ogg" in sounds_text
+    assert 'local PACK_MODULE = "TM_NewGuppy"' in bootstrap_text
+    assert 'NMTM_NewGuppyAlbum_SingleTest = {' in album_text
+    assert '"UI_TM_NewGuppy_SingleTest_Song_01"' in album_text
+    assert 'UI_EN = {' in ui_en
+    assert 'UI_TM_NewGuppy_SingleTest_Song_01 = "Test Song"' in ui_en
+    assert Path(targets.audio_pack_root).name == "TM_NewGuppy"

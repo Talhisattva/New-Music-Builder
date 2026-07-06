@@ -7,7 +7,7 @@ from pathlib import Path
 from PIL import Image
 
 from new_music_builder.domain.models import ExportPlan, ExportTargetPaths, ProjectConfig, TextureExportResult
-from new_music_builder.services.export_ids import sanitize_export_id
+from new_music_builder.services.export_ids import sanitize_export_id, sanitize_module_id
 from new_music_builder.services.export_texture_contract import (
     build_cover_texture_decision,
     exported_inventory_texture_filename,
@@ -33,7 +33,7 @@ class _TextureWriteTask:
 
 
 def write_export_textures(project: ProjectConfig, plan: ExportPlan, targets: ExportTargetPaths) -> TextureExportResult:
-    module_id = sanitize_export_id(project.mod_id or "NewMusicPack", fallback="NewMusicPack")
+    module_id = sanitize_module_id(project.mod_id or "NewMusicPack", fallback="NewMusicPack")
     textures_root = Path(targets.common) / "media" / "textures"
     tasks: OrderedDict[str, _TextureWriteTask] = OrderedDict()
 

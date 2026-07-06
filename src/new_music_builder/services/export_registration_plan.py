@@ -18,7 +18,7 @@ from new_music_builder.domain.models import (
     RegistrationMode,
     ResolvedAppearance,
 )
-from new_music_builder.services.export_ids import sanitize_export_id
+from new_music_builder.services.export_ids import sanitize_export_id, sanitize_module_id
 from new_music_builder.services.export_texture_contract import (
     exported_inventory_texture_stem,
     exported_world_texture_stem,
@@ -53,7 +53,7 @@ _CONTAINER_SUFFIX: dict[MediaKind, str] = {
 
 
 def build_export_registration_plan(project: ProjectConfig, export_plan: ExportPlan) -> ExportRegistrationPlan:
-    module_id = sanitize_export_id(project.mod_id or "NewMusicPack", fallback="NewMusicPack")
+    module_id = sanitize_module_id(project.mod_id or "NewMusicPack", fallback="NewMusicPack")
     albums = [
         _build_registered_album(module_id, row)
         for row in export_plan.rows

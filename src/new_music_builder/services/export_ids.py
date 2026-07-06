@@ -9,6 +9,16 @@ from pathlib import Path
 MAX_EXPORT_ID_LENGTH = 48
 
 
+def sanitize_module_id(value: str, *, fallback: str = "NewMusicPack") -> str:
+    base = Path(value).stem
+    normalized = unicodedata.normalize("NFD", base)
+    stripped = "".join(ch for ch in normalized if unicodedata.category(ch) != "Mn")
+    cleaned = re.sub(r"[^A-Za-z0-9_]", "", stripped)
+    if not cleaned:
+        cleaned = fallback
+    return cleaned[:MAX_EXPORT_ID_LENGTH]
+
+
 def sanitize_export_id(value: str, *, fallback: str = "Track") -> str:
     base = Path(value).stem
     normalized = unicodedata.normalize("NFD", base)

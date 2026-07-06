@@ -16,6 +16,7 @@ from new_music_builder.domain.models import (
 )
 from new_music_builder.platform.paths import assets_root
 from new_music_builder.services.asset_catalog import AssetEntry
+from new_music_builder.services.export_ids import sanitize_module_id
 from new_music_builder.services.export_lua_writer import write_export_lua
 from new_music_builder.services.export_naming import sanitize_filesystem_component
 from new_music_builder.services.export_script_writer import write_export_scripts
@@ -64,6 +65,7 @@ def resolve_export_target(plan: ExportPlan, workshop_root: str | Path, *, mod_na
     workshop_path = Path(workshop_root).resolve()
     outer_folder_name = sanitize_filesystem_component(mod_name, fallback="New Music Pack")
     inner_folder_name = sanitize_filesystem_component(mod_id, fallback="NewMusicPack")
+    audio_pack_folder_name = sanitize_module_id(mod_id, fallback="NewMusicPack")
     root = workshop_path / outer_folder_name
     contents = root / "Contents"
     mods_root = contents / "mods"
@@ -71,7 +73,7 @@ def resolve_export_target(plan: ExportPlan, workshop_root: str | Path, *, mod_na
     common = mod_base / "common"
     v42 = mod_base / "42"
     audio_root = common / "media" / "sound"
-    audio_pack_root = audio_root / inner_folder_name
+    audio_pack_root = audio_root / audio_pack_folder_name
     return ExportTargetPaths(
         workshop_root=str(workshop_path),
         outer_folder_name=outer_folder_name,

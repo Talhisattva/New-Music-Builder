@@ -125,7 +125,7 @@ def create_staging_targets(final_targets: ExportTargetPaths) -> ExportTargetPath
     common = mod_base / "common"
     v42 = mod_base / "42"
     audio_root = common / "media" / "sound"
-    audio_pack_root = audio_root / final_targets.inner_folder_name
+    audio_pack_root = audio_root / Path(final_targets.audio_pack_root).name
     return ExportTargetPaths(
         workshop_root=final_targets.workshop_root,
         outer_folder_name=final_targets.outer_folder_name,
