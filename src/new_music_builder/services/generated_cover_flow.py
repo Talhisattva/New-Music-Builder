@@ -60,6 +60,7 @@ def generate_supported_cover_set_for_row(
     project: ProjectConfig,
     row: MediaRow,
     *,
+    force_refresh: bool = False,
     cassette_donor_inventory_path: str | Path = "",
     cassette_donor_world_path: str | Path = "",
     case_donor_inventory_path: str | Path = "",
@@ -88,7 +89,7 @@ def generate_supported_cover_set_for_row(
     outcomes: list[GeneratedKindOutcome] = []
 
     for kind in supported_generated_kinds_for_row(row):
-        if has_generated_cover(project, kind, normalized_cover):
+        if not force_refresh and has_generated_cover(project, kind, normalized_cover):
             existing_record = generated_record_for_kind(project, kind, normalized_cover)
             if existing_record is not None:
                 _apply_generated_record_selection(row, existing_record)

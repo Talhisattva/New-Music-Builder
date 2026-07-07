@@ -168,6 +168,41 @@ def test_generate_supported_cover_set_for_row_skips_existing_kind_and_selects_ex
     assert len(project.generated_assets) == 5
 
 
+def test_generate_supported_cover_set_for_row_force_refresh_rebuilds_existing_kind(tmp_path: Path) -> None:
+    cover_path = tmp_path / "cover.png"
+    Image.new("RGBA", (300, 300), (255, 0, 0, 255)).save(cover_path)
+
+    row = default_media_row(1)
+    row.cover_path = str(cover_path)
+    project = ProjectConfig(media_rows=[row])
+    existing = _fake_generation_result(tmp_path, "cassette", cover_path).record
+    upsert_generated_asset_record(project, existing)
+    calls: list[str] = []
+
+    def cassette_generator(_cover, **_kwargs):
+        calls.append("cassette")
+        return _fake_generation_result(tmp_path, "cassette", cover_path)
+
+    result = generate_supported_cover_set_for_row(
+        project,
+        row,
+        force_refresh=True,
+        cassette_donor_inventory_path="",
+        cassette_donor_world_path="",
+        case_donor_inventory_path="",
+        case_donor_world_path="",
+        cassette_generator=cassette_generator,
+        case_generator=lambda cover, **_kwargs: _fake_generation_result(tmp_path, "case", Path(cover)),
+        vinyl_generator=lambda cover, **_kwargs: _fake_generation_result(tmp_path, "vinyl", Path(cover)),
+        jacket_generator=lambda cover, **_kwargs: _fake_generation_result(tmp_path, "jacket", Path(cover)),
+        cd_cover_generator=lambda cover, **_kwargs: _fake_generation_result(tmp_path, "cd_cover", Path(cover)),
+    )
+
+    assert "cassette" in result.generated_kinds
+    assert result.skipped_kinds == ()
+    assert calls == ["cassette"]
+
+
 def test_generate_supported_cover_set_for_row_allows_partial_failure(tmp_path: Path) -> None:
     cover_path = tmp_path / "cover.png"
     Image.new("RGBA", (300, 300), (255, 0, 0, 255)).save(cover_path)

@@ -360,6 +360,13 @@ HELP_TOOLTIP_REGISTRY: dict[str, tuple[TooltipSegment, ...]] = {
         TooltipSegment('Cover Art', tone='accent'),
         TooltipSegment('.'),
     ),
+    'menu.preferences.regenerate_textures_on_project_load': (
+        TooltipSegment('If enabled, all media rows will regenerate their '),
+        TooltipSegment('Textures', tone='accent'),
+        TooltipSegment(' from the selected covers.'),
+        TooltipSegment.break_line(),
+        TooltipSegment('If disabled, reselect an image to regenerate its textures', tone='tag'),
+    ),
     'menu.preferences.tooltips': (
         TooltipSegment('Show or hide '),
         TooltipSegment('Text Tooltips', tone='accent'),

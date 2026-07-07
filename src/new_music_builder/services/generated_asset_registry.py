@@ -80,6 +80,18 @@ def remove_generated_cover_set(project: ProjectConfig, asset_key: str) -> list[G
     return removed_records
 
 
+def remove_generated_records_for_cover_path(
+    project: ProjectConfig,
+    cover_path: str | Path | None,
+) -> list[GeneratedAssetRecord]:
+    removed_records = generated_records_for_cover_path(project, cover_path)
+    if not removed_records:
+        return []
+    removed_keys = {record.asset_key for record in removed_records}
+    project.generated_assets = [record for record in project.generated_assets if record.asset_key not in removed_keys]
+    return removed_records
+
+
 def delete_generated_cover_set_files(
     records: list[GeneratedAssetRecord],
     *,

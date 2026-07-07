@@ -256,6 +256,17 @@ def test_session_store_roundtrip_preserves_text_tooltips_preference(tmp_path: Pa
     assert store.last_text_tooltips_enabled is False
 
 
+def test_session_store_roundtrip_preserves_regenerate_textures_on_project_load_preference(tmp_path: Path) -> None:
+    target = tmp_path / 'last_session.json'
+    store = SessionStore(target)
+    store.last_regenerate_textures_on_project_load_enabled = True
+
+    store.save(ProjectConfig(), '')
+    _loaded_project, _current_path = store.load()
+
+    assert store.last_regenerate_textures_on_project_load_enabled is True
+
+
 def test_session_store_roundtrip_preserves_unsaved_row_covers_and_generated_assets(tmp_path: Path) -> None:
     target = tmp_path / 'last_session.json'
     project = ProjectConfig(mod_name='Unsaved Session')
@@ -355,6 +366,7 @@ def test_session_store_load_legacy_payload_uses_project_audio_settings_as_master
     assert store.last_audio_preferences.compression_quality == 0.65
     assert store.last_audio_preferences.reencode_existing_ogg is False
     assert store.last_automatic_textures_enabled is True
+    assert store.last_regenerate_textures_on_project_load_enabled is False
     assert store.last_text_tooltips_enabled is True
 
 

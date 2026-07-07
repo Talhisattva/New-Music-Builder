@@ -16,6 +16,8 @@ class _WindowStub:
     def __init__(self) -> None:
         self._toggle_automatic_textures_preference = lambda: None
         self._automatic_textures_enabled = lambda: True
+        self._toggle_regenerate_textures_on_project_load_preference = lambda: None
+        self._regenerate_textures_on_project_load_enabled = lambda: False
         self._toggle_text_tooltips_preference = lambda: None
         self._text_tooltips_enabled = lambda: True
         self._show_audio_settings_dialog = lambda: None
@@ -231,4 +233,5 @@ def test_build_menu_action_map_assigns_submenu_tooltip_ids() -> None:
 
     assert action_map['PREFERENCES'][0].tooltip_id == 'menu.preferences.audio_settings'
     assert action_map['PREFERENCES'][1].tooltip_id == 'menu.preferences.automatic_textures'
-    assert action_map['PREFERENCES'][2].tooltip_id == 'menu.preferences.tooltips'
+    assert action_map['PREFERENCES'][2].tooltip_id == 'menu.preferences.regenerate_textures_on_project_load'
+    assert action_map['PREFERENCES'][3].tooltip_id == 'menu.preferences.tooltips'

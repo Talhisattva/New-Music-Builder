@@ -66,6 +66,7 @@ from new_music_builder.services.generated_asset_registry import (
     delete_generated_cover_set_files,
     generated_records_for_asset_key,
     is_generated_asset_key,
+    remove_generated_records_for_cover_path,
     remove_generated_cover_set,
     visible_generated_entries_for_kind,
 )
@@ -227,6 +228,16 @@ def build_menu_action_map(window: object) -> dict[str, list[MenuAction]]:
     )
     preferences.append(
         MenuAction(
+            label='Regenerate on Load',
+            command=getattr(window, '_toggle_regenerate_textures_on_project_load_preference'),
+            show_check_column=True,
+            checked_getter=getattr(window, '_regenerate_textures_on_project_load_enabled'),
+            close_after_invoke=False,
+            tooltip_id='menu.preferences.regenerate_textures_on_project_load',
+        )
+    )
+    preferences.append(
+        MenuAction(
             label='Tooltips',
             command=getattr(window, '_toggle_text_tooltips_preference'),
             show_check_column=True,
@@ -313,6 +324,9 @@ class MainWindow(_DnDCompat, ctk.CTk):
             image_folder=self.session_store.last_dialog_folder_memory.image_folder,
         )
         self._automatic_textures_preference_enabled = bool(self.session_store.last_automatic_textures_enabled)
+        self._regenerate_textures_on_project_load_preference_enabled = bool(
+            self.session_store.last_regenerate_textures_on_project_load_enabled
+        )
         self._text_tooltips_preference_enabled = bool(self.session_store.last_text_tooltips_enabled)
         set_text_tooltips_enabled(self._text_tooltips_preference_enabled)
         self._apply_master_project_preferences()
@@ -1250,6 +1264,9 @@ class MainWindow(_DnDCompat, ctk.CTk):
     def _automatic_textures_enabled(self) -> bool:
         return bool(self.__dict__.get('_automatic_textures_preference_enabled', self.session.project.automatic_textures_enabled))
 
+    def _regenerate_textures_on_project_load_enabled(self) -> bool:
+        return bool(self.__dict__.get('_regenerate_textures_on_project_load_preference_enabled', False))
+
     def _toggle_automatic_textures_preference(self) -> None:
         if self._is_build_locked():
             return
@@ -1258,6 +1275,12 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._refresh_module_three_appearance_selector()
         self._save_session_snapshot()
         self.on_project_change()
+
+    def _toggle_regenerate_textures_on_project_load_preference(self) -> None:
+        if self._is_build_locked():
+            return
+        self._regenerate_textures_on_project_load_preference_enabled = not self._regenerate_textures_on_project_load_enabled()
+        self._save_session_snapshot()
 
     def _text_tooltips_enabled(self) -> bool:
         return bool(self._text_tooltips_preference_enabled)
@@ -1610,7 +1633,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
                 return fallback_path
         return ""
 
-    def _generate_module_three_from_cover(self, row_id: int) -> None:
+    def _generate_module_three_from_cover(self, row_id: int, *, force_refresh: bool = False) -> None:
         if self._is_build_locked():
             return
         target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
@@ -1637,12 +1660,21 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self._module_three_cover_generation_tokens.pop(row_id, None)
             return
         cover_path = target_row.cover_path
+        deleted_records: list[object] = []
+        deleted_file_count = 0
+        if force_refresh:
+            deleted_records = remove_generated_records_for_cover_path(self.session.project, cover_path)
+            if deleted_records:
+                deleted_file_count = delete_generated_cover_set_files(deleted_records)
+            self._repair_active_generated_appearance_selections()
+            self._refresh_module_three_appearance_selector()
 
         def worker() -> None:
             try:
                 result = generate_supported_cover_set_for_row(
                     project_snapshot,
                     snapshot_row,
+                    force_refresh=force_refresh,
                     cassette_donor_inventory_path=donor_inventory_path,
                     cassette_donor_world_path=donor_world_path,
                     case_donor_inventory_path=case_donor_inventory_path,
@@ -1677,6 +1709,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
                         request_token,
                         cover_path,
                         result,
+                        removed_record_count=len(deleted_records),
+                        deleted_file_count=deleted_file_count,
                     ),
                 )
             except tk.TclError:
@@ -1694,6 +1728,9 @@ class MainWindow(_DnDCompat, ctk.CTk):
         request_token: int,
         cover_path: str,
         result: GeneratedCoverSetResult,
+        *,
+        removed_record_count: int = 0,
+        deleted_file_count: int = 0,
     ) -> None:
         if self._module_three_cover_generation_tokens.get(row_id) != request_token:
             return
@@ -1704,6 +1741,12 @@ class MainWindow(_DnDCompat, ctk.CTk):
         if target_row is None:
             return
         apply_generated_cover_set_result(self.session.project, target_row, result)
+        if removed_record_count or deleted_file_count:
+            self._append_generated_asset_removed_log(
+                result.source_name,
+                removed_record_count,
+                deleted_file_count,
+            )
         self._append_generated_cover_set_logs(cover_path, result)
         self._refresh_module_two_live_preview_for_row(row_id)
         self._refresh_module_three_appearance_selector()
@@ -2088,10 +2131,20 @@ class MainWindow(_DnDCompat, ctk.CTk):
         for repaired_row_id in repaired_rows:
             self._refresh_module_two_live_preview_for_row(repaired_row_id)
         if self._automatic_textures_enabled():
-            self._generate_module_three_from_cover(row_id)
+            self._generate_module_three_from_cover(row_id, force_refresh=True)
             return
         self._refresh_module_three_appearance_selector()
         self.on_project_change()
+
+    def _regenerate_loaded_project_cover_textures(self) -> None:
+        if not self._automatic_textures_enabled() or not self._regenerate_textures_on_project_load_enabled():
+            return
+        for row in self.session.project.media_rows:
+            if not row.cover_path:
+                continue
+            if not any(row.enabled_media.get(kind, False) for kind in ("cassette", "vinyl", "cd")):
+                continue
+            self._generate_module_three_from_cover(row.row_id, force_refresh=True)
 
     def _can_accept_image_drop(self, paths: list[str]) -> bool:
         return self._first_valid_image_drop_path(paths) is not None
@@ -2817,6 +2870,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._build_module_two_row_list()
         self._refresh_module_three_appearance_selector()
         self.refresh_all()
+        self._regenerate_loaded_project_cover_textures()
         self._save_session_snapshot()
 
     def run_build_preview(self) -> None:
@@ -3528,6 +3582,9 @@ class MainWindow(_DnDCompat, ctk.CTk):
     def _save_session_snapshot(self) -> None:
         self.session_store.last_automatic_textures_enabled = bool(
             self.__dict__.get('_automatic_textures_preference_enabled', self.session.project.automatic_textures_enabled)
+        )
+        self.session_store.last_regenerate_textures_on_project_load_enabled = bool(
+            self.__dict__.get('_regenerate_textures_on_project_load_preference_enabled', False)
         )
         self.session_store.last_text_tooltips_enabled = bool(self.__dict__.get('_text_tooltips_preference_enabled', True))
         self.session_store.save(

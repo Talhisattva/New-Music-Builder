@@ -423,7 +423,7 @@ def test_select_module_two_media_cover_refreshes_row_cover_before_async_generati
     window._repair_active_generated_appearance_selections = lambda: []
     window._refresh_module_two_live_preview_for_row = lambda _row_id: None
     window._automatic_textures_enabled = lambda: True
-    window._generate_module_three_from_cover = lambda row_id: setattr(window, "_generated_row_id", row_id)
+    window._generate_module_three_from_cover = lambda row_id, **kwargs: setattr(window, "_generated_request", (row_id, kwargs.get("force_refresh", False)))
     window._refresh_module_three_appearance_selector = lambda: setattr(window, "_refreshed_module_three", True)
     window.on_project_change = lambda: setattr(window, "_project_changed", True)
 
@@ -441,7 +441,7 @@ def test_select_module_two_media_cover_refreshes_row_cover_before_async_generati
     assert row.cover_path == str(selected_cover)
     assert row_widget.refreshed_covers == [str(selected_cover)]
     assert session_saves == [("", str(image_dir))]
-    assert window.__dict__.get("_generated_row_id") == 1
+    assert window.__dict__.get("_generated_request") == (1, True)
     assert window.__dict__.get("_refreshed_module_three", False) is False
     assert window.__dict__.get("_project_changed", False) is False
 
@@ -530,7 +530,7 @@ def test_select_module_two_media_cover_recovers_after_initial_dialog_failure(mon
     window._repair_active_generated_appearance_selections = lambda: []
     window._refresh_module_two_live_preview_for_row = lambda _row_id: None
     window._automatic_textures_enabled = lambda: True
-    window._generate_module_three_from_cover = lambda row_id: setattr(window, "_generated_row_id", row_id)
+    window._generate_module_three_from_cover = lambda row_id, **kwargs: setattr(window, "_generated_request", (row_id, kwargs.get("force_refresh", False)))
     window._refresh_module_three_appearance_selector = lambda: setattr(window, "_refreshed_module_three", True)
     window.on_project_change = lambda: setattr(window, "_project_changed", True)
 
@@ -550,7 +550,7 @@ def test_select_module_two_media_cover_recovers_after_initial_dialog_failure(mon
     assert row.cover_path == str(selected_cover)
     assert row_widget.refreshed_covers == [str(selected_cover)]
     assert session_saves == [("", str(preferred_dir))]
-    assert window.__dict__.get("_generated_row_id") == 1
+    assert window.__dict__.get("_generated_request") == (1, True)
     assert dialog_calls[0] == (str(preferred_dir), True)
     assert dialog_calls[1] == (str(Path.home()), True)
 
@@ -574,7 +574,7 @@ def test_drop_module_two_media_cover_files_triggers_automatic_textures(monkeypat
     window._repair_active_generated_appearance_selections = lambda: []
     window._refresh_module_two_live_preview_for_row = lambda _row_id: None
     window._automatic_textures_enabled = lambda: True
-    window._generate_module_three_from_cover = lambda row_id: setattr(window, "_generated_row_id", row_id)
+    window._generate_module_three_from_cover = lambda row_id, **kwargs: setattr(window, "_generated_request", (row_id, kwargs.get("force_refresh", False)))
     window._refresh_module_three_appearance_selector = lambda: setattr(window, "_refreshed_module_three", True)
     window.on_project_change = lambda: setattr(window, "_project_changed", True)
 
@@ -583,9 +583,70 @@ def test_drop_module_two_media_cover_files_triggers_automatic_textures(monkeypat
     assert row.cover_path == str(selected_cover)
     assert row_widget.refreshed_covers == [str(selected_cover)]
     assert session_saves == [("", str(image_dir))]
-    assert window.__dict__.get("_generated_row_id") == 1
+    assert window.__dict__.get("_generated_request") == (1, True)
     assert window.__dict__.get("_refreshed_module_three", False) is False
     assert window.__dict__.get("_project_changed", False) is False
+
+
+def test_apply_module_two_media_cover_does_not_force_regeneration_when_automatic_textures_disabled(tmp_path) -> None:
+    row = default_media_row(1)
+    session = ProjectSession(project=ProjectConfig(media_rows=[row]))
+    row_widget = _FakeRowWidget(True, row_id=1)
+    selected_cover = tmp_path / "same-cover.png"
+    selected_cover.write_bytes(b"png")
+    window = MainWindow.__new__(MainWindow)
+    window.session = session
+    window.dialog_folder_memory = type("DialogFolderMemory", (), {"song_folder": "", "image_folder": ""})()
+    window._save_session_snapshot = lambda: setattr(window, "_saved", True)
+    window.module_two_row_list = type("RowList", (), {"row_widgets": [row_widget]})()
+    window._repair_active_generated_appearance_selections = lambda: []
+    window._refresh_module_two_live_preview_for_row = lambda _row_id: None
+    window._automatic_textures_enabled = lambda: False
+    window._generate_module_three_from_cover = lambda row_id, **kwargs: setattr(window, "_generated_request", (row_id, kwargs.get("force_refresh", False)))
+    window._refresh_module_three_appearance_selector = lambda: setattr(window, "_refreshed_module_three", True)
+    window.on_project_change = lambda: setattr(window, "_project_changed", True)
+
+    MainWindow._apply_module_two_media_cover(window, 1, str(selected_cover))
+
+    assert window.__dict__.get("_generated_request") is None
+    assert window.__dict__.get("_refreshed_module_three", False) is True
+    assert window.__dict__.get("_project_changed", False) is True
+
+
+def test_regenerate_loaded_project_cover_textures_respects_preferences_and_rows() -> None:
+    first = default_media_row(1)
+    first.cover_path = "C:/art/first.png"
+    second = default_media_row(2)
+    second.cover_path = ""
+    third = default_media_row(3)
+    third.cover_path = "C:/art/third.png"
+    third.enabled_media = {"cassette": False, "vinyl": False, "cd": False}
+    session = ProjectSession(project=ProjectConfig(media_rows=[first, second, third]))
+    window = MainWindow.__new__(MainWindow)
+    window.session = session
+    requests: list[tuple[int, bool]] = []
+    window._automatic_textures_enabled = lambda: True
+    window._regenerate_textures_on_project_load_enabled = lambda: True
+    window._generate_module_three_from_cover = lambda row_id, **kwargs: requests.append((row_id, kwargs.get("force_refresh", False)))
+
+    MainWindow._regenerate_loaded_project_cover_textures(window)
+
+    assert requests == [(1, True)]
+
+
+def test_regenerate_loaded_project_cover_textures_skips_when_preference_disabled() -> None:
+    row = default_media_row(1)
+    row.cover_path = "C:/art/first.png"
+    session = ProjectSession(project=ProjectConfig(media_rows=[row]))
+    window = MainWindow.__new__(MainWindow)
+    window.session = session
+    window._automatic_textures_enabled = lambda: True
+    window._regenerate_textures_on_project_load_enabled = lambda: False
+    window._generate_module_three_from_cover = lambda row_id, **kwargs: setattr(window, "_generated_request", (row_id, kwargs.get("force_refresh", False)))
+
+    MainWindow._regenerate_loaded_project_cover_textures(window)
+
+    assert window.__dict__.get("_generated_request") is None
 
 
 def test_cover_generation_success_ignores_stale_tokens_and_applies_current_result(monkeypatch) -> None:
