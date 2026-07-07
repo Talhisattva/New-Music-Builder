@@ -731,7 +731,6 @@ def test_generate_module_three_from_cover_marks_loading_before_worker_start(monk
         def start(self) -> None:
             return None
 
-    monkeypatch.setattr("new_music_builder.ui.main_window.can_generate_cover_for_kind", lambda *_args, **_kwargs: False)
     monkeypatch.setattr("new_music_builder.ui.main_window.deepcopy", lambda project: project)
     monkeypatch.setattr("new_music_builder.ui.main_window.threading.Thread", _ImmediateThread)
 
@@ -739,6 +738,74 @@ def test_generate_module_three_from_cover_marks_loading_before_worker_start(monk
 
     assert window._module_three_cover_generation_tokens == {3: 1}
     assert window.__dict__.get("_loading_begin") == (3, 1)
+
+
+def test_generate_module_three_from_cover_force_refresh_preserves_cassette_and_case_donor_selection(monkeypatch) -> None:
+    row = default_media_row(6)
+    row.cover_path = "C:/art/cover.png"
+    row.enabled_media["cassette"] = True
+    session = ProjectSession(project=ProjectConfig(media_rows=[row]))
+    window = MainWindow.__new__(MainWindow)
+    window.session = session
+    window._is_build_locked = lambda: False
+    window._module_three_cover_generation_seq = 0
+    window._module_three_cover_generation_tokens = {}
+    window.module_three_appearance_selector = type(
+        "Selector",
+        (),
+        {"begin_cover_generation_loading": lambda _self, row_id, token: setattr(window, "_loading_begin", (row_id, token))},
+    )()
+    selected_requests: list[tuple[str, str]] = []
+    selected_paths = {
+        ("cassette", "inventory"): "C:/masks/cassette_inventory.png",
+        ("cassette", "world"): "C:/masks/cassette_world.png",
+        ("case", "inventory"): "C:/masks/case_inventory.png",
+        ("case", "world"): "C:/masks/case_world.png",
+    }
+    window._module_three_selected_path_for_row = (
+        lambda _row, kind, mode: selected_requests.append((kind, mode)) or selected_paths[(kind, mode)]
+    )
+    window._repair_active_generated_appearance_selections = lambda: []
+    window._refresh_module_three_appearance_selector = lambda: setattr(window, "_selector_refreshed", True)
+
+    class _ImmediateThread:
+        def __init__(self, *, target, name, daemon) -> None:
+            self.target = target
+            self.name = name
+            self.daemon = daemon
+
+        def start(self) -> None:
+            self.target()
+
+    def _capture_generation(_project, _snapshot_row, **kwargs):
+        window._captured_generation_kwargs = kwargs
+        raise RuntimeError("stop after capture")
+
+    monkeypatch.setattr("new_music_builder.ui.main_window.deepcopy", lambda project: project)
+    monkeypatch.setattr("new_music_builder.ui.main_window.threading.Thread", _ImmediateThread)
+    monkeypatch.setattr("new_music_builder.ui.main_window.remove_generated_records_for_cover_path", lambda *_args, **_kwargs: ["record"])
+    monkeypatch.setattr("new_music_builder.ui.main_window.delete_generated_cover_set_files", lambda records: len(records))
+    monkeypatch.setattr("new_music_builder.ui.main_window.generate_supported_cover_set_for_row", _capture_generation)
+
+    window.after = lambda _delay, callback: callback()
+    window._finish_module_three_cover_generation_error = (
+        lambda row_id, token, cover_path, reason: setattr(window, "_generation_error", (row_id, token, cover_path, reason))
+    )
+
+    MainWindow._generate_module_three_from_cover(window, 6, force_refresh=True)
+
+    assert selected_requests == [
+        ("cassette", "inventory"),
+        ("cassette", "world"),
+        ("case", "inventory"),
+        ("case", "world"),
+    ]
+    assert window._captured_generation_kwargs["force_refresh"] is True
+    assert window._captured_generation_kwargs["cassette_donor_inventory_path"] == "C:/masks/cassette_inventory.png"
+    assert window._captured_generation_kwargs["cassette_donor_world_path"] == "C:/masks/cassette_world.png"
+    assert window._captured_generation_kwargs["case_donor_inventory_path"] == "C:/masks/case_inventory.png"
+    assert window._captured_generation_kwargs["case_donor_world_path"] == "C:/masks/case_world.png"
+    assert window.__dict__.get("_generation_error") == (6, 1, "C:/art/cover.png", "stop after capture")
 
 
 def test_show_audio_settings_dialog_updates_project_and_persists_session(monkeypatch, tmp_path) -> None:

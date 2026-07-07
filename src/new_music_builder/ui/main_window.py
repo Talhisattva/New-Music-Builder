@@ -62,7 +62,6 @@ from new_music_builder.services.generated_cover_flow import (
 )
 from new_music_builder.services.generated_asset_registry import (
     can_generate_cover_for_row,
-    can_generate_cover_for_kind,
     delete_generated_cover_set_files,
     generated_records_for_asset_key,
     is_generated_asset_key,
@@ -1648,10 +1647,9 @@ class MainWindow(_DnDCompat, ctk.CTk):
         donor_world_path = ""
         case_donor_inventory_path = ""
         case_donor_world_path = ""
-        if can_generate_cover_for_kind(self.session.project, target_row, 'cassette'):
+        if target_row.enabled_media.get('cassette', False):
             donor_inventory_path = self._module_three_selected_path_for_row(target_row, 'cassette', 'inventory')
             donor_world_path = self._module_three_selected_path_for_row(target_row, 'cassette', 'world')
-        if can_generate_cover_for_kind(self.session.project, target_row, 'case'):
             case_donor_inventory_path = self._module_three_selected_path_for_row(target_row, 'case', 'inventory')
             case_donor_world_path = self._module_three_selected_path_for_row(target_row, 'case', 'world')
         project_snapshot = deepcopy(self.session.project)
