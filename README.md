@@ -1,4 +1,4 @@
-![New Music Builder](docs/images/NewMusicBuilder0.2.9-640-transparent.png)
+![New Music Builder](docs/images/NewMusicBuilder0.2.10-640-transparent.png)
 
 # New Music Builder
 
@@ -26,7 +26,7 @@ Created specifically for media packs where multiple tracks and media appearances
 
 ## Version
 
-Current version: `0.2.9`
+Current version: `0.2.10`
 
 This is a small patch release in the `0.2.x` line focused on safer export identity handling, `.ogg` re-encoding stability, and release polish for the current Tali's New Music workflow.
 

@@ -1023,6 +1023,45 @@ def test_add_module_two_songs_uses_song_lane_and_remembers_selection(monkeypatch
     assert added_paths == [(1, [str(first_song), str(second_song)])]
 
 
+def test_pick_module_three_custom_image_prefers_global_image_lane_over_existing_slot_path(monkeypatch, tmp_path) -> None:
+    row = default_media_row(1)
+    existing_dir = tmp_path / "existing-slot"
+    existing_dir.mkdir()
+    existing_path = existing_dir / "world.png"
+    existing_path.write_bytes(b"png")
+    row.appearances["cassette"].world_full = str(existing_path)
+    session = ProjectSession(project=ProjectConfig(media_rows=[row]))
+    window = MainWindow.__new__(MainWindow)
+    window.session = session
+    image_dir = tmp_path / "remembered-images"
+    image_dir.mkdir()
+    selected_dir = tmp_path / "picked-art"
+    selected_dir.mkdir()
+    selected_path = selected_dir / "replacement.png"
+    window.dialog_folder_memory = type("DialogFolderMemory", (), {"song_folder": "", "image_folder": str(image_dir)})()
+    window._image_filetypes = lambda: [("Images", "*.png")]
+    window._active_module_three_row = lambda: row
+    window._refresh_module_three_appearance_selector = lambda: setattr(window, "_appearance_refreshed", True)
+    window.module_three_staged_custom_images = {}
+    window._save_session_snapshot = lambda: setattr(window, "_saved_session", True)
+
+    dialog_calls: list[str] = []
+
+    def _askopenfilename(**kwargs):
+        dialog_calls.append(kwargs["initialdir"])
+        return str(selected_path)
+
+    monkeypatch.setattr("new_music_builder.ui.main_window.fd.askopenfilename", _askopenfilename)
+
+    MainWindow._pick_module_three_custom_image(window, "cassette", "world_full")
+
+    assert dialog_calls == [str(image_dir)]
+    assert window.module_three_staged_custom_images["cassette"]["world_full"] == str(selected_path)
+    assert window.dialog_folder_memory.image_folder == str(selected_dir)
+    assert window.__dict__.get("_saved_session", False) is True
+    assert window.__dict__.get("_appearance_refreshed", False) is True
+
+
 def test_can_accept_image_drop_requires_supported_existing_file(tmp_path) -> None:
     image_path = tmp_path / "cover.png"
     image_path.write_bytes(b"png")

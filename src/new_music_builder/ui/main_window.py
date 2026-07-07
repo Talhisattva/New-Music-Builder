@@ -1514,6 +1514,12 @@ class MainWindow(_DnDCompat, ctk.CTk):
             current_path=current_path,
         )
 
+    def _module_three_initial_image_dir(self, current_path: str | None) -> str:
+        remembered_dir = self._normalized_existing_dialog_dir(self.dialog_folder_memory.image_folder)
+        if remembered_dir:
+            return remembered_dir
+        return self._initial_image_dir(current_path)
+
     def _normalized_existing_dialog_dir(self, value: str | Path | None) -> str | None:
         if value is None:
             return None
@@ -1876,7 +1882,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         selected = self._safe_askopenfilename(
             title=f"Select {slot.replace('_', ' ').title()} Texture",
             filetypes=self._image_filetypes(),
-            preferred_initialdir=self._initial_image_dir(initial_path),
+            preferred_initialdir=self._module_three_initial_image_dir(initial_path),
         )
         if not selected:
             return
