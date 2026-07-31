@@ -287,6 +287,8 @@ class PlannedTrack:
     duration_text: str
     duration_seconds: int
     needs_conversion: bool
+    source_row_id: int = 0
+    source_track_index: int = 0
     export_file_name: str = ""
     export_relative_path: str = ""
     track_id: str = ""
@@ -486,6 +488,8 @@ class PlannedAudioWorkItem:
     reason: str
     sample_rate: int
     compression_quality: float
+    source_row_id: int = 0
+    source_track_index: int = 0
 
 
 @dataclass(slots=True)
@@ -512,6 +516,8 @@ class AudioRunEvent:
     side: Literal["A", "B"]
     song_index: int | None = None
     track_number: int | None = None
+    source_row_id: int | None = None
+    source_track_index: int | None = None
     display_label: str = ""
     cached_ogg_path: str = ""
     percent: int = 0

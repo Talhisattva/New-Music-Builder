@@ -26,6 +26,8 @@ def build_audio_work_plan(project: ProjectConfig, plan: ExportPlan, targets: Exp
                     display_label=track.display_label,
                     duration_seconds=track.duration_seconds,
                     source_path=str(source_path) if source_path is not None else "",
+                    source_row_id=track.source_row_id or side.row_id,
+                    source_track_index=max(0, track.source_track_index),
                     target_relative_path=target_relative_path,
                     target_path=str(target_path),
                     action=action,

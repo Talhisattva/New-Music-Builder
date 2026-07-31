@@ -3534,23 +3534,30 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self._mark_preview_row_ready(event.row_id, event.side)
 
     def _sync_converted_song_ogg_link(self, event: AudioRunEvent) -> None:
-        if event.song_index is None or not event.cached_ogg_path.strip():
+        if not event.cached_ogg_path.strip():
             return
-        target_row = next((row for row in self.session.project.media_rows if row.row_id == event.row_id), None)
+        source_row_id = event.source_row_id if event.source_row_id is not None else event.row_id
+        source_track_index = event.source_track_index if event.source_track_index is not None else event.song_index
+        if source_track_index is None:
+            return
+        target_row = next((row for row in self.session.project.media_rows if row.row_id == source_row_id), None)
         if target_row is None:
             return
-        tracks = target_row.tracks_a if event.side == "A" else target_row.tracks_b
-        if event.song_index < 0 or event.song_index >= len(tracks):
+        tracks = target_row.tracks_a if target_row.legacy_mode_enabled else (target_row.tracks_a if event.side == "A" else target_row.tracks_b)
+        if source_track_index < 0 or source_track_index >= len(tracks):
             return
-        track = tracks[event.song_index]
+        track = tracks[source_track_index]
         track.cached_ogg_path = event.cached_ogg_path
         if track.conversion_status != "source_ogg":
             track.conversion_status = "cached_ogg"
-        expanded_widget = self._expanded_row_widget(event.row_id)
-        if expanded_widget is None or target_row.selected_side != event.side:
+        expanded_widget = self._expanded_row_widget(source_row_id)
+        if expanded_widget is None:
+            return
+        if not target_row.legacy_mode_enabled and target_row.selected_side != event.side:
             return
         expanded_widget.refresh_song_table()
-        expanded_widget.set_song_selection_state(self._module_two_song_selection_for_row(event.row_id, event.side))
+        selection_side = "A" if target_row.legacy_mode_enabled else event.side
+        expanded_widget.set_song_selection_state(self._module_two_song_selection_for_row(source_row_id, selection_side))
 
     def _mark_preview_row_ready(self, row_id: int, side: str) -> None:
         preview_key = (row_id, side)

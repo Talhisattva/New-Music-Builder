@@ -156,6 +156,8 @@ def _build_planned_track(
         duration_text=str(track.duration or ""),
         duration_seconds=_seconds_from_duration_text(str(track.duration or "")),
         needs_conversion=Path(source_path).suffix.lower() != ".ogg",
+        source_row_id=row_id,
+        source_track_index=max(0, track_number - 1),
         export_file_name=build_audio_track_file_name(display_label, track_number, track_id=track_id),
         export_relative_path=build_audio_track_relative_path(
             media_name=media_name,

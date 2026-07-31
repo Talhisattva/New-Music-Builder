@@ -73,3 +73,22 @@ def test_build_audio_work_plan_uses_effective_export_compression_quality(tmp_pat
     work_plan = build_audio_work_plan(project, plan, _targets(tmp_path))
 
     assert work_plan.items[0].compression_quality == 0.8
+
+
+def test_build_audio_work_plan_preserves_source_track_mapping_for_legacy_rows(tmp_path: Path) -> None:
+    wav_a = tmp_path / "song_a.wav"
+    wav_b = tmp_path / "song_b.wav"
+    wav_a.write_bytes(b"wav")
+    wav_b.write_bytes(b"wav")
+    row = default_media_row(7)
+    row.tracks_a = [
+        TrackEntry(source_path=str(wav_a), display_label="Song A", duration="00:01:00"),
+        TrackEntry(source_path=str(wav_b), display_label="Song B", duration="00:02:00"),
+    ]
+    project = ProjectConfig(mod_name="Pack", mod_id="Pack", legacy_mode_enabled=True, media_rows=[row])
+    plan = build_export_plan(project, AssetCatalog(ASSETS_ROOT).scan())
+
+    work_plan = build_audio_work_plan(project, plan, _targets(tmp_path))
+
+    assert [item.source_row_id for item in work_plan.items] == [7, 7]
+    assert [item.source_track_index for item in work_plan.items] == [0, 1]

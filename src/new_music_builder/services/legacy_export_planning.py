@@ -56,6 +56,8 @@ def build_legacy_export_plan(project: ProjectConfig, asset_catalog: dict[str, li
                 duration_text=str(track.duration or ""),
                 duration_seconds=_legacy_seconds_from_duration_text(str(track.duration or "")),
                 needs_conversion=Path(str(track.source_path or "")).suffix.lower() != ".ogg",
+                source_row_id=source_row.row_id,
+                source_track_index=max(0, track_index - 1),
                 export_file_name=export_file_name,
                 export_relative_path=export_file_name,
                 track_id=track_id,
