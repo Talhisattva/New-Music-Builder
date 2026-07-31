@@ -67,9 +67,18 @@ from new_music_builder.services.generated_asset_registry import (
     is_generated_asset_key,
     remove_generated_records_for_cover_path,
     remove_generated_cover_set,
+    upsert_generated_asset_record,
     visible_generated_entries_for_kind,
 )
 from new_music_builder.services.index_selection import apply_index_selection
+from new_music_builder.services.legacy_mode_service import (
+    assign_legacy_appearances_to_new_tracks,
+    disable_legacy_mode,
+    enable_legacy_mode,
+    legacy_pool_entries_by_kind,
+    sync_row_appearances_from_legacy_track,
+    track_selection_display_entry,
+)
 from new_music_builder.services.project_session import ProjectSession
 from new_music_builder.services.project_store import ProjectStore
 from new_music_builder.services.recent_projects import RecentProjectsStore
@@ -245,6 +254,15 @@ def build_menu_action_map(window: object) -> dict[str, list[MenuAction]]:
             tooltip_id='menu.preferences.tooltips',
         )
     )
+    preferences.append(
+        MenuAction(
+            label='Legacy Mode',
+            command=getattr(window, '_toggle_legacy_mode_preference'),
+            show_check_column=True,
+            checked_getter=getattr(window, '_legacy_mode_enabled'),
+            close_after_invoke=False,
+        )
+    )
     return menu_actions
 
 
@@ -323,6 +341,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             image_folder=self.session_store.last_dialog_folder_memory.image_folder,
         )
         self._automatic_textures_preference_enabled = bool(self.session_store.last_automatic_textures_enabled)
+        self._legacy_mode_preference_enabled = bool(self.session_store.last_legacy_mode_enabled)
         self._regenerate_textures_on_project_load_preference_enabled = bool(
             self.session_store.last_regenerate_textures_on_project_load_enabled
         )
@@ -339,6 +358,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._module_two_row_drag_session: dict[str, object] | None = None
         self._module_two_selection_suppressed_until = 0.0
         self._module_two_consume_next_plain_selection = False
+        self._module_two_last_clicked_song_index_by_row: dict[int, int] = {}
         self._restore_unsaved_phase_two_default(restore_defaults=self.session_store.last_load_used_default)
         self.mod_name_var = tk.StringVar(value=self.session.project.mod_name)
         self.mod_id_var = tk.StringVar(value=self.session.project.mod_id)
@@ -580,6 +600,10 @@ class MainWindow(_DnDCompat, ctk.CTk):
         return bool(self._build_abort_event is not None and self._build_abort_event.is_set())
 
     def _module_two_preview_entry(self, row, kind: AppearanceKind) -> AppearanceGridEntry | None:
+        if self._legacy_mode_enabled() and kind in {'cassette', 'vinyl', 'cd'}:
+            preview_track = self._legacy_preview_track_for_row(row)
+            if preview_track is not None:
+                return track_selection_display_entry(self.session.project, row, preview_track, kind, self.asset_catalog)
         row.ensure_appearances()
         entries = self._module_three_entries_for_kind(kind)
         return entry_for_selected_key(entries, row.appearances[kind].selected_asset_key)
@@ -592,6 +616,23 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
     def _module_two_media_strip_path_for_row(self, row, kind: MediaKind, mode: str) -> str | None:
         return self._module_two_preview_path_for_row(row, kind, 'inventory')
+
+    def _legacy_preview_track_for_row(self, row) -> TrackEntry | None:
+        if not self._legacy_mode_enabled():
+            return None
+        if not row.tracks_a:
+            return None
+        selected = sorted(self._module_two_song_selection_for_row(row.row_id, 'A'))
+        if selected:
+            index = self._module_two_last_clicked_song_index_by_row.get(row.row_id, selected[-1])
+            if index not in selected:
+                index = selected[-1]
+            if 0 <= index < len(row.tracks_a):
+                return row.tracks_a[index]
+        last_clicked = self._module_two_last_clicked_song_index_by_row.get(row.row_id)
+        if last_clicked is not None and 0 <= last_clicked < len(row.tracks_a):
+            return row.tracks_a[last_clicked]
+        return row.tracks_a[0]
 
     def _apply_window_icon(self) -> None:
         native_icon = self._native_icon_path()
@@ -646,6 +687,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         apply_preferred_row_defaults(third_row)
         third_row.expanded = False
         self.session.project.media_rows = [first_row, second_row, third_row]
+        if self._legacy_mode_preference_enabled:
+            enable_legacy_mode(self.session.project, self.asset_catalog)
 
     def _build_header(self) -> None:
         self.header = AppHeader(self, logo_path=self._header_logo_path())
@@ -658,6 +701,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             check_icon_path=str(self._check_icon_path()),
         )
         self.menu_strip.pack(fill='x')
+        self._refresh_preference_menu_states()
 
     def _bind_app_shortcuts(self) -> None:
         for spec in MENU_SHORTCUT_SPECS:
@@ -1004,9 +1048,10 @@ class MainWindow(_DnDCompat, ctk.CTk):
             can_generate_from_cover=self._module_three_can_generate_from_cover,
             on_generate_from_cover=self._generate_module_three_from_cover,
             automatic_textures_enabled_getter=self._automatic_textures_enabled,
+            legacy_mode_enabled_getter=self._legacy_mode_enabled,
             on_preview_mode_selected=self._set_module_two_preview_mode,
-            on_selection_changed=self._refresh_module_two_live_preview_for_row,
-            on_change=self.on_project_change,
+            on_selection_changed=self._handle_module_three_selection_changed,
+            on_change=self._handle_module_three_change,
         )
 
         self.module_two_top_header = MediaCreationHeader(
@@ -1261,7 +1306,12 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.on_project_change()
 
     def _automatic_textures_enabled(self) -> bool:
+        if self._legacy_mode_enabled():
+            return False
         return bool(self.__dict__.get('_automatic_textures_preference_enabled', self.session.project.automatic_textures_enabled))
+
+    def _legacy_mode_enabled(self) -> bool:
+        return bool(self.__dict__.get('_legacy_mode_preference_enabled', self.session.project.legacy_mode_enabled))
 
     def _regenerate_textures_on_project_load_enabled(self) -> bool:
         return bool(self.__dict__.get('_regenerate_textures_on_project_load_preference_enabled', False))
@@ -1269,11 +1319,96 @@ class MainWindow(_DnDCompat, ctk.CTk):
     def _toggle_automatic_textures_preference(self) -> None:
         if self._is_build_locked():
             return
+        if self._legacy_mode_enabled():
+            return
         self._automatic_textures_preference_enabled = not self._automatic_textures_enabled()
         self.session.project.automatic_textures_enabled = self._automatic_textures_enabled()
         self._refresh_module_three_appearance_selector()
         self._save_session_snapshot()
         self.on_project_change()
+
+    def _toggle_legacy_mode_preference(self) -> None:
+        if self._is_build_locked():
+            return
+        enabling = not self._legacy_mode_enabled()
+        if enabling and not self._confirm_enable_legacy_mode():
+            return
+        self._apply_legacy_mode_toggle(enabling)
+
+    def _confirm_enable_legacy_mode(self) -> bool:
+        dialog = ConfirmDialog(
+            self,
+            icon_path=self._native_icon_path(),
+            title='Legacy Mode',
+            label_text=(
+                'Enabling Legacy Mode will create packs that contain one song per media item.\n\n'
+                'Warning: This makes many features in the mod obsolete and could flood your loot table.'
+            ),
+            accept_text='OK',
+            cancel_text='CANCEL',
+        )
+        return dialog.show()
+
+    def _apply_legacy_mode_toggle(self, enabled: bool) -> None:
+        current_selected = self._current_legacy_selected_track_indices_by_row()
+        if enabled:
+            enable_legacy_mode(self.session.project, self.asset_catalog)
+            self._legacy_mode_preference_enabled = True
+            self._automatic_textures_preference_enabled = False
+        else:
+            disable_legacy_mode(self.session.project, selected_track_by_row_id=current_selected)
+            self._legacy_mode_preference_enabled = False
+        self.session.project.legacy_mode_enabled = enabled
+        self._clear_module_two_legacy_selection_state()
+        self._sync_legacy_preview_rows_from_tracks(current_selected if not enabled else None)
+        if hasattr(self, 'module_two_row_list'):
+            self._build_module_two_row_list()
+        self._refresh_module_three_appearance_selector()
+        self._refresh_preference_menu_states()
+        self.on_project_change()
+
+    def _clear_module_two_legacy_selection_state(self) -> None:
+        self.module_two_song_selected_indices = {
+            key: value
+            for key, value in self.module_two_song_selected_indices.items()
+            if key[1] == 'A'
+        }
+        self.module_two_song_selection_anchor_indices = {
+            key: value
+            for key, value in self.module_two_song_selection_anchor_indices.items()
+            if key[1] == 'A'
+        }
+        self._module_two_last_clicked_song_index_by_row.clear()
+
+    def _current_legacy_selected_track_indices_by_row(self) -> dict[int, int]:
+        selected_by_row: dict[int, int] = {}
+        for row in self.session.project.media_rows:
+            selected = sorted(self._module_two_song_selection_for_row(row.row_id, 'A'))
+            if selected:
+                preferred = self._module_two_last_clicked_song_index_by_row.get(row.row_id, selected[-1])
+                selected_by_row[row.row_id] = preferred if preferred in selected else selected[-1]
+                continue
+            if row.tracks_a:
+                selected_by_row[row.row_id] = self._module_two_last_clicked_song_index_by_row.get(row.row_id, 0)
+        return selected_by_row
+
+    def _sync_legacy_preview_rows_from_tracks(self, selected_by_row: dict[int, int] | None) -> None:
+        if self._legacy_mode_enabled():
+            return
+        for row in self.session.project.media_rows:
+            if not row.tracks_a:
+                continue
+            sync_row_appearances_from_legacy_track(
+                row,
+                selected_track_index=(selected_by_row or {}).get(row.row_id),
+            )
+
+    def _refresh_preference_menu_states(self) -> None:
+        if not hasattr(self, 'menu_strip'):
+            return
+        automatic_enabled = (not self._is_build_locked()) and (not self._legacy_mode_enabled())
+        self.menu_strip.set_action_enabled('PREFERENCES', 'Automatic Textures', automatic_enabled)
+        self.menu_strip.set_action_enabled('PREFERENCES', 'Legacy Mode', not self._is_build_locked())
 
     def _toggle_regenerate_textures_on_project_load_preference(self) -> None:
         if self._is_build_locked():
@@ -1321,6 +1456,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             on_preview_mode_selected=self._set_module_two_preview_mode,
             on_cover_selected=self._select_module_two_media_cover,
             automatic_textures_enabled_getter=self._automatic_textures_enabled,
+            legacy_mode_enabled_getter=self._legacy_mode_enabled,
             can_accept_cover_drop=self._can_accept_image_drop,
             on_cover_drop=self._drop_module_two_media_cover_files,
             on_remove_row=self._remove_module_two_media_row,
@@ -1744,7 +1880,13 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self.module_three_appearance_selector.end_cover_generation_loading(row_id, request_token)
         if target_row is None:
             return
-        apply_generated_cover_set_result(self.session.project, target_row, result)
+        if self._legacy_mode_enabled():
+            for outcome in result.outcomes:
+                if outcome.record is None:
+                    continue
+                upsert_generated_asset_record(self.session.project, outcome.record)
+        else:
+            apply_generated_cover_set_result(self.session.project, target_row, result)
         if removed_record_count or deleted_file_count:
             self._append_generated_asset_removed_log(
                 result.source_name,
@@ -1921,7 +2063,6 @@ class MainWindow(_DnDCompat, ctk.CTk):
         if target_row is None:
             return
         target_row.ensure_appearances()
-        selection = target_row.appearances[kind]
         sprite_mode = 'dual' if dual_mode else 'single'
         custom_key = f'custom:{kind}:{uuid4().hex}'
         custom_record = {
@@ -1935,22 +2076,24 @@ class MainWindow(_DnDCompat, ctk.CTk):
             custom_record['inventory_empty'] = staged['inventory_empty']
             custom_record['world_empty'] = staged['world_empty']
         self.session.project.custom_assets.setdefault(kind, []).append(custom_record)
-        apply_selection_from_grid_entry(
-            selection,
-            AppearanceGridEntry(
-                key=custom_record['key'],
-                label=custom_record['label'],
-                inventory_path=custom_record['inventory_full'],
-                world_path=custom_record['world_full'],
-                sprite_mode=custom_record['sprite_mode'],
-                kind=kind,
-                is_custom=True,
-                is_dual=dual_mode,
-                inventory_empty_path=custom_record.get('inventory_empty', ''),
-                world_empty_path=custom_record.get('world_empty', ''),
-            ),
-        )
-        self._refresh_module_two_live_preview_for_row(target_row.row_id)
+        if not self._legacy_mode_enabled():
+            selection = target_row.appearances[kind]
+            apply_selection_from_grid_entry(
+                selection,
+                AppearanceGridEntry(
+                    key=custom_record['key'],
+                    label=custom_record['label'],
+                    inventory_path=custom_record['inventory_full'],
+                    world_path=custom_record['world_full'],
+                    sprite_mode=custom_record['sprite_mode'],
+                    kind=kind,
+                    is_custom=True,
+                    is_dual=dual_mode,
+                    inventory_empty_path=custom_record.get('inventory_empty', ''),
+                    world_empty_path=custom_record.get('world_empty', ''),
+                ),
+            )
+            self._refresh_module_two_live_preview_for_row(target_row.row_id)
         self._reset_module_three_custom_staged(kind, dual_mode)
         self._refresh_module_three_appearance_selector()
         self.on_project_change()
@@ -2028,10 +2171,62 @@ class MainWindow(_DnDCompat, ctk.CTk):
             return expanded
         return self.session.project.media_rows[0] if self.session.project.media_rows else None
 
+    def _sync_active_row_from_legacy_selection(self, row_id: int | None = None) -> None:
+        if not self._legacy_mode_enabled():
+            return
+        target_rows = self.session.project.media_rows if row_id is None else [
+            row for row in self.session.project.media_rows if row.row_id == row_id
+        ]
+        for row in target_rows:
+            preview_track = self._legacy_preview_track_for_row(row)
+            if preview_track is None:
+                continue
+            selected_indices = sorted(self._module_two_song_selection_for_row(row.row_id, 'A'))
+            track_index = self._module_two_last_clicked_song_index_by_row.get(row.row_id)
+            if selected_indices:
+                if track_index not in selected_indices:
+                    track_index = selected_indices[-1]
+            elif track_index is None:
+                track_index = 0
+            sync_row_appearances_from_legacy_track(row, selected_track_index=track_index)
+
     def _refresh_module_three_appearance_selector(self) -> None:
         if not hasattr(self, 'module_three_appearance_selector'):
             return
+        self._sync_active_row_from_legacy_selection()
         self.module_three_appearance_selector.set_active_row(self._active_module_three_row())
+
+    def _apply_row_selection_to_legacy_tracks(self, row, kind: MediaKind) -> None:
+        selected_indices = sorted(self._module_two_song_selection_for_row(row.row_id, 'A'))
+        if not selected_indices and row.tracks_a:
+            selected_indices = [self._module_two_last_clicked_song_index_by_row.get(row.row_id, 0)]
+        selected_entry = self._module_two_preview_entry(row, kind)
+        if selected_entry is None:
+            return
+        for index in selected_indices:
+            if 0 <= index < len(row.tracks_a):
+                track = row.tracks_a[index]
+                selection = track.legacy_appearances.for_kind(kind)
+                selection.selected_asset_key = row.appearances[kind].selected_asset_key
+                selection.source = row.appearances[kind].source
+                selection.inventory_full = row.appearances[kind].inventory_full
+                selection.world_full = row.appearances[kind].world_full
+
+    def _handle_module_three_selection_changed(self, row_id: int) -> None:
+        if self._legacy_mode_enabled():
+            row = next((item for item in self.session.project.media_rows if item.row_id == row_id), None)
+            kind = self.module_three_appearance_selector.active_kind if hasattr(self, 'module_three_appearance_selector') else None
+            if row is not None and kind in {'cassette', 'vinyl', 'cd'}:
+                self._apply_row_selection_to_legacy_tracks(row, kind)
+        self._refresh_module_two_live_preview_for_row(row_id)
+
+    def _handle_module_three_change(self) -> None:
+        if self._legacy_mode_enabled():
+            active_row = self._active_module_three_row()
+            kind = self.module_three_appearance_selector.active_kind if hasattr(self, 'module_three_appearance_selector') else None
+            if active_row is not None and kind in {'cassette', 'vinyl', 'cd'}:
+                self._apply_row_selection_to_legacy_tracks(active_row, kind)
+        self.on_project_change()
 
     def _refresh_module_two_live_preview_for_row(self, row_id: int) -> None:
         expanded_widget = self._expanded_row_widget(row_id)
@@ -2068,6 +2263,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
         if target_row is None:
             return None
+        if self._legacy_mode_enabled():
+            return (row_id, 'A')
         resolved_side = side if side in {'A', 'B'} else target_row.selected_side
         return (row_id, resolved_side)
 
@@ -2078,7 +2275,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
         if target_row is None:
             return set()
-        tracks = target_row.tracks_a if key[1] == 'A' else target_row.tracks_b
+        tracks = target_row.tracks_a if self._legacy_mode_enabled() or key[1] == 'A' else target_row.tracks_b
         selected = self.module_two_song_selected_indices.get(key, set())
         filtered = {index for index in selected if 0 <= index < len(tracks)}
         self.module_two_song_selected_indices[key] = filtered
@@ -2207,10 +2404,14 @@ class MainWindow(_DnDCompat, ctk.CTk):
         inserted = self.session.add_tracks_to_media_row(row_id, target_row.selected_side, paths)
         if not inserted:
             return
+        if self._legacy_mode_enabled():
+            added_tracks = [target_row.tracks_a[index] for index in inserted if 0 <= index < len(target_row.tracks_a)]
+            assign_legacy_appearances_to_new_tracks(self.session.project, target_row, added_tracks, self.asset_catalog)
         expanded_widget = self._expanded_row_widget(row_id)
         if expanded_widget is not None:
             expanded_widget.refresh_song_table()
             expanded_widget.set_song_selection_state(self._module_two_song_selection_for_row(row_id))
+        self._refresh_module_three_appearance_selector()
         self.on_project_change()
 
     def _on_delete_selected_songs(self, _event: tk.Event | None = None) -> str:
@@ -2399,6 +2600,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.on_project_change()
 
     def _set_module_two_media_side(self, row_id: int, side: str) -> None:
+        if self._legacy_mode_enabled():
+            return
         locked = self._is_build_locked()
         self._cancel_module_two_song_drag()
         self._cancel_module_two_row_drag()
@@ -2631,10 +2834,15 @@ class MainWindow(_DnDCompat, ctk.CTk):
             return
         self.module_two_song_selected_indices[key] = next_selected
         self.module_two_song_selection_anchor_indices[key] = next_anchor
+        self._module_two_last_clicked_song_index_by_row[row_id] = track_index
         self._set_module_two_keyboard_owner('songs', key)
         expanded_widget = self._expanded_row_widget(row_id)
         if expanded_widget is not None:
             expanded_widget.set_song_selection_state(next_selected)
+        if self._legacy_mode_enabled():
+            self._sync_active_row_from_legacy_selection(row_id)
+            self._refresh_module_two_live_preview_for_row(row_id)
+            self._refresh_module_three_appearance_selector()
 
     def _begin_module_two_song_drag(self, row_id: int, track_index: int, x_root: int, y_root: int) -> None:
         if self._is_build_locked():
@@ -2655,6 +2863,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             dragged_indices = {track_index}
             self.module_two_song_selected_indices[key] = dragged_indices
             self.module_two_song_selection_anchor_indices[key] = track_index
+            self._module_two_last_clicked_song_index_by_row[row_id] = track_index
             expanded_widget.set_song_selection_state(dragged_indices)
         self._set_module_two_keyboard_owner('songs', key)
         self._module_two_song_drag_session = {
@@ -2703,8 +2912,13 @@ class MainWindow(_DnDCompat, ctk.CTk):
         moved_selection = set(moved_indices)
         self.module_two_song_selected_indices[key] = moved_selection
         self.module_two_song_selection_anchor_indices[key] = moved_indices[0] if moved_indices else None
+        if moved_indices:
+            self._module_two_last_clicked_song_index_by_row[row_id] = moved_indices[-1]
         expanded_widget.refresh_song_table()
         expanded_widget.set_song_selection_state(moved_selection)
+        if self._legacy_mode_enabled():
+            self._sync_active_row_from_legacy_selection(row_id)
+            self._refresh_module_three_appearance_selector()
         self.on_project_change()
 
     def on_select_row(self, row_id: int | None) -> None:
@@ -2774,6 +2988,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._cancel_module_two_song_drag()
         self._cancel_module_two_row_drag()
         self.session.reset()
+        self.session.project.legacy_mode_enabled = bool(self._legacy_mode_preference_enabled)
         self._apply_master_project_preferences()
         self._restore_unsaved_phase_two_default()
         self._sync_phase_one_ui_from_project()
@@ -2795,6 +3010,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self._build_module_two_row_list()
         self._refresh_module_three_appearance_selector()
         self.refresh_all()
+        self._refresh_preference_menu_states()
         self.on_project_change()
 
     def _confirm_reset_to_defaults(self, title: str, accept_text: str) -> bool:
@@ -2856,6 +3072,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             return
         self.session.project = project
         self.session.current_path = str(path)
+        self._legacy_mode_preference_enabled = bool(project.legacy_mode_enabled)
         self._apply_master_project_preferences()
         self._sync_phase_one_ui_from_project()
         self.recent_store.push(path)
@@ -2875,6 +3092,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._refresh_module_three_appearance_selector()
         self.refresh_all()
         self._regenerate_loaded_project_cover_textures()
+        self._refresh_preference_menu_states()
         self._save_session_snapshot()
 
     def run_build_preview(self) -> None:
@@ -3587,6 +3805,9 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.session_store.last_automatic_textures_enabled = bool(
             self.__dict__.get('_automatic_textures_preference_enabled', self.session.project.automatic_textures_enabled)
         )
+        self.session_store.last_legacy_mode_enabled = bool(
+            self.__dict__.get('_legacy_mode_preference_enabled', self.session.project.legacy_mode_enabled)
+        )
         self.session_store.last_regenerate_textures_on_project_load_enabled = bool(
             self.__dict__.get('_regenerate_textures_on_project_load_preference_enabled', False)
         )
@@ -3602,9 +3823,10 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.session.project.sample_rate = int(self.audio_preferences.sample_rate)
         self.session.project.compression_quality = float(self.audio_preferences.compression_quality)
         self.session.project.reencode_existing_ogg = bool(self.audio_preferences.reencode_existing_ogg)
-        self.session.project.automatic_textures_enabled = bool(
+        automatic_enabled = bool(
             self.__dict__.get('_automatic_textures_preference_enabled', self.session.project.automatic_textures_enabled)
         )
+        self.session.project.automatic_textures_enabled = automatic_enabled and not self._legacy_mode_enabled()
 
     def _commit_phase_one_project_state(self) -> None:
         if self._phase_one_sync_after_id is not None:

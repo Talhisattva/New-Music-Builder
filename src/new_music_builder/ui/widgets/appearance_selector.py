@@ -521,6 +521,7 @@ class AppearanceSelector:
         can_generate_from_cover: Callable[[MediaRow | None], bool],
         on_generate_from_cover: Callable[[int], None] | None,
         automatic_textures_enabled_getter: Callable[[], bool],
+        legacy_mode_enabled_getter: Callable[[], bool],
         on_preview_mode_selected: Callable[[int, str], None] | None,
         on_selection_changed: Callable[[int], None] | None,
         on_change: Callable[[], None],
@@ -540,6 +541,7 @@ class AppearanceSelector:
         self._can_generate_from_cover = can_generate_from_cover
         self._on_generate_from_cover = on_generate_from_cover
         self._automatic_textures_enabled_getter = automatic_textures_enabled_getter
+        self._legacy_mode_enabled_getter = legacy_mode_enabled_getter
         self._on_preview_mode_selected = on_preview_mode_selected
         self._on_selection_changed = on_selection_changed
         self._on_change = on_change
@@ -580,6 +582,9 @@ class AppearanceSelector:
 
     def _automatic_textures_enabled(self) -> bool:
         return bool(self._automatic_textures_enabled_getter())
+
+    def _legacy_mode_enabled(self) -> bool:
+        return bool(self._legacy_mode_enabled_getter())
 
     def _apply_vertical_layout(self, *, automatic_textures_enabled: bool) -> None:
         metrics = resolve_module_three_vertical_metrics(automatic_textures_enabled=automatic_textures_enabled)
@@ -634,6 +639,8 @@ class AppearanceSelector:
             return
         row.ensure_appearances()
         visible_kinds = visible_tab_kinds_for_enabled_media(row.enabled_media)
+        if self._legacy_mode_enabled():
+            visible_kinds = tuple(kind for kind in visible_kinds if kind in {'cassette', 'vinyl', 'cd'})
         self._normalize_active_kind(visible_kinds)
         self._apply_tab_visibility(visible_kinds)
         for kind, _label in TAB_KINDS:

@@ -37,6 +37,8 @@ def test_build_menu_action_map_uses_open_label_and_shortcuts() -> None:
     window._regenerate_textures_on_project_load_enabled = lambda: False
     window._toggle_text_tooltips_preference = lambda: window.calls.append("toggle_tooltips")
     window._text_tooltips_enabled = lambda: True
+    window._toggle_legacy_mode_preference = lambda: window.calls.append("toggle_legacy")
+    window._legacy_mode_enabled = lambda: False
 
     action_map = build_menu_action_map(window)
 
@@ -54,15 +56,19 @@ def test_build_menu_action_map_uses_open_label_and_shortcuts() -> None:
         "Automatic Textures",
         "Regenerate on Load",
         "Tooltips",
+        "Legacy Mode",
     ]
     assert action_map["PREFERENCES"][0].show_check_column is True
     assert action_map["PREFERENCES"][1].show_check_column is True
     assert action_map["PREFERENCES"][2].show_check_column is True
     assert action_map["PREFERENCES"][3].show_check_column is True
+    assert action_map["PREFERENCES"][4].show_check_column is True
     assert action_map["PREFERENCES"][2].close_after_invoke is False
     assert action_map["PREFERENCES"][3].close_after_invoke is False
+    assert action_map["PREFERENCES"][4].close_after_invoke is False
     assert action_map["PREFERENCES"][2].checked_getter is not None
     assert action_map["PREFERENCES"][3].checked_getter is not None
+    assert action_map["PREFERENCES"][4].checked_getter is not None
     action_map["FILE"][1].command()
     assert window.calls == ["load_project"]
 

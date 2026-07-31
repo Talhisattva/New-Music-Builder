@@ -19,6 +19,7 @@ class MediaLivePreview(tk.Frame):
         bg_color: str,
         resolve_preview_path: Callable[[MediaRow, AppearanceKind, str, bool], str | None] | None = None,
         on_mode_selected: Callable[[str], None] | None = None,
+        legacy_mode_enabled_getter: Callable[[], bool] | None = None,
     ) -> None:
         super().__init__(
             parent,
@@ -33,6 +34,7 @@ class MediaLivePreview(tk.Frame):
         self._selected_mode = row.preview_mode
         self._resolve_preview_path = resolve_preview_path
         self._on_mode_selected = on_mode_selected
+        self._legacy_mode_enabled_getter = legacy_mode_enabled_getter
         self._content_bg = spec.MEDIA_ROW_LIVE_PREVIEW_CONTENT_BG
         self._slot_keys = (
             ('cassette', 'case'),
@@ -250,11 +252,27 @@ class MediaLivePreview(tk.Frame):
 
     def _apply_state(self) -> None:
         self.mode_toggle.set_mode(self._selected_mode)
+        self._apply_legacy_layout()
         if self._selected_mode != 'world':
             self._cancel_tooltip_hide()
             self._cursor_tooltip.hide()
         self._restart_dual_phase()
         self._apply_preview_images()
+
+    def _legacy_mode_enabled(self) -> bool:
+        return bool(self._legacy_mode_enabled_getter()) if self._legacy_mode_enabled_getter is not None else False
+
+    def _apply_legacy_layout(self) -> None:
+        hide_case = self._legacy_mode_enabled()
+        if hide_case:
+            self.case_label.place_forget()
+        else:
+            self.case_label.place(
+                x=spec.MEDIA_ROW_LIVE_PREVIEW_SLOT_LEFT_X + spec.MEDIA_ROW_LIVE_PREVIEW_SLOT_SIZE[0] + spec.MEDIA_ROW_LIVE_PREVIEW_SLOT_GAP_X,
+                y=spec.MEDIA_ROW_LIVE_PREVIEW_COLUMN_LABEL_Y,
+                width=spec.MEDIA_ROW_LIVE_PREVIEW_COLUMN_LABEL_SIZE[0],
+                height=spec.MEDIA_ROW_LIVE_PREVIEW_COLUMN_LABEL_SIZE[1],
+            )
 
     def _apply_preview_images(self) -> None:
         for row_index, (media_key, container_key) in enumerate(self._slot_keys):
@@ -266,7 +284,7 @@ class MediaLivePreview(tk.Frame):
                 bg=self._content_bg,
             )
             right_label.configure(
-                image=self._image_for_slot(self._selected_mode, container_key) if enabled else '',
+                image='' if self._legacy_mode_enabled() else self._image_for_slot(self._selected_mode, container_key) if enabled else '',
                 bg=self._content_bg,
             )
 

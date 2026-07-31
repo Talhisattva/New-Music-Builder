@@ -137,6 +137,7 @@ class MediaRowShell(tk.Frame):
         on_preview_mode_selected: Callable[[int, str], None] | None = None,
         on_cover_selected: Callable[[int], None] | None = None,
         automatic_textures_enabled_getter: Callable[[], bool] | None = None,
+        legacy_mode_enabled_getter: Callable[[], bool] | None = None,
         can_accept_cover_drop: Callable[[list[str]], bool] | None = None,
         on_cover_drop: Callable[[int, list[str]], None] | None = None,
         on_remove_row: Callable[[int], None] | None = None,
@@ -173,6 +174,7 @@ class MediaRowShell(tk.Frame):
         self._selected = selected
         self._selected_count = selected_count
         self._automatic_textures_enabled_getter = automatic_textures_enabled_getter
+        self._legacy_mode_enabled_getter = legacy_mode_enabled_getter
         self._hovered = False
         self._on_select = on_select
         self._on_background_selected = on_background_selected
@@ -326,6 +328,7 @@ class MediaRowShell(tk.Frame):
             bg_color=spec.MEDIA_ROW_BG,
             resolve_preview_path=resolve_live_preview_path,
             on_mode_selected=self._handle_preview_mode_selected,
+            legacy_mode_enabled_getter=legacy_mode_enabled_getter,
         )
         self.live_preview.place(x=spec.MEDIA_ROW_LIVE_PREVIEW_POS[0], y=spec.MEDIA_ROW_LIVE_PREVIEW_POS[1])
         self._live_preview_tooltip = bind_help_tooltip(
@@ -476,6 +479,7 @@ class MediaRowShell(tk.Frame):
         self._last_songlist_width: int | None = None
         self.set_expanded(expanded)
         self._apply_background_state()
+        self._apply_legacy_layout()
 
     def _media_cover_tooltip_segments(self) -> tuple[TooltipSegment, ...]:
         base_segments = tooltip_segments_for_id('module_two.media_cover') or ()
@@ -667,6 +671,17 @@ class MediaRowShell(tk.Frame):
     def set_song_selection_state(self, selected_song_indices: set[int]) -> None:
         self.songlist_viewport.set_selection_state(selected_song_indices)
 
+    def _legacy_mode_enabled(self) -> bool:
+        return bool(self._legacy_mode_enabled_getter()) if self._legacy_mode_enabled_getter is not None else False
+
+    def _apply_legacy_layout(self) -> None:
+        if self._legacy_mode_enabled():
+            self.rename_field.place_forget()
+            self.side_toggle.place_forget()
+        else:
+            self.rename_field.place(x=spec.MEDIA_ROW_RENAME_POS[0], y=spec.MEDIA_ROW_RENAME_POS[1])
+            self.side_toggle.place(x=spec.MEDIA_ROW_SIDE_TOGGLE_POS[0], y=spec.MEDIA_ROW_SIDE_TOGGLE_POS[1])
+
 
     def set_locked(self, locked: bool) -> None:
         self._locked = locked
@@ -740,6 +755,7 @@ class MediaRowShell(tk.Frame):
         self.collapsed_media_type_strip.set_row(row)
         self.refresh_cover(row.cover_path)
         self.refresh_collapsed_details()
+        self._apply_legacy_layout()
 
     def _handle_select(self) -> None:
         if self._on_select is not None:
@@ -1032,6 +1048,7 @@ class MediaRowList(tk.Frame):
             on_preview_mode_selected=self._on_preview_mode_selected,
             on_cover_selected=self._on_cover_selected,
             automatic_textures_enabled_getter=self._automatic_textures_enabled_getter,
+            legacy_mode_enabled_getter=self._legacy_mode_enabled_getter,
             can_accept_cover_drop=self._can_accept_cover_drop,
             on_cover_drop=self._on_cover_drop,
             on_remove_row=self._on_remove_row,
