@@ -1327,6 +1327,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             compression_quality=self.session.project.compression_quality,
             reencode_existing_ogg=self.session.project.reencode_existing_ogg,
         )
+        self._refresh_cached_ogg_indicators()
         self.on_project_change()
 
     def _automatic_textures_enabled(self) -> bool:
@@ -2959,11 +2960,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
     def on_project_change(self) -> None:
         self._commit_phase_one_project_state()
-        refresh_project_cached_ogg_links(self.session.project)
         self._refresh_module_one_poster_preview()
         if hasattr(self, 'module_two_row_list'):
-            for row_widget in getattr(self.module_two_row_list, 'row_widgets', []):
-                row_widget.refresh_song_table()
             self.module_two_row_list.refresh_collapsed_details()
         if hasattr(self, 'build_summary'):
             self.build_summary.refresh()
@@ -2971,7 +2969,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
     def refresh_all(self) -> None:
         self._apply_default_asset_selections()
-        refresh_project_cached_ogg_links(self.session.project)
+        self._refresh_cached_ogg_indicators()
         repaired_rows = self._repair_active_generated_appearance_selections()
         self._refresh_module_one_poster_preview()
         self._refresh_module_three_appearance_selector()
@@ -2993,6 +2991,13 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self.module_four_panel.log_scroll.refresh_scroll_region()
         if hasattr(self, 'build_summary'):
             self.build_summary.refresh()
+
+    def _refresh_cached_ogg_indicators(self) -> None:
+        refresh_project_cached_ogg_links(self.session.project)
+        if not hasattr(self, 'module_two_row_list'):
+            return
+        for row_widget in getattr(self.module_two_row_list, 'row_widgets', []):
+            row_widget.refresh_song_table()
 
     def _apply_default_asset_selections(self) -> None:
         for row in self.session.project.media_rows:
@@ -3789,6 +3794,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             return
         self.ogg_output_folder_var.set(selected)
         self.session.project.ogg_output_folder = selected
+        self._refresh_cached_ogg_indicators()
         self.on_project_change()
 
     def _pick_workshop_output_folder(self) -> None:
@@ -3892,7 +3898,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self.author_var.set(self.session.project.author)
             self.ogg_output_folder_var.set(self.session.project.ogg_output_folder)
             self.workshop_output_folder_var.set(self.session.project.workshop_output_folder)
-            refresh_project_cached_ogg_links(self.session.project)
+            self._refresh_cached_ogg_indicators()
             if hasattr(self, 'poster_name_checkbox'):
                 self.poster_name_checkbox.set_checked(bool(self.session.project.write_mod_name_on_poster))
             self._refresh_module_one_poster_preview()
