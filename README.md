@@ -45,6 +45,33 @@ This is a small patch release in the `0.2.x` line focused on safer export identi
 
 ## Run From Source
 
+On macOS and Linux, use the repo launcher:
+
+```bash
+./run_from_source.sh
+```
+
+The launcher:
+
+- checks that this looks like a real source checkout
+- prefers Python `3.12`, but can use a newer installed version if it already works
+- can offer a side-by-side Python `3.12` install on supported `brew`, `apt-get`, and `dnf` systems
+- creates or repairs this repo's `.venv`
+- asks before installing Python packages into `.venv`
+
+It does not replace your default `python3`, and it keeps Python packages inside this repo's `.venv`.
+
+Manual fallback commands:
+
+```bash
+python3.12 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python main.py
+```
+
+On Windows, run from source manually:
+
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
