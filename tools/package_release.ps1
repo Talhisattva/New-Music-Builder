@@ -9,10 +9,6 @@ $distRoot = Join-Path $repoRoot 'dist'
 $releaseRoot = Join-Path $repoRoot 'release'
 $specPath = Join-Path $repoRoot 'NewMusicBuilder.spec'
 $appDistRoot = Join-Path $distRoot 'NewMusicBuilder'
-$workspaceRoot = Join-Path $repoRoot 'workspace'
-$logsRoot = Join-Path $repoRoot 'logs'
-$diagnosticsRoot = Join-Path $workspaceRoot 'diagnostics'
-
 function Invoke-Step {
     param(
         [Parameter(Mandatory = $true)]
@@ -25,47 +21,6 @@ function Invoke-Step {
     if ($LASTEXITCODE -ne 0) {
         throw $FailureMessage
     }
-}
-
-function Reset-RuntimeState {
-    $workspacePath = [System.IO.Path]::GetFullPath($workspaceRoot)
-    $logsPath = [System.IO.Path]::GetFullPath($logsRoot)
-    $diagnosticsPath = [System.IO.Path]::GetFullPath($diagnosticsRoot)
-
-    New-Item -ItemType Directory -Path $workspacePath -Force | Out-Null
-    New-Item -ItemType Directory -Path $logsPath -Force | Out-Null
-    New-Item -ItemType Directory -Path $diagnosticsPath -Force | Out-Null
-
-    Get-ChildItem -Path $diagnosticsPath -Force -ErrorAction SilentlyContinue | Remove-Item -Force
-
-    Set-Content -Path (Join-Path $logsPath 'new_music_builder.log') -Value '' -NoNewline
-    Set-Content -Path (Join-Path $logsPath 'startup_fatal.log') -Value '' -NoNewline
-    Set-Content -Path (Join-Path $logsPath 'runtime_fatal.log') -Value '' -NoNewline
-
-    $runtimeReset = @'
-from pathlib import Path
-import json
-import sys
-
-sys.path.insert(0, str(Path("src").resolve()))
-
-from new_music_builder.domain.models import ProjectConfig
-from new_music_builder.services.recent_projects import RecentProjectsStore
-from new_music_builder.services.session_store import SessionStore
-
-workspace = Path("workspace")
-workspace.mkdir(parents=True, exist_ok=True)
-
-store = SessionStore(workspace / "last_session.json")
-store.last_automatic_textures_enabled = True
-store.last_text_tooltips_enabled = True
-store.save(ProjectConfig(), "")
-
-recent = RecentProjectsStore(workspace / "recent.json")
-recent.file_path.write_text(json.dumps({"recent": []}, indent=2), encoding="utf-8")
-'@
-
-    Invoke-Step -Action { $runtimeReset | python - } -FailureMessage 'Runtime state reset failed.'
 }
 
 function Initialize-PackagedRuntimeState {
@@ -88,8 +43,41 @@ function Initialize-PackagedRuntimeState {
     Set-Content -Path (Join-Path $logsPath 'new_music_builder.log') -Value '' -NoNewline
     Set-Content -Path (Join-Path $logsPath 'startup_fatal.log') -Value '' -NoNewline
     Set-Content -Path (Join-Path $logsPath 'runtime_fatal.log') -Value '' -NoNewline
-    Set-Content -Path (Join-Path $workspacePath 'last_session.json') -Value '{}' -NoNewline
-    Set-Content -Path (Join-Path $workspacePath 'recent.json') -Value '{"recent":[]}' -NoNewline
+
+    $runtimeSeed = @'
+from pathlib import Path
+import json
+import sys
+
+target_root = Path(sys.argv[1]).resolve()
+workspace = target_root / "workspace"
+workspace.mkdir(parents=True, exist_ok=True)
+
+sys.path.insert(0, str(Path("src").resolve()))
+
+from new_music_builder.domain.models import ProjectConfig
+from new_music_builder.services.recent_projects import RecentProjectsStore
+from new_music_builder.services.session_store import SessionStore
+
+project = ProjectConfig()
+project.ensure_defaults()
+project.ogg_output_folder = ""
+project.workshop_output_folder = ""
+project.legacy_mode_enabled = False
+
+store = SessionStore(workspace / "last_session.json")
+store.last_ogg_output_folder = ""
+store.last_automatic_textures_enabled = True
+store.last_legacy_mode_enabled = False
+store.last_regenerate_textures_on_project_load_enabled = False
+store.last_text_tooltips_enabled = True
+store.save(project, "")
+
+recent = RecentProjectsStore(workspace / "recent.json")
+recent.file_path.write_text(json.dumps({"recent": []}, indent=2), encoding="utf-8")
+'@
+
+    Invoke-Step -Action { $runtimeSeed | python - $targetPath } -FailureMessage 'Packaged runtime seed failed.'
 }
 
 function Prune-WindowsReleaseArtifacts {
@@ -143,8 +131,6 @@ try {
         Invoke-Step -Action { python -m compileall src } -FailureMessage 'compileall validation failed.'
         Invoke-Step -Action { pytest -q } -FailureMessage 'pytest validation failed.'
     }
-
-    Reset-RuntimeState
 
     if (Test-Path $appDistRoot) {
         Remove-Item -LiteralPath $appDistRoot -Recurse -Force
