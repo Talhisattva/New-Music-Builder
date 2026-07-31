@@ -3152,6 +3152,9 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._sync_phase_one_project_state()
         LOGGER.info("[run=%s] phase-one sync complete duration_ms=%.1f", run_id, (time.perf_counter() - step_started) * 1000.0)
         step_started = time.perf_counter()
+        self._refresh_cached_ogg_indicators()
+        LOGGER.info("[run=%s] cached-ogg refresh complete duration_ms=%.1f", run_id, (time.perf_counter() - step_started) * 1000.0)
+        step_started = time.perf_counter()
         project_snapshot = deepcopy(self.session.project)
         LOGGER.info("[run=%s] project snapshot complete duration_ms=%.1f", run_id, (time.perf_counter() - step_started) * 1000.0)
         step_started = time.perf_counter()
@@ -3553,7 +3556,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         target_row = next((row for row in self.session.project.media_rows if row.row_id == source_row_id), None)
         if target_row is None:
             return
-        tracks = target_row.tracks_a if target_row.legacy_mode_enabled else (target_row.tracks_a if event.side == "A" else target_row.tracks_b)
+        legacy_mode_enabled = self._legacy_mode_enabled()
+        tracks = target_row.tracks_a if legacy_mode_enabled else (target_row.tracks_a if event.side == "A" else target_row.tracks_b)
         if source_track_index < 0 or source_track_index >= len(tracks):
             return
         track = tracks[source_track_index]
@@ -3563,10 +3567,10 @@ class MainWindow(_DnDCompat, ctk.CTk):
         expanded_widget = self._expanded_row_widget(source_row_id)
         if expanded_widget is None:
             return
-        if not target_row.legacy_mode_enabled and target_row.selected_side != event.side:
+        if not legacy_mode_enabled and target_row.selected_side != event.side:
             return
         expanded_widget.refresh_song_table()
-        selection_side = "A" if target_row.legacy_mode_enabled else event.side
+        selection_side = "A" if legacy_mode_enabled else event.side
         expanded_widget.set_song_selection_state(self._module_two_song_selection_for_row(source_row_id, selection_side))
 
     def _mark_preview_row_ready(self, row_id: int, side: str) -> None:
