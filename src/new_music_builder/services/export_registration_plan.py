@@ -55,13 +55,13 @@ _CONTAINER_SUFFIX: dict[MediaKind, str] = {
 def build_export_registration_plan(project: ProjectConfig, export_plan: ExportPlan) -> ExportRegistrationPlan:
     module_id = sanitize_module_id(project.mod_id or "NewMusicPack", fallback="NewMusicPack")
     albums = [
-        _build_registered_album(module_id, row)
+        _build_registered_album(module_id, row, legacy_mode=project.legacy_mode_enabled)
         for row in export_plan.rows
     ]
     return ExportRegistrationPlan(module_id=module_id, albums=albums)
 
 
-def _build_registered_album(module_id: str, row: PlannedMediaRow) -> RegisteredAlbum:
+def _build_registered_album(module_id: str, row: PlannedMediaRow, *, legacy_mode: bool) -> RegisteredAlbum:
     ordered_sides = sorted(row.sides, key=lambda side: 0 if side.side == "A" else 1)
     album_id = row.export_id or sanitize_export_id(row.media_name, fallback=f"MediaRow{row.row_id}")
     sound_prefix = f"{module_id}{album_id}"
@@ -71,7 +71,7 @@ def _build_registered_album(module_id: str, row: PlannedMediaRow) -> RegisteredA
         registered_side = _build_registered_side(module_id, sound_prefix, side, next_sequence_number)
         registered_sides.append(registered_side)
         next_sequence_number = registered_side.end_track_number + 1
-    media_variants = _build_media_variants(module_id, row)
+    media_variants = _build_media_variants(module_id, row, legacy_mode=legacy_mode)
     mode: RegistrationMode = "split" if any(variant.mode == "split" for variant in media_variants) else "single"
     return RegisteredAlbum(
         row_id=row.row_id,
@@ -82,7 +82,7 @@ def _build_registered_album(module_id: str, row: PlannedMediaRow) -> RegisteredA
         sound_prefix=sound_prefix,
         sides=registered_sides,
         media_variants=media_variants,
-        container_variants=_build_container_variants(module_id, row),
+        container_variants=[] if legacy_mode else _build_container_variants(module_id, row),
     )
 
 
@@ -113,13 +113,13 @@ def _build_registered_side(
     )
 
 
-def _build_media_variants(module_id: str, row: PlannedMediaRow) -> list[RegisteredMediaVariant]:
+def _build_media_variants(module_id: str, row: PlannedMediaRow, *, legacy_mode: bool) -> list[RegisteredMediaVariant]:
     variants: list[RegisteredMediaVariant] = []
     available_sides = tuple(side.side for side in sorted(row.sides, key=lambda item: 0 if item.side == "A" else 1))
     for media_kind in ("cassette", "vinyl", "cd"):
         if not row.enabled_media.get(media_kind, False):
             continue
-        mode = _effective_media_mode(row, media_kind)
+        mode = "single" if legacy_mode else _effective_media_mode(row, media_kind)
         appearance = row.appearances.for_kind(_PLAYABLE_APPEARANCE_KIND[media_kind])
         full_item_id = ""
         full_display_name = ""

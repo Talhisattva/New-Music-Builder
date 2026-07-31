@@ -25,6 +25,7 @@ from new_music_builder.domain.models import (
 from new_music_builder.services.asset_catalog import AssetEntry
 from new_music_builder.services.export_ids import unique_export_id
 from new_music_builder.services.generated_asset_registry import visible_generated_entries_for_kind
+from new_music_builder.services.legacy_export_planning import build_legacy_export_plan
 from new_music_builder.services.export_naming import (
     build_audio_row_folder_name,
     build_audio_side_folder_name,
@@ -44,6 +45,8 @@ _SLOT_KINDS: tuple[tuple[AppearanceKind, MediaKind], ...] = (
 
 
 def build_export_plan(project: ProjectConfig, asset_catalog: dict[str, list[AssetEntry]]) -> ExportPlan:
+    if project.legacy_mode_enabled:
+        return build_legacy_export_plan(project, asset_catalog)
     planned_rows: list[PlannedMediaRow] = []
     planned_sides: list[PlannedSide] = []
     used_row_ids: set[str] = set()
@@ -296,8 +299,13 @@ def _build_preview_cell(planned_row: PlannedMediaRow, side: PlannedSide, *, mode
         appearance = planned_row.appearances.for_kind(appearance_kind)
         slot_paths.append(appearance.world_path if mode == "world" else appearance.inventory_path)
         empty_slot_paths.append(appearance.world_empty_path if mode == "world" else appearance.inventory_empty_path)
+    label_text = (
+        planned_row.media_name
+        if side.song_count == 1 and len(side.tracks) == 1 and planned_row.media_name == side.tracks[0].display_label
+        else f"{planned_row.media_name} ({side.side}-Side)"
+    )
     return GeneratedPreviewCell(
-        label_text=f"{planned_row.media_name} ({side.side}-Side)",
+        label_text=label_text,
         section_text="WORLD" if mode == "world" else "INVENTORY",
         song_count=side.song_count,
         duration_text=side.duration_text,
