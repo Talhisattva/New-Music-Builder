@@ -299,7 +299,8 @@ class MediaRowShell(tk.Frame):
             can_accept_drop=can_accept_song_drop,
             on_drop_files=self._handle_song_drop if on_song_drop is not None else None,
         )
-        self.songlist_viewport.place(x=spec.MEDIA_ROW_SONGLIST_VIEWPORT_POS[0], y=spec.MEDIA_ROW_SONGLIST_VIEWPORT_POS[1])
+        songlist_x, songlist_y, songlist_width, songlist_height = self._songlist_geometry()
+        self.songlist_viewport.place(x=songlist_x, y=songlist_y, width=songlist_width, height=songlist_height)
         self._song_table_tooltip = bind_help_tooltip(
             self.songlist_viewport.header_tooltip_widgets(),
             tooltip_id='module_two.song_table',
@@ -519,13 +520,14 @@ class MediaRowShell(tk.Frame):
                 spec.MEDIA_ROW_SONGLIST_VIEWPORT_SIZE[0],
                 live_preview_x - spec.MEDIA_ROW_SONGLIST_VIEWPORT_POS[0] - songlist_gap_to_preview,
             )
-            if self._last_songlist_width != songlist_width:
-                self.songlist_viewport.resize(songlist_width)
+            songlist_x, songlist_y, _, songlist_height = self._songlist_geometry(width=songlist_width)
+            if self._last_songlist_width != songlist_width or str(self.songlist_viewport.place_info().get('y')) != str(songlist_y) or str(self.songlist_viewport.place_info().get('height')) != str(songlist_height):
+                self.songlist_viewport.resize(songlist_width, songlist_height)
                 self.songlist_viewport.place_configure(
-                    x=spec.MEDIA_ROW_SONGLIST_VIEWPORT_POS[0],
-                    y=spec.MEDIA_ROW_SONGLIST_VIEWPORT_POS[1],
+                    x=songlist_x,
+                    y=songlist_y,
                     width=songlist_width,
-                    height=spec.MEDIA_ROW_SONGLIST_VIEWPORT_SIZE[1],
+                    height=songlist_height,
                 )
                 self._last_songlist_width = songlist_width
             if self._last_live_preview_x != live_preview_x:
@@ -681,6 +683,28 @@ class MediaRowShell(tk.Frame):
         else:
             self.rename_field.place(x=spec.MEDIA_ROW_RENAME_POS[0], y=spec.MEDIA_ROW_RENAME_POS[1])
             self.side_toggle.place(x=spec.MEDIA_ROW_SIDE_TOGGLE_POS[0], y=spec.MEDIA_ROW_SIDE_TOGGLE_POS[1])
+        songlist_x, songlist_y, songlist_width, songlist_height = self._songlist_geometry()
+        self.songlist_viewport.resize(songlist_width, songlist_height)
+        self.songlist_viewport.place_configure(
+            x=songlist_x,
+            y=songlist_y,
+            width=songlist_width,
+            height=songlist_height,
+        )
+
+    def _songlist_geometry(self, *, width: int | None = None) -> tuple[int, int, int, int]:
+        songlist_x = spec.MEDIA_ROW_SONGLIST_VIEWPORT_POS[0]
+        songlist_width = width if width is not None else spec.MEDIA_ROW_SONGLIST_VIEWPORT_SIZE[0]
+        if not self._legacy_mode_enabled():
+            return (
+                songlist_x,
+                spec.MEDIA_ROW_SONGLIST_VIEWPORT_POS[1],
+                songlist_width,
+                spec.MEDIA_ROW_SONGLIST_VIEWPORT_SIZE[1],
+            )
+        top_y = spec.MEDIA_ROW_EXPANDED_COVER_POS[1]
+        bottom_y = spec.MEDIA_ROW_SONGLIST_VIEWPORT_POS[1] + spec.MEDIA_ROW_SONGLIST_VIEWPORT_SIZE[1]
+        return (songlist_x, top_y, songlist_width, bottom_y - top_y)
 
 
     def set_locked(self, locked: bool) -> None:
@@ -742,6 +766,7 @@ class MediaRowShell(tk.Frame):
             self.badge = self.collapsed_badge
             self.cover = self.collapsed_cover
             self.media_type_strip = self.collapsed_media_type_strip
+        self._apply_legacy_layout()
         self._apply_background_state()
 
     def set_row(self, row: MediaRow) -> None:
@@ -923,6 +948,7 @@ class MediaRowList(tk.Frame):
         on_preview_mode_selected: Callable[[int, str], None] | None = None,
         on_cover_selected: Callable[[int], None] | None = None,
         automatic_textures_enabled_getter: Callable[[], bool] | None = None,
+        legacy_mode_enabled_getter: Callable[[], bool] | None = None,
         can_accept_cover_drop: Callable[[list[str]], bool] | None = None,
         on_cover_drop: Callable[[int, list[str]], None] | None = None,
         on_remove_row: Callable[[int], None] | None = None,
@@ -978,6 +1004,7 @@ class MediaRowList(tk.Frame):
         self._on_preview_mode_selected = on_preview_mode_selected
         self._on_cover_selected = on_cover_selected
         self._automatic_textures_enabled_getter = automatic_textures_enabled_getter
+        self._legacy_mode_enabled_getter = legacy_mode_enabled_getter
         self._can_accept_cover_drop = can_accept_cover_drop
         self._on_cover_drop = on_cover_drop
         self._on_remove_row = on_remove_row

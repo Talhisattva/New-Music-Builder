@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
 from pathlib import Path
 
 from new_music_builder.domain.models import PlannedMediaRow, ResolvedAppearance
@@ -81,15 +82,67 @@ def exported_world_texture_directory(kind: str, *, hr: bool = False) -> str:
     return _WORLD_DIR[kind]
 
 
-def build_cover_texture_decision(module_id: str, album_id: str, row: PlannedMediaRow) -> CoverTextureDecision:
+def shared_exported_inventory_texture_stem(kind: str, module_id: str, source_path: str, *, empty: bool = False) -> str:
+    stem = f"{_INVENTORY_PREFIX[kind]}_{module_id}_Shared_{_source_token(source_path)}"
+    return f"{stem}_Empty" if empty else stem
+
+
+def shared_exported_inventory_texture_filename(kind: str, module_id: str, source_path: str, *, empty: bool = False) -> str:
+    return f"Item_{shared_exported_inventory_texture_stem(kind, module_id, source_path, empty=empty)}.png"
+
+
+def shared_exported_world_texture_stem(
+    kind: str,
+    module_id: str,
+    source_path: str,
+    *,
+    empty: bool = False,
+    hr: bool = False,
+) -> str:
+    if hr:
+        stem = f"World_NM_Cover_{module_id}_Shared_{_source_token(source_path)}"
+    else:
+        stem = f"{_WORLD_PREFIX[kind]}_{module_id}_Shared_{_source_token(source_path)}"
+    return f"{stem}_Empty" if empty else stem
+
+
+def shared_exported_world_texture_reference(
+    kind: str,
+    module_id: str,
+    source_path: str,
+    *,
+    empty: bool = False,
+    hr: bool = False,
+) -> str:
+    directory = exported_world_texture_directory(kind, hr=hr)
+    stem = shared_exported_world_texture_stem(kind, module_id, source_path, empty=empty, hr=hr)
+    return f"{directory}/{stem}"
+
+
+def shared_exported_world_texture_relative_path(
+    kind: str,
+    module_id: str,
+    source_path: str,
+    *,
+    empty: bool = False,
+    hr: bool = False,
+) -> str:
+    return f"{shared_exported_world_texture_reference(kind, module_id, source_path, empty=empty, hr=hr)}.png"
+
+
+def build_cover_texture_decision(module_id: str, album_id: str, row: PlannedMediaRow, *, legacy_mode: bool = False) -> CoverTextureDecision:
     cover_appearance = _preferred_cover_appearance(row)
     fallback_source_path = cover_appearance.world_path if cover_appearance is not None else ""
     row_cover_source_path = row.cover_path or ""
     fallback_source_is_custom = bool(cover_appearance is not None and cover_appearance.source == "custom")
-    fallback_texture_reference = _cover_texture_reference(cover_appearance, module_id, album_id)
-    fallback_texture_relative_path = _cover_texture_relative_path(cover_appearance, module_id, album_id)
+    fallback_texture_reference = _cover_texture_reference(cover_appearance, module_id, album_id, legacy_mode=legacy_mode)
+    fallback_texture_relative_path = _cover_texture_relative_path(cover_appearance, module_id, album_id, legacy_mode=legacy_mode)
     fallback_transform_kind = _cover_transform_kind(cover_appearance)
-    hr_texture_reference = exported_world_texture_reference("jacket", module_id, album_id, hr=True)
+    hr_texture_reference = (
+        shared_exported_world_texture_reference("jacket", module_id, row_cover_source_path, hr=True)
+        if legacy_mode and row_cover_source_path
+        else exported_world_texture_reference("jacket", module_id, album_id, hr=True)
+    )
     shared_cover_source_path = row_cover_source_path or fallback_source_path
     export_hr_cover = False
     reuse_existing_cover_texture = False
@@ -147,17 +200,33 @@ def _preferred_cover_appearance(row: PlannedMediaRow) -> ResolvedAppearance | No
     return None
 
 
-def _cover_texture_reference(appearance: ResolvedAppearance | None, module_id: str, album_id: str) -> str:
+def _cover_texture_reference(
+    appearance: ResolvedAppearance | None,
+    module_id: str,
+    album_id: str,
+    *,
+    legacy_mode: bool = False,
+) -> str:
     if appearance is None:
         return ""
     if appearance.source == "custom":
+        if legacy_mode and appearance.world_path:
+            return shared_exported_world_texture_reference(appearance.kind, module_id, appearance.world_path)
         return exported_world_texture_reference(appearance.kind, module_id, album_id)
     return _world_texture_reference_from_path(appearance.world_path, fallback_dir=_world_items_dir_for_kind(appearance.kind))
 
 
-def _cover_texture_relative_path(appearance: ResolvedAppearance | None, module_id: str, album_id: str) -> str:
+def _cover_texture_relative_path(
+    appearance: ResolvedAppearance | None,
+    module_id: str,
+    album_id: str,
+    *,
+    legacy_mode: bool = False,
+) -> str:
     if appearance is None or appearance.source != "custom":
         return ""
+    if legacy_mode and appearance.world_path:
+        return shared_exported_world_texture_relative_path(appearance.kind, module_id, appearance.world_path)
     return exported_world_texture_relative_path(appearance.kind, module_id, album_id)
 
 
@@ -190,3 +259,10 @@ def _normalized_source_identity(path: str) -> str:
     if not path:
         return ""
     return str(Path(path).expanduser().resolve(strict=False)).replace("\\", "/").lower()
+
+
+def _source_token(path: str) -> str:
+    normalized = _normalized_source_identity(path)
+    if not normalized:
+        return "Missing"
+    return hashlib.sha1(normalized.encode("utf-8")).hexdigest()[:12]

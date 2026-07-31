@@ -284,3 +284,44 @@ def test_write_export_scaffold_keeps_audio_folder_in_sync_with_sanitized_module_
     assert 'UI_EN = {' in ui_en
     assert 'UI_TM_NewGuppy_SingleTest_Song_01 = "Test Song"' in ui_en
     assert Path(targets.audio_pack_root).name == "TM_NewGuppy"
+
+
+def test_write_export_scaffold_legacy_mode_uses_clean_song_ids_for_lua_and_scripts(tmp_path: Path) -> None:
+    workshop_root = tmp_path / "Workshop"
+    workshop_root.mkdir()
+    project = ProjectConfig(
+        mod_name="Legacy Pack",
+        mod_id="LegacyPack",
+        workshop_output_folder=str(workshop_root),
+        legacy_mode_enabled=True,
+    )
+    row = default_media_row(1)
+    row.tracks_a = [_track("C:/music/intro.ogg", "Kiasmos Looped", "00:01:00")]
+    project.media_rows = [row]
+
+    catalog = AssetCatalog(ASSETS_ROOT).scan()
+    plan = build_export_plan(project, catalog)
+    targets = resolve_export_target(plan, project.workshop_output_folder, mod_name=project.mod_name, mod_id=project.mod_id)
+
+    result = write_export_scaffold(project, plan, targets, catalog)
+
+    assert not result.errors
+    scripts_root = Path(targets.v42) / "media" / "scripts"
+    lua_root = Path(targets.v42) / "media" / "lua" / "shared"
+    sounds_text = (scripts_root / "NMB_LegacyPack_Sounds.txt").read_text(encoding="utf-8")
+    items_text = (scripts_root / "NMB_LegacyPack_Items.txt").read_text(encoding="utf-8")
+    models_text = (scripts_root / "NMB_LegacyPack_Models.txt").read_text(encoding="utf-8")
+    album_text = (lua_root / "LegacyPack_Album_KiasmosLooped.lua").read_text(encoding="utf-8")
+
+    assert "11KiasmosLooped" not in album_text
+    assert "11KiasmosLooped" not in sounds_text
+    assert "11KiasmosLooped" not in items_text
+    assert "11KiasmosLooped" not in models_text
+    assert 'soundPrefix = "LegacyPackKiasmosLooped"' in album_text
+    assert 'full = {' in album_text
+    assert '{ label = "UI_LegacyPack_KiasmosLooped_Song_01", sound = "LegacyPackKiasmosLooped", trackNumber = 1 }' in album_text
+    assert "sound LegacyPackKiasmosLooped" in sounds_text
+    assert "sound LegacyPackKiasmosLooped01" not in sounds_text
+    assert "item KiasmosLoopedCassette" in items_text
+    assert "item KiasmosLoopedVinyl" in items_text
+    assert "item KiasmosLoopedCD" in items_text

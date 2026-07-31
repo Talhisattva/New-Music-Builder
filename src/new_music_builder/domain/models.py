@@ -444,6 +444,13 @@ class LuaTrackLabel:
 
 
 @dataclass(slots=True)
+class LuaExplicitTrack:
+    label_key: str
+    sound: str
+    track_number: int
+
+
+@dataclass(slots=True)
 class LuaAlbumRegistration:
     album_id: str
     title: str
@@ -452,6 +459,7 @@ class LuaAlbumRegistration:
     table_name: str
     require_name: str
     track_labels: list[LuaTrackLabel] = field(default_factory=list)
+    explicit_tracks: dict[str, list[LuaExplicitTrack]] = field(default_factory=dict)
     media: list[LuaAlbumMediaRegistration] = field(default_factory=list)
     cover_groups: list[LuaCoverGroup] = field(default_factory=list)
 

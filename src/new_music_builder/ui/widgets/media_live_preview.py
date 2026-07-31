@@ -168,15 +168,11 @@ class MediaLivePreview(tk.Frame):
         return self._images[cache_key]
 
     def _build_content_slots(self) -> None:
-        left_x = spec.MEDIA_ROW_LIVE_PREVIEW_SLOT_LEFT_X
-        top_y = spec.MEDIA_ROW_LIVE_PREVIEW_SLOT_TOP_Y
-        slot_width, slot_height = spec.MEDIA_ROW_LIVE_PREVIEW_SLOT_SIZE
-        right_x = left_x + slot_width + spec.MEDIA_ROW_LIVE_PREVIEW_SLOT_GAP_X
-
         for row_index, pair in enumerate(self._slot_keys):
-            slot_y = top_y + (row_index * slot_height)
-            for index_within_row, slot_x in enumerate((left_x, right_x)):
+            slot_y = self._slot_y_for_row(row_index)
+            for index_within_row, slot_x in enumerate(self._slot_column_x_positions()):
                 slot_kind = pair[index_within_row]
+                slot_width, slot_height = spec.MEDIA_ROW_LIVE_PREVIEW_SLOT_SIZE
                 slot = tk.Frame(
                     self.content_area,
                     bg=self._content_bg,
@@ -203,8 +199,6 @@ class MediaLivePreview(tk.Frame):
                     widget.bind('<Leave>', lambda _event, kind=slot_kind: self._on_slot_leave(kind), add='+')
 
     def _build_column_labels(self) -> None:
-        left_x = spec.MEDIA_ROW_LIVE_PREVIEW_SLOT_LEFT_X
-        right_x = left_x + spec.MEDIA_ROW_LIVE_PREVIEW_SLOT_SIZE[0] + spec.MEDIA_ROW_LIVE_PREVIEW_SLOT_GAP_X
         label_font = (
             spec.MEDIA_ROW_LIVE_PREVIEW_COLUMN_LABEL_FONT_FAMILY,
             spec.MEDIA_ROW_LIVE_PREVIEW_COLUMN_LABEL_FONT_SIZE,
@@ -219,12 +213,6 @@ class MediaLivePreview(tk.Frame):
             font=label_font,
             anchor='center',
         )
-        self.media_label.place(
-            x=left_x,
-            y=spec.MEDIA_ROW_LIVE_PREVIEW_COLUMN_LABEL_Y,
-            width=spec.MEDIA_ROW_LIVE_PREVIEW_COLUMN_LABEL_SIZE[0],
-            height=spec.MEDIA_ROW_LIVE_PREVIEW_COLUMN_LABEL_SIZE[1],
-        )
         self.case_label = tk.Label(
             self.content_area,
             text='CASE',
@@ -235,12 +223,7 @@ class MediaLivePreview(tk.Frame):
             font=label_font,
             anchor='center',
         )
-        self.case_label.place(
-            x=right_x,
-            y=spec.MEDIA_ROW_LIVE_PREVIEW_COLUMN_LABEL_Y,
-            width=spec.MEDIA_ROW_LIVE_PREVIEW_COLUMN_LABEL_SIZE[0],
-            height=spec.MEDIA_ROW_LIVE_PREVIEW_COLUMN_LABEL_SIZE[1],
-        )
+        self._place_column_labels()
 
     def _select_mode(self, mode: str) -> None:
         if mode == self._selected_mode:
@@ -264,15 +247,50 @@ class MediaLivePreview(tk.Frame):
 
     def _apply_legacy_layout(self) -> None:
         hide_case = self._legacy_mode_enabled()
+        slot_positions = self._slot_column_x_positions(legacy=hide_case)
+        for row_index in range(len(self._slot_keys)):
+            slot_y = self._slot_y_for_row(row_index)
+            left_slot = self._slot_frames[row_index * 2]
+            right_slot = self._slot_frames[(row_index * 2) + 1]
+            slot_width, slot_height = spec.MEDIA_ROW_LIVE_PREVIEW_SLOT_SIZE
+            left_slot.place_configure(x=slot_positions[0], y=slot_y, width=slot_width, height=slot_height)
+            if hide_case:
+                right_slot.place_forget()
+            else:
+                right_slot.place_configure(x=slot_positions[1], y=slot_y, width=slot_width, height=slot_height)
+        self._place_column_labels()
         if hide_case:
             self.case_label.place_forget()
         else:
             self.case_label.place(
-                x=spec.MEDIA_ROW_LIVE_PREVIEW_SLOT_LEFT_X + spec.MEDIA_ROW_LIVE_PREVIEW_SLOT_SIZE[0] + spec.MEDIA_ROW_LIVE_PREVIEW_SLOT_GAP_X,
+                x=slot_positions[1],
                 y=spec.MEDIA_ROW_LIVE_PREVIEW_COLUMN_LABEL_Y,
                 width=spec.MEDIA_ROW_LIVE_PREVIEW_COLUMN_LABEL_SIZE[0],
                 height=spec.MEDIA_ROW_LIVE_PREVIEW_COLUMN_LABEL_SIZE[1],
             )
+
+    def _place_column_labels(self) -> None:
+        left_x, _right_x = self._slot_column_x_positions(legacy=self._legacy_mode_enabled())
+        self.media_label.place(
+            x=left_x,
+            y=spec.MEDIA_ROW_LIVE_PREVIEW_COLUMN_LABEL_Y,
+            width=spec.MEDIA_ROW_LIVE_PREVIEW_COLUMN_LABEL_SIZE[0],
+            height=spec.MEDIA_ROW_LIVE_PREVIEW_COLUMN_LABEL_SIZE[1],
+        )
+
+    def _slot_column_x_positions(self, legacy: bool | None = None) -> tuple[int, int]:
+        hide_case = self._legacy_mode_enabled() if legacy is None else legacy
+        slot_width = spec.MEDIA_ROW_LIVE_PREVIEW_SLOT_SIZE[0]
+        if hide_case:
+            content_width = spec.MEDIA_ROW_LIVE_PREVIEW_CONTENT_SIZE[0] - (spec.MEDIA_ROW_LIVE_PREVIEW_CONTENT_OUTLINE_WIDTH * 2)
+            centered_x = max(0, (content_width - slot_width) // 2)
+            return centered_x, centered_x
+        left_x = spec.MEDIA_ROW_LIVE_PREVIEW_SLOT_LEFT_X
+        right_x = left_x + slot_width + spec.MEDIA_ROW_LIVE_PREVIEW_SLOT_GAP_X
+        return left_x, right_x
+
+    def _slot_y_for_row(self, row_index: int) -> int:
+        return spec.MEDIA_ROW_LIVE_PREVIEW_SLOT_TOP_Y + (row_index * spec.MEDIA_ROW_LIVE_PREVIEW_SLOT_SIZE[1])
 
     def _apply_preview_images(self) -> None:
         for row_index, (media_key, container_key) in enumerate(self._slot_keys):

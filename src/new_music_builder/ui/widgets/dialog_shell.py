@@ -7,6 +7,7 @@ import tkinter as tk
 from PIL import Image, ImageTk
 
 from new_music_builder.ui import spec
+from new_music_builder.ui import theme
 from new_music_builder.ui.widgets.main_button import MainButton
 
 
@@ -67,7 +68,7 @@ class DialogShell(tk.Toplevel):
             bd=0,
             highlightthickness=0,
             font=(spec.SAMPLE_RATE_DIALOG_LABEL_FONT_FAMILY, spec.SAMPLE_RATE_DIALOG_LABEL_FONT_SIZE),
-            anchor='w',
+            anchor='nw',
             justify='left',
             wraplength=label_wraplength,
         )
@@ -135,35 +136,70 @@ class ConfirmDialog(DialogShell):
         icon_path: str | Path | None,
         title: str,
         label_text: str,
+        warning_text: str = "",
         accept_text: str,
         cancel_text: str,
+        size: tuple[int, int] | None = None,
+        label_size: tuple[int, int] | None = None,
+        button_y: int | None = None,
     ) -> None:
+        resolved_size = size or spec.CONFIRM_DIALOG_SIZE
+        resolved_label_size = label_size or spec.CONFIRM_DIALOG_LABEL_SIZE
+        resolved_button_y = button_y if button_y is not None else spec.CONFIRM_DIALOG_BUTTON_Y
         super().__init__(
             parent,
             title=title,
             icon_path=icon_path,
-            size=spec.CONFIRM_DIALOG_SIZE,
+            size=resolved_size,
             label_text=label_text,
-            label_wraplength=spec.CONFIRM_DIALOG_LABEL_SIZE[0],
+            label_wraplength=resolved_label_size[0],
         )
         self.result = False
+        self.warning_label: tk.Label | None = None
+        self.label.update_idletasks()
+        requested_label_height = self.label.winfo_reqheight()
+        primary_label_height = requested_label_height + 4
+        warning_height = 0
+        warning_gap = 1
+        if warning_text:
+            self.warning_label = tk.Label(
+                self.panel_inner,
+                text=warning_text,
+                bg=spec.SAMPLE_RATE_DIALOG_PANEL_BG,
+                fg=theme.MUTED,
+                bd=0,
+                highlightthickness=0,
+                font=(spec.SAMPLE_RATE_DIALOG_LABEL_FONT_FAMILY, spec.SAMPLE_RATE_DIALOG_LABEL_FONT_SIZE),
+                anchor='nw',
+                justify='left',
+                wraplength=resolved_label_size[0],
+            )
+            self.warning_label.update_idletasks()
+            warning_height = self.warning_label.winfo_reqheight() + 8
         self.label.place(
             x=spec.CONFIRM_DIALOG_LABEL_POS[0],
             y=spec.CONFIRM_DIALOG_LABEL_POS[1],
-            width=spec.CONFIRM_DIALOG_LABEL_SIZE[0],
-            height=spec.CONFIRM_DIALOG_LABEL_SIZE[1],
+            width=resolved_label_size[0],
+            height=primary_label_height,
         )
+        if self.warning_label is not None:
+            self.warning_label.place(
+                x=spec.CONFIRM_DIALOG_LABEL_POS[0],
+                y=spec.CONFIRM_DIALOG_LABEL_POS[1] + primary_label_height + warning_gap,
+                width=resolved_label_size[0],
+                height=warning_height,
+            )
 
         button_width = spec.MAIN_BUTTON_SIZE[0]
         total_buttons_width = (button_width * 2) + spec.SAMPLE_RATE_DIALOG_BUTTON_GAP_X
-        button_x = ((spec.CONFIRM_DIALOG_SIZE[0] - 20) - total_buttons_width) // 2
+        button_x = ((resolved_size[0] - 20) - total_buttons_width) // 2
         self.accept_button = MainButton(
             self.panel_inner,
             text=accept_text,
             command=self._accept,
             variant='positive',
         )
-        self.accept_button.place(x=button_x, y=spec.CONFIRM_DIALOG_BUTTON_Y, width=button_width, height=spec.MAIN_BUTTON_SIZE[1])
+        self.accept_button.place(x=button_x, y=resolved_button_y, width=button_width, height=spec.MAIN_BUTTON_SIZE[1])
         self.cancel_button = MainButton(
             self.panel_inner,
             text=cancel_text,
@@ -172,7 +208,7 @@ class ConfirmDialog(DialogShell):
         )
         self.cancel_button.place(
             x=button_x + button_width + spec.SAMPLE_RATE_DIALOG_BUTTON_GAP_X,
-            y=spec.CONFIRM_DIALOG_BUTTON_Y,
+            y=resolved_button_y,
             width=button_width,
             height=spec.MAIN_BUTTON_SIZE[1],
         )

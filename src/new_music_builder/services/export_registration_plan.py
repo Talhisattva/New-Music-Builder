@@ -24,6 +24,8 @@ from new_music_builder.services.export_texture_contract import (
     exported_world_texture_stem,
     has_distinct_empty_inventory,
     has_distinct_empty_world,
+    shared_exported_inventory_texture_stem,
+    shared_exported_world_texture_stem,
 )
 
 
@@ -68,7 +70,13 @@ def _build_registered_album(module_id: str, row: PlannedMediaRow, *, legacy_mode
     registered_sides: list[RegisteredSide] = []
     next_sequence_number = 1
     for side in ordered_sides:
-        registered_side = _build_registered_side(module_id, sound_prefix, side, next_sequence_number)
+        registered_side = _build_registered_side(
+            module_id,
+            sound_prefix,
+            side,
+            next_sequence_number,
+            legacy_mode=legacy_mode,
+        )
         registered_sides.append(registered_side)
         next_sequence_number = registered_side.end_track_number + 1
     media_variants = _build_media_variants(module_id, row, legacy_mode=legacy_mode)
@@ -91,15 +99,18 @@ def _build_registered_side(
     sound_prefix: str,
     side: PlannedSide,
     start_sequence_number: int,
+    *,
+    legacy_mode: bool,
 ) -> RegisteredSide:
     tracks: list[RegisteredTrack] = []
     for offset, track in enumerate(side.tracks):
         sequence_number = start_sequence_number + offset
+        sound_id = sound_prefix if legacy_mode and len(side.tracks) == 1 else f"{sound_prefix}{sequence_number:02d}"
         tracks.append(
             RegisteredTrack(
                 sequence_number=sequence_number,
                 track_id=track.track_id,
-                sound_id=f"{sound_prefix}{sequence_number:02d}",
+                sound_id=sound_id,
                 display_label=track.display_label,
                 export_audio_relative_path=f"media/sound/{module_id}/{track.export_relative_path.replace('\\', '/')}",
             )
@@ -150,8 +161,12 @@ def _build_media_variants(module_id: str, row: PlannedMediaRow, *, legacy_mode: 
             asset_source=appearance.source,
         )
         if appearance.source == "custom":
-            variant.icon_reference = exported_inventory_texture_stem(media_kind, module_id, row.export_id)
-            variant.model_reference = exported_world_texture_stem(media_kind, module_id, row.export_id)
+            if legacy_mode and appearance.inventory_path and appearance.world_path:
+                variant.icon_reference = shared_exported_inventory_texture_stem(media_kind, module_id, appearance.inventory_path)
+                variant.model_reference = shared_exported_world_texture_stem(media_kind, module_id, appearance.world_path)
+            else:
+                variant.icon_reference = exported_inventory_texture_stem(media_kind, module_id, row.export_id)
+                variant.model_reference = exported_world_texture_stem(media_kind, module_id, row.export_id)
         variants.append(variant)
     return variants
 

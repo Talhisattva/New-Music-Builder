@@ -634,6 +634,28 @@ class MainWindow(_DnDCompat, ctk.CTk):
             return row.tracks_a[last_clicked]
         return row.tracks_a[0]
 
+    def _module_three_legacy_selection_keys(self, row, kind: AppearanceKind | None) -> set[str]:
+        if (
+            not self._legacy_mode_enabled()
+            or row is None
+            or kind not in {'cassette', 'vinyl', 'cd'}
+        ):
+            return set()
+        selected_indices = sorted(self._module_two_song_selection_for_row(row.row_id, 'A'))
+        if not selected_indices:
+            preview_track = self._legacy_preview_track_for_row(row)
+            if preview_track is None:
+                return set()
+            selected_key = preview_track.legacy_appearances.for_kind(kind).selected_asset_key
+            return {selected_key} if selected_key else set()
+        keys: set[str] = set()
+        for index in selected_indices:
+            if 0 <= index < len(row.tracks_a):
+                selected_key = row.tracks_a[index].legacy_appearances.for_kind(kind).selected_asset_key
+                if selected_key:
+                    keys.add(selected_key)
+        return keys
+
     def _apply_window_icon(self) -> None:
         native_icon = self._native_icon_path()
         applied_native = False
@@ -1049,6 +1071,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             on_generate_from_cover=self._generate_module_three_from_cover,
             automatic_textures_enabled_getter=self._automatic_textures_enabled,
             legacy_mode_enabled_getter=self._legacy_mode_enabled,
+            legacy_selection_keys_getter=self._module_three_legacy_selection_keys,
             on_preview_mode_selected=self._set_module_two_preview_mode,
             on_selection_changed=self._handle_module_three_selection_changed,
             on_change=self._handle_module_three_change,
@@ -1340,12 +1363,13 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self,
             icon_path=self._native_icon_path(),
             title='Legacy Mode',
-            label_text=(
-                'Enabling Legacy Mode will create packs that contain one song per media item.\n\n'
-                'Warning: This makes many features in the mod obsolete and could flood your loot table.'
-            ),
+            label_text='Enabling Legacy Mode will create packs that contain one song per media item.',
+            warning_text='Warning: This makes many features in the mod obsolete and could flood your loot table.',
             accept_text='OK',
             cancel_text='CANCEL',
+            size=(360, 190),
+            label_size=(320, 24),
+            button_y=135,
         )
         return dialog.show()
 
@@ -2190,11 +2214,16 @@ class MainWindow(_DnDCompat, ctk.CTk):
                 track_index = 0
             sync_row_appearances_from_legacy_track(row, selected_track_index=track_index)
 
-    def _refresh_module_three_appearance_selector(self) -> None:
+    def _refresh_module_three_appearance_selector(self, *, rebuild_grid: bool = True) -> None:
         if not hasattr(self, 'module_three_appearance_selector'):
             return
         self._sync_active_row_from_legacy_selection()
-        self.module_three_appearance_selector.set_active_row(self._active_module_three_row())
+        active_row = self._active_module_three_row()
+        selector = self.module_three_appearance_selector
+        if rebuild_grid or selector._active_row is not active_row:
+            selector.set_active_row(active_row, rebuild_grid=rebuild_grid)
+            return
+        selector.refresh_selection_state()
 
     def _apply_row_selection_to_legacy_tracks(self, row, kind: MediaKind) -> None:
         selected_indices = sorted(self._module_two_song_selection_for_row(row.row_id, 'A'))
@@ -2842,7 +2871,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         if self._legacy_mode_enabled():
             self._sync_active_row_from_legacy_selection(row_id)
             self._refresh_module_two_live_preview_for_row(row_id)
-            self._refresh_module_three_appearance_selector()
+            self._refresh_module_three_appearance_selector(rebuild_grid=False)
 
     def _begin_module_two_song_drag(self, row_id: int, track_index: int, x_root: int, y_root: int) -> None:
         if self._is_build_locked():
@@ -2918,7 +2947,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         expanded_widget.set_song_selection_state(moved_selection)
         if self._legacy_mode_enabled():
             self._sync_active_row_from_legacy_selection(row_id)
-            self._refresh_module_three_appearance_selector()
+            self._refresh_module_three_appearance_selector(rebuild_grid=False)
         self.on_project_change()
 
     def on_select_row(self, row_id: int | None) -> None:

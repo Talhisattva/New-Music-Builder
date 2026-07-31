@@ -13,6 +13,8 @@ from new_music_builder.services.export_texture_contract import (
     exported_inventory_texture_filename,
     exported_world_texture_relative_path,
     normalized_source_identity,
+    shared_exported_inventory_texture_filename,
+    shared_exported_world_texture_relative_path,
 )
 
 _PLAYABLE_KINDS: tuple[str, ...] = ("cassette", "vinyl", "cd")
@@ -38,7 +40,7 @@ def write_export_textures(project: ProjectConfig, plan: ExportPlan, targets: Exp
     tasks: OrderedDict[str, _TextureWriteTask] = OrderedDict()
 
     for row in plan.rows:
-        _append_row_texture_tasks(tasks, module_id, row)
+        _append_row_texture_tasks(tasks, module_id, row, legacy_mode=project.legacy_mode_enabled)
 
     for task in tasks.values():
         source = _require_source_path(task.source_path, task.description)
@@ -49,7 +51,13 @@ def write_export_textures(project: ProjectConfig, plan: ExportPlan, targets: Exp
     return TextureExportResult(written_file_count=len(tasks))
 
 
-def _append_row_texture_tasks(tasks: OrderedDict[str, _TextureWriteTask], module_id: str, row: PlannedMediaRow) -> None:
+def _append_row_texture_tasks(
+    tasks: OrderedDict[str, _TextureWriteTask],
+    module_id: str,
+    row: PlannedMediaRow,
+    *,
+    legacy_mode: bool,
+) -> None:
     album_id = row.export_id or sanitize_export_id(row.media_name, fallback=f"MediaRow{row.row_id}")
 
     for media_kind in _PLAYABLE_KINDS:
@@ -61,14 +69,22 @@ def _append_row_texture_tasks(tasks: OrderedDict[str, _TextureWriteTask], module
         _add_task(
             tasks,
             source_path=appearance.inventory_path,
-            target_relative_path=exported_inventory_texture_filename(media_kind, module_id, album_id),
+            target_relative_path=(
+                shared_exported_inventory_texture_filename(media_kind, module_id, appearance.inventory_path)
+                if legacy_mode
+                else exported_inventory_texture_filename(media_kind, module_id, album_id)
+            ),
             transform_kind="inventory_32",
             description=f"{row.media_name} {media_kind} inventory",
         )
         _add_task(
             tasks,
             source_path=appearance.world_path,
-            target_relative_path=exported_world_texture_relative_path(media_kind, module_id, album_id),
+            target_relative_path=(
+                shared_exported_world_texture_relative_path(media_kind, module_id, appearance.world_path)
+                if legacy_mode
+                else exported_world_texture_relative_path(media_kind, module_id, album_id)
+            ),
             transform_kind="world_cassette_playable" if media_kind == "cassette" else "world_square_256",
             description=f"{row.media_name} {media_kind} world",
         )
@@ -112,6 +128,8 @@ def _append_row_texture_tasks(tasks: OrderedDict[str, _TextureWriteTask], module
             )
 
     cover_decision = build_cover_texture_decision(module_id, album_id, row)
+    if legacy_mode:
+        cover_decision = build_cover_texture_decision(module_id, album_id, row, legacy_mode=True)
     if cover_decision.fallback_source_is_custom and cover_decision.fallback_source_path:
         _add_task(
             tasks,
@@ -124,7 +142,11 @@ def _append_row_texture_tasks(tasks: OrderedDict[str, _TextureWriteTask], module
         _add_task(
             tasks,
             source_path=cover_decision.row_cover_source_path,
-            target_relative_path=exported_world_texture_relative_path("jacket", module_id, album_id, hr=True),
+            target_relative_path=(
+                shared_exported_world_texture_relative_path("jacket", module_id, cover_decision.row_cover_source_path, hr=True)
+                if legacy_mode
+                else exported_world_texture_relative_path("jacket", module_id, album_id, hr=True)
+            ),
             transform_kind="world_square_1024",
             description=f"{row.media_name} HR cover",
         )

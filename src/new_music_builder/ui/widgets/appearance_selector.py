@@ -354,6 +354,7 @@ class _AppearanceGridTile(_BorderSurface):
         self._on_hover_ended = on_hover_ended
         self._hovered = False
         self._selected = False
+        self._mixed_selected = False
         self._locked = False
         self._show_empty = False
         self._display_mode: PreviewMode = display_mode
@@ -393,6 +394,10 @@ class _AppearanceGridTile(_BorderSurface):
 
     def set_selected(self, selected: bool) -> None:
         self._selected = selected
+        self._apply_colors()
+
+    def set_mixed_selected(self, mixed_selected: bool) -> None:
+        self._mixed_selected = mixed_selected
         self._apply_colors()
 
     def set_icon_size(self, size: int) -> None:
@@ -449,6 +454,9 @@ class _AppearanceGridTile(_BorderSurface):
         if self._locked:
             fill = spec.MODULE_THREE_GRID_TILE_LOCKED_SELECTED_BG if self._selected else spec.MODULE_THREE_GRID_TILE_BG
             border = spec.MODULE_THREE_GRID_TILE_LOCKED_SELECTED_BORDER_COLOR if self._selected else spec.MODULE_THREE_GRID_TILE_BORDER_COLOR
+        elif self._mixed_selected:
+            fill = spec.MODULE_THREE_GRID_TILE_LOCKED_SELECTED_BG
+            border = spec.MODULE_THREE_GRID_TILE_LOCKED_SELECTED_BORDER_COLOR
         elif self._selected:
             fill = spec.MODULE_THREE_GRID_TILE_SELECTED_BG
             border = spec.MODULE_THREE_GRID_TILE_SELECTED_BORDER_COLOR
@@ -522,6 +530,7 @@ class AppearanceSelector:
         on_generate_from_cover: Callable[[int], None] | None,
         automatic_textures_enabled_getter: Callable[[], bool],
         legacy_mode_enabled_getter: Callable[[], bool],
+        legacy_selection_keys_getter: Callable[[MediaRow | None, AppearanceKind | None], set[str]] | None,
         on_preview_mode_selected: Callable[[int, str], None] | None,
         on_selection_changed: Callable[[int], None] | None,
         on_change: Callable[[], None],
@@ -542,6 +551,7 @@ class AppearanceSelector:
         self._on_generate_from_cover = on_generate_from_cover
         self._automatic_textures_enabled_getter = automatic_textures_enabled_getter
         self._legacy_mode_enabled_getter = legacy_mode_enabled_getter
+        self._legacy_selection_keys_getter = legacy_selection_keys_getter
         self._on_preview_mode_selected = on_preview_mode_selected
         self._on_selection_changed = on_selection_changed
         self._on_change = on_change
@@ -619,13 +629,14 @@ class AppearanceSelector:
         self._active_kind = kind
         self.refresh_from_active_row()
 
-    def set_active_row(self, row: MediaRow | None) -> None:
+    def set_active_row(self, row: MediaRow | None, *, rebuild_grid: bool = True) -> None:
         self._cancel_tooltip_hide()
         self._cursor_tooltip.hide()
+        same_row = row is self._active_row
         self._active_row = row
-        self.refresh_from_active_row()
+        self.refresh_from_active_row(rebuild_grid=rebuild_grid or not same_row)
 
-    def refresh_from_active_row(self) -> None:
+    def refresh_from_active_row(self, *, rebuild_grid: bool = True) -> None:
         row = self._active_row
         if row is None:
             self._cancel_dual_phase_loop()
@@ -654,7 +665,19 @@ class AppearanceSelector:
         self._refresh_dual_sprite_row()
         self._refresh_generate_button_state()
         self._refresh_footer()
-        self._rebuild_grid()
+        if rebuild_grid:
+            self._rebuild_grid()
+        else:
+            self._apply_grid_selection_state(scroll_into_view=False)
+
+    def refresh_selection_state(self) -> None:
+        if self._active_row is None:
+            return
+        self._refresh_dual_sprite_row()
+        self._refresh_generate_button_state()
+        self._refresh_footer()
+        self._update_active_tab_icon()
+        self._apply_grid_selection_state(scroll_into_view=False)
 
     def begin_cover_generation_loading(self, row_id: int, token: int) -> None:
         self._cover_generation_loading_row_id = row_id
@@ -1032,7 +1055,6 @@ class AppearanceSelector:
             return
         entries = self._entries_for_kind(self._active_kind)
         self._current_entries_by_kind[self._active_kind] = entries
-        selected_key = row.appearances[self._active_kind].selected_asset_key
         row_count = max(1, (len(entries) + 3) // 4)
         content_height = row_count * spec.MODULE_THREE_GRID_TILE_SIZE[1]
         grid_mask_size = self._current_grid_mask_size()
@@ -1048,7 +1070,6 @@ class AppearanceSelector:
         self._build_grid_entries_chunk(
             generation=generation,
             entries=entries,
-            selected_key=selected_key,
             start_index=0,
         )
 
@@ -1068,15 +1089,12 @@ class AppearanceSelector:
         if entry is None:
             return
         apply_selection_from_grid_entry(selection, entry)
-        for tile_key, tile in self._grid_tiles.items():
-            tile.set_selected(tile_key == key)
-            if tile_key != key:
-                tile.set_icon_size(spec.MODULE_THREE_GRID_TILE_ICON_SIZE[0])
         self._update_active_tab_icon()
         self._refresh_dual_sprite_row()
         self._refresh_footer()
         if self._on_selection_changed is not None:
             self._on_selection_changed(row.row_id)
+        self._apply_grid_selection_state(scroll_into_view=True)
         self._on_change()
 
     def _handle_remove_custom(self, key: str) -> None:
@@ -1148,6 +1166,14 @@ class AppearanceSelector:
             self._get_custom_assets(kind),
         )
 
+    def _selection_keys_for_kind(self, row: MediaRow, kind: AppearanceKind) -> set[str]:
+        if self._legacy_mode_enabled() and self._legacy_selection_keys_getter is not None:
+            keys = {key for key in self._legacy_selection_keys_getter(row, kind) if key}
+            if keys:
+                return keys
+        selected_key = row.appearances[kind].selected_asset_key
+        return {selected_key} if selected_key else set()
+
     def _footer_uses_dual_mode(self) -> bool:
         row = self._active_row
         if row is None or self._active_kind is None or not should_show_dual_sprite_controls(self._active_kind):
@@ -1167,6 +1193,22 @@ class AppearanceSelector:
             self._tab_widgets[self._active_kind].set_image(selected_tile.current_display_path())
             return
         self._tab_widgets[self._active_kind].set_image(entry.displayed_path(self._preview_mode(), show_empty=self._dual_phase_show_empty))
+
+    def _apply_grid_selection_state(self, *, scroll_into_view: bool) -> None:
+        row = self._active_row
+        kind = self._active_kind
+        if row is None or kind is None:
+            return
+        selection_keys = self._selection_keys_for_kind(row, kind)
+        mixed_selection = len(selection_keys) > 1
+        selected_key = row.appearances[kind].selected_asset_key
+        for tile_key, tile in self._grid_tiles.items():
+            tile.set_selected((not mixed_selection) and tile_key == selected_key)
+            tile.set_mixed_selected(mixed_selection and tile_key in selection_keys)
+            if tile_key != selected_key:
+                tile.set_icon_size(spec.MODULE_THREE_GRID_TILE_ICON_SIZE[0])
+        if scroll_into_view and not mixed_selection and selected_key:
+            self._scroll_tile_into_view(selected_key)
 
     def _schedule_dual_phase_loop_if_needed(self) -> None:
         if any(tile.entry.is_dual for tile in self._grid_tiles.values()):
@@ -1328,7 +1370,6 @@ class AppearanceSelector:
         *,
         generation: int,
         entries: list[AppearanceGridEntry],
-        selected_key: str,
         start_index: int,
     ) -> None:
         if generation != self._grid_build_generation:
@@ -1351,7 +1392,6 @@ class AppearanceSelector:
                 x=(index % 4) * spec.MODULE_THREE_GRID_TILE_SIZE[0],
                 y=(index // 4) * spec.MODULE_THREE_GRID_TILE_SIZE[1],
             )
-            tile.set_selected(entry.key == selected_key)
             tile.set_locked(self._locked)
             self._grid_tiles[entry.key] = tile
         self.shell.grid_viewport.refresh_scroll_region()
@@ -1361,7 +1401,6 @@ class AppearanceSelector:
                 lambda: self._build_grid_entries_chunk(
                     generation=generation,
                     entries=entries,
-                    selected_key=selected_key,
                     start_index=end_index,
                 ),
             )
@@ -1370,7 +1409,7 @@ class AppearanceSelector:
         self._cancel_tab_loading_indicator()
         self._sync_loading_overlay()
         self._update_active_tab_icon()
-        self._scroll_tile_into_view(selected_key)
+        self._apply_grid_selection_state(scroll_into_view=True)
         self._schedule_dual_phase_loop_if_needed()
 
     def _should_show_loading_overlay(self) -> bool:

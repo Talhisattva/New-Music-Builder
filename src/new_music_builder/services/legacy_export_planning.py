@@ -14,8 +14,8 @@ from new_music_builder.domain.models import (
     TrackEntry,
 )
 from new_music_builder.services.asset_catalog import AssetEntry
-from new_music_builder.services.export_ids import unique_export_id
-from new_music_builder.services.export_naming import build_audio_row_folder_name, build_audio_track_file_name
+from new_music_builder.services.export_ids import sanitize_export_id
+from new_music_builder.services.export_naming import sanitize_sound_script_path_component
 from new_music_builder.services.generated_asset_registry import visible_generated_entries_for_kind
 from new_music_builder.ui.widgets.appearance_entries import merge_appearance_grid_entries
 
@@ -25,6 +25,7 @@ def build_legacy_export_plan(project: ProjectConfig, asset_catalog: dict[str, li
     planned_sides: list[PlannedSide] = []
     used_row_ids: set[str] = set()
     used_track_ids: set[str] = set()
+    used_audio_file_stems: set[str] = set()
     exported_row_id = 0
 
     for source_row in project.media_rows:
@@ -33,16 +34,20 @@ def build_legacy_export_plan(project: ProjectConfig, asset_catalog: dict[str, li
         for track_index, track in enumerate(tracks, start=1):
             exported_row_id += 1
             media_name = track.display_label or Path(track.source_path).stem or f"Track {track_index}"
-            row_export_id = unique_export_id(
-                f"{source_row.row_id}_{track_index}_{media_name}",
-                used_row_ids,
+            row_export_id = _build_legacy_export_id(
+                media_name,
+                used_ids=used_row_ids,
                 fallback=f"LegacyTrack{exported_row_id}",
             )
-            row_folder_name = build_audio_row_folder_name(media_name, exported_row_id, export_id=row_export_id)
-            track_id = unique_export_id(
-                f"{row_export_id}_{media_name}",
-                used_track_ids,
-                fallback=f"{row_export_id}Track1",
+            track_id = _build_legacy_export_id(
+                media_name,
+                used_ids=used_track_ids,
+                fallback=row_export_id,
+            )
+            export_file_name = _build_legacy_audio_track_file_name(
+                media_name,
+                fallback_track_id=track_id,
+                used_file_stems=used_audio_file_stems,
             )
             planned_track = PlannedTrack(
                 track_number=1,
@@ -51,8 +56,8 @@ def build_legacy_export_plan(project: ProjectConfig, asset_catalog: dict[str, li
                 duration_text=str(track.duration or ""),
                 duration_seconds=_legacy_seconds_from_duration_text(str(track.duration or "")),
                 needs_conversion=Path(str(track.source_path or "")).suffix.lower() != ".ogg",
-                export_file_name=build_audio_track_file_name(media_name, 1, track_id=track_id),
-                export_relative_path=str(Path(row_folder_name) / build_audio_track_file_name(media_name, 1, track_id=track_id)),
+                export_file_name=export_file_name,
+                export_relative_path=export_file_name,
                 track_id=track_id,
                 sound_id=track_id,
             )
@@ -62,8 +67,8 @@ def build_legacy_export_plan(project: ProjectConfig, asset_catalog: dict[str, li
                 media_name=media_name,
                 cover_path=source_row.cover_path,
                 side_id=row_export_id,
-                export_folder_name=row_folder_name,
-                export_relative_dir=row_folder_name,
+                export_folder_name="",
+                export_relative_dir="",
                 tracks=[planned_track],
             )
             planned_row = PlannedMediaRow(
@@ -149,3 +154,50 @@ def _legacy_seconds_from_duration_text(value: str) -> int:
     except ValueError:
         return 0
     return max(0, hours) * 3600 + max(0, minutes) * 60 + max(0, seconds)
+
+
+def _build_legacy_audio_track_file_name(
+    media_name: str,
+    *,
+    fallback_track_id: str,
+    used_file_stems: set[str],
+) -> str:
+    preferred_stem = sanitize_sound_script_path_component(media_name, fallback="").strip()
+    if not preferred_stem or not preferred_stem.isascii():
+        stem = fallback_track_id
+        used_file_stems.add(stem)
+        return f"{stem}.ogg"
+
+    if preferred_stem not in used_file_stems:
+        used_file_stems.add(preferred_stem)
+        return f"{preferred_stem}.ogg"
+
+    suffix_index = 2
+    while True:
+        candidate = f"{preferred_stem}_{suffix_index}"
+        if candidate not in used_file_stems:
+            used_file_stems.add(candidate)
+            return f"{candidate}.ogg"
+        suffix_index += 1
+
+
+def _build_legacy_export_id(value: str, *, used_ids: set[str], fallback: str) -> str:
+    base = sanitize_export_id(value, fallback=fallback)
+    if base and not base.isdigit() and base not in used_ids:
+        used_ids.add(base)
+        return base
+
+    if base.isdigit():
+        base = fallback
+
+    if base not in used_ids:
+        used_ids.add(base)
+        return base
+
+    suffix_index = 2
+    while True:
+        candidate = f"{base}_{suffix_index}"
+        if candidate not in used_ids:
+            used_ids.add(candidate)
+            return candidate
+        suffix_index += 1

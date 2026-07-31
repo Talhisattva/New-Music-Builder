@@ -60,8 +60,25 @@ def _render_album(album: LuaAlbumRegistration) -> str:
         f'    title = "{_escape(album.title)}",',
         "    trackSource = {",
         f'        soundPrefix = "{_escape(album.sound_prefix)}",',
-        "        labels = {",
+        "        explicit = {",
     ]
+    for side_key in ("a", "b", "full"):
+        rows = album.explicit_tracks.get(side_key, [])
+        if not rows:
+            continue
+        lines.append(f"            {side_key} = {{")
+        for row in rows:
+            lines.append(
+                '                { label = "%s", sound = "%s", trackNumber = %d },'
+                % (_escape(row.label_key), _escape(row.sound), row.track_number)
+            )
+        lines.append("            },")
+    lines.extend(
+        [
+            "        },",
+        "        labels = {",
+        ]
+    )
     lines.extend(f'            "{_escape(label.key)}",' for label in album.track_labels)
     lines.extend(
         [

@@ -5,6 +5,7 @@ from new_music_builder.domain.models import (
     LuaAlbumMediaItems,
     LuaAlbumMediaRegistration,
     LuaAlbumRegistration,
+    LuaExplicitTrack,
     LuaTrackLabel,
     LuaCoverGroup,
     LuaPackRegistration,
@@ -35,6 +36,7 @@ def build_export_lua_plan(project: ProjectConfig, export_plan: ExportPlan) -> Lu
 
 
 def _build_lua_album(module_id: str, album: RegisteredAlbum, row: PlannedMediaRow) -> LuaAlbumRegistration:
+    explicit_tracks = _build_explicit_tracks(module_id, album)
     return LuaAlbumRegistration(
         album_id=album.album_id,
         title=album.title,
@@ -50,9 +52,31 @@ def _build_lua_album(module_id: str, album: RegisteredAlbum, row: PlannedMediaRo
             for side in album.sides
             for track in side.tracks
         ],
+        explicit_tracks=explicit_tracks,
         media=_build_lua_media(album),
         cover_groups=_build_cover_groups(album, row),
     )
+
+
+def _build_explicit_tracks(module_id: str, album: RegisteredAlbum) -> dict[str, list[LuaExplicitTrack]]:
+    side_tracks: dict[str, list[LuaExplicitTrack]] = {}
+    full_tracks: list[LuaExplicitTrack] = []
+    for side in album.sides:
+        rows: list[LuaExplicitTrack] = []
+        for track in side.tracks:
+            label_key = f"UI_{module_id}_{album.album_id}_Song_{track.sequence_number:02d}"
+            entry = LuaExplicitTrack(
+                label_key=label_key,
+                sound=track.sound_id,
+                track_number=track.sequence_number,
+            )
+            rows.append(entry)
+            full_tracks.append(entry)
+        if rows:
+            side_tracks[side.side.lower()] = rows
+    if full_tracks:
+        side_tracks["full"] = full_tracks
+    return side_tracks
 
 
 def _build_lua_media(album: RegisteredAlbum) -> list[LuaAlbumMediaRegistration]:
@@ -63,13 +87,13 @@ def _build_lua_media(album: RegisteredAlbum) -> list[LuaAlbumMediaRegistration]:
         variant = next((item for item in album.media_variants if item.media_kind == kind), None)
         if variant is None:
             continue
-        container = container_by_kind[kind]
+        container = container_by_kind.get(kind)
         items = LuaAlbumMediaItems(
             full=variant.full_item_id,
             a=variant.item_ids.get("A", ""),
             b=variant.item_ids.get("B", ""),
-            container_empty=container.empty_item_id,
-            container_full=container.full_item_id,
+            container_empty=container.empty_item_id if container is not None else "",
+            container_full=container.full_item_id if container is not None else "",
         )
         media.append(
             LuaAlbumMediaRegistration(
@@ -84,15 +108,18 @@ def _build_lua_media(album: RegisteredAlbum) -> list[LuaAlbumMediaRegistration]:
 
 
 def _build_cover_groups(album: RegisteredAlbum, row: PlannedMediaRow) -> list[LuaCoverGroup]:
-    cover_decision = build_cover_texture_decision(album.module_id, album.album_id, row)
+    cover_decision = build_cover_texture_decision(album.module_id, album.album_id, row, legacy_mode=(album.container_variants == []))
     enabled_media = tuple(kind for kind in _MEDIA_ORDER if row.enabled_media.get(kind, False))
     if not enabled_media or not cover_decision.shared_cover_texture_reference:
         return []
+    include_containers = tuple(
+        kind for kind in enabled_media if any(variant.media_kind == kind for variant in album.container_variants)
+    )
     return [
         LuaCoverGroup(
             texture=cover_decision.shared_cover_texture_reference,
             include_playable=enabled_media,
-            include_containers=enabled_media,
-            include_empty_containers=enabled_media,
+            include_containers=include_containers,
+            include_empty_containers=include_containers,
         )
     ]

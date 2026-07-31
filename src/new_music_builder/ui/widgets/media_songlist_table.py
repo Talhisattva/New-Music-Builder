@@ -48,6 +48,7 @@ class MediaSonglistTable(tk.Canvas):
         self._header_height = spec.MEDIA_ROW_SONGLIST_TABLE_HEADER_HEIGHT
         self._row_height = spec.MEDIA_ROW_SONGLIST_TABLE_ROW_HEIGHT
         self._min_row_count = spec.MEDIA_ROW_SONGLIST_TABLE_MIN_ROWS
+        self._viewport_height = spec.MEDIA_ROW_SONGLIST_TABLE_SIZE[1]
         self._base_column_widths = spec.MEDIA_ROW_SONGLIST_TABLE_COLUMN_WIDTHS
         self._column_widths = self._base_column_widths
         self._divider_color = spec.MEDIA_ROW_SONGLIST_TABLE_DIVIDER_COLOR
@@ -98,9 +99,12 @@ class MediaSonglistTable(tk.Canvas):
         self._bind_interactions()
         self.redraw()
 
-    def resize(self, width: int) -> None:
+    def resize(self, width: int, viewport_height: int | None = None) -> None:
+        resolved_viewport_height = viewport_height if viewport_height is not None else self._viewport_height
         if width == self._last_resized_width:
-            return
+            if resolved_viewport_height == self._viewport_height:
+                return
+        self._viewport_height = resolved_viewport_height
         extra_width = max(0, width - spec.MEDIA_ROW_SONGLIST_TABLE_SIZE[0])
         column_widths = list(self._base_column_widths)
         column_widths[2] = self._base_column_widths[2] + extra_width
@@ -116,7 +120,12 @@ class MediaSonglistTable(tk.Canvas):
         return len(self._tracks)
 
     def visible_row_count(self) -> int:
-        return max(self._min_row_count, len(self._tracks))
+        available_body_height = max(0, self._viewport_height - self._header_height)
+        rows_for_viewport = max(
+            self._min_row_count,
+            (available_body_height + self._row_height - 1) // self._row_height,
+        )
+        return max(rows_for_viewport, len(self._tracks))
 
     def table_height(self) -> int:
         return self._header_height + (self.visible_row_count() * self._row_height)
