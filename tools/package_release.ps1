@@ -92,6 +92,41 @@ function Initialize-PackagedRuntimeState {
     Set-Content -Path (Join-Path $workspacePath 'recent.json') -Value '{"recent":[]}' -NoNewline
 }
 
+function Prune-WindowsReleaseArtifacts {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$TargetRoot
+    )
+
+    $targetPath = [System.IO.Path]::GetFullPath($TargetRoot)
+    $tkdndRoot = Join-Path $targetPath '_internal\tkinterdnd2\tkdnd'
+    if (-not (Test-Path $tkdndRoot)) {
+        return
+    }
+
+    $keepFolder = Join-Path $tkdndRoot 'win-x64'
+    if (-not (Test-Path $keepFolder)) {
+        throw "Expected tkinterdnd2 win-x64 runtime folder was not found: $keepFolder"
+    }
+
+    Get-ChildItem -Path $tkdndRoot -Directory | Where-Object { $_.Name -ne 'win-x64' } | Remove-Item -Recurse -Force
+
+    $keepFiles = @(
+        'pkgIndex.tcl',
+        'tkdnd.tcl',
+        'tkdnd_compat.tcl',
+        'tkdnd_generic.tcl',
+        'tkdnd_utils.tcl',
+        'tkdnd_windows.tcl'
+    )
+
+    Get-ChildItem -Path $keepFolder -File | Where-Object {
+        $_.Extension -eq '.lib' -or (
+            $_.Extension -eq '.tcl' -and $_.Name -notin $keepFiles
+        )
+    } | Remove-Item -Force
+}
+
 Push-Location $repoRoot
 try {
     $version = python -c "import sys; from pathlib import Path; sys.path.insert(0, str(Path('src').resolve())); import new_music_builder; print(new_music_builder.__version__)"
@@ -122,6 +157,7 @@ try {
         throw "Expected packaged app folder was not created: $appDistRoot"
     }
 
+    Prune-WindowsReleaseArtifacts -TargetRoot $appDistRoot
     Initialize-PackagedRuntimeState -TargetRoot $appDistRoot
 
     $zipPath = Join-Path $releaseRoot "NewMusicBuilder-v$version-win64.zip"
