@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import hashlib
 from collections.abc import Callable
 from pathlib import Path
 
 from new_music_builder.domain.models import AudioRunEvent, AudioRunResult, AudioWorkPlan, PlannedAudioWorkItem
+from new_music_builder.services.audio_cache_lookup import cache_path_for_work_item
 from new_music_builder.services.audio_conversion import ensure_cached_ogg
-from new_music_builder.services.audio_profile import compression_bucket_name, compression_profile_id
 from new_music_builder.services.cancelable_file_copy import copy_file_with_cancel
 from new_music_builder.services.export_cancellation import ExportAbortedError
 
@@ -63,7 +62,7 @@ def run_audio_export(
 
             target_path = Path(item.target_path)
             target_path.parent.mkdir(parents=True, exist_ok=True)
-            cache_path = _cache_path_for_item(cache_parent_dir, item)
+            cache_path = cache_path_for_work_item(cache_parent_dir, item)
 
             try:
                 export_source_path = cache_path
@@ -227,31 +226,6 @@ def _emit_wrapper(
         )
 
     return _wrapped
-
-
-def _cache_path_for_item(cache_root: Path, item: PlannedAudioWorkItem) -> Path:
-    source = Path(item.source_path)
-    stat = source.stat()
-    bucket_dir = cache_root / compression_bucket_name(item.sample_rate, item.compression_quality)
-    key = "|".join(
-        (
-            str(source.resolve()),
-            str(stat.st_mtime_ns),
-            str(stat.st_size),
-            str(item.sample_rate),
-            compression_profile_id(item.compression_quality),
-        )
-    )
-    digest = hashlib.sha1(key.encode("utf-8")).hexdigest()[:12]
-    safe_stem = _safe_file_stem(item.display_label or source.stem)
-    return bucket_dir / f"{safe_stem}-{digest}.ogg"
-
-
-def _safe_file_stem(value: str) -> str:
-    cleaned = "".join(ch if ch not in '<>:"/\\|?*' else "_" for ch in value).strip()
-    return cleaned or "track"
-
-
 def _format_size_text(size_bytes: int) -> str:
     if size_bytes >= 1024 * 1024 * 1024:
         return f"{size_bytes / (1024 * 1024 * 1024):.1f} GB"

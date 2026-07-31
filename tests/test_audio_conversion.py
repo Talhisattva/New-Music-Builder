@@ -1,9 +1,11 @@
+import hashlib
 from pathlib import Path
 
 import numpy as np
 
-from new_music_builder.domain.models import AudioWorkPlan, PlannedAudioWorkItem
+from new_music_builder.domain.models import AudioWorkPlan, PlannedAudioWorkItem, ProjectConfig, TrackEntry, default_media_row
 from new_music_builder.services import audio_conversion, audio_export_runner
+from new_music_builder.services.audio_cache_lookup import cache_path_for_track, cache_path_for_work_item, refresh_project_cached_ogg_links
 from new_music_builder.services.audio_profile import compression_bucket_name, compression_profile_id
 
 
@@ -138,7 +140,7 @@ def test_cache_path_includes_ogg_profile_id(tmp_path: Path) -> None:
         compression_quality=0.65,
     )
 
-    cache_path = audio_export_runner._cache_path_for_item(tmp_path, item)
+    cache_path = cache_path_for_work_item(tmp_path, item)
 
     assert cache_path.suffix == ".ogg"
     assert cache_path.parent.name == compression_bucket_name(item.sample_rate, item.compression_quality)
@@ -154,8 +156,71 @@ def test_cache_path_includes_ogg_profile_id(tmp_path: Path) -> None:
             compression_profile_id(item.compression_quality),
         )
     )
-    expected_digest = audio_export_runner.hashlib.sha1(expected_key.encode("utf-8")).hexdigest()[:12]
+    expected_digest = hashlib.sha1(expected_key.encode("utf-8")).hexdigest()[:12]
     assert cache_path.name == f"Song-{expected_digest}.ogg"
+
+
+def test_refresh_project_cached_ogg_links_recovers_existing_cached_conversions(tmp_path: Path) -> None:
+    source = tmp_path / "song.wav"
+    source.write_bytes(b"pcm")
+    row = default_media_row(1)
+    track = TrackEntry(
+        source_path=str(source),
+        display_label="Song",
+        duration="00:01:00",
+        conversion_status="needs_convert",
+    )
+    row.tracks_a = [track]
+    project = ProjectConfig(
+        mod_name="Pack",
+        mod_id="Pack",
+        ogg_output_folder=str(tmp_path / "cache"),
+        sample_rate=44100,
+        compression_quality=0.65,
+        media_rows=[row],
+    )
+    cache_path = cache_path_for_track(
+        project.ogg_output_folder,
+        track,
+        sample_rate=project.sample_rate,
+        compression_quality=project.compression_quality,
+    )
+    assert cache_path is not None
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    cache_path.write_bytes(b"cached-ogg")
+
+    refresh_project_cached_ogg_links(project)
+
+    assert track.cached_ogg_path == str(cache_path)
+    assert track.conversion_status == "cached_ogg"
+
+
+def test_refresh_project_cached_ogg_links_clears_missing_cached_paths(tmp_path: Path) -> None:
+    source = tmp_path / "song.wav"
+    source.write_bytes(b"pcm")
+    missing_cache = tmp_path / "cache" / "missing.ogg"
+    row = default_media_row(1)
+    track = TrackEntry(
+        source_path=str(source),
+        display_label="Song",
+        duration="00:01:00",
+        cached_ogg_path=str(missing_cache),
+        conversion_status="cached_ogg",
+    )
+    row.tracks_a = [track]
+    project = ProjectConfig(
+        mod_name="Pack",
+        mod_id="Pack",
+        ogg_output_folder=str(tmp_path / "cache"),
+        sample_rate=44100,
+        compression_quality=0.65,
+        media_rows=[row],
+    )
+
+    refresh_project_cached_ogg_links(project)
+
+    assert track.cached_ogg_path == ""
+    assert track.conversion_status == "needs_convert"
 
 
 def test_run_audio_export_copies_source_ogg_directly_without_cache(tmp_path: Path, monkeypatch) -> None:

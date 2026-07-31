@@ -38,6 +38,7 @@ from new_music_builder.domain.models import (
 from new_music_builder.platform.paths import app_root, assets_root
 from new_music_builder.platform.paths import detect_workshop_dir, open_folder
 from new_music_builder.services.asset_catalog import AssetCatalog
+from new_music_builder.services.audio_cache_lookup import refresh_project_cached_ogg_links
 from new_music_builder.services.build_event_pump import BuildEventPump
 from new_music_builder.services.cover_texture_generator import generate_case_textures_from_cover, generate_cassette_textures_from_cover, generate_cd_cover_textures_from_cover, generate_jacket_textures_from_cover, generate_vinyl_textures_from_cover
 from new_music_builder.services.default_appearance_selection import apply_preferred_row_defaults, preferred_default_asset_key
@@ -2958,8 +2959,11 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
     def on_project_change(self) -> None:
         self._commit_phase_one_project_state()
+        refresh_project_cached_ogg_links(self.session.project)
         self._refresh_module_one_poster_preview()
         if hasattr(self, 'module_two_row_list'):
+            for row_widget in getattr(self.module_two_row_list, 'row_widgets', []):
+                row_widget.refresh_song_table()
             self.module_two_row_list.refresh_collapsed_details()
         if hasattr(self, 'build_summary'):
             self.build_summary.refresh()
@@ -2967,6 +2971,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
     def refresh_all(self) -> None:
         self._apply_default_asset_selections()
+        refresh_project_cached_ogg_links(self.session.project)
         repaired_rows = self._repair_active_generated_appearance_selections()
         self._refresh_module_one_poster_preview()
         self._refresh_module_three_appearance_selector()
@@ -3887,6 +3892,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self.author_var.set(self.session.project.author)
             self.ogg_output_folder_var.set(self.session.project.ogg_output_folder)
             self.workshop_output_folder_var.set(self.session.project.workshop_output_folder)
+            refresh_project_cached_ogg_links(self.session.project)
             if hasattr(self, 'poster_name_checkbox'):
                 self.poster_name_checkbox.set_checked(bool(self.session.project.write_mod_name_on_poster))
             self._refresh_module_one_poster_preview()
