@@ -29,6 +29,7 @@ class SessionStore:
         self.last_load_used_default = False
         self.last_dialog_folder_memory = DialogFolderMemory()
         self.last_audio_preferences = SessionAudioPreferences()
+        self.last_ogg_output_folder = ""
         self.last_automatic_textures_enabled = True
         self.last_legacy_mode_enabled = False
         self.last_regenerate_textures_on_project_load_enabled = False
@@ -52,6 +53,7 @@ class SessionStore:
             compression_quality=float(preferences.compression_quality),
             reencode_existing_ogg=bool(preferences.reencode_existing_ogg),
         )
+        self.last_ogg_output_folder = str(project.ogg_output_folder or "").strip()
         payload = {
             'current_path': current_path,
             'project': project_to_dict(project),
@@ -61,6 +63,7 @@ class SessionStore:
                 'compression_quality': self.last_audio_preferences.compression_quality,
                 'reencode_existing_ogg': self.last_audio_preferences.reencode_existing_ogg,
             },
+            'ogg_output_folder': self.last_ogg_output_folder,
             'automatic_textures_enabled': self.last_automatic_textures_enabled,
             'legacy_mode_enabled': self.last_legacy_mode_enabled,
             'regenerate_textures_on_project_load_enabled': self.last_regenerate_textures_on_project_load_enabled,
@@ -82,6 +85,7 @@ class SessionStore:
                 payload.get('audio_preferences', {}),
                 fallback_project=project,
             )
+            self.last_ogg_output_folder = str(payload.get('ogg_output_folder', project.ogg_output_folder)).strip()
             self.last_automatic_textures_enabled = bool(
                 payload.get('automatic_textures_enabled', project.automatic_textures_enabled)
             )

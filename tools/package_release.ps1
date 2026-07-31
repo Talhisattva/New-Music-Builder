@@ -68,6 +68,30 @@ recent.file_path.write_text(json.dumps({"recent": []}, indent=2), encoding="utf-
     Invoke-Step -Action { $runtimeReset | python - } -FailureMessage 'Runtime state reset failed.'
 }
 
+function Initialize-PackagedRuntimeState {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$TargetRoot
+    )
+
+    $targetPath = [System.IO.Path]::GetFullPath($TargetRoot)
+    $workspacePath = Join-Path $targetPath 'workspace'
+    $logsPath = Join-Path $targetPath 'logs'
+    $generatedTexturesPath = Join-Path $targetPath 'Generated Textures'
+    $diagnosticsPath = Join-Path $workspacePath 'diagnostics'
+
+    New-Item -ItemType Directory -Path $workspacePath -Force | Out-Null
+    New-Item -ItemType Directory -Path $logsPath -Force | Out-Null
+    New-Item -ItemType Directory -Path $generatedTexturesPath -Force | Out-Null
+    New-Item -ItemType Directory -Path $diagnosticsPath -Force | Out-Null
+
+    Set-Content -Path (Join-Path $logsPath 'new_music_builder.log') -Value '' -NoNewline
+    Set-Content -Path (Join-Path $logsPath 'startup_fatal.log') -Value '' -NoNewline
+    Set-Content -Path (Join-Path $logsPath 'runtime_fatal.log') -Value '' -NoNewline
+    Set-Content -Path (Join-Path $workspacePath 'last_session.json') -Value '{}' -NoNewline
+    Set-Content -Path (Join-Path $workspacePath 'recent.json') -Value '{"recent":[]}' -NoNewline
+}
+
 Push-Location $repoRoot
 try {
     $version = python -c "import sys; from pathlib import Path; sys.path.insert(0, str(Path('src').resolve())); import new_music_builder; print(new_music_builder.__version__)"
@@ -97,6 +121,8 @@ try {
     if (-not (Test-Path $appDistRoot)) {
         throw "Expected packaged app folder was not created: $appDistRoot"
     }
+
+    Initialize-PackagedRuntimeState -TargetRoot $appDistRoot
 
     $zipPath = Join-Path $releaseRoot "NewMusicBuilder-v$version-win64.zip"
     if (Test-Path $zipPath) {

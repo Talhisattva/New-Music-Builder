@@ -183,6 +183,7 @@ def test_session_store_load_returns_default_project_for_invalid_payload(tmp_path
     assert store.last_audio_preferences.sample_rate == 44100
     assert store.last_audio_preferences.compression_quality == 0.5
     assert store.last_audio_preferences.reencode_existing_ogg is True
+    assert store.last_ogg_output_folder == ''
     assert store.last_automatic_textures_enabled is True
     assert store.last_text_tooltips_enabled is True
     assert store.last_load_used_default is True
@@ -265,6 +266,20 @@ def test_session_store_roundtrip_preserves_master_audio_preferences(tmp_path: Pa
     assert store.last_audio_preferences.sample_rate == 48000
     assert store.last_audio_preferences.compression_quality == 0.65
     assert store.last_audio_preferences.reencode_existing_ogg is False
+
+
+def test_session_store_roundtrip_preserves_last_ogg_output_folder(tmp_path: Path) -> None:
+    target = tmp_path / 'last_session.json'
+    store = SessionStore(target)
+
+    store.save(
+        ProjectConfig(ogg_output_folder='C:/ConvertedOGG'),
+        '',
+    )
+    loaded_project, _current_path = store.load()
+
+    assert loaded_project.ogg_output_folder == 'C:/ConvertedOGG'
+    assert store.last_ogg_output_folder == 'C:/ConvertedOGG'
 
 
 def test_session_store_roundtrip_preserves_text_tooltips_preference(tmp_path: Path) -> None:

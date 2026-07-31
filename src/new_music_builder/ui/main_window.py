@@ -3017,6 +3017,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._cancel_module_two_song_drag()
         self._cancel_module_two_row_drag()
         self.session.reset()
+        self.session.project.ogg_output_folder = str(self.session_store.last_ogg_output_folder or "").strip()
         self.session.project.legacy_mode_enabled = bool(self._legacy_mode_preference_enabled)
         self._apply_master_project_preferences()
         self._restore_unsaved_phase_two_default()
@@ -3841,6 +3842,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self.__dict__.get('_regenerate_textures_on_project_load_preference_enabled', False)
         )
         self.session_store.last_text_tooltips_enabled = bool(self.__dict__.get('_text_tooltips_preference_enabled', True))
+        self.session_store.last_ogg_output_folder = str(self.session.project.ogg_output_folder or "").strip()
         self.session_store.save(
             self.session.project,
             self.session.current_path,
@@ -3866,6 +3868,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
     def _sync_phase_one_ui_from_project(self) -> None:
         self._phase_one_sync_suspended = True
         try:
+            if not self.session.project.ogg_output_folder:
+                self.session.project.ogg_output_folder = str(self.session_store.last_ogg_output_folder or "").strip()
             if not self.session.project.workshop_output_folder:
                 detected = detect_workshop_dir()
                 if detected is not None:

@@ -871,11 +871,14 @@ def test_reset_project_to_defaults_preserves_master_audio_preferences() -> None:
         compression_quality=0.65,
         reencode_existing_ogg=False,
     )
+    window.session_store = type("SessionStoreStub", (), {"last_ogg_output_folder": ""})()
+    window._legacy_mode_preference_enabled = False
     window._cancel_module_two_song_drag = lambda: None
     window._cancel_module_two_row_drag = lambda: None
     window._restore_unsaved_phase_two_default = lambda *args, **kwargs: None
     window._sync_phase_one_ui_from_project = lambda: None
     window._build_module_two_row_list = lambda: None
+    window._refresh_preference_menu_states = lambda: None
     window._refresh_module_three_appearance_selector = lambda: None
     window.refresh_all = lambda: None
     window.on_project_change = lambda: None
@@ -890,13 +893,48 @@ def test_reset_project_to_defaults_preserves_master_audio_preferences() -> None:
     window.module_four_panel = type("ModuleFour", (), {"reset_current_run": lambda _self: None})()
     window.module_five_panel = type("ModuleFive", (), {"reset_preview_rows": lambda _self: None})()
     window.module_six_panel = type("ModuleSix", (), {"reset": lambda _self: None})()
-    window.module_two_row_list = type("RowList", (), {})()
+    window.module_two_row_list = type("RowList", (), {"destroy": lambda _self: None})()
 
     MainWindow._reset_project_to_defaults(window)
 
     assert window.session.project.sample_rate == 48000
     assert window.session.project.compression_quality == 0.65
     assert window.session.project.reencode_existing_ogg is False
+
+
+def test_reset_project_to_defaults_preserves_last_ogg_output_folder() -> None:
+    row = default_media_row(1)
+    session = ProjectSession(project=ProjectConfig(media_rows=[row], ogg_output_folder='C:/CurrentFolder'))
+    window = MainWindow.__new__(MainWindow)
+    window.session = session
+    window.session_store = type("SessionStoreStub", (), {"last_ogg_output_folder": "C:/RememberedOGG"})()
+    window._legacy_mode_preference_enabled = False
+    window._cancel_module_two_song_drag = lambda: None
+    window._cancel_module_two_row_drag = lambda: None
+    window._apply_master_project_preferences = lambda: None
+    window._restore_unsaved_phase_two_default = lambda *args, **kwargs: None
+    window._sync_phase_one_ui_from_project = lambda: None
+    window._build_module_two_row_list = lambda: None
+    window.module_three_staged_custom_images = {}
+    window.module_two_selected_row_ids = set()
+    window.module_two_selection_anchor_row_id = None
+    window.module_two_song_selected_indices = {}
+    window.module_two_song_selection_anchor_indices = {}
+    window._last_export_output_path = ''
+    window.build_log = []
+    window.preview_entries = []
+    window._refresh_preference_menu_states = lambda: None
+    window._refresh_module_three_appearance_selector = lambda: None
+    window.refresh_all = lambda: None
+    window.on_project_change = lambda: None
+    window.module_four_panel = type("ModuleFour", (), {"reset_current_run": lambda _self: None})()
+    window.module_five_panel = type("ModuleFive", (), {"reset_preview_rows": lambda _self: None})()
+    window.module_six_panel = type("ModuleSix", (), {"reset": lambda _self: None})()
+    window.module_two_row_list = type("RowList", (), {"destroy": lambda _self: None})()
+
+    MainWindow._reset_project_to_defaults(window)
+
+    assert window.session.project.ogg_output_folder == 'C:/RememberedOGG'
 
 
 def test_select_workshop_poster_image_uses_image_lane_and_remembers_selection(monkeypatch, tmp_path) -> None:
