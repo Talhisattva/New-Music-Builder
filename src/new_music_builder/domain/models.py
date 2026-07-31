@@ -34,12 +34,32 @@ _APPEARANCE_KINDS: tuple[AppearanceKind, ...] = ("cassette", "vinyl", "cd", "cas
 
 
 @dataclass(slots=True)
+class TrackAppearanceSelection:
+    kind: MediaKind
+    selected_asset_key: str = ""
+    source: Literal["default", "custom"] = "default"
+    inventory_full: str = ""
+    world_full: str = ""
+
+
+@dataclass(slots=True)
+class TrackAppearanceSet:
+    cassette: TrackAppearanceSelection = field(default_factory=lambda: TrackAppearanceSelection(kind="cassette"))
+    vinyl: TrackAppearanceSelection = field(default_factory=lambda: TrackAppearanceSelection(kind="vinyl"))
+    cd: TrackAppearanceSelection = field(default_factory=lambda: TrackAppearanceSelection(kind="cd"))
+
+    def for_kind(self, kind: MediaKind) -> TrackAppearanceSelection:
+        return getattr(self, kind)
+
+
+@dataclass(slots=True)
 class TrackEntry:
     source_path: str = ""
     cached_ogg_path: str = ""
     display_label: str = ""
     duration: str = ""
     conversion_status: str = "pending"
+    legacy_appearances: TrackAppearanceSet = field(default_factory=TrackAppearanceSet)
 
 
 @dataclass(slots=True)
@@ -115,6 +135,7 @@ class ProjectConfig:
     compression_quality: float = DEFAULT_COMPRESSION_QUALITY
     reencode_existing_ogg: bool = True
     automatic_textures_enabled: bool = True
+    legacy_mode_enabled: bool = False
     media_rows: list[MediaRow] = field(default_factory=list)
     custom_assets: dict[str, list[dict[str, str]]] = field(default_factory=dict)
     generated_assets: list[GeneratedAssetRecord] = field(default_factory=list)
@@ -549,6 +570,7 @@ def _coerce_track(data: dict[str, Any]) -> TrackEntry:
         display_label=str(data.get("display_label", "")),
         duration=str(data.get("duration", "")),
         conversion_status=str(data.get("conversion_status", "pending")),
+        legacy_appearances=_coerce_track_appearance_set(data.get("legacy_appearances")),
     )
 
 
@@ -563,6 +585,27 @@ def _coerce_appearance(kind: AppearanceKind, data: dict[str, Any] | None) -> App
         world_full=str(data.get("world_full", "")),
         inventory_empty=str(data.get("inventory_empty", "")),
         world_empty=str(data.get("world_empty", "")),
+    )
+
+
+def _coerce_track_appearance(kind: MediaKind, data: dict[str, Any] | None) -> TrackAppearanceSelection:
+    data = data or {}
+    source = str(data.get("source", "default")) or "default"
+    return TrackAppearanceSelection(
+        kind=kind,
+        selected_asset_key=str(data.get("selected_asset_key", "")),
+        source=source if source in {"default", "custom"} else "default",
+        inventory_full=str(data.get("inventory_full", "")),
+        world_full=str(data.get("world_full", "")),
+    )
+
+
+def _coerce_track_appearance_set(data: dict[str, Any] | None) -> TrackAppearanceSet:
+    data = data or {}
+    return TrackAppearanceSet(
+        cassette=_coerce_track_appearance("cassette", data.get("cassette")),
+        vinyl=_coerce_track_appearance("vinyl", data.get("vinyl")),
+        cd=_coerce_track_appearance("cd", data.get("cd")),
     )
 
 
@@ -710,6 +753,7 @@ def project_from_dict(data: dict[str, Any]) -> ProjectConfig:
         compression_quality=snap_compression_quality(data.get("compression_quality", DEFAULT_COMPRESSION_QUALITY)),
         reencode_existing_ogg=bool(data.get("reencode_existing_ogg", True)),
         automatic_textures_enabled=bool(data.get("automatic_textures_enabled", True)),
+        legacy_mode_enabled=bool(data.get("legacy_mode_enabled", False)),
         media_rows=rows,
         custom_assets=_coerce_custom_assets(data.get("custom_assets", {})),
         generated_assets=_coerce_generated_assets(data.get("generated_assets", [])),

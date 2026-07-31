@@ -30,6 +30,7 @@ class SessionStore:
         self.last_dialog_folder_memory = DialogFolderMemory()
         self.last_audio_preferences = SessionAudioPreferences()
         self.last_automatic_textures_enabled = True
+        self.last_legacy_mode_enabled = False
         self.last_regenerate_textures_on_project_load_enabled = False
         self.last_text_tooltips_enabled = True
 
@@ -61,6 +62,7 @@ class SessionStore:
                 'reencode_existing_ogg': self.last_audio_preferences.reencode_existing_ogg,
             },
             'automatic_textures_enabled': self.last_automatic_textures_enabled,
+            'legacy_mode_enabled': self.last_legacy_mode_enabled,
             'regenerate_textures_on_project_load_enabled': self.last_regenerate_textures_on_project_load_enabled,
             'text_tooltips_enabled': self.last_text_tooltips_enabled,
         }
@@ -83,6 +85,7 @@ class SessionStore:
             self.last_automatic_textures_enabled = bool(
                 payload.get('automatic_textures_enabled', project.automatic_textures_enabled)
             )
+            self.last_legacy_mode_enabled = bool(payload.get('legacy_mode_enabled', project.legacy_mode_enabled))
             self.last_regenerate_textures_on_project_load_enabled = bool(
                 payload.get('regenerate_textures_on_project_load_enabled', False)
             )

@@ -28,6 +28,28 @@ def test_project_roundtrip(tmp_path: Path) -> None:
     assert loaded.write_mod_name_on_poster is True
     assert loaded.automatic_textures_enabled is True
 
+
+def test_project_roundtrip_preserves_legacy_mode_and_track_appearances(tmp_path: Path) -> None:
+    project = ProjectConfig(mod_name='Legacy Pack', mod_id='LegacyPack', legacy_mode_enabled=True)
+    row = default_media_row(1)
+    track = TrackEntry(display_label='Song One')
+    track.legacy_appearances.cassette.selected_asset_key = 'cassette:9'
+    track.legacy_appearances.vinyl.selected_asset_key = 'custom:vinyl:1'
+    track.legacy_appearances.vinyl.source = 'custom'
+    track.legacy_appearances.vinyl.inventory_full = 'C:/art/vinyl_inv.png'
+    track.legacy_appearances.vinyl.world_full = 'C:/art/vinyl_world.png'
+    row.tracks_a.append(track)
+    project.media_rows = [row]
+
+    target = tmp_path / 'legacy-track-state.nmbproj.json'
+    ProjectStore().save(project, target)
+    loaded = ProjectStore().load(target)
+
+    assert loaded.legacy_mode_enabled is True
+    assert loaded.media_rows[0].tracks_a[0].legacy_appearances.cassette.selected_asset_key == 'cassette:9'
+    assert loaded.media_rows[0].tracks_a[0].legacy_appearances.vinyl.source == 'custom'
+    assert loaded.media_rows[0].tracks_a[0].legacy_appearances.vinyl.world_full == 'C:/art/vinyl_world.png'
+
 def test_project_roundtrip_preserves_stateful_row_fields(tmp_path: Path) -> None:
     project = ProjectConfig(
         mod_name='Stateful Pack',
@@ -254,6 +276,18 @@ def test_session_store_roundtrip_preserves_text_tooltips_preference(tmp_path: Pa
     _loaded_project, _current_path = store.load()
 
     assert store.last_text_tooltips_enabled is False
+
+
+def test_session_store_roundtrip_preserves_legacy_mode_preference(tmp_path: Path) -> None:
+    target = tmp_path / 'last_session.json'
+    store = SessionStore(target)
+    store.last_legacy_mode_enabled = True
+
+    store.save(ProjectConfig(legacy_mode_enabled=True), '')
+    loaded_project, _current_path = store.load()
+
+    assert loaded_project.legacy_mode_enabled is True
+    assert store.last_legacy_mode_enabled is True
 
 
 def test_session_store_roundtrip_preserves_regenerate_textures_on_project_load_preference(tmp_path: Path) -> None:
