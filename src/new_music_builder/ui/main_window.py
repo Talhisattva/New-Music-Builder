@@ -3050,8 +3050,11 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.preview_entries = []
         if hasattr(self, 'module_four_panel'):
             self.module_four_panel.reset_current_run()
-        if hasattr(self, 'module_five_panel'):
-            self.module_five_panel.reset_preview_rows()
+        module_five_panel = self.__dict__.get('module_five_panel')
+        if module_five_panel is not None:
+            module_five_panel.reset_preview_rows()
+            if hasattr(module_five_panel, 'set_export_active'):
+                module_five_panel.set_export_active(False)
         if hasattr(self, 'module_six_panel'):
             self.module_six_panel.reset()
         if hasattr(self, 'module_two_row_list'):
@@ -3132,8 +3135,11 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._last_export_output_path = ''
         if hasattr(self, 'module_four_panel'):
             self.module_four_panel.reset_current_run()
-        if hasattr(self, 'module_five_panel'):
-            self.module_five_panel.reset_preview_rows()
+        module_five_panel = self.__dict__.get('module_five_panel')
+        if module_five_panel is not None:
+            module_five_panel.reset_preview_rows()
+            if hasattr(module_five_panel, 'set_export_active'):
+                module_five_panel.set_export_active(False)
         if hasattr(self, 'module_six_panel'):
             self.module_six_panel.reset()
         self._build_module_two_row_list()
@@ -3213,8 +3219,11 @@ class MainWindow(_DnDCompat, ctk.CTk):
         if hasattr(self, 'module_four_panel'):
             self.module_four_panel.archive_current_run()
             self.module_four_panel.reset_current_run()
-        if hasattr(self, 'module_five_panel'):
-            self.module_five_panel.reset_preview_rows()
+        module_five_panel = self.__dict__.get('module_five_panel')
+        if module_five_panel is not None:
+            module_five_panel.reset_preview_rows()
+            if hasattr(module_five_panel, 'set_export_active'):
+                module_five_panel.set_export_active(False)
 
         if validation_errors:
             LOGGER.info("[run=%s] validation blocked export", run_id)
@@ -3288,6 +3297,9 @@ class MainWindow(_DnDCompat, ctk.CTk):
                     ),
                 ]
             )
+        module_five_panel = self.__dict__.get('module_five_panel')
+        if module_five_panel is not None and hasattr(module_five_panel, 'set_export_active'):
+            module_five_panel.set_export_active(True)
         self.update_idletasks()
         LOGGER.info("[run=%s] initial module four state rendered", run_id)
         self._set_build_locked(True)
@@ -3627,6 +3639,9 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self._snapshot_current_build_log()
             self.preview_entries = []
             self._refresh_build_summary()
+            module_five_panel = self.__dict__.get('module_five_panel')
+            if module_five_panel is not None and hasattr(module_five_panel, 'set_export_active'):
+                module_five_panel.set_export_active(False)
             self._clear_active_build_run_state()
             return
         if result.fatal_error:
@@ -3650,6 +3665,9 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self._snapshot_current_build_log()
             self.preview_entries = []
             self._refresh_build_summary()
+            module_five_panel = self.__dict__.get('module_five_panel')
+            if module_five_panel is not None and hasattr(module_five_panel, 'set_export_active'):
+                module_five_panel.set_export_active(False)
             self._clear_active_build_run_state()
             return
 
@@ -3662,8 +3680,11 @@ class MainWindow(_DnDCompat, ctk.CTk):
             for key in result.successful_sides
             if key in self._active_preview_rows_by_side
         ]
-        if hasattr(self, 'module_five_panel'):
-            self.module_five_panel.set_preview_rows(preview_rows)
+        module_five_panel = self.__dict__.get('module_five_panel')
+        if module_five_panel is not None:
+            if hasattr(module_five_panel, 'set_export_active'):
+                module_five_panel.set_export_active(False)
+            module_five_panel.set_preview_rows(preview_rows)
         if hasattr(self, 'module_four_panel'):
             self.module_four_panel.append_log_line(
                 ExportLogLine(
@@ -3726,6 +3747,9 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._snapshot_current_build_log()
         self.preview_entries = []
         self._refresh_build_summary()
+        module_five_panel = self.__dict__.get('module_five_panel')
+        if module_five_panel is not None and hasattr(module_five_panel, 'set_export_active'):
+            module_five_panel.set_export_active(False)
         self._clear_active_build_run_state()
 
     def _directory_size_text(self, root: Path) -> str:

@@ -104,6 +104,7 @@ class _FakeModuleFivePanel:
         self.appended_rows: list[GeneratedPreviewRow] = []
         self.reset_count = 0
         self.set_rows_payloads: list[list[GeneratedPreviewRow]] = []
+        self.export_active_states: list[bool] = []
 
     def append_preview_row(self, row: GeneratedPreviewRow) -> None:
         self.appended_rows.append(row)
@@ -113,6 +114,9 @@ class _FakeModuleFivePanel:
 
     def set_preview_rows(self, rows: list[GeneratedPreviewRow]) -> None:
         self.set_rows_payloads.append(list(rows))
+
+    def set_export_active(self, active: bool) -> None:
+        self.export_active_states.append(active)
 
 
 def _generated_preview_row(row_id: int, side: str, label_text: str) -> GeneratedPreviewRow:

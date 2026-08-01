@@ -10,6 +10,9 @@ from new_music_builder.ui.widgets.scroll_area import ScrollViewport
 
 
 class ModuleFivePanel(tk.Frame):
+    _ROW_OVERSCAN = 2
+    _PREVIEW_FLUSH_DELAY_MS = 240
+
     def __init__(self, parent: tk.Misc) -> None:
         super().__init__(
             parent,
@@ -21,7 +24,10 @@ class ModuleFivePanel(tk.Frame):
         )
         self.pack_propagate(False)
         self._preview_rows: list[GeneratedPreviewRow] = []
+        self._pending_preview_rows: list[GeneratedPreviewRow] = []
         self._row_widgets: list[ModuleFivePreviewRow] = []
+        self._flush_after_id: str | None = None
+        self._export_active = False
 
         self.header = tk.Frame(
             self,
@@ -73,29 +79,110 @@ class ModuleFivePanel(tk.Frame):
             x=spec.PHASE_THREE_MODULE_FIVE_CONTENT_PANE_POS[0],
             y=spec.PHASE_THREE_MODULE_FIVE_CONTENT_PANE_POS[1],
         )
+        self.content_scroll.set_view_changed_callback(self._handle_view_changed)
+        self.content_scroll.set_virtual_content_height(self._logical_content_height())
+        self._ensure_row_widget_pool()
 
     def set_preview_rows(self, rows: list[GeneratedPreviewRow]) -> None:
+        self._cancel_pending_flush()
+        self._pending_preview_rows = []
         self._preview_rows = deepcopy(rows)
-        self._refresh_rows()
+        self._sync_virtual_rows(force_bottom=True)
 
     def append_preview_row(self, row: GeneratedPreviewRow) -> None:
-        self._preview_rows.append(deepcopy(row))
-        self._refresh_rows()
+        self._pending_preview_rows.append(deepcopy(row))
+        self._schedule_pending_flush()
 
     def reset_preview_rows(self) -> None:
+        self._cancel_pending_flush()
         self._preview_rows = []
-        self._refresh_rows()
+        self._pending_preview_rows = []
+        self._sync_virtual_rows(force_bottom=True)
 
-    def _refresh_rows(self) -> None:
-        for widget in self._row_widgets:
+    def set_export_active(self, active: bool) -> None:
+        if self._export_active == active:
+            return
+        self._export_active = active
+        if not active:
+            self.flush_pending_preview_rows()
+        self._refresh_visible_rows()
+
+    def flush_pending_preview_rows(self) -> None:
+        self._cancel_pending_flush()
+        if not self._pending_preview_rows:
+            return
+        self._preview_rows.extend(self._pending_preview_rows)
+        self._pending_preview_rows = []
+        self._sync_virtual_rows(force_bottom=self._export_active)
+
+    def _schedule_pending_flush(self) -> None:
+        if self._flush_after_id is not None:
+            return
+        self._flush_after_id = self.after(self._PREVIEW_FLUSH_DELAY_MS, self._flush_pending_preview_rows)
+
+    def _flush_pending_preview_rows(self) -> None:
+        self._flush_after_id = None
+        self.flush_pending_preview_rows()
+
+    def _cancel_pending_flush(self) -> None:
+        if self._flush_after_id is None:
+            return
+        try:
+            self.after_cancel(self._flush_after_id)
+        except tk.TclError:
+            pass
+        self._flush_after_id = None
+
+    def _ensure_row_widget_pool(self) -> None:
+        target_size = self._target_pool_size()
+        while len(self._row_widgets) < target_size:
+            self._row_widgets.append(ModuleFivePreviewRow(self.content_scroll.content_frame))
+        while len(self._row_widgets) > target_size:
+            widget = self._row_widgets.pop()
             widget.destroy()
-        self._row_widgets.clear()
 
-        for row in self._preview_rows:
-            row_widget = ModuleFivePreviewRow(self.content_scroll.content_frame)
-            row_widget.set_row(row)
-            row_widget.pack(anchor='nw')
-            self._row_widgets.append(row_widget)
+    def _sync_virtual_rows(self, *, force_bottom: bool) -> None:
+        self._ensure_row_widget_pool()
+        self.content_scroll.set_virtual_content_height(self._logical_content_height())
+        if force_bottom:
+            self.content_scroll.scroll_to_bottom()
+        else:
+            self.content_scroll.refresh_scroll_region()
+        self._refresh_visible_rows()
 
-        self.content_scroll.refresh_scroll_region()
-        self.content_scroll.scroll_to_bottom()
+    def _refresh_visible_rows(self) -> None:
+        self._ensure_row_widget_pool()
+        row_height = spec.PHASE_THREE_MODULE_FIVE_ROW_SIZE[1]
+        scroll_offset = self.content_scroll.current_scroll_offset_pixels()
+        first_index = max(0, scroll_offset // row_height)
+        local_offset = scroll_offset % row_height
+        visible_count = min(
+            len(self._preview_rows) - first_index if first_index < len(self._preview_rows) else 0,
+            len(self._row_widgets),
+        )
+        for pool_index, row_widget in enumerate(self._row_widgets):
+            preview_index = first_index + pool_index
+            if pool_index >= visible_count or preview_index >= len(self._preview_rows):
+                row_widget.place_forget()
+                continue
+            row_widget.set_row(self._preview_rows[preview_index], animate_dual_phase=not self._export_active)
+            row_widget.place(
+                x=0,
+                y=(pool_index * row_height) - local_offset,
+                width=spec.PHASE_THREE_MODULE_FIVE_ROW_SIZE[0],
+                height=row_height,
+            )
+
+    def _handle_view_changed(self, _first: float, _last: float) -> None:
+        self._refresh_visible_rows()
+
+    def _target_pool_size(self) -> int:
+        row_height = spec.PHASE_THREE_MODULE_FIVE_ROW_SIZE[1]
+        viewport_height = spec.PHASE_THREE_MODULE_FIVE_CONTENT_VIEWPORT_SIZE[1]
+        visible_rows = max(1, (viewport_height + row_height - 1) // row_height)
+        return visible_rows + self._ROW_OVERSCAN
+
+    def _logical_content_height(self) -> int:
+        row_height = spec.PHASE_THREE_MODULE_FIVE_ROW_SIZE[1]
+        viewport_height = spec.PHASE_THREE_MODULE_FIVE_CONTENT_VIEWPORT_SIZE[1]
+        return max(viewport_height, len(self._preview_rows) * row_height)

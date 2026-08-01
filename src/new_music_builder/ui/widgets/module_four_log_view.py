@@ -83,14 +83,19 @@ class ModuleFourLogView(tk.Frame):
 
     def append_line(self, line: ExportLogLine) -> None:
         self._lines.append(line)
-        self.redraw()
+        self._append_rendered_line(line, prepend_newline=bool(self._lines[:-1]))
+        self._resize_to_content()
 
     def update_active_line(self, line: ExportLogLine) -> None:
         if self._lines:
             self._lines[-1] = line
         else:
             self._lines.append(line)
-        self.redraw()
+            self._append_rendered_line(line, prepend_newline=False)
+            self._resize_to_content()
+            return
+        self._replace_last_rendered_line(line)
+        self._resize_to_content()
 
     def clear_lines(self) -> None:
         self._lines = []
@@ -112,11 +117,7 @@ class ModuleFourLogView(tk.Frame):
         self.configure(width=self._width, height=height)
         self._surface.place_configure(width=self._width, height=height)
         self._render_text()
-        measured_height = self._measured_content_height()
-        if measured_height != height:
-            height = measured_height
-            self.configure(width=self._width, height=height)
-            self._surface.place_configure(width=self._width, height=height)
+        self._resize_to_content()
 
     def _render_text(self) -> None:
         self._text.configure(state='normal')
@@ -126,6 +127,32 @@ class ModuleFourLogView(tk.Frame):
                 self._text.insert('end', '\n')
             self._text.insert('end', self._line_text(line), (self._tag_name(line.color_role),))
         self._text.configure(state='disabled')
+
+    def _append_rendered_line(self, line: ExportLogLine, *, prepend_newline: bool) -> None:
+        self._text.configure(state='normal')
+        if prepend_newline:
+            self._text.insert('end', '\n')
+        self._text.insert('end', self._line_text(line), (self._tag_name(line.color_role),))
+        self._text.configure(state='disabled')
+
+    def _replace_last_rendered_line(self, line: ExportLogLine) -> None:
+        self._text.configure(state='normal')
+        try:
+            last_line_index = int(self._text.index('end-1c').split('.')[0])
+        except (tk.TclError, ValueError):
+            self._text.delete('1.0', 'end')
+            self._text.insert('end', self._line_text(line), (self._tag_name(line.color_role),))
+            self._text.configure(state='disabled')
+            return
+        start_index = f'{max(1, last_line_index)}.0'
+        self._text.delete(start_index, 'end-1c')
+        self._text.insert('end', self._line_text(line), (self._tag_name(line.color_role),))
+        self._text.configure(state='disabled')
+
+    def _resize_to_content(self) -> None:
+        measured_height = self._measured_content_height()
+        self.configure(width=self._width, height=measured_height)
+        self._surface.place_configure(width=self._width, height=measured_height)
 
     def _line_text(self, line: ExportLogLine) -> str:
         parts = [f'[{line.timestamp}]']

@@ -30,6 +30,8 @@ class ModuleFourPanel(tk.Frame):
         self.pack_propagate(False)
         self.state = ExportRunState()
         self._run_counter = 0
+        self._queue_autoscroll = True
+        self._log_autoscroll = True
 
         self.queue_scroll = ScrollViewport(
             self,
@@ -96,13 +98,16 @@ class ModuleFourPanel(tk.Frame):
 
     def set_queue_groups(self, groups: list[ConversionSideGroup]) -> None:
         self.state.ordered_groups = deepcopy(groups)
+        self._queue_autoscroll = True
         self._refresh_views()
 
     def append_queue_group(self, group: ConversionSideGroup) -> None:
+        self._queue_autoscroll = self.queue_scroll.is_near_bottom()
         self.state.ordered_groups.append(deepcopy(group))
         self._refresh_views()
 
     def append_song_to_group(self, row_id: int, side: str, song) -> None:
+        self._queue_autoscroll = self.queue_scroll.is_near_bottom()
         for group in self.state.ordered_groups:
             if group.row_id == row_id and group.side == side:
                 group.songs.append(deepcopy(song))
@@ -120,6 +125,7 @@ class ModuleFourPanel(tk.Frame):
                 song.size_label = size_label
                 self.state.active_group_index = group_index
                 self.state.active_song_index = song_index
+                self._queue_autoscroll = self.queue_scroll.is_near_bottom()
                 self._refresh_views()
             return
 
@@ -128,18 +134,23 @@ class ModuleFourPanel(tk.Frame):
 
     def set_log_lines(self, lines: list[ExportLogLine]) -> None:
         self.state.current_run_log_lines = deepcopy(lines)
+        self._log_autoscroll = True
         self._refresh_views()
 
     def append_log_line(self, line: ExportLogLine) -> None:
+        self._log_autoscroll = self.log_scroll.is_near_bottom()
         self.state.current_run_log_lines.append(deepcopy(line))
-        self._refresh_views()
+        self.log_view.append_line(self.state.current_run_log_lines[-1])
+        self._refresh_log_view()
 
     def update_active_log_line(self, line: ExportLogLine) -> None:
+        self._log_autoscroll = self.log_scroll.is_near_bottom()
         if self.state.current_run_log_lines:
             self.state.current_run_log_lines[-1] = deepcopy(line)
         else:
             self.state.current_run_log_lines.append(deepcopy(line))
-        self._refresh_views()
+        self.log_view.update_active_line(self.state.current_run_log_lines[-1])
+        self._refresh_log_view()
 
     def finalize_active_log_line(self, line: ExportLogLine) -> None:
         self.update_active_log_line(line)
@@ -161,10 +172,22 @@ class ModuleFourPanel(tk.Frame):
         self.state.active_song_index = None
         self.state.current_run_log_lines = []
         self.state.output_path = ""
+        self._queue_autoscroll = True
+        self._log_autoscroll = True
         self._refresh_views()
 
     def _refresh_views(self) -> None:
         self.queue_table.set_groups(self.state.ordered_groups)
         self.log_view.set_lines(self.state.current_run_log_lines)
-        self.queue_scroll.scroll_to_bottom()
-        self.log_scroll.scroll_to_bottom()
+        self._refresh_queue_view()
+        self._refresh_log_view()
+
+    def _refresh_queue_view(self) -> None:
+        self.queue_scroll.refresh_scroll_region()
+        if self._queue_autoscroll:
+            self.queue_scroll.scroll_to_bottom()
+
+    def _refresh_log_view(self) -> None:
+        self.log_scroll.refresh_scroll_region()
+        if self._log_autoscroll:
+            self.log_scroll.scroll_to_bottom()

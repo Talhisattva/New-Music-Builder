@@ -29,6 +29,7 @@ class ModuleFivePreviewRow(tk.Canvas):
         self._tooltip_hide_after_id: str | None = None
         self._dual_phase_after_id: str | None = None
         self._show_empty = False
+        self._animate_dual_phase = True
         self._cursor_tooltip = CursorTooltip(self)
         self._icon_images: list[tk.PhotoImage | None] = []
         self._cover_images: list[tk.PhotoImage | None] = []
@@ -45,9 +46,14 @@ class ModuleFivePreviewRow(tk.Canvas):
             size=spec.PHASE_THREE_MODULE_FIVE_META_FONT_SIZE,
         )
 
-    def set_row(self, row: GeneratedPreviewRow) -> None:
+    def set_row(self, row: GeneratedPreviewRow, *, animate_dual_phase: bool = True) -> None:
         self._row = row
-        self._restart_dual_phase()
+        self._animate_dual_phase = animate_dual_phase
+        if self._animate_dual_phase:
+            self._restart_dual_phase()
+        else:
+            self._cancel_dual_phase()
+            self._show_empty = False
         self._redraw()
 
     def destroy(self) -> None:
