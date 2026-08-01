@@ -1,5 +1,7 @@
 import hashlib
 from pathlib import Path
+import threading
+import time
 
 import numpy as np
 
@@ -354,3 +356,213 @@ def test_decode_audio_uses_miniaudio_fallback_after_soundfile_failure(monkeypatc
 
     assert pcm.dtype == np.float32
     np.testing.assert_allclose(pcm, np.array([[0.0, 32767 / 32768]], dtype=np.float32), rtol=0.0, atol=1e-6)
+
+
+def test_run_audio_export_parallel_conversion_overlaps_work(tmp_path: Path, monkeypatch) -> None:
+    output_root = tmp_path / "out"
+    cache_root = tmp_path / "cache"
+    source_paths = []
+    items = []
+    for index in range(3):
+        source = tmp_path / f"song-{index}.wav"
+        source.write_bytes(b"source")
+        source_paths.append(source)
+        items.append(
+            PlannedAudioWorkItem(
+                row_id=1,
+                side="A",
+                track_number=index + 1,
+                display_label=f"Song {index + 1}",
+                duration_seconds=60,
+                source_path=str(source),
+                target_relative_path=f"Pack/Song{index + 1}.ogg",
+                target_path=str(output_root / "Pack" / f"Song{index + 1}.ogg"),
+                action="convert_to_ogg",
+                reason="Source audio requires conversion.",
+                sample_rate=44100,
+                compression_quality=0.5,
+            )
+        )
+
+    started = threading.Event()
+    release = threading.Event()
+    active_lock = threading.Lock()
+    active = 0
+    max_active = 0
+
+    def _fake_ensure_cached_ogg(item, cache_path, **_kwargs):
+        nonlocal active, max_active
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        with active_lock:
+            active += 1
+            max_active = max(max_active, active)
+            if active >= 2:
+                started.set()
+        if not started.wait(timeout=2):
+            raise AssertionError("parallel conversion did not overlap")
+        if not release.wait(timeout=2):
+            raise AssertionError("parallel conversion did not release")
+        cache_path.write_bytes(item.display_label.encode("utf-8"))
+        with active_lock:
+            active -= 1
+        return True
+
+    monkeypatch.setattr(audio_export_runner, "_auto_worker_count", lambda: 2)
+    monkeypatch.setattr(audio_export_runner, "ensure_cached_ogg", _fake_ensure_cached_ogg)
+    monkeypatch.setattr(
+        audio_export_runner,
+        "copy_file_with_cancel",
+        lambda source, target, **_kwargs: Path(target).write_bytes(Path(source).read_bytes()),
+    )
+
+    result_box: dict[str, object] = {}
+
+    def _run_export() -> None:
+        result_box["result"] = audio_export_runner.run_audio_export(
+            AudioWorkPlan(items=items),
+            cache_root=cache_root,
+            output_root=output_root,
+        )
+
+    thread = threading.Thread(target=_run_export)
+    thread.start()
+    assert started.wait(timeout=2), "parallel conversion did not start"
+    release.set()
+    thread.join(timeout=5)
+    assert not thread.is_alive()
+    result = result_box["result"]
+
+    assert result.built_song_count == 3
+    assert result.converted_count == 3
+    assert max_active >= 2
+
+
+def test_run_audio_export_parallel_conversion_keeps_side_completion_exact_and_stable(tmp_path: Path, monkeypatch) -> None:
+    output_root = tmp_path / "out"
+    cache_root = tmp_path / "cache"
+    sources = []
+    items = []
+    for row_id, side, track_number in ((1, "A", 1), (1, "A", 2), (2, "B", 1)):
+        source = tmp_path / f"{row_id}-{side}-{track_number}.wav"
+        source.write_bytes(b"source")
+        sources.append(source)
+        items.append(
+            PlannedAudioWorkItem(
+                row_id=row_id,
+                side=side,
+                track_number=track_number,
+                display_label=f"{row_id}-{side}-{track_number}",
+                duration_seconds=60,
+                source_path=str(source),
+                target_relative_path=f"Pack/{row_id}-{side}-{track_number}.ogg",
+                target_path=str(output_root / "Pack" / f"{row_id}-{side}-{track_number}.ogg"),
+                action="convert_to_ogg",
+                reason="Source audio requires conversion.",
+                sample_rate=44100,
+                compression_quality=0.5,
+            )
+        )
+    events = []
+
+    def _fake_ensure_cached_ogg(item, cache_path, **_kwargs):
+        delay = {"1-A-1": 0.03, "1-A-2": 0.01, "2-B-1": 0.02}[item.display_label]
+        time.sleep(delay)
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        cache_path.write_bytes(item.display_label.encode("utf-8"))
+        return True
+
+    monkeypatch.setattr(audio_export_runner, "_auto_worker_count", lambda: 2)
+    monkeypatch.setattr(audio_export_runner, "ensure_cached_ogg", _fake_ensure_cached_ogg)
+    monkeypatch.setattr(
+        audio_export_runner,
+        "copy_file_with_cancel",
+        lambda source, target, **_kwargs: Path(target).write_bytes(Path(source).read_bytes()),
+    )
+
+    result = audio_export_runner.run_audio_export(
+        AudioWorkPlan(items=items),
+        cache_root=cache_root,
+        output_root=output_root,
+        emit=events.append,
+    )
+
+    side_completed = [(event.row_id, event.side) for event in events if event.kind == "side_completed"]
+    assert side_completed.count((1, "A")) == 1
+    assert side_completed.count((2, "B")) == 1
+    assert result.successful_sides.count((1, "A")) == 1
+    assert result.successful_sides.count((2, "B")) == 1
+    assert result.built_song_count == 3
+
+
+def test_run_audio_export_parallel_conversion_abort_stops_new_jobs(tmp_path: Path, monkeypatch) -> None:
+    output_root = tmp_path / "out"
+    cache_root = tmp_path / "cache"
+    items = []
+    for index in range(4):
+        source = tmp_path / f"abort-{index}.wav"
+        source.write_bytes(b"source")
+        items.append(
+            PlannedAudioWorkItem(
+                row_id=index + 1,
+                side="A",
+                track_number=1,
+                display_label=f"Abort {index + 1}",
+                duration_seconds=60,
+                source_path=str(source),
+                target_relative_path=f"Pack/Abort{index + 1}.ogg",
+                target_path=str(output_root / "Pack" / f"Abort{index + 1}.ogg"),
+                action="convert_to_ogg",
+                reason="Source audio requires conversion.",
+                sample_rate=44100,
+                compression_quality=0.5,
+            )
+        )
+
+    cancel_flag = {"value": False}
+    started_labels: list[str] = []
+    started_lock = threading.Lock()
+    first_started = threading.Event()
+
+    def _cancel_requested() -> bool:
+        return cancel_flag["value"]
+
+    def _fake_ensure_cached_ogg(item, cache_path, **_kwargs):
+        with started_lock:
+            started_labels.append(item.display_label)
+            if len(started_labels) >= 2:
+                first_started.set()
+        if not first_started.wait(timeout=2):
+            raise AssertionError("expected initial workers to start")
+        while not cancel_flag["value"]:
+            time.sleep(0.005)
+        raise audio_export_runner.ExportAbortedError("Build aborted by user.")
+
+    monkeypatch.setattr(audio_export_runner, "_auto_worker_count", lambda: 2)
+    monkeypatch.setattr(audio_export_runner, "ensure_cached_ogg", _fake_ensure_cached_ogg)
+    monkeypatch.setattr(
+        audio_export_runner,
+        "copy_file_with_cancel",
+        lambda source, target, **_kwargs: Path(target).write_bytes(Path(source).read_bytes()),
+    )
+
+    result_box: dict[str, object] = {}
+
+    def _run_export() -> None:
+        result_box["result"] = audio_export_runner.run_audio_export(
+            AudioWorkPlan(items=items),
+            cache_root=cache_root,
+            output_root=output_root,
+            cancel_requested=_cancel_requested,
+        )
+
+    thread = threading.Thread(target=_run_export)
+    thread.start()
+    assert first_started.wait(timeout=2), "expected initial workers to start"
+    cancel_flag["value"] = True
+    thread.join(timeout=5)
+    assert not thread.is_alive()
+    result = result_box["result"]
+
+    assert result.aborted is True
+    assert result.abort_message == "Build aborted by user."
+    assert len(started_labels) <= 2
