@@ -44,6 +44,16 @@ def media_mode_tooltip_segments(media_kind: MediaKind, mode: RegistrationMode) -
     )
 
 
+def row_mode_tooltip_segments() -> tuple[TooltipSegment, ...]:
+    return (
+        TooltipSegment('Singles', tone='accent'),
+        TooltipSegment(': exports each song as its own item.'),
+        TooltipSegment.break_line(),
+        TooltipSegment('Mixtape', tone='accent'),
+        TooltipSegment(': exports songs as dynamic playlist in a single item.'),
+    )
+
+
 HELP_TOOLTIP_REGISTRY: dict[str, tuple[TooltipSegment, ...]] = {
     'module_one.workshop_preview': (
         TooltipSegment('Select '),

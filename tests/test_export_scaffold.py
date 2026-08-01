@@ -253,7 +253,8 @@ def test_write_export_scaffold_creates_expected_files(tmp_path: Path) -> None:
     assert 'description=[td][url=https://steamcommunity.com/sharedfiles/filedetails/?id=3739256725][img]https://images.steamusercontent.com/ugc/11030006687843634655/D41A026AB76E264A5BDA091F326BFDA74041A401/?imw=268&imh=268&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=true[/img][/url][/td]' in workshop_text
     assert 'description=[td][url=https://steamcommunity.com/sharedfiles/filedetails/?id=3750003838][img]https://images.steamusercontent.com/ugc/10075766136295686800/382CF43D2EAD857CD95D5F170DE94F741FFAA305/?imw=268&imh=268&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=true[/img][/url][/td]' in workshop_text
     assert 'description=[table]' in workshop_text
-    assert 'description=[tr][td][b]Full Album[/b][/td][/tr]' in workshop_text
+    assert 'description=[b]Mixtape[/b]: Dynamic playlist on one item.' in workshop_text
+    assert 'description=[tr][td][b]Mixtape[/b] [b]Full Album[/b][/td][/tr]' in workshop_text
     assert 'description=[tr][td]01 Song[/td][/tr]' in workshop_text
 
 
@@ -706,17 +707,17 @@ def test_write_export_scaffold_emits_one_workshop_table_per_split_side(tmp_path:
     workshop_text = (Path(targets.root) / 'workshop.txt').read_text(encoding='utf-8')
     assert workshop_text.count('description=[table]') == 3
     assert 'description=[tr][th]Split Album[/th][/tr]' in workshop_text
-    assert 'description=[tr][td][b]Side A[/b][/td][/tr]' in workshop_text
-    assert 'description=[tr][td][b]Side B[/b][/td][/tr]' in workshop_text
+    assert 'description=[tr][td][b]Mixtape[/b] [b]Side A[/b][/td][/tr]' in workshop_text
+    assert 'description=[tr][td][b]Mixtape[/b] [b]Side B[/b][/td][/tr]' in workshop_text
     assert 'description=[tr][td]01 A One[/td][/tr]' in workshop_text
     assert 'description=[tr][td]02 A Two[/td][/tr]' in workshop_text
     assert 'description=[tr][td]01 B One[/td][/tr]' in workshop_text
 
 
-def test_write_export_scaffold_adds_legacy_workshop_intro_only_in_legacy_mode(tmp_path: Path) -> None:
+def test_write_export_scaffold_uses_singles_legend_and_section_labels_for_singles_rows(tmp_path: Path) -> None:
     project = _project(tmp_path)
-    project.legacy_mode_enabled = True
     row = project.media_rows[0]
+    row.row_mode = 'singles'
     row.media_name = 'Legacy Singles'
     row.tracks_a = [
         TrackEntry(source_path='C:/a1.ogg', display_label='Song One', duration='00:01:00'),
@@ -730,20 +731,11 @@ def test_write_export_scaffold_adds_legacy_workshop_intro_only_in_legacy_mode(tm
 
     assert not result.errors
     workshop_text = (Path(targets.root) / 'workshop.txt').read_text(encoding='utf-8')
-    assert 'description=[h3]Legacy Style Pack[/h3]' in workshop_text
-    assert 'description=[i]Single-song media items[/i]' in workshop_text
-    assert workshop_text.find('description=[h3]Legacy Style Pack[/h3]') < workshop_text.find('description=[tr][th]Song One[/th][/tr]')
-
-    project.legacy_mode_enabled = False
-    plan = build_export_plan(project, catalog)
-    targets = resolve_export_target(plan, project.workshop_output_folder, mod_name=project.mod_name, mod_id=project.mod_id)
-
-    result = write_export_scaffold(project, plan, targets, catalog)
-
-    assert not result.errors
-    workshop_text = (Path(targets.root) / 'workshop.txt').read_text(encoding='utf-8')
-    assert 'description=[h3]Legacy Style Pack[/h3]' not in workshop_text
-    assert 'description=[i]Single-song media items[/i]' not in workshop_text
+    assert 'description=[quote]' in workshop_text
+    assert 'description=[b]Singles[/b]: Each song is its own item.' in workshop_text
+    assert 'description=[b]Mixtape[/b]: Dynamic playlist on one item.' not in workshop_text
+    assert 'description=[tr][td][b]Singles[/b] [i]Single Item[/i][/td][/tr]' in workshop_text
+    assert workshop_text.find('description=[quote]') < workshop_text.find('description=[tr][th]Song One[/th][/tr]')
 
 
 def test_write_export_scaffold_emits_one_full_workshop_table_when_all_media_are_full(tmp_path: Path) -> None:
@@ -767,9 +759,9 @@ def test_write_export_scaffold_emits_one_full_workshop_table_when_all_media_are_
     assert not result.errors
     workshop_text = (Path(targets.root) / 'workshop.txt').read_text(encoding='utf-8')
     assert workshop_text.count('description=[table]') == 2
-    assert 'description=[tr][td][b]Full Album[/b][/td][/tr]' in workshop_text
-    assert 'description=[tr][td][b]Side A[/b][/td][/tr]' not in workshop_text
-    assert 'description=[tr][td][b]Side B[/b][/td][/tr]' not in workshop_text
+    assert 'description=[tr][td][b]Mixtape[/b] [b]Full Album[/b][/td][/tr]' in workshop_text
+    assert 'description=[tr][td][b]Mixtape[/b] [b]Side A[/b][/td][/tr]' not in workshop_text
+    assert 'description=[tr][td][b]Mixtape[/b] [b]Side B[/b][/td][/tr]' not in workshop_text
     assert 'description=[tr][td]01 A One[/td][/tr]' in workshop_text
     assert 'description=[tr][td]02 A Two[/td][/tr]' in workshop_text
     assert 'description=[tr][td]03 B One[/td][/tr]' in workshop_text

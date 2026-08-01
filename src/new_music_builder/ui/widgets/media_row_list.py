@@ -6,7 +6,12 @@ import tkinter as tk
 
 from new_music_builder.domain.models import AppearanceKind, MediaKind, MediaRow, RegistrationMode, SongSortColumn
 from new_music_builder.ui import spec
-from new_music_builder.ui.help_tooltip_registry import TooltipSegment, media_mode_tooltip_segments, tooltip_segments_for_id
+from new_music_builder.ui.help_tooltip_registry import (
+    TooltipSegment,
+    media_mode_tooltip_segments,
+    row_mode_tooltip_segments,
+    tooltip_segments_for_id,
+)
 from new_music_builder.ui.widgets.help_tooltip import bind_help_tooltip
 from new_music_builder.ui.widgets.collapsed_row_chevron import CollapsedRowChevron
 from new_music_builder.ui.widgets.collapsed_row_details import CollapsedRowDetails
@@ -19,6 +24,7 @@ from new_music_builder.ui.widgets.media_side_toggle import MediaSideToggle
 from new_music_builder.ui.widgets.media_songlist_viewport import MediaSonglistViewport
 from new_music_builder.ui.widgets.media_songlist_table import TrackSelectionModifiers
 from new_music_builder.ui.widgets.media_type_strip import MediaTypeStrip
+from new_music_builder.ui.widgets.row_mode_switch import RowModeSwitch
 
 
 @dataclass(frozen=True, slots=True)
@@ -124,6 +130,8 @@ class MediaRowShell(tk.Frame):
         grab_icon_path: str | None = None,
         table_check_icon_path: str | None = None,
         preview_audio_icon_path: str | None = None,
+        pill_switch_base_path: str | None = None,
+        pill_switch_pill_path: str | None = None,
         resolve_live_preview_path: Callable[[MediaRow, AppearanceKind, str], str | None] | None = None,
         resolve_media_strip_path: Callable[[MediaRow, MediaKind, str], str | None] | None = None,
         on_select: Callable[[int], None] | None = None,
@@ -136,8 +144,9 @@ class MediaRowShell(tk.Frame):
         on_side_selected: Callable[[int, str], None] | None = None,
         on_preview_mode_selected: Callable[[int, str], None] | None = None,
         on_cover_selected: Callable[[int], None] | None = None,
+        on_row_mode_changed: Callable[[int, str], None] | None = None,
         automatic_textures_enabled_getter: Callable[[], bool] | None = None,
-        legacy_mode_enabled_getter: Callable[[], bool] | None = None,
+        legacy_mode_enabled_getter: Callable[[int], bool] | None = None,
         can_accept_cover_drop: Callable[[list[str]], bool] | None = None,
         on_cover_drop: Callable[[int, list[str]], None] | None = None,
         on_remove_row: Callable[[int], None] | None = None,
@@ -184,6 +193,7 @@ class MediaRowShell(tk.Frame):
         self._on_side_selected = on_side_selected
         self._on_preview_mode_selected = on_preview_mode_selected
         self._on_cover_selected = on_cover_selected
+        self._on_row_mode_changed = on_row_mode_changed
         self._can_accept_cover_drop = can_accept_cover_drop
         self._on_cover_drop = on_cover_drop
         self._on_remove_row = on_remove_row
@@ -329,12 +339,30 @@ class MediaRowShell(tk.Frame):
             bg_color=spec.MEDIA_ROW_BG,
             resolve_preview_path=resolve_live_preview_path,
             on_mode_selected=self._handle_preview_mode_selected,
-            legacy_mode_enabled_getter=legacy_mode_enabled_getter,
+            legacy_mode_enabled_getter=(lambda row_id=row.row_id: legacy_mode_enabled_getter(row_id)) if legacy_mode_enabled_getter is not None else None,
         )
         self.live_preview.place(x=spec.MEDIA_ROW_LIVE_PREVIEW_POS[0], y=spec.MEDIA_ROW_LIVE_PREVIEW_POS[1])
         self._live_preview_tooltip = bind_help_tooltip(
             self.live_preview.help_tooltip_widgets(),
             tooltip_id='module_two.live_preview',
+            preferred_direction='down',
+        )
+        self.row_mode_switch = RowModeSwitch(
+            self.expanded_container,
+            row=row,
+            base_image_path=self._pill_switch_base_path,
+            pill_image_path=self._pill_switch_pill_path,
+            command=self._handle_row_mode_changed,
+            bg_color=spec.MEDIA_ROW_BG,
+        )
+        self.row_mode_switch.place(
+            x=spec.MEDIA_ROW_LIVE_PREVIEW_POS[0] + ((spec.MEDIA_ROW_LIVE_PREVIEW_SIZE[0] - spec.MEDIA_ROW_MODE_SWITCH_SIZE[0]) // 2),
+            y=spec.MEDIA_ROW_MODE_SWITCH_Y,
+        )
+        self._row_mode_tooltip = bind_help_tooltip(
+            self.row_mode_switch.tooltip_widgets(),
+            tooltip_id=None,
+            segments_getter=row_mode_tooltip_segments,
             preferred_direction='down',
         )
         self.expanded_media_type_strip = MediaTypeStrip(
@@ -657,6 +685,8 @@ class MediaRowShell(tk.Frame):
     def refresh_live_preview(self) -> None:
         if hasattr(self, 'live_preview'):
             self.live_preview.refresh_content()
+        if hasattr(self, 'row_mode_switch'):
+            self.row_mode_switch.refresh()
 
     def refresh_cover(self, cover_path: str) -> None:
         self.expanded_cover.set_cover_path(cover_path)
@@ -780,9 +810,14 @@ class MediaRowShell(tk.Frame):
         self.live_preview.set_row(row)
         self.expanded_media_type_strip.set_row(row)
         self.collapsed_media_type_strip.set_row(row)
+        self.row_mode_switch.set_row(row)
         self.refresh_cover(row.cover_path)
         self.refresh_collapsed_details()
         self._apply_legacy_layout()
+
+    def _handle_row_mode_changed(self, mode: str) -> None:
+        if self._on_row_mode_changed is not None:
+            self._on_row_mode_changed(self._row_id, mode)
 
     def _handle_select(self) -> None:
         if self._on_select is not None:
@@ -937,6 +972,8 @@ class MediaRowList(tk.Frame):
         grab_icon_path: str | None = None,
         table_check_icon_path: str | None = None,
         preview_audio_icon_path: str | None = None,
+        pill_switch_base_path: str | None = None,
+        pill_switch_pill_path: str | None = None,
         resolve_live_preview_path: Callable[[MediaRow, AppearanceKind, str], str | None] | None = None,
         resolve_media_strip_path: Callable[[MediaRow, MediaKind, str], str | None] | None = None,
         bg_color: str | None = None,
@@ -949,8 +986,9 @@ class MediaRowList(tk.Frame):
         on_side_selected: Callable[[int, str], None] | None = None,
         on_preview_mode_selected: Callable[[int, str], None] | None = None,
         on_cover_selected: Callable[[int], None] | None = None,
+        on_row_mode_changed: Callable[[int, str], None] | None = None,
         automatic_textures_enabled_getter: Callable[[], bool] | None = None,
-        legacy_mode_enabled_getter: Callable[[], bool] | None = None,
+        legacy_mode_enabled_getter: Callable[[int], bool] | None = None,
         can_accept_cover_drop: Callable[[list[str]], bool] | None = None,
         on_cover_drop: Callable[[int, list[str]], None] | None = None,
         on_remove_row: Callable[[int], None] | None = None,
@@ -993,6 +1031,8 @@ class MediaRowList(tk.Frame):
         self._grab_icon_path = grab_icon_path
         self._table_check_icon_path = table_check_icon_path
         self._preview_audio_icon_path = preview_audio_icon_path
+        self._pill_switch_base_path = pill_switch_base_path
+        self._pill_switch_pill_path = pill_switch_pill_path
         self._resolve_live_preview_path = resolve_live_preview_path
         self._resolve_media_strip_path = resolve_media_strip_path
         self._on_row_selected = on_row_selected
@@ -1005,6 +1045,7 @@ class MediaRowList(tk.Frame):
         self._on_side_selected = on_side_selected
         self._on_preview_mode_selected = on_preview_mode_selected
         self._on_cover_selected = on_cover_selected
+        self._on_row_mode_changed = on_row_mode_changed
         self._automatic_textures_enabled_getter = automatic_textures_enabled_getter
         self._legacy_mode_enabled_getter = legacy_mode_enabled_getter
         self._can_accept_cover_drop = can_accept_cover_drop
@@ -1064,6 +1105,8 @@ class MediaRowList(tk.Frame):
             grab_icon_path=self._grab_icon_path,
             table_check_icon_path=self._table_check_icon_path,
             preview_audio_icon_path=self._preview_audio_icon_path,
+            pill_switch_base_path=self._pill_switch_base_path,
+            pill_switch_pill_path=self._pill_switch_pill_path,
             resolve_live_preview_path=self._resolve_live_preview_path,
             resolve_media_strip_path=self._resolve_media_strip_path,
             on_select=self._on_row_selected,
@@ -1076,8 +1119,9 @@ class MediaRowList(tk.Frame):
             on_side_selected=self._on_side_selected,
             on_preview_mode_selected=self._on_preview_mode_selected,
             on_cover_selected=self._on_cover_selected,
+            on_row_mode_changed=self._on_row_mode_changed,
             automatic_textures_enabled_getter=self._automatic_textures_enabled_getter,
-            legacy_mode_enabled_getter=self._legacy_mode_enabled_getter,
+            legacy_mode_enabled_getter=(lambda row_id=row.row_id: self._legacy_mode_enabled_getter(row_id)) if self._legacy_mode_enabled_getter is not None else None,
             can_accept_cover_drop=self._can_accept_cover_drop,
             on_cover_drop=self._on_cover_drop,
             on_remove_row=self._on_remove_row,

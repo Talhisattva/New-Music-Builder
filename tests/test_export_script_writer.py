@@ -296,6 +296,7 @@ def test_write_export_scaffold_legacy_mode_uses_clean_song_ids_for_lua_and_scrip
         legacy_mode_enabled=True,
     )
     row = default_media_row(1)
+    row.row_mode = "singles"
     row.tracks_a = [_track("C:/music/intro.ogg", "Kiasmos Looped", "00:01:00")]
     project.media_rows = [row]
 

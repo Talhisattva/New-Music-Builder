@@ -10,6 +10,7 @@ MediaKind = Literal["cassette", "vinyl", "cd"]
 AppearanceKind = Literal["cassette", "vinyl", "cd", "case", "jacket", "cd_cover"]
 SpriteMode = Literal["single", "dual"]
 RegistrationMode = Literal["single", "split"]
+RowMode = Literal["mixtape", "singles"]
 SongSortColumn = Literal["ogg", "song_name", "length"]
 SongSortDirection = Literal["asc", "desc"]
 ConversionSongStatus = Literal["queued", "converting", "done", "failed"]
@@ -61,6 +62,10 @@ class TrackEntry:
     conversion_status: str = "pending"
     legacy_appearances: TrackAppearanceSet = field(default_factory=TrackAppearanceSet)
 
+    @property
+    def song_level_appearances(self) -> TrackAppearanceSet:
+        return self.legacy_appearances
+
 
 @dataclass(slots=True)
 class SongSortState:
@@ -95,6 +100,7 @@ class GeneratedAssetRecord:
 class MediaRow:
     row_id: int
     media_name: str = "New Album"
+    row_mode: RowMode = "mixtape"
     selected_side: Literal["A", "B"] = "A"
     preview_mode: Literal["inventory", "world"] = "inventory"
     enabled_media: dict[MediaKind, bool] = field(
@@ -140,6 +146,11 @@ class ProjectConfig:
     custom_assets: dict[str, list[dict[str, str]]] = field(default_factory=dict)
     generated_assets: list[GeneratedAssetRecord] = field(default_factory=list)
 
+    def __post_init__(self) -> None:
+        if self.legacy_mode_enabled:
+            for row in self.media_rows:
+                row.row_mode = "singles"
+
     def ensure_defaults(self) -> None:
         self.sample_rate = _coerce_int(self.sample_rate, 44100, minimum=1)
         self.compression_quality = snap_compression_quality(self.compression_quality)
@@ -149,6 +160,7 @@ class ProjectConfig:
             self.media_rows = [default_media_row(1)]
         for row in self.media_rows:
             row.ensure_appearances()
+
 
 
 @dataclass(slots=True)
@@ -183,6 +195,7 @@ class ConversionSideGroup:
     row_id: int
     side: Literal["A", "B"]
     display_label: str
+    row_mode: RowMode = "mixtape"
     songs: list[ConversionSongProgress] = field(default_factory=list)
 
 
@@ -330,9 +343,13 @@ class PlannedSide:
 @dataclass(slots=True)
 class PlannedMediaRow:
     row_id: int
+    source_row_id: int
     media_name: str
     cover_path: str
+    row_mode: RowMode = "mixtape"
     export_id: str = ""
+    containers_enabled: bool = True
+    share_playable_texture_sources: bool = False
     enabled_media: dict[MediaKind, bool] = field(default_factory=dict)
     media_modes: dict[MediaKind, RegistrationMode] = field(default_factory=dict)
     appearances: ResolvedAppearanceSet = field(default_factory=ResolvedAppearanceSet)
@@ -574,7 +591,9 @@ def default_media_row(row_id: int) -> MediaRow:
 
 
 def project_to_dict(project: ProjectConfig) -> dict[str, Any]:
-    return asdict(project)
+    payload = asdict(project)
+    payload.pop("legacy_mode_enabled", None)
+    return payload
 
 
 def _coerce_track(data: dict[str, Any]) -> TrackEntry:
@@ -707,11 +726,17 @@ def _coerce_generated_assets(data: Any) -> list[GeneratedAssetRecord]:
 
 
 def project_from_dict(data: dict[str, Any]) -> ProjectConfig:
+    legacy_project_mode = bool(data.get("legacy_mode_enabled", False))
     rows: list[MediaRow] = []
     for raw_row in data.get("media_rows", []):
         row = MediaRow(
             row_id=_coerce_int(raw_row.get("row_id", len(rows) + 1), len(rows) + 1, minimum=1),
             media_name=str(raw_row.get("media_name", f"Media Row {len(rows) + 1}")),
+            row_mode=(
+                str(raw_row.get("row_mode", "singles" if legacy_project_mode else "mixtape"))
+                if str(raw_row.get("row_mode", "singles" if legacy_project_mode else "mixtape")) in {"mixtape", "singles"}
+                else ("singles" if legacy_project_mode else "mixtape")
+            ),
             selected_side=str(raw_row.get("selected_side", "A")) if str(raw_row.get("selected_side", "A")) in {"A", "B"} else "A",
             preview_mode=(
                 str(raw_row.get("preview_mode", "inventory"))
@@ -767,7 +792,6 @@ def project_from_dict(data: dict[str, Any]) -> ProjectConfig:
         compression_quality=snap_compression_quality(data.get("compression_quality", DEFAULT_COMPRESSION_QUALITY)),
         reencode_existing_ogg=bool(data.get("reencode_existing_ogg", True)),
         automatic_textures_enabled=bool(data.get("automatic_textures_enabled", True)),
-        legacy_mode_enabled=bool(data.get("legacy_mode_enabled", False)),
         media_rows=rows,
         custom_assets=_coerce_custom_assets(data.get("custom_assets", {})),
         generated_assets=_coerce_generated_assets(data.get("generated_assets", [])),

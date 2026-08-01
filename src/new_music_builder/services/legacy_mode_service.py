@@ -27,6 +27,7 @@ def enable_legacy_mode(
     chooser = randomizer or random.Random()
     for row in project.media_rows:
         row.ensure_appearances()
+        row.row_mode = "singles"
         flattened_tracks = list(row.tracks_a) + list(row.tracks_b)
         row.tracks_a = flattened_tracks
         row.tracks_b = []
@@ -43,10 +44,34 @@ def disable_legacy_mode(
 ) -> None:
     selections = selected_track_by_row_id or {}
     for row in project.media_rows:
+        row.row_mode = "mixtape"
         row.selected_side = "A"
         row.tracks_b = []
         _sync_row_appearances_from_legacy_track(row, selected_track_index=selections.get(row.row_id))
     project.legacy_mode_enabled = False
+
+
+def enable_row_singles_mode(
+    project: ProjectConfig,
+    row: MediaRow,
+    asset_catalog: dict[str, list[AssetEntry]],
+    *,
+    randomizer: random.Random | None = None,
+) -> None:
+    chooser = randomizer or random.Random()
+    row.ensure_appearances()
+    row.row_mode = "singles"
+    row.tracks_a = list(row.tracks_a) + list(row.tracks_b)
+    row.tracks_b = []
+    row.selected_side = "A"
+    _assign_row_legacy_track_appearances(project, row, asset_catalog, chooser=chooser)
+
+
+def disable_row_singles_mode(row: MediaRow, *, selected_track_index: int | None = None) -> None:
+    row.row_mode = "mixtape"
+    row.selected_side = "A"
+    row.tracks_b = []
+    _sync_row_appearances_from_legacy_track(row, selected_track_index=selected_track_index)
 
 
 def assign_legacy_appearances_to_new_tracks(

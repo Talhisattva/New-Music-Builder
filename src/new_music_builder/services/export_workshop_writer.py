@@ -20,8 +20,7 @@ def build_workshop_txt_lines(project: ProjectConfig, plan: ExportPlan) -> list[s
         "description=",
     ]
 
-    if project.legacy_mode_enabled:
-        lines.extend(_render_legacy_intro())
+    lines.extend(_render_mode_legend(plan))
 
     ordered_rows = sorted(plan.rows, key=lambda row: row.row_id)
     first_table = True
@@ -58,12 +57,18 @@ def _render_support_table() -> list[str]:
     ]
 
 
-def _render_legacy_intro() -> list[str]:
-    return [
-        "description=[h3]Legacy Style Pack[/h3]",
-        "description=[i]Single-song media items[/i]",
-        "description=",
-    ]
+def _render_mode_legend(plan: ExportPlan) -> list[str]:
+    has_singles = any(row.row_mode == "singles" for row in plan.rows)
+    has_mixtapes = any(row.row_mode == "mixtape" for row in plan.rows)
+    if not has_singles and not has_mixtapes:
+        return []
+    lines = ["description=[quote]"]
+    if has_singles:
+        lines.append("description=[b]Singles[/b]: Each song is its own item.")
+    if has_mixtapes:
+        lines.append("description=[b]Mixtape[/b]: Dynamic playlist on one item.")
+    lines.extend(["description=[/quote]", "description="])
+    return lines
 
 
 def _ordered_sides(row: PlannedMediaRow) -> list[PlannedSide]:
@@ -72,9 +77,11 @@ def _ordered_sides(row: PlannedMediaRow) -> list[PlannedSide]:
 
 def _row_workshop_sections(row: PlannedMediaRow) -> list[tuple[str, list[PlannedTrack]]]:
     sides = _ordered_sides(row)
+    mode_label = "[b]Singles[/b]" if row.row_mode == "singles" else "[b]Mixtape[/b]"
     if not _row_has_split_media(row):
-        return [("[b]Full Album[/b]", [track for side in sides for track in side.tracks])]
-    return [(f"[b]Side {side.side}[/b]", list(side.tracks)) for side in sides]
+        section_label = f"{mode_label} [i]Single Item[/i]" if row.row_mode == "singles" else f"{mode_label} [b]Full Album[/b]"
+        return [(section_label, [track for side in sides for track in side.tracks])]
+    return [(f"{mode_label} [b]Side {side.side}[/b]", list(side.tracks)) for side in sides]
 
 
 def _row_has_split_media(row: PlannedMediaRow) -> bool:

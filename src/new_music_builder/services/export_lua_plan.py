@@ -108,7 +108,12 @@ def _build_lua_media(album: RegisteredAlbum) -> list[LuaAlbumMediaRegistration]:
 
 
 def _build_cover_groups(album: RegisteredAlbum, row: PlannedMediaRow) -> list[LuaCoverGroup]:
-    cover_decision = build_cover_texture_decision(album.module_id, album.album_id, row, legacy_mode=(album.container_variants == []))
+    cover_decision = build_cover_texture_decision(
+        album.module_id,
+        album.album_id,
+        row,
+        legacy_mode=(row.row_mode == "singles"),
+    )
     enabled_media = tuple(kind for kind in _MEDIA_ORDER if row.enabled_media.get(kind, False))
     if not enabled_media or not cover_decision.shared_cover_texture_reference:
         return []

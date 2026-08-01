@@ -14,6 +14,8 @@ from new_music_builder.ui.widgets.images import load_tk_photoimage
 
 @dataclass(slots=True)
 class _QueueRenderRow:
+    type_label: str
+    type_color: str
     media_label: str
     song: ConversionSongProgress
     row_index: int
@@ -114,9 +116,17 @@ class ModuleFourQueueTable(tk.Canvas):
             media_name, _, side_label = group.display_label.partition('\n')
             side_text = side_label or f"{group.side}-SIDE"
             media_label = f"{media_name} ({side_text})"
+            type_label = "Singles" if group.row_mode == "singles" else "Mixtape"
+            type_color = (
+                spec.PHASE_THREE_MODULE_FOUR_TYPE_SINGLES_COLOR
+                if group.row_mode == "singles"
+                else spec.PHASE_THREE_MODULE_FOUR_TYPE_MIXTAPE_COLOR
+            )
             for song in group.songs:
                 rows.append(
                     _QueueRenderRow(
+                        type_label=type_label,
+                        type_color=type_color,
                         media_label=media_label,
                         song=song,
                         row_index=len(rows),
@@ -217,26 +227,40 @@ class ModuleFourQueueTable(tk.Canvas):
             fill=self._divider_color,
         )
         row_center_y = row_top + (self._row_height / 2)
+        self._draw_type_cell(render_row.type_label, render_row.type_color, row_center_y)
         self._draw_media_cell(render_row.media_label, row_center_y)
         self._draw_song_cell(render_row.song.queue_index, render_row.song.song_label, row_center_y)
         self._draw_progress_cell(render_row.song.percent, render_row.song.status, row_center_y)
         self._draw_status_cell(render_row.song.status, row_center_y)
 
-    def _draw_media_cell(self, media_label: str, row_center_y: float) -> None:
+    def _draw_type_cell(self, type_label: str, type_color: str, row_center_y: float) -> None:
         available_width = self._column_widths[0] - 10
-        text = self._truncate_text(media_label, available_width, font=self._media_font)
+        text = self._truncate_text(type_label, available_width, font=self._media_font)
         self.create_text(
             (self._column_widths[0] / 2),
             row_center_y,
             text=text,
-            fill=spec.MEDIA_ROW_SONGLIST_TABLE_ROW_TEXT_COLOR,
+            fill=type_color,
             font=self._media_font,
             anchor='c',
         )
 
-    def _draw_song_cell(self, queue_index: int, song_label: str, row_center_y: float) -> None:
+    def _draw_media_cell(self, media_label: str, row_center_y: float) -> None:
         column_left = self._column_left_x(1)
         available_width = self._column_widths[1] - 12
+        text = self._truncate_text(media_label, available_width, font=self._media_font)
+        self.create_text(
+            column_left + 6,
+            row_center_y,
+            text=text,
+            fill=spec.MEDIA_ROW_SONGLIST_TABLE_ROW_TEXT_COLOR,
+            font=self._media_font,
+            anchor='w',
+        )
+
+    def _draw_song_cell(self, queue_index: int, song_label: str, row_center_y: float) -> None:
+        column_left = self._column_left_x(2)
+        available_width = self._column_widths[2] - 12
         text = self._truncate_text(f'{queue_index}.  {song_label}', available_width, font=self._row_font)
         self.create_text(
             column_left + 6,
@@ -248,7 +272,7 @@ class ModuleFourQueueTable(tk.Canvas):
         )
 
     def _draw_progress_cell(self, percent: int, status: str, row_center_y: float) -> None:
-        column_left = self._column_left_x(2)
+        column_left = self._column_left_x(3)
         bar_x = column_left + 5
         bar_y = int(round(row_center_y - (spec.PHASE_THREE_MODULE_FOUR_PROGRESS_BAR_SIZE[1] / 2)))
         self._draw_progress_bar(bar_x, bar_y, percent, status)
@@ -297,7 +321,7 @@ class ModuleFourQueueTable(tk.Canvas):
             self.create_line(divider_x, y, divider_x, y + bar_height, fill=divider_color)
 
     def _draw_status_cell(self, status: str, row_center_y: float) -> None:
-        column_left = self._column_left_x(3)
+        column_left = self._column_left_x(4)
         icon = self._queued_icon
         text = 'QUEUED'
         text_color = spec.PHASE_THREE_MODULE_FOUR_STATUS_QUEUED_COLOR

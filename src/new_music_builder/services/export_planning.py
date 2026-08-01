@@ -45,14 +45,19 @@ _SLOT_KINDS: tuple[tuple[AppearanceKind, MediaKind], ...] = (
 
 
 def build_export_plan(project: ProjectConfig, asset_catalog: dict[str, list[AssetEntry]]) -> ExportPlan:
-    if project.legacy_mode_enabled:
-        return build_legacy_export_plan(project, asset_catalog)
     planned_rows: list[PlannedMediaRow] = []
     planned_sides: list[PlannedSide] = []
     used_row_ids: set[str] = set()
     used_track_ids: set[str] = set()
 
     for row in project.media_rows:
+        if row.row_mode == "singles":
+            singles_plan = build_legacy_export_plan(project, asset_catalog, source_rows=[row])
+            planned_rows.extend(singles_plan.rows)
+            planned_sides.extend(singles_plan.sides)
+            used_row_ids.update(item.export_id for item in singles_plan.rows if item.export_id)
+            used_track_ids.update(track.track_id for side in singles_plan.sides for track in side.tracks if track.track_id)
+            continue
         row.ensure_appearances()
         sides: list[PlannedSide] = []
         row_export_id = unique_export_id(row.media_name, used_row_ids, fallback=f"MediaRow{row.row_id}")
@@ -92,9 +97,13 @@ def build_export_plan(project: ProjectConfig, asset_catalog: dict[str, list[Asse
 
         planned_row = PlannedMediaRow(
             row_id=row.row_id,
+            source_row_id=row.row_id,
             media_name=row.media_name,
             cover_path=row.cover_path,
+            row_mode="mixtape",
             export_id=row_export_id,
+            containers_enabled=True,
+            share_playable_texture_sources=False,
             enabled_media=dict(row.enabled_media),
             media_modes=dict(row.media_modes),
             appearances=_resolve_appearance_set(project, row, asset_catalog),
@@ -256,6 +265,7 @@ def _queue_groups_from_plan(plan: ExportPlan) -> list[ConversionSideGroup]:
         ConversionSideGroup(
             row_id=side.row_id,
             side=side.side,
+            row_mode=next((row.row_mode for row in plan.rows if row.row_id == side.row_id), "mixtape"),
             display_label=side.display_label,
             songs=[
                 ConversionSongProgress(

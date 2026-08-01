@@ -12,6 +12,7 @@ from PIL import Image
 def test_legacy_export_plan_creates_one_media_row_per_song() -> None:
     project = ProjectConfig(mod_name='Legacy', mod_id='LegacyPack', legacy_mode_enabled=True)
     row = default_media_row(1)
+    row.row_mode = 'singles'
     row.enabled_media = {'cassette': True, 'vinyl': False, 'cd': True}
     row.tracks_a = [
         TrackEntry(display_label='First Song', source_path='C:/music/first.wav', duration='00:01:00'),
@@ -37,6 +38,7 @@ def test_legacy_export_plan_creates_one_media_row_per_song() -> None:
 def test_legacy_export_plan_uses_ascii_safe_flat_audio_filenames_for_non_ascii_labels() -> None:
     project = ProjectConfig(mod_name='Legacy', mod_id='LegacyPack', legacy_mode_enabled=True)
     row = default_media_row(1)
+    row.row_mode = 'singles'
     row.tracks_a = [TrackEntry(display_label='КИНО - Пачка сигарет', source_path='C:/music/track-a.ogg', duration='00:03:00')]
     project.media_rows = [row]
 
@@ -50,6 +52,7 @@ def test_legacy_export_plan_uses_ascii_safe_flat_audio_filenames_for_non_ascii_l
 def test_legacy_export_plan_adds_numeric_suffix_only_when_needed() -> None:
     project = ProjectConfig(mod_name='Legacy', mod_id='LegacyPack', legacy_mode_enabled=True)
     row = default_media_row(1)
+    row.row_mode = 'singles'
     row.tracks_a = [
         TrackEntry(display_label='Same Song', source_path='C:/music/track-a.ogg', duration='00:03:00'),
         TrackEntry(display_label='Same Song', source_path='C:/music/track-b.ogg', duration='00:03:00'),
@@ -67,6 +70,7 @@ def test_legacy_export_plan_adds_numeric_suffix_only_when_needed() -> None:
 def test_legacy_registration_omits_container_variants() -> None:
     project = ProjectConfig(mod_name='Legacy', mod_id='LegacyPack', legacy_mode_enabled=True)
     row = default_media_row(1)
+    row.row_mode = 'singles'
     row.tracks_a = [TrackEntry(display_label='Single Song', source_path='C:/music/song.ogg', duration='00:01:00')]
     project.media_rows = [row]
 
@@ -81,6 +85,7 @@ def test_legacy_registration_omits_container_variants() -> None:
 def test_legacy_lua_plan_allows_missing_container_variants() -> None:
     project = ProjectConfig(mod_name='Legacy', mod_id='LegacyPack', legacy_mode_enabled=True)
     row = default_media_row(1)
+    row.row_mode = 'singles'
     row.enabled_media = {'cassette': True, 'vinyl': False, 'cd': True}
     row.tracks_a = [TrackEntry(display_label='Single Song', source_path='C:/music/song.ogg', duration='00:01:00')]
     project.media_rows = [row]
@@ -111,6 +116,8 @@ def test_legacy_texture_export_reuses_shared_custom_texture_files(tmp_path) -> N
 
     first = default_media_row(1)
     second = default_media_row(2)
+    first.row_mode = 'singles'
+    second.row_mode = 'singles'
     first.tracks_a = [TrackEntry(display_label='First Song', source_path='C:/music/first.ogg', duration='00:01:00')]
     second.tracks_a = [TrackEntry(display_label='Second Song', source_path='C:/music/second.ogg', duration='00:01:00')]
     for track in (first.tracks_a[0], second.tracks_a[0]):

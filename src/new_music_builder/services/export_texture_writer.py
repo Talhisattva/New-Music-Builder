@@ -6,7 +6,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from new_music_builder.domain.models import ExportPlan, ExportTargetPaths, ProjectConfig, TextureExportResult
+from new_music_builder.domain.models import ExportPlan, ExportTargetPaths, PlannedMediaRow, ProjectConfig, TextureExportResult
 from new_music_builder.services.export_ids import sanitize_export_id, sanitize_module_id
 from new_music_builder.services.export_texture_contract import (
     build_cover_texture_decision,
@@ -40,7 +40,7 @@ def write_export_textures(project: ProjectConfig, plan: ExportPlan, targets: Exp
     tasks: OrderedDict[str, _TextureWriteTask] = OrderedDict()
 
     for row in plan.rows:
-        _append_row_texture_tasks(tasks, module_id, row, legacy_mode=project.legacy_mode_enabled)
+        _append_row_texture_tasks(tasks, module_id, row)
 
     for task in tasks.values():
         source = _require_source_path(task.source_path, task.description)
@@ -55,8 +55,6 @@ def _append_row_texture_tasks(
     tasks: OrderedDict[str, _TextureWriteTask],
     module_id: str,
     row: PlannedMediaRow,
-    *,
-    legacy_mode: bool,
 ) -> None:
     album_id = row.export_id or sanitize_export_id(row.media_name, fallback=f"MediaRow{row.row_id}")
 
@@ -71,7 +69,7 @@ def _append_row_texture_tasks(
             source_path=appearance.inventory_path,
             target_relative_path=(
                 shared_exported_inventory_texture_filename(media_kind, module_id, appearance.inventory_path)
-                if legacy_mode
+                if row.share_playable_texture_sources
                 else exported_inventory_texture_filename(media_kind, module_id, album_id)
             ),
             transform_kind="inventory_32",
@@ -82,7 +80,7 @@ def _append_row_texture_tasks(
             source_path=appearance.world_path,
             target_relative_path=(
                 shared_exported_world_texture_relative_path(media_kind, module_id, appearance.world_path)
-                if legacy_mode
+                if row.share_playable_texture_sources
                 else exported_world_texture_relative_path(media_kind, module_id, album_id)
             ),
             transform_kind="world_cassette_playable" if media_kind == "cassette" else "world_square_256",
@@ -127,9 +125,12 @@ def _append_row_texture_tasks(
                 description=f"{row.media_name} {appearance_kind} world empty",
             )
 
-    cover_decision = build_cover_texture_decision(module_id, album_id, row)
-    if legacy_mode:
-        cover_decision = build_cover_texture_decision(module_id, album_id, row, legacy_mode=True)
+    cover_decision = build_cover_texture_decision(
+        module_id,
+        album_id,
+        row,
+        legacy_mode=(row.row_mode == "singles"),
+    )
     if cover_decision.fallback_source_is_custom and cover_decision.fallback_source_path:
         _add_task(
             tasks,
@@ -144,7 +145,7 @@ def _append_row_texture_tasks(
             source_path=cover_decision.row_cover_source_path,
             target_relative_path=(
                 shared_exported_world_texture_relative_path("jacket", module_id, cover_decision.row_cover_source_path, hr=True)
-                if legacy_mode
+                if row.share_playable_texture_sources
                 else exported_world_texture_relative_path("jacket", module_id, album_id, hr=True)
             ),
             transform_kind="world_square_1024",

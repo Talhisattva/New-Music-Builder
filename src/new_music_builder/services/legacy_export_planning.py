@@ -20,7 +20,12 @@ from new_music_builder.services.generated_asset_registry import visible_generate
 from new_music_builder.ui.widgets.appearance_entries import merge_appearance_grid_entries
 
 
-def build_legacy_export_plan(project: ProjectConfig, asset_catalog: dict[str, list[AssetEntry]]) -> ExportPlan:
+def build_legacy_export_plan(
+    project: ProjectConfig,
+    asset_catalog: dict[str, list[AssetEntry]],
+    *,
+    source_rows: list | None = None,
+) -> ExportPlan:
     planned_rows: list[PlannedMediaRow] = []
     planned_sides: list[PlannedSide] = []
     used_row_ids: set[str] = set()
@@ -28,7 +33,8 @@ def build_legacy_export_plan(project: ProjectConfig, asset_catalog: dict[str, li
     used_audio_file_stems: set[str] = set()
     exported_row_id = 0
 
-    for source_row in project.media_rows:
+    candidate_rows = list(project.media_rows if source_rows is None else source_rows)
+    for source_row in candidate_rows:
         source_row.ensure_appearances()
         tracks = list(source_row.tracks_a)
         for track_index, track in enumerate(tracks, start=1):
@@ -75,9 +81,13 @@ def build_legacy_export_plan(project: ProjectConfig, asset_catalog: dict[str, li
             )
             planned_row = PlannedMediaRow(
                 row_id=exported_row_id,
+                source_row_id=source_row.row_id,
                 media_name=media_name,
                 cover_path=source_row.cover_path,
+                row_mode="singles",
                 export_id=row_export_id,
+                containers_enabled=False,
+                share_playable_texture_sources=True,
                 enabled_media=dict(source_row.enabled_media),
                 media_modes={kind: "single" for kind in ("cassette", "vinyl", "cd")},
                 appearances=_resolve_legacy_track_appearance_set(project, source_row, track, asset_catalog),

@@ -32,6 +32,7 @@ def test_project_roundtrip(tmp_path: Path) -> None:
 def test_project_roundtrip_preserves_legacy_mode_and_track_appearances(tmp_path: Path) -> None:
     project = ProjectConfig(mod_name='Legacy Pack', mod_id='LegacyPack', legacy_mode_enabled=True)
     row = default_media_row(1)
+    row.row_mode = 'singles'
     track = TrackEntry(display_label='Song One')
     track.legacy_appearances.cassette.selected_asset_key = 'cassette:9'
     track.legacy_appearances.vinyl.selected_asset_key = 'custom:vinyl:1'
@@ -45,10 +46,37 @@ def test_project_roundtrip_preserves_legacy_mode_and_track_appearances(tmp_path:
     ProjectStore().save(project, target)
     loaded = ProjectStore().load(target)
 
-    assert loaded.legacy_mode_enabled is True
+    assert loaded.media_rows[0].row_mode == 'singles'
     assert loaded.media_rows[0].tracks_a[0].legacy_appearances.cassette.selected_asset_key == 'cassette:9'
     assert loaded.media_rows[0].tracks_a[0].legacy_appearances.vinyl.source == 'custom'
     assert loaded.media_rows[0].tracks_a[0].legacy_appearances.vinyl.world_full == 'C:/art/vinyl_world.png'
+
+
+def test_project_load_migrates_legacy_mode_payload_to_singles_rows(tmp_path: Path) -> None:
+    payload = {
+        'schema_version': 1,
+        'mod_name': 'Legacy Pack',
+        'mod_id': 'LegacyPack',
+        'legacy_mode_enabled': True,
+        'media_rows': [
+            {
+                'row_id': 1,
+                'media_name': 'One',
+                'tracks_a': [{'display_label': 'Song A'}],
+            },
+            {
+                'row_id': 2,
+                'media_name': 'Two',
+                'tracks_a': [{'display_label': 'Song B'}],
+            },
+        ],
+    }
+    target = tmp_path / 'legacy-row-mode.nmbproj.json'
+    target.write_text(json.dumps(payload), encoding='utf-8')
+
+    loaded = ProjectStore().load(target)
+
+    assert [row.row_mode for row in loaded.media_rows] == ['singles', 'singles']
 
 def test_project_roundtrip_preserves_stateful_row_fields(tmp_path: Path) -> None:
     project = ProjectConfig(
@@ -293,16 +321,14 @@ def test_session_store_roundtrip_preserves_text_tooltips_preference(tmp_path: Pa
     assert store.last_text_tooltips_enabled is False
 
 
-def test_session_store_roundtrip_preserves_legacy_mode_preference(tmp_path: Path) -> None:
+def test_session_store_roundtrip_does_not_persist_removed_legacy_mode_preference(tmp_path: Path) -> None:
     target = tmp_path / 'last_session.json'
     store = SessionStore(target)
-    store.last_legacy_mode_enabled = True
-
     store.save(ProjectConfig(legacy_mode_enabled=True), '')
     loaded_project, _current_path = store.load()
 
-    assert loaded_project.legacy_mode_enabled is True
-    assert store.last_legacy_mode_enabled is True
+    assert loaded_project.legacy_mode_enabled is False
+    assert 'last_legacy_mode_enabled' not in store.file_path.read_text(encoding='utf-8')
 
 
 def test_session_store_roundtrip_preserves_regenerate_textures_on_project_load_preference(tmp_path: Path) -> None:

@@ -4,7 +4,9 @@ from new_music_builder.domain.models import ProjectConfig, TrackEntry, default_m
 from new_music_builder.services.asset_catalog import AssetEntry
 from new_music_builder.services.legacy_mode_service import (
     assign_legacy_appearances_to_new_tracks,
+    disable_row_singles_mode,
     disable_legacy_mode,
+    enable_row_singles_mode,
     enable_legacy_mode,
 )
 
@@ -41,6 +43,7 @@ def test_enable_legacy_mode_flattens_tracks_and_assigns_random_playable_textures
 
     assert project.legacy_mode_enabled is True
     assert project.automatic_textures_enabled is False
+    assert row.row_mode == 'singles'
     assert [track.display_label for track in row.tracks_a] == ['A1', 'A2', 'B1']
     assert row.tracks_b == []
     assert row.selected_side == 'A'
@@ -67,6 +70,7 @@ def test_disable_legacy_mode_syncs_row_appearances_from_selected_track() -> None
     disable_legacy_mode(project, selected_track_by_row_id={1: 1})
 
     assert project.legacy_mode_enabled is False
+    assert row.row_mode == 'mixtape'
     assert row.tracks_b == []
     assert row.selected_side == 'A'
     assert row.appearances['cassette'].selected_asset_key == 'cassette:7'
@@ -108,3 +112,46 @@ def test_assign_legacy_appearances_to_new_tracks_uses_current_pool() -> None:
     assert new_track.legacy_appearances.cassette.source == 'custom'
     assert new_track.legacy_appearances.vinyl.selected_asset_key == 'vinyl:1'
     assert new_track.legacy_appearances.cd.selected_asset_key == 'cd:1'
+
+
+def test_enable_row_singles_mode_flattens_only_target_row() -> None:
+    project = ProjectConfig()
+    first = default_media_row(1)
+    second = default_media_row(2)
+    first.tracks_a = [TrackEntry(display_label='A1')]
+    first.tracks_b = [TrackEntry(display_label='B1')]
+    second.tracks_a = [TrackEntry(display_label='Other')]
+    project.media_rows = [first, second]
+    catalog = {
+        'cassette': [_asset('cassette', 'cassette:1')],
+        'vinyl': [_asset('vinyl', 'vinyl:1')],
+        'cd': [_asset('cd', 'cd:1')],
+    }
+
+    enable_row_singles_mode(project, first, catalog, randomizer=_DeterministicRandom())
+
+    assert first.row_mode == 'singles'
+    assert [track.display_label for track in first.tracks_a] == ['A1', 'B1']
+    assert first.tracks_b == []
+    assert second.row_mode == 'mixtape'
+    assert [track.display_label for track in second.tracks_a] == ['Other']
+
+
+def test_disable_row_singles_mode_syncs_row_appearances_from_selected_track() -> None:
+    row = default_media_row(1)
+    row.row_mode = 'singles'
+    first = TrackEntry(display_label='First')
+    second = TrackEntry(display_label='Second')
+    second.legacy_appearances.cassette.selected_asset_key = 'cassette:7'
+    second.legacy_appearances.cassette.source = 'custom'
+    second.legacy_appearances.cassette.inventory_full = 'C:/art/cassette_inv.png'
+    second.legacy_appearances.cassette.world_full = 'C:/art/cassette_world.png'
+    row.tracks_a = [first, second]
+
+    disable_row_singles_mode(row, selected_track_index=1)
+
+    assert row.row_mode == 'mixtape'
+    assert row.selected_side == 'A'
+    assert row.appearances['cassette'].selected_asset_key == 'cassette:7'
+    assert row.appearances['cassette'].source == 'custom'
+    assert row.appearances['cassette'].world_full == 'C:/art/cassette_world.png'
