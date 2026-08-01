@@ -182,6 +182,22 @@ class ModuleFourPanel(tk.Frame):
         if changed:
             self._schedule_queue_refresh()
 
+    def finalize_successful_side(self, row_id: int, side: str) -> None:
+        changed = False
+        for group in self.state.ordered_groups:
+            if group.row_id != row_id or group.side != side:
+                continue
+            if any(song.status == "failed" for song in group.songs):
+                return
+            for song in group.songs:
+                if song.status in {"queued", "converting"}:
+                    song.status = "done"  # type: ignore[assignment]
+                    song.percent = 100
+                    changed = True
+            if changed:
+                self._schedule_queue_refresh()
+            return
+
     def set_output_path(self, path: str) -> None:
         self.state.output_path = path
 

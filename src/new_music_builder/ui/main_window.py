@@ -374,10 +374,12 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._locked_module_two_browse_row_id: int | None = None
         self._active_build_final_targets: ExportTargetPaths | None = None
         self._active_preview_rows_by_side: dict[tuple[int, str], GeneratedPreviewRow] = {}
+        self._active_preview_keys_in_order: list[tuple[int, str]] = []
         self._active_queue_groups_by_side: dict[tuple[int, str], ConversionSideGroup] = {}
         self._active_successful_sides: list[tuple[int, str]] = []
         self._active_successful_sides_by_row: dict[int, set[str]] = {}
         self._active_emitted_preview_rows: set[tuple[int, str]] = set()
+        self._active_ready_preview_keys: set[tuple[int, str]] = set()
         self._active_converting_song_keys: set[tuple[int, str, int]] = set()
         self._active_passthrough_song_count = 0
         self._active_passthrough_logged_count = 0
@@ -3054,7 +3056,9 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._last_export_output_path = ''
         self.build_log = []
         self.preview_entries = []
+        self._active_preview_keys_in_order = []
         self._active_queue_groups_by_side = {}
+        self._active_ready_preview_keys = set()
         if hasattr(self, 'module_four_panel'):
             self.module_four_panel.reset_current_run()
         module_five_panel = self.__dict__.get('module_five_panel')
@@ -3229,10 +3233,12 @@ class MainWindow(_DnDCompat, ctk.CTk):
             (time.perf_counter() - step_started) * 1000.0,
         )
         self._active_preview_rows_by_side = {}
+        self._active_preview_keys_in_order = []
         self._active_queue_groups_by_side = {}
         self._active_successful_sides = []
         self._active_successful_sides_by_row = {}
         self._active_emitted_preview_rows.clear()
+        self._active_ready_preview_keys.clear()
         self._active_converting_song_keys.clear()
         self._active_passthrough_song_count = 0
         self._active_passthrough_logged_count = 0
@@ -3295,6 +3301,10 @@ class MainWindow(_DnDCompat, ctk.CTk):
             (row.row_id, row.side): row
             for row in scenario.preview_rows
         }
+        self._active_preview_keys_in_order = [
+            (row.row_id, row.side)
+            for row in scenario.preview_rows
+        ]
         self._active_queue_groups_by_side = {
             (group.row_id, group.side): group
             for group in scenario.queue_groups
@@ -3610,6 +3620,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
                 )
             )
         elif event.kind == "side_completed":
+            self.module_four_panel.finalize_successful_side(event.row_id, event.side)
             self._mark_preview_row_ready(event.row_id, event.side)
 
     def _sync_converted_song_ogg_link(self, event: AudioRunEvent) -> None:
@@ -3641,17 +3652,14 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
     def _mark_preview_row_ready(self, row_id: int, side: str) -> None:
         preview_key = (row_id, side)
-        if preview_key in self._active_emitted_preview_rows:
-            return
         successful_sides = self._active_successful_sides_by_row.get(row_id, set())
         module_five_panel = self.__dict__.get('module_five_panel')
         if side not in successful_sides or module_five_panel is None:
             return
-        preview_row = self._active_preview_rows_by_side.get(preview_key)
-        if preview_row is None:
-            return
-        module_five_panel.append_preview_row(preview_row)
-        self._active_emitted_preview_rows.add(preview_key)
+        self._active_ready_preview_keys.add(preview_key)
+        ordered_rows = self._ordered_ready_preview_rows()
+        module_five_panel.set_preview_rows(ordered_rows)
+        self._active_emitted_preview_rows = set(self._active_ready_preview_keys)
 
     def _finalize_audio_run(self, plan, result: AudioRunResult) -> None:
         LOGGER.info(
@@ -3725,10 +3733,14 @@ class MainWindow(_DnDCompat, ctk.CTk):
         successful_rows = {row_id for row_id, _side in result.successful_sides}
         preview_rows = [
             self._active_preview_rows_by_side[key]
-            for key in result.successful_sides
-            if key in self._active_preview_rows_by_side
+            for key in self._active_preview_keys_in_order
+            if key in result.successful_sides
+            and key in self._active_preview_rows_by_side
         ]
         module_five_panel = self.__dict__.get('module_five_panel')
+        if hasattr(self, 'module_four_panel') and not result.errors:
+            for row_id, side in result.successful_sides:
+                self.module_four_panel.finalize_successful_side(row_id, side)
         if module_five_panel is not None:
             if hasattr(module_five_panel, 'set_export_active'):
                 module_five_panel.set_export_active(False)
@@ -3764,6 +3776,13 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.preview_entries = [f"{row.inventory_cell.label_text}" for row in preview_rows]
         self._refresh_build_summary()
         self._clear_active_build_run_state()
+
+    def _ordered_ready_preview_rows(self) -> list[GeneratedPreviewRow]:
+        return [
+            self._active_preview_rows_by_side[key]
+            for key in self._active_preview_keys_in_order
+            if key in self._active_ready_preview_keys and key in self._active_preview_rows_by_side
+        ]
 
     def _finalize_audio_run_failure(self, plan, output_root: str, error_message: str) -> None:
         LOGGER.error("[run=%s] finalize_audio_run_failure root=%s error=%s", self._active_build_run_id or "-", output_root, error_message)

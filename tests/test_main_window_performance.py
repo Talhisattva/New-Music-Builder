@@ -277,6 +277,7 @@ def test_handle_audio_run_event_appends_preview_row_when_side_completes_after_su
             "append_queue_group": lambda _self, _group: None,
             "ensure_song": lambda _self, *_args: None,
             "update_song_progress": lambda _self, *_args: None,
+            "finalize_successful_side": lambda _self, _row_id, _side: None,
             "finalize_active_log_line": lambda _self, _line: None,
             "append_log_line": lambda _self, _line: None,
         },
@@ -284,8 +285,10 @@ def test_handle_audio_run_event_appends_preview_row_when_side_completes_after_su
     window.module_five_panel = _FakeModuleFivePanel()
     preview_row = _generated_preview_row(7, "A", "Alpha Side")
     window._active_preview_rows_by_side = {(7, "A"): preview_row}
+    window._active_preview_keys_in_order = [(7, "A")]
     window._active_successful_sides_by_row = {}
     window._active_emitted_preview_rows = set()
+    window._active_ready_preview_keys = set()
     window._active_passthrough_song_count = 0
     window._active_passthrough_logged_count = 0
     window._active_passthrough_log_step = 50
@@ -296,14 +299,14 @@ def test_handle_audio_run_event_appends_preview_row_when_side_completes_after_su
         window,
         AudioRunEvent(kind="song_succeeded", row_id=7, side="A", song_index=0, display_label="Alpha Side", size_text="1.0 MB"),
     )
-    assert window.module_five_panel.appended_rows == []
+    assert window.module_five_panel.set_rows_payloads == []
 
     MainWindow._handle_audio_run_event(
         window,
         AudioRunEvent(kind="side_completed", row_id=7, side="A", message="Side complete."),
     )
 
-    assert window.module_five_panel.appended_rows == [preview_row]
+    assert window.module_five_panel.set_rows_payloads[-1] == [preview_row]
     assert window._active_emitted_preview_rows == {(7, "A")}
 
 
@@ -330,6 +333,9 @@ def test_handle_audio_run_event_aggregates_parallel_conversion_log_line() -> Non
         def settle_queue_state(self) -> None:
             pass
 
+        def finalize_successful_side(self, _row_id, _side) -> None:
+            pass
+
         def append_log_line(self, line) -> None:
             self.state.current_run_log_lines.append(line)
             appended.append(line)
@@ -347,8 +353,10 @@ def test_handle_audio_run_event_aggregates_parallel_conversion_log_line() -> Non
     window = MainWindow.__new__(MainWindow)
     window.module_four_panel = _ModuleFour()
     window._active_preview_rows_by_side = {}
+    window._active_preview_keys_in_order = []
     window._active_successful_sides_by_row = {}
     window._active_emitted_preview_rows = set()
+    window._active_ready_preview_keys = set()
     window._active_converting_song_keys = set()
     window._active_passthrough_song_count = 0
     window._active_passthrough_logged_count = 0
@@ -372,6 +380,51 @@ def test_handle_audio_run_event_aggregates_parallel_conversion_log_line() -> Non
     assert updates[-1].prefix_text == "Converting:"
     assert updates[-1].subject_text == "2 songs simultaneously"
     assert updates[-1].trailing_text == ""
+
+
+def test_finalize_audio_run_sets_preview_rows_in_planned_order() -> None:
+    window = MainWindow.__new__(MainWindow)
+    module_five = _FakeModuleFivePanel()
+    finalized_sides: list[tuple[int, str]] = []
+    window.module_five_panel = module_five
+    window.module_four_panel = type(
+        "ModuleFour",
+        (),
+        {
+            "append_log_line": lambda _self, _line: None,
+            "settle_queue_state": lambda _self: None,
+            "finalize_successful_side": lambda _self, row_id, side: finalized_sides.append((row_id, side)),
+            "state": type("State", (), {"current_run_log_lines": []})(),
+        },
+    )()
+    first = _generated_preview_row(1, "A", "Singles")
+    second = _generated_preview_row(2, "A", "Gen Mix")
+    window._active_preview_rows_by_side = {(1, "A"): first, (2, "A"): second}
+    window._active_preview_keys_in_order = [(1, "A"), (2, "A")]
+    window._active_build_run_id = "testrun"
+    window._active_build_final_targets = None
+    window._last_export_output_path = ""
+    window._flush_passthrough_song_log = lambda force=False: None
+    window.module_six_panel = type("ModuleSix", (), {"set_stats": lambda _self, _stats: None})()
+    window._snapshot_current_build_log = lambda: None
+    window._refresh_build_summary = lambda: None
+    window._clear_active_build_run_state = lambda: None
+    window.preview_entries = []
+    window._directory_size_text = lambda _path: "0 KB"
+
+    plan = type("Plan", (), {"stats": BuildSummaryStats(planned_media_rows=2, planned_total_sides=2, planned_total_songs=2)})()
+    result = AudioRunResult(
+        output_path="C:/temp/out",
+        successful_sides=[(2, "A"), (1, "A")],
+        built_song_count=2,
+        converted_count=0,
+        mod_size_text="1 KB",
+    )
+
+    MainWindow._finalize_audio_run(window, plan, result)
+
+    assert module_five.set_rows_payloads[-1] == [first, second]
+    assert finalized_sides == [(2, "A"), (1, "A")]
 
 
 def test_finalize_audio_run_aborted_uses_result_size_text_without_directory_scan() -> None:
