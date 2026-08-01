@@ -3618,18 +3618,17 @@ class MainWindow(_DnDCompat, ctk.CTk):
         expanded_widget.set_song_selection_state(self._module_two_song_selection_for_row(source_row_id, selection_side))
 
     def _mark_preview_row_ready(self, row_id: int, side: str) -> None:
-        if self._build_locked:
-            return
         preview_key = (row_id, side)
         if preview_key in self._active_emitted_preview_rows:
             return
         successful_sides = self._active_successful_sides_by_row.get(row_id, set())
-        if side not in successful_sides or not hasattr(self, 'module_five_panel'):
+        module_five_panel = self.__dict__.get('module_five_panel')
+        if side not in successful_sides or module_five_panel is None:
             return
         preview_row = self._active_preview_rows_by_side.get(preview_key)
         if preview_row is None:
             return
-        self.module_five_panel.append_preview_row(preview_row)
+        module_five_panel.append_preview_row(preview_row)
         self._active_emitted_preview_rows.add(preview_key)
 
     def _finalize_audio_run(self, plan, result: AudioRunResult) -> None:

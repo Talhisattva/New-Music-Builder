@@ -10,8 +10,10 @@ from new_music_builder.ui.widgets.scroll_area import ScrollViewport
 
 
 class ModuleFivePanel(tk.Frame):
+    _MODE_HISTORY_VIRTUALIZED = "history_virtualized"
+    _MODE_LIVE_LATEST = "live_latest"
+    _LIVE_VISIBLE_ROWS = 2
     _ROW_OVERSCAN = 2
-    _PREVIEW_FLUSH_DELAY_MS = 240
 
     def __init__(self, parent: tk.Misc) -> None:
         super().__init__(
@@ -24,10 +26,9 @@ class ModuleFivePanel(tk.Frame):
         )
         self.pack_propagate(False)
         self._preview_rows: list[GeneratedPreviewRow] = []
-        self._pending_preview_rows: list[GeneratedPreviewRow] = []
         self._row_widgets: list[ModuleFivePreviewRow] = []
-        self._flush_after_id: str | None = None
         self._export_active = False
+        self._mode = self._MODE_HISTORY_VIRTUALIZED
 
         self.header = tk.Frame(
             self,
@@ -84,54 +85,27 @@ class ModuleFivePanel(tk.Frame):
         self._ensure_row_widget_pool()
 
     def set_preview_rows(self, rows: list[GeneratedPreviewRow]) -> None:
-        self._cancel_pending_flush()
-        self._pending_preview_rows = []
+        self._mode = self._MODE_HISTORY_VIRTUALIZED
         self._preview_rows = deepcopy(rows)
         self._sync_virtual_rows(force_bottom=True)
 
     def append_preview_row(self, row: GeneratedPreviewRow) -> None:
-        self._pending_preview_rows.append(deepcopy(row))
-        self._schedule_pending_flush()
+        self._preview_rows.append(deepcopy(row))
+        self._sync_virtual_rows(force_bottom=True)
 
     def reset_preview_rows(self) -> None:
-        self._cancel_pending_flush()
+        self._mode = self._MODE_HISTORY_VIRTUALIZED
         self._preview_rows = []
-        self._pending_preview_rows = []
         self._sync_virtual_rows(force_bottom=True)
 
     def set_export_active(self, active: bool) -> None:
         if self._export_active == active:
             return
         self._export_active = active
-        if not active:
-            self.flush_pending_preview_rows()
+        self._mode = self._MODE_LIVE_LATEST if active else self._MODE_HISTORY_VIRTUALIZED
+        self.content_scroll.set_view_changed_callback(self._handle_view_changed if not active else None)
         self._refresh_visible_rows()
-
-    def flush_pending_preview_rows(self) -> None:
-        self._cancel_pending_flush()
-        if not self._pending_preview_rows:
-            return
-        self._preview_rows.extend(self._pending_preview_rows)
-        self._pending_preview_rows = []
-        self._sync_virtual_rows(force_bottom=self._export_active)
-
-    def _schedule_pending_flush(self) -> None:
-        if self._flush_after_id is not None:
-            return
-        self._flush_after_id = self.after(self._PREVIEW_FLUSH_DELAY_MS, self._flush_pending_preview_rows)
-
-    def _flush_pending_preview_rows(self) -> None:
-        self._flush_after_id = None
-        self.flush_pending_preview_rows()
-
-    def _cancel_pending_flush(self) -> None:
-        if self._flush_after_id is None:
-            return
-        try:
-            self.after_cancel(self._flush_after_id)
-        except tk.TclError:
-            pass
-        self._flush_after_id = None
+        self._sync_virtual_rows(force_bottom=True)
 
     def _ensure_row_widget_pool(self) -> None:
         target_size = self._target_pool_size()
@@ -153,20 +127,22 @@ class ModuleFivePanel(tk.Frame):
     def _refresh_visible_rows(self) -> None:
         self._ensure_row_widget_pool()
         row_height = spec.PHASE_THREE_MODULE_FIVE_ROW_SIZE[1]
-        scroll_offset = self.content_scroll.current_scroll_offset_pixels()
+        visible_rows = self._active_visible_rows()
+        mode = getattr(self, '_mode', self._MODE_HISTORY_VIRTUALIZED)
+        scroll_offset = 0 if mode == self._MODE_LIVE_LATEST else self.content_scroll.current_scroll_offset_pixels()
         first_index = max(0, scroll_offset // row_height)
         local_offset = scroll_offset % row_height
         visible_count = min(
-            len(self._preview_rows) - first_index if first_index < len(self._preview_rows) else 0,
+            len(visible_rows) - first_index if first_index < len(visible_rows) else 0,
             len(self._row_widgets),
         )
         for pool_index, row_widget in enumerate(self._row_widgets):
             preview_index = first_index + pool_index
-            if pool_index >= visible_count or preview_index >= len(self._preview_rows):
+            if pool_index >= visible_count or preview_index >= len(visible_rows):
                 row_widget.clear_row()
                 row_widget.place_forget()
                 continue
-            row_widget.set_row(self._preview_rows[preview_index], animate_dual_phase=not self._export_active)
+            row_widget.set_row(visible_rows[preview_index], animate_dual_phase=not self._export_active)
             row_widget.place(
                 x=0,
                 y=(pool_index * row_height) - local_offset,
@@ -175,6 +151,8 @@ class ModuleFivePanel(tk.Frame):
             )
 
     def _handle_view_changed(self, _first: float, _last: float) -> None:
+        if self._mode == self._MODE_LIVE_LATEST:
+            return
         self._refresh_visible_rows()
 
     def _target_pool_size(self) -> int:
@@ -186,4 +164,11 @@ class ModuleFivePanel(tk.Frame):
     def _logical_content_height(self) -> int:
         row_height = spec.PHASE_THREE_MODULE_FIVE_ROW_SIZE[1]
         viewport_height = spec.PHASE_THREE_MODULE_FIVE_CONTENT_VIEWPORT_SIZE[1]
-        return max(viewport_height, len(self._preview_rows) * row_height)
+        visible_row_count = len(self._active_visible_rows())
+        return max(viewport_height, visible_row_count * row_height)
+
+    def _active_visible_rows(self) -> list[GeneratedPreviewRow]:
+        mode = getattr(self, '_mode', self._MODE_HISTORY_VIRTUALIZED)
+        if mode == self._MODE_LIVE_LATEST:
+            return self._preview_rows[-self._LIVE_VISIBLE_ROWS:]
+        return self._preview_rows

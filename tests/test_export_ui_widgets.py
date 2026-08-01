@@ -46,6 +46,7 @@ class _FakeScroll:
         self.scroll_to_bottom_calls = 0
         self.refresh_calls = 0
         self.virtual_heights: list[int] = []
+        self.view_changed_callbacks: list[object] = []
 
     def is_near_bottom(self, *, threshold_px: int = 24) -> bool:
         return self.near_bottom
@@ -61,6 +62,9 @@ class _FakeScroll:
 
     def current_scroll_offset_pixels(self) -> int:
         return self.offset
+
+    def set_view_changed_callback(self, callback) -> None:
+        self.view_changed_callbacks.append(callback)
 
 
 class _FakePreviewRowWidget:
@@ -177,22 +181,23 @@ def test_module_four_panel_queue_view_updates_virtual_height_and_offset() -> Non
 def test_module_five_panel_flush_pending_rows_batches_and_virtualizes() -> None:
     panel = ModuleFivePanel.__new__(ModuleFivePanel)
     panel._preview_rows = []
-    panel._pending_preview_rows = [_preview_row("First"), _preview_row("Second"), _preview_row("Third")]
+    panel._pending_preview_rows = []
     panel._row_widgets = [_FakePreviewRowWidget(), _FakePreviewRowWidget(), _FakePreviewRowWidget()]
-    panel._flush_after_id = None
+    panel._mode = ModuleFivePanel._MODE_LIVE_LATEST
     panel._export_active = True
     panel.content_scroll = _FakeScroll(near_bottom=True, offset=0)
-    panel._cancel_pending_flush = lambda: None
     panel._ensure_row_widget_pool = lambda: None
+    panel._preview_rows = [_preview_row("First"), _preview_row("Second"), _preview_row("Third")]
+    panel._active_visible_rows = lambda: panel._preview_rows[-2:]
 
-    ModuleFivePanel.flush_pending_preview_rows(panel)
+    ModuleFivePanel._sync_virtual_rows(panel, force_bottom=True)
 
     assert [row.inventory_cell.label_text for row in panel._preview_rows] == ["First", "Second", "Third"]
-    assert panel._pending_preview_rows == []
     assert panel.content_scroll.virtual_heights[-1] == panel._logical_content_height()
     assert panel.content_scroll.scroll_to_bottom_calls == 1
-    assert [widget.row.inventory_cell.label_text for widget in panel._row_widgets] == ["First", "Second", "Third"]
-    assert all(widget.animate_dual_phase is False for widget in panel._row_widgets)
+    assert [widget.row.inventory_cell.label_text for widget in panel._row_widgets[:2]] == ["Second", "Third"]
+    assert all(widget.animate_dual_phase is False for widget in panel._row_widgets[:2])
+    assert panel._row_widgets[2].row is None
 
 
 def test_module_five_panel_refresh_visible_rows_maps_scroll_window() -> None:
@@ -232,17 +237,48 @@ def test_module_five_panel_refresh_visible_rows_clears_hidden_widgets() -> None:
 
 def test_module_five_panel_set_export_active_flushes_pending_rows_when_deactivating() -> None:
     panel = ModuleFivePanel.__new__(ModuleFivePanel)
-    panel._preview_rows = []
-    panel._pending_preview_rows = [_preview_row("Queued")]
+    panel._preview_rows = [_preview_row("Queued")]
+    panel._pending_preview_rows = []
     panel._row_widgets = [_FakePreviewRowWidget()]
-    panel._flush_after_id = None
+    panel._mode = ModuleFivePanel._MODE_LIVE_LATEST
     panel._export_active = True
     panel.content_scroll = _FakeScroll()
-    panel._cancel_pending_flush = lambda: None
     panel._ensure_row_widget_pool = lambda: None
 
     ModuleFivePanel.set_export_active(panel, False)
 
     assert panel._export_active is False
+    assert panel._mode == ModuleFivePanel._MODE_HISTORY_VIRTUALIZED
     assert [row.inventory_cell.label_text for row in panel._preview_rows] == ["Queued"]
-    assert panel._pending_preview_rows == []
+    assert panel.content_scroll.view_changed_callbacks[-1] == panel._handle_view_changed
+
+
+def test_module_five_panel_live_mode_limits_visible_rows_to_latest_two() -> None:
+    panel = ModuleFivePanel.__new__(ModuleFivePanel)
+    panel._preview_rows = [_preview_row("First"), _preview_row("Second"), _preview_row("Third")]
+    panel._pending_preview_rows = []
+    panel._row_widgets = [_FakePreviewRowWidget(), _FakePreviewRowWidget(), _FakePreviewRowWidget()]
+    panel._mode = ModuleFivePanel._MODE_LIVE_LATEST
+    panel._export_active = True
+    panel.content_scroll = _FakeScroll(offset=0)
+    panel._ensure_row_widget_pool = lambda: None
+
+    ModuleFivePanel._refresh_visible_rows(panel)
+
+    assert [widget.row.inventory_cell.label_text for widget in panel._row_widgets[:2]] == ["Second", "Third"]
+    assert panel._row_widgets[2].row is None
+
+
+def test_module_five_panel_live_mode_uses_bounded_logical_height() -> None:
+    panel = ModuleFivePanel.__new__(ModuleFivePanel)
+    panel._preview_rows = [_preview_row("One"), _preview_row("Two"), _preview_row("Three")]
+    panel._pending_preview_rows = []
+    panel._row_widgets = []
+    panel._mode = ModuleFivePanel._MODE_LIVE_LATEST
+    panel._export_active = True
+    panel.content_scroll = _FakeScroll()
+
+    row_height = spec.PHASE_THREE_MODULE_FIVE_ROW_SIZE[1]
+    viewport_height = spec.PHASE_THREE_MODULE_FIVE_CONTENT_VIEWPORT_SIZE[1]
+
+    assert panel._logical_content_height() == max(viewport_height, row_height * 2)
