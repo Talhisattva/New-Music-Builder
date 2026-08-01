@@ -21,7 +21,10 @@
 - Unified mixed export planning so single-track items and multi-track playlist items can ship in one pack.
 - Restored and cleaned up Module 4 queue identity, ordering, and active-row tracking.
 - Kept Module 5 on the stabilized latest-two live preview flow with full virtualized post-run browsing.
-- Reduced Singles Lua/runtime fan-out by collapsing per-song Lua files into shared per-source-row Singles group files while keeping each single as its own distinct exported item.
+- Replaced Singles album-style runtime registration with a flatter dedicated Singles runtime path so single-track exports no longer pay the same registration cost as Mixtapes.
+- Reduced Singles Lua/runtime fan-out by collapsing per-song Lua files into shared chunked Singles registration files while keeping each single as its own distinct exported item.
+- Reused shared model references pack-wide so identical built-in or shared media appearances no longer generate duplicate world model definitions.
+- Moved export staging out of the live Workshop folder and added cleanup for stale staging artifacts so exports no longer pollute game-scanned mod roots.
 
 ## Notes
 

@@ -51,21 +51,26 @@ local function fullType(moduleName, itemType)
     return moduleText .. "." .. name
 end
 
+local function shortType(itemType)
+    local key = norm(itemType)
+    local dotPos = string.find(key, ".", 1, true)
+    if dotPos then
+        return string.sub(key, dotPos + 1)
+    end
+    return key
+end
+
 local function registerCarrier(mediaFullType, carrier)
-    if mediaFullType == "" or carrier == "" then
+    local short = shortType(mediaFullType)
+    if short == "" or carrier == "" then
         return
     end
     if NMMediaContract and NMMediaContract.registerMediaTypeAlias then
-        NMMediaContract.registerMediaTypeAlias(mediaFullType, carrier)
+        NMMediaContract.registerMediaTypeAlias(short, carrier)
         return
     end
     GlobalMusic = GlobalMusic or {}
-    local key = mediaFullType
-    local dotPos = string.find(key, ".", 1, true)
-    if dotPos then
-        key = string.sub(key, dotPos + 1)
-    end
-    GlobalMusic[key] = carrier
+    GlobalMusic[short] = carrier
 end
 
 local function registerTrack(mediaFullType, carrier, sound, label)

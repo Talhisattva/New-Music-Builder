@@ -429,11 +429,14 @@ def test_write_export_scaffold_groups_singles_lua_tables_into_one_file_per_sourc
     lua_root = Path(targets.v42) / "media" / "lua" / "shared"
     bootstrap_text = (lua_root / "LegacyPack_PackBootstrap.lua").read_text(encoding="utf-8")
     grouped_album_text = (lua_root / "LegacyPack_Album_LegacySingles_Part01.lua").read_text(encoding="utf-8")
+    helper_text = (lua_root / "NMSinglesPackBuilder.lua").read_text(encoding="utf-8")
 
     assert bootstrap_text.count('require "LegacyPack_Album_LegacySingles_Part01"') == 1
     assert 'require "NMSinglesPackBuilder"' in bootstrap_text
     assert 'NMSinglesPackBuilder.registerSinglesPack({' in bootstrap_text
     assert '_nmb_register_single({' not in grouped_album_text
+    assert 'local function shortType(itemType)' in helper_text
+    assert 'NMMediaContract.registerMediaTypeAlias(short, carrier)' in helper_text
     assert 'sound = "LegacyPackKiasmosLooped"' in grouped_album_text
     assert 'cassette = "KiasmosLoopedCassette"' in grouped_album_text
     assert 'cd = "KiasmosLoopedCD"' in grouped_album_text
