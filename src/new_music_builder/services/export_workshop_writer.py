@@ -10,6 +10,7 @@ NEW_MUSIC_BUILDER_WORKSHOP_IMAGE = "https://images.steamusercontent.com/ugc/1007
 
 def build_workshop_txt_lines(project: ProjectConfig, plan: ExportPlan) -> list[str]:
     mod_name = (project.mod_name or "").strip()
+    mixed_modes = _has_mixed_modes(plan)
     lines = [
         "version=1",
         "id=",
@@ -23,7 +24,7 @@ def build_workshop_txt_lines(project: ProjectConfig, plan: ExportPlan) -> list[s
     lines.extend(_render_mode_legend(plan))
 
     first_table = True
-    for title, sections in _ordered_workshop_tables(project, plan):
+    for title, sections in _ordered_workshop_tables(project, plan, mixed_modes=mixed_modes):
         for label, tracks in sections:
             if not first_table:
                 lines.append("description=")
@@ -56,9 +57,7 @@ def _render_support_table() -> list[str]:
 
 
 def _render_mode_legend(plan: ExportPlan) -> list[str]:
-    has_singles = any(row.row_mode == "singles" for row in plan.rows)
-    has_mixtapes = any(row.row_mode == "mixtape" for row in plan.rows)
-    if not (has_singles and has_mixtapes):
+    if not _has_mixed_modes(plan):
         return []
     lines = ["description=[quote]"]
     lines.append("description=[b]Singles[/b]: Each song is its own item.")
@@ -67,39 +66,54 @@ def _render_mode_legend(plan: ExportPlan) -> list[str]:
     return lines
 
 
+def _has_mixed_modes(plan: ExportPlan) -> bool:
+    has_singles = any(row.row_mode == "singles" for row in plan.rows)
+    has_mixtapes = any(row.row_mode == "mixtape" for row in plan.rows)
+    return has_singles and has_mixtapes
+
+
 def _ordered_sides(row: PlannedMediaRow) -> list[PlannedSide]:
     return sorted(row.sides, key=lambda side: 0 if side.side == "A" else 1)
 
 
-def _ordered_workshop_tables(project: ProjectConfig, plan: ExportPlan) -> list[tuple[str, list[tuple[str, list[PlannedTrack]]]]]:
+def _ordered_workshop_tables(
+    project: ProjectConfig,
+    plan: ExportPlan,
+    *,
+    mixed_modes: bool,
+) -> list[tuple[str | None, list[tuple[str, list[PlannedTrack]]]]]:
     rows_by_source_id: dict[int, list[PlannedMediaRow]] = {}
     for planned_row in plan.rows:
         rows_by_source_id.setdefault(planned_row.source_row_id, []).append(planned_row)
 
-    tables: list[tuple[str, list[tuple[str, list[PlannedTrack]]]]] = []
+    tables: list[tuple[str | None, list[tuple[str, list[PlannedTrack]]]]] = []
     for source_row in project.media_rows:
         source_rows = rows_by_source_id.get(source_row.row_id, [])
         if not source_rows:
             continue
         if source_rows[0].row_mode == "singles":
-            tables.append((source_row.media_name, _singles_workshop_sections(source_rows)))
+            tables.append((None, _singles_workshop_sections(source_rows, mixed_modes=mixed_modes)))
             continue
         for planned_row in sorted(source_rows, key=lambda row: row.row_id):
-            tables.append((planned_row.media_name, _row_workshop_sections(planned_row)))
+            tables.append((planned_row.media_name, _row_workshop_sections(planned_row, mixed_modes=mixed_modes)))
     return tables
 
 
-def _singles_workshop_sections(rows: list[PlannedMediaRow]) -> list[tuple[str, list[PlannedTrack]]]:
+def _singles_workshop_sections(rows: list[PlannedMediaRow], *, mixed_modes: bool) -> list[tuple[str, list[PlannedTrack]]]:
     ordered_rows = sorted(rows, key=lambda row: row.row_id)
     tracks = [track for row in ordered_rows for side in _ordered_sides(row) for track in side.tracks]
-    return [("[b]Singles[/b] [i]Single Item[/i]", tracks)]
+    section_label = "[b]Singles[/b]" if mixed_modes else "[b]Singles[/b] [i]Single Item[/i]"
+    return [(section_label, tracks)]
 
 
-def _row_workshop_sections(row: PlannedMediaRow) -> list[tuple[str, list[PlannedTrack]]]:
+def _row_workshop_sections(row: PlannedMediaRow, *, mixed_modes: bool) -> list[tuple[str, list[PlannedTrack]]]:
     sides = _ordered_sides(row)
     mode_label = "[b]Singles[/b]" if row.row_mode == "singles" else "[b]Mixtape[/b]"
     if not _row_has_split_media(row):
-        section_label = f"{mode_label} [i]Single Item[/i]" if row.row_mode == "singles" else f"{mode_label} [b]Full Album[/b]"
+        if mixed_modes:
+            section_label = mode_label
+        else:
+            section_label = f"{mode_label} [i]Single Item[/i]" if row.row_mode == "singles" else f"{mode_label} [b]Full Album[/b]"
         return [(section_label, [track for side in sides for track in side.tracks])]
     return [(f"{mode_label} [b]Side {side.side}[/b]", list(side.tracks)) for side in sides]
 
@@ -113,12 +127,11 @@ def _row_has_split_media(row: PlannedMediaRow) -> bool:
     )
 
 
-def _render_track_table(title: str, section_label: str, tracks: list[PlannedTrack]) -> list[str]:
-    lines = [
-        "description=[table]",
-        f"description=[tr][th]{title}[/th][/tr]",
-        f"description=[tr][td]{section_label}[/td][/tr]",
-    ]
+def _render_track_table(title: str | None, section_label: str, tracks: list[PlannedTrack]) -> list[str]:
+    lines = ["description=[table]"]
+    if title:
+        lines.append(f"description=[tr][th]{title}[/th][/tr]")
+    lines.append(f"description=[tr][td]{section_label}[/td][/tr]")
     for index, track in enumerate(tracks, start=1):
         lines.append(f"description=[tr][td]{index:02d} {track.display_label}[/td][/tr]")
     lines.append("description=[/table]")

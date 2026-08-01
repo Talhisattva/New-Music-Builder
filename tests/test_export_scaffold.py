@@ -736,7 +736,7 @@ def test_write_export_scaffold_uses_singles_legend_and_section_labels_for_single
     assert 'description=[b]Singles[/b]: Each song is its own item.' not in workshop_text
     assert 'description=[b]Mixtape[/b]: Dynamic playlist on one item.' not in workshop_text
     assert 'description=[tr][td][b]Singles[/b] [i]Single Item[/i][/td][/tr]' in workshop_text
-    assert workshop_text.count('description=[tr][th]Legacy Singles[/th][/tr]') == 1
+    assert 'description=[tr][th]Legacy Singles[/th][/tr]' not in workshop_text
     assert workshop_text.find('description=[tr][td]01 Song One[/td][/tr]') < workshop_text.find('description=[tr][td]02 Song Two[/td][/tr]')
 
 
@@ -815,9 +815,11 @@ def test_write_export_scaffold_groups_singles_into_one_table_per_source_row_and_
 
     assert not result.errors
     workshop_text = (Path(targets.root) / 'workshop.txt').read_text(encoding='utf-8')
-    assert workshop_text.count('description=[tr][th]Legacy Singles[/th][/tr]') == 1
-    assert workshop_text.count('description=[tr][td][b]Singles[/b] [i]Single Item[/i][/td][/tr]') == 1
-    assert workshop_text.find('description=[tr][th]Legacy Singles[/th][/tr]') < workshop_text.find('description=[tr][th]Gen Mix[/th][/tr]')
+    assert 'description=[tr][th]Legacy Singles[/th][/tr]' not in workshop_text
+    assert workshop_text.count('description=[tr][td][b]Singles[/b][/td][/tr]') == 1
+    assert workshop_text.find('description=[tr][td][b]Singles[/b][/td][/tr]') < workshop_text.find('description=[tr][th]Gen Mix[/th][/tr]')
+    assert 'description=[tr][td][b]Mixtape[/b][/td][/tr]' in workshop_text
+    assert 'description=[tr][td][b]Mixtape[/b] [b]Full Album[/b][/td][/tr]' not in workshop_text
     assert workshop_text.find('description=[tr][td]01 Kiasmos - Looped[/td][/tr]') < workshop_text.find('description=[tr][td]02 Lemon Jelly - Space Walk[/td][/tr]')
     assert workshop_text.find('description=[tr][td]02 Lemon Jelly - Space Walk[/td][/tr]') < workshop_text.find('description=[tr][td]03 Mimicking Birds - Burning Stars[/td][/tr]')
 
