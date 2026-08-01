@@ -284,6 +284,26 @@ def test_module_four_panel_settle_queue_state_clears_stale_converting_rows() -> 
     assert getattr(panel, "_queue_refresh_scheduled", False) is True
 
 
+def test_module_four_panel_flush_queue_updates_applies_pending_refresh_immediately() -> None:
+    panel = ModuleFourPanel.__new__(ModuleFourPanel)
+    panel.state = SimpleNamespace(
+        ordered_groups=[SimpleNamespace(row_id=7, side="A", songs=[])],
+        active_group_index=None,
+        active_song_index=None,
+        current_run_log_lines=[],
+    )
+    panel.queue_table = _FakeQueueTable()
+    panel.queue_scroll = _FakeScroll()
+    panel._queue_refresh_after_id = "after#1"
+    flushed: list[bool] = []
+    panel._flush_pending_queue_refresh = lambda: flushed.append(True)
+    panel._refresh_queue_view = lambda: (_ for _ in ()).throw(AssertionError("direct refresh should not run when pending flush exists"))
+
+    ModuleFourPanel.flush_queue_updates(panel)
+
+    assert flushed == [True]
+
+
 def test_module_four_panel_queue_view_updates_virtual_height_and_offset() -> None:
     panel = ModuleFourPanel.__new__(ModuleFourPanel)
     panel.state = SimpleNamespace(ordered_groups=[], current_run_log_lines=[], active_group_index=None, active_song_index=None)

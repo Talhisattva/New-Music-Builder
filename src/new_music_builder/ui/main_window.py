@@ -3772,6 +3772,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self.module_six_panel.set_stats(stats)
         if hasattr(self, 'module_four_panel'):
             self.module_four_panel.settle_queue_state()
+            if hasattr(self.module_four_panel, 'flush_queue_updates'):
+                self.module_four_panel.flush_queue_updates()
         self._snapshot_current_build_log()
         self.preview_entries = [f"{row.inventory_cell.label_text}" for row in preview_rows]
         self._refresh_build_summary()

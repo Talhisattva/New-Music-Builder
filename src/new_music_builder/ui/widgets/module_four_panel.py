@@ -198,6 +198,13 @@ class ModuleFourPanel(tk.Frame):
                 self._schedule_queue_refresh()
             return
 
+    def flush_queue_updates(self) -> None:
+        if self._queue_refresh_after_id is not None:
+            self._flush_pending_queue_refresh()
+            return
+        self.queue_table.set_groups(self.state.ordered_groups)
+        self._refresh_queue_view()
+
     def set_output_path(self, path: str) -> None:
         self.state.output_path = path
 
