@@ -47,8 +47,7 @@ class ModuleFivePreviewRow(tk.Canvas):
 
     def set_row(self, row: GeneratedPreviewRow) -> None:
         self._row = row
-        self._cancel_dual_phase()
-        self._show_empty = False
+        self._restart_dual_phase()
         self._redraw()
 
     def destroy(self) -> None:

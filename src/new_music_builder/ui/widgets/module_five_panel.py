@@ -76,23 +76,17 @@ class ModuleFivePanel(tk.Frame):
 
     def set_preview_rows(self, rows: list[GeneratedPreviewRow]) -> None:
         self._preview_rows = deepcopy(rows)
-        self._refresh_rows(force_bottom=True)
+        self._refresh_rows()
 
     def append_preview_row(self, row: GeneratedPreviewRow) -> None:
-        row_copy = deepcopy(row)
-        self._preview_rows.append(row_copy)
-        row_widget = ModuleFivePreviewRow(self.content_scroll.content_frame)
-        row_widget.set_row(row_copy)
-        row_widget.pack(anchor='nw')
-        self._row_widgets.append(row_widget)
-        self.content_scroll.refresh_scroll_region()
-        self.content_scroll.scroll_to_bottom()
+        self._preview_rows.append(deepcopy(row))
+        self._refresh_rows()
 
     def reset_preview_rows(self) -> None:
         self._preview_rows = []
-        self._refresh_rows(force_bottom=True)
+        self._refresh_rows()
 
-    def _refresh_rows(self, *, force_bottom: bool) -> None:
+    def _refresh_rows(self) -> None:
         for widget in self._row_widgets:
             widget.destroy()
         self._row_widgets.clear()
@@ -104,5 +98,4 @@ class ModuleFivePanel(tk.Frame):
             self._row_widgets.append(row_widget)
 
         self.content_scroll.refresh_scroll_region()
-        if force_bottom:
-            self.content_scroll.scroll_to_bottom()
+        self.content_scroll.scroll_to_bottom()

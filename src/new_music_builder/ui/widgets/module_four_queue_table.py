@@ -64,27 +64,17 @@ class ModuleFourQueueTable(tk.Canvas):
         self._converting_icon = self._load_icon(converting_icon_path)
         self._queued_icon = self._load_icon(queued_icon_path)
         self._last_song_column_width = self._column_widths[1]
-        self._viewport_height = spec.PHASE_THREE_MODULE_FOUR_QUEUE_VIEWPORT_SIZE[1]
-        self._scroll_offset = 0
-        self._row_overscan = 2
         self.redraw()
 
     def resize(self, width: int) -> None:
         extra_width = max(0, width - spec.PHASE_THREE_MODULE_FOUR_QUEUE_VIEWPORT_SIZE[0])
         columns = list(self._base_column_widths)
         columns[1] = self._base_column_widths[1] + extra_width
-        if columns[1] == self._last_song_column_width and self._viewport_height == spec.PHASE_THREE_MODULE_FOUR_QUEUE_VIEWPORT_SIZE[1]:
+        if columns[1] == self._last_song_column_width:
             return
         self._column_widths = tuple(columns)
         self._width = sum(self._column_widths)
         self._last_song_column_width = columns[1]
-        self.redraw()
-
-    def set_viewport_height(self, viewport_height: int) -> None:
-        resolved = max(self._header_height + self._row_height, int(viewport_height))
-        if resolved == self._viewport_height:
-            return
-        self._viewport_height = resolved
         self.redraw()
 
     def _load_icon(self, path: str | None) -> ImageTk.PhotoImage | None:
@@ -92,14 +82,6 @@ class ModuleFourQueueTable(tk.Canvas):
 
     def set_groups(self, groups: list[ConversionSideGroup]) -> None:
         self._groups = list(groups)
-        self.redraw()
-
-    def set_scroll_offset(self, scroll_offset: int) -> None:
-        max_offset = max(0, self.logical_content_height() - self._viewport_height)
-        clamped = max(0, min(max_offset, int(scroll_offset)))
-        if clamped == self._scroll_offset:
-            return
-        self._scroll_offset = clamped
         self.redraw()
 
     def append_group(self, group: ConversionSideGroup) -> None:
@@ -123,10 +105,6 @@ class ModuleFourQueueTable(tk.Canvas):
         self.redraw()
 
     def table_height(self) -> int:
-        visible_body_height = max(self._min_height - self._header_height, self._viewport_height - self._header_height)
-        return self._header_height + visible_body_height
-
-    def logical_content_height(self) -> int:
         total_song_rows = sum(len(group.songs) for group in self._groups)
         body_height = total_song_rows * self._row_height
         return max(self._min_height, self._header_height + body_height)
@@ -174,9 +152,7 @@ class ModuleFourQueueTable(tk.Canvas):
             current_x += width
 
     def _draw_groups(self, canvas_height: int) -> None:
-        visible_body_top = self._scroll_offset
-        visible_body_bottom = visible_body_top + max(0, canvas_height - self._header_height)
-        body_y = 0
+        body_y = self._header_height
         for group_index, group in enumerate(self._groups):
             song_count = len(group.songs)
             if song_count <= 0:
@@ -185,21 +161,14 @@ class ModuleFourQueueTable(tk.Canvas):
             row_count = song_count
             group_height = row_count * self._row_height
             group_bottom = body_y + group_height
-            if group_bottom < visible_body_top:
-                body_y = group_bottom
-                continue
-            if body_y > visible_body_bottom:
-                break
             group_fill = self._group_fill(group_index)
-            top_y = self._body_y_from_logical(body_y)
-            bottom_y = self._body_y_from_logical(group_bottom)
-            self.create_rectangle(0, top_y, self._width, bottom_y, outline='', fill=group_fill)
-            self.create_rectangle(0, top_y, self._column_widths[0], bottom_y, outline='', fill=group_fill)
+            self.create_rectangle(0, body_y, self._width, group_bottom, outline='', fill=group_fill)
+            self.create_rectangle(0, body_y, self._column_widths[0], group_bottom, outline='', fill=group_fill)
             self.create_rectangle(
                 0,
-                top_y,
+                body_y,
                 self._column_widths[0],
-                top_y + 1,
+                body_y + 1,
                 outline='',
                 fill=self._divider_color,
             )
@@ -211,10 +180,7 @@ class ModuleFourQueueTable(tk.Canvas):
                 self._column_widths[0] - 10,
                 font=self._media_font,
             )
-            media_center_y = max(
-                top_y + (self._row_height / 2),
-                min(bottom_y - (self._row_height / 2), self._body_y_from_logical(body_y + (group_height / 2))),
-            )
+            media_center_y = body_y + (self._row_height / 2)
 
             self.create_text(
                 media_center_x,
@@ -225,11 +191,8 @@ class ModuleFourQueueTable(tk.Canvas):
                 anchor='c',
             )
 
-            first_row = max(0, (visible_body_top - body_y) // self._row_height)
-            last_row = min(row_count, ((visible_body_bottom - body_y + self._row_height - 1) // self._row_height) + self._row_overscan)
-            for row_index in range(first_row, last_row):
-                row_top_logical = body_y + (row_index * self._row_height)
-                row_top = self._body_y_from_logical(row_top_logical)
+            for row_index in range(row_count):
+                row_top = body_y + (row_index * self._row_height)
                 row_center_y = row_top + (self._row_height / 2)
                 if row_index > 0:
                     self.create_rectangle(
@@ -248,19 +211,18 @@ class ModuleFourQueueTable(tk.Canvas):
 
             self.create_rectangle(
                 0,
-                bottom_y - 1,
+                group_bottom - 1,
                 self._width,
-                bottom_y,
+                group_bottom,
                 outline='',
                 fill=self._divider_color,
             )
             body_y = group_bottom
 
-        body_bottom_y = self._body_y_from_logical(body_y)
-        if body_bottom_y < canvas_height:
+        if body_y < canvas_height:
             self.create_rectangle(
                 0,
-                max(self._header_height, body_bottom_y),
+                body_y,
                 self._width,
                 canvas_height,
                 outline='',
@@ -394,9 +356,6 @@ class ModuleFourQueueTable(tk.Canvas):
             if group_index % 2 == 0
             else spec.PHASE_THREE_MODULE_FOUR_QUEUE_ROW_BG_EVEN
         )
-
-    def _body_y_from_logical(self, logical_y: float) -> float:
-        return self._header_height + logical_y - self._scroll_offset
 
     def _rounded_percent(self, percent: int) -> int:
         bounded = max(0, min(100, percent))

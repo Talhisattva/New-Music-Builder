@@ -30,8 +30,6 @@ class ModuleFourPanel(tk.Frame):
         self.pack_propagate(False)
         self.state = ExportRunState()
         self._run_counter = 0
-        self._queue_autoscroll = True
-        self._log_autoscroll = True
 
         self.queue_scroll = ScrollViewport(
             self,
@@ -50,9 +48,6 @@ class ModuleFourPanel(tk.Frame):
             queued_icon_path=status_queued_icon_path,
         )
         self.queue_table.pack(anchor='nw')
-        self.queue_scroll.set_view_changed_callback(self._handle_queue_view_changed)
-        self.queue_scroll.set_virtual_content_height(self.queue_table.logical_content_height())
-        self.queue_table.set_viewport_height(spec.PHASE_THREE_MODULE_FOUR_QUEUE_VIEWPORT_SIZE[1])
 
         self.log_scroll = ScrollViewport(
             self,
@@ -70,7 +65,7 @@ class ModuleFourPanel(tk.Frame):
         self.log_view = ModuleFourLogView(self.log_scroll.content_frame)
         self.log_view.pack(anchor='nw')
         self._last_width = spec.PHASE_THREE_MODULE_FOUR_SIZE[0]
-        self._refresh_views(force=True)
+        self._refresh_views()
 
     def resize(self, width: int) -> None:
         if self._last_width == width:
@@ -84,9 +79,6 @@ class ModuleFourPanel(tk.Frame):
             scrollbar_size=spec.PHASE_THREE_MODULE_FOUR_QUEUE_SCROLLBAR_SIZE,
         )
         self.queue_table.resize(queue_viewport_width)
-        self.queue_table.set_viewport_height(spec.PHASE_THREE_MODULE_FOUR_QUEUE_VIEWPORT_SIZE[1])
-        self.queue_scroll.set_virtual_content_height(self.queue_table.logical_content_height())
-        self._sync_queue_scroll_offset()
 
         log_viewport_width = max(1, width - spec.PHASE_THREE_MODULE_FOUR_LOG_SCROLLBAR_SIZE[0])
         self.log_scroll.resize(
@@ -104,24 +96,17 @@ class ModuleFourPanel(tk.Frame):
 
     def set_queue_groups(self, groups: list[ConversionSideGroup]) -> None:
         self.state.ordered_groups = deepcopy(groups)
-        self._queue_autoscroll = True
-        self.queue_table.set_groups(self.state.ordered_groups)
-        self._refresh_queue_view(force_bottom=True)
+        self._refresh_views()
 
     def append_queue_group(self, group: ConversionSideGroup) -> None:
-        self._queue_autoscroll = self.queue_scroll.is_near_bottom()
-        group_copy = deepcopy(group)
-        self.state.ordered_groups.append(group_copy)
-        self.queue_table.append_group(group_copy)
-        self._refresh_queue_view(force_bottom=self._queue_autoscroll)
+        self.state.ordered_groups.append(deepcopy(group))
+        self._refresh_views()
 
     def append_song_to_group(self, row_id: int, side: str, song) -> None:
-        self._queue_autoscroll = self.queue_scroll.is_near_bottom()
         for group in self.state.ordered_groups:
             if group.row_id == row_id and group.side == side:
                 group.songs.append(deepcopy(song))
-                self.queue_table.set_groups(self.state.ordered_groups)
-                self._refresh_queue_view(force_bottom=self._queue_autoscroll)
+                self._refresh_views()
                 return
 
     def update_song_progress(self, row_id: int, side: str, song_index: int, percent: int, status: str, size_label: str) -> None:
@@ -135,8 +120,7 @@ class ModuleFourPanel(tk.Frame):
                 song.size_label = size_label
                 self.state.active_group_index = group_index
                 self.state.active_song_index = song_index
-                self.queue_table.update_song_progress(row_id, side, song_index, percent, status, size_label)
-                self._refresh_queue_view(force_bottom=False)
+                self._refresh_views()
             return
 
     def set_output_path(self, path: str) -> None:
@@ -144,26 +128,18 @@ class ModuleFourPanel(tk.Frame):
 
     def set_log_lines(self, lines: list[ExportLogLine]) -> None:
         self.state.current_run_log_lines = deepcopy(lines)
-        self._log_autoscroll = True
-        self.log_view.set_lines(self.state.current_run_log_lines)
-        self._refresh_log_view(force_bottom=True)
+        self._refresh_views()
 
     def append_log_line(self, line: ExportLogLine) -> None:
-        self._log_autoscroll = self.log_scroll.is_near_bottom()
-        line_copy = deepcopy(line)
-        self.state.current_run_log_lines.append(line_copy)
-        self.log_view.append_line(line_copy)
-        self._refresh_log_view(force_bottom=self._log_autoscroll)
+        self.state.current_run_log_lines.append(deepcopy(line))
+        self._refresh_views()
 
     def update_active_log_line(self, line: ExportLogLine) -> None:
-        self._log_autoscroll = self.log_scroll.is_near_bottom()
-        line_copy = deepcopy(line)
         if self.state.current_run_log_lines:
-            self.state.current_run_log_lines[-1] = line_copy
+            self.state.current_run_log_lines[-1] = deepcopy(line)
         else:
-            self.state.current_run_log_lines.append(line_copy)
-        self.log_view.update_active_line(line_copy)
-        self._refresh_log_view(force_bottom=self._log_autoscroll)
+            self.state.current_run_log_lines.append(deepcopy(line))
+        self._refresh_views()
 
     def finalize_active_log_line(self, line: ExportLogLine) -> None:
         self.update_active_log_line(line)
@@ -185,32 +161,10 @@ class ModuleFourPanel(tk.Frame):
         self.state.active_song_index = None
         self.state.current_run_log_lines = []
         self.state.output_path = ""
-        self._queue_autoscroll = True
-        self._log_autoscroll = True
-        self._refresh_views(force=True)
+        self._refresh_views()
 
-    def _refresh_views(self, *, force: bool = False) -> None:
-        if force:
-            self.queue_table.set_groups(self.state.ordered_groups)
-            self.log_view.set_lines(self.state.current_run_log_lines)
-        self._refresh_queue_view(force_bottom=self._queue_autoscroll)
-        self._refresh_log_view(force_bottom=self._log_autoscroll)
-
-    def _refresh_queue_view(self, *, force_bottom: bool) -> None:
-        self.queue_scroll.set_virtual_content_height(self.queue_table.logical_content_height())
-        self._sync_queue_scroll_offset()
-        if force_bottom:
-            self.queue_scroll.scroll_to_bottom()
-        else:
-            self.queue_scroll.refresh_scroll_region()
-
-    def _refresh_log_view(self, *, force_bottom: bool) -> None:
-        self.log_scroll.refresh_scroll_region()
-        if force_bottom:
-            self.log_scroll.scroll_to_bottom()
-
-    def _handle_queue_view_changed(self, _first: float, _last: float) -> None:
-        self._sync_queue_scroll_offset()
-
-    def _sync_queue_scroll_offset(self) -> None:
-        self.queue_table.set_scroll_offset(self.queue_scroll.current_scroll_offset_pixels())
+    def _refresh_views(self) -> None:
+        self.queue_table.set_groups(self.state.ordered_groups)
+        self.log_view.set_lines(self.state.current_run_log_lines)
+        self.queue_scroll.scroll_to_bottom()
+        self.log_scroll.scroll_to_bottom()

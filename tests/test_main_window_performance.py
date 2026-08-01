@@ -262,7 +262,7 @@ def test_sync_converted_song_ogg_link_uses_project_legacy_mode_for_source_tracks
     assert row_widget.song_selection_states == [{0}]
 
 
-def test_handle_audio_run_event_appends_preview_row_when_side_starts() -> None:
+def test_handle_audio_run_event_appends_preview_row_when_side_completes_after_success() -> None:
     window = MainWindow.__new__(MainWindow)
     window.module_four_panel = type(
         "ModuleFour",
@@ -270,17 +270,27 @@ def test_handle_audio_run_event_appends_preview_row_when_side_starts() -> None:
         {
             "state": type("State", (), {"current_run_log_lines": []})(),
             "append_queue_group": lambda _self, _group: None,
+            "update_song_progress": lambda _self, *_args: None,
+            "finalize_active_log_line": lambda _self, _line: None,
             "append_log_line": lambda _self, _line: None,
         },
     )()
     window.module_five_panel = _FakeModuleFivePanel()
     preview_row = _generated_preview_row(7, "A", "Alpha Side")
     window._active_preview_rows_by_side = {(7, "A"): preview_row}
+    window._active_successful_sides_by_row = {}
     window._active_emitted_preview_rows = set()
+    window._sync_converted_song_ogg_link = lambda _event: None
 
     MainWindow._handle_audio_run_event(
         window,
-        AudioRunEvent(kind="side_started", row_id=7, side="A", message="Starting A-Side"),
+        AudioRunEvent(kind="song_succeeded", row_id=7, side="A", song_index=0, display_label="Alpha Side", size_text="1.0 MB"),
+    )
+    assert window.module_five_panel.appended_rows == []
+
+    MainWindow._handle_audio_run_event(
+        window,
+        AudioRunEvent(kind="side_completed", row_id=7, side="A", message="Side complete."),
     )
 
     assert window.module_five_panel.appended_rows == [preview_row]
