@@ -589,6 +589,12 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._build_abort_requested = True
         if self._build_abort_event is not None:
             self._build_abort_event.set()
+        if self._build_event_queue is not None:
+            try:
+                while True:
+                    self._build_event_queue.get_nowait()
+            except queue.Empty:
+                pass
         if hasattr(self, 'module_four_panel'):
             self.module_four_panel.append_log_line(
                 ExportLogLine(
