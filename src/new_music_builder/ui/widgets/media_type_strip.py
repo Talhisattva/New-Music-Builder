@@ -27,6 +27,7 @@ class MediaTypeStrip(tk.Frame):
         resolve_media_strip_path: Callable[[MediaRow, MediaKind, PreviewMode], str | None] | None = None,
         on_enabled_media_changed: Callable[[MediaKind, bool], None] | None = None,
         on_media_mode_changed: Callable[[MediaKind, RegistrationMode], None] | None = None,
+        legacy_mode_enabled_getter: Callable[[], bool] | None = None,
     ) -> None:
         resolved_bg = bg_color if bg_color is not None else parent.cget('bg')
         size = spec.MEDIA_ROW_MEDIA_STRIP_EXPANDED_SIZE if expanded else spec.MEDIA_ROW_MEDIA_STRIP_COLLAPSED_SIZE
@@ -48,6 +49,7 @@ class MediaTypeStrip(tk.Frame):
         self._resolve_media_strip_path = resolve_media_strip_path
         self._on_enabled_media_changed = on_enabled_media_changed
         self._on_media_mode_changed = on_media_mode_changed
+        self._legacy_mode_enabled_getter = legacy_mode_enabled_getter
         self._enabled = True
         self._icon_images: dict[tuple[object, ...], tk.PhotoImage | None] = {}
         self.icon_frames: dict[MediaKind, tk.Frame] = {}
@@ -104,7 +106,7 @@ class MediaTypeStrip(tk.Frame):
             self._on_enabled_media_changed(kind, checked)
 
     def _on_overlay_clicked(self, kind: MediaKind) -> str:
-        if not self._enabled:
+        if not self._enabled or self._legacy_mode_enabled():
             return 'break'
         current_mode = self._row.media_modes.get(kind, 'split')
         next_mode: RegistrationMode = 'single' if current_mode == 'split' else 'split'
@@ -137,7 +139,7 @@ class MediaTypeStrip(tk.Frame):
                 image = self._image_for_kind(kind, mode)
                 label.configure(image=image if image is not None else '')
                 label.image = image
-                label.configure(cursor='hand2' if self._enabled else 'arrow')
+                label.configure(cursor='hand2' if self._enabled and not self._legacy_mode_enabled() else 'arrow')
                 label.place(relx=0.5, rely=0.5, anchor='center')
             else:
                 label.configure(image='')
@@ -170,6 +172,8 @@ class MediaTypeStrip(tk.Frame):
         return 'world' if self._row.preview_mode == 'world' else 'inventory'
 
     def _overlay_path_for_kind(self, kind: MediaKind) -> str | None:
+        if self._legacy_mode_enabled():
+            return None
         return self._single_side_icon_path if self._row.media_modes.get(kind, 'split') == 'single' else self._double_side_icon_path
 
     def collapsed_tooltip_widgets_for_kind(self, kind: MediaKind) -> tuple[tk.Misc, ...]:
@@ -181,9 +185,12 @@ class MediaTypeStrip(tk.Frame):
         return (self.checkboxes[kind],)
 
     def mode_toggle_tooltip_widgets_for_kind(self, kind: MediaKind) -> tuple[tk.Misc, ...]:
-        if kind not in self.icon_labels:
+        if self._legacy_mode_enabled() or kind not in self.icon_labels:
             return ()
         return (self.icon_labels[kind],)
+
+    def _legacy_mode_enabled(self) -> bool:
+        return bool(self._legacy_mode_enabled_getter()) if self._legacy_mode_enabled_getter is not None else False
 
     def set_row(self, row: MediaRow) -> None:
         self._row = row

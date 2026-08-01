@@ -83,7 +83,7 @@ def run_audio_export(
                             display_label=item.display_label,
                             percent=percent,
                             message=message,
-                            size_text=_format_size_text(cache_path.stat().st_size) if cache_path.exists() else "",
+                            size_text="",
                         ),
                         cancel_requested=cancel_requested,
                     )
@@ -104,9 +104,10 @@ def run_audio_export(
                         display_label=item.display_label,
                         percent=percent,
                         message=message,
-                        size_text=_format_size_text(export_source_path.stat().st_size) if export_source_path.exists() else "",
+                        size_text="",
                     ),
                     progress_message="Copying exported song...",
+                    emit_every_percent=25 if item.action == "copy_ogg" else 10,
                 )
                 size_text = _format_size_text(target_path.stat().st_size)
                 result.built_song_count += 1

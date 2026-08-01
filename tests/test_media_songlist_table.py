@@ -14,6 +14,7 @@ def _build_table() -> MediaSonglistTable:
     table._min_row_count = spec.MEDIA_ROW_SONGLIST_TABLE_MIN_ROWS
     table._column_widths = spec.MEDIA_ROW_SONGLIST_TABLE_COLUMN_WIDTHS
     table._width = sum(spec.MEDIA_ROW_SONGLIST_TABLE_COLUMN_WIDTHS)
+    table._viewport_height = spec.MEDIA_ROW_SONGLIST_TABLE_SIZE[1]
     table._tracks = [
         TrackEntry(source_path="a.ogg", display_label="Alpha", duration="00:10"),
         TrackEntry(source_path="b.ogg", display_label="Beta", duration="00:20"),
@@ -29,6 +30,9 @@ def _build_table() -> MediaSonglistTable:
     table._drag_overlay_indices = []
     table._drag_overlay_cursor_y = None
     table._drag_overlay_anchor_offset_y = 0
+    table._scroll_offset = 0
+    table._row_overscan = 2
+    table._truncate_cache = {}
     table._on_track_selected = None
     table._on_track_remove_requested = None
     table._on_header_sort_requested = None
@@ -94,3 +98,50 @@ def test_song_table_remove_column_does_not_select_row() -> None:
 
     assert selections == []
     assert removed == [0]
+
+
+def test_song_table_visible_row_bounds_limit_render_window() -> None:
+    table = _build_table()
+    table._tracks = [TrackEntry(source_path=f"{index}.ogg", display_label=f"Track {index}", duration="00:10") for index in range(200)]
+    table._scroll_offset = 50 * table._row_height
+
+    start, end = table._visible_row_bounds(real_tracks_only=True)
+
+    assert start <= 50 <= end
+    assert start >= 45
+    assert end <= 62
+
+
+def test_song_table_track_index_and_insertion_mapping_use_scroll_offset() -> None:
+    table = _build_table()
+    table._tracks = [TrackEntry(source_path=f"{index}.ogg", display_label=f"Track {index}", duration="00:10") for index in range(200)]
+    table._scroll_offset = 120 * table._row_height
+    local_row_y = table._header_height + (table._row_height // 2)
+
+    assert table._track_index_at(local_row_y) == 120
+    assert table.insertion_index_at_canvas_y(local_row_y) == 120
+
+
+def test_song_table_logical_content_height_scales_with_track_count() -> None:
+    table = _build_table()
+    table._tracks = [TrackEntry(source_path=f"{index}.ogg", display_label=f"Track {index}", duration="00:10") for index in range(200)]
+
+    assert table.logical_content_height() == table._header_height + (200 * table._row_height)
+
+
+def test_song_table_truncate_text_uses_cache() -> None:
+    table = _build_table()
+    measured: list[str] = []
+
+    class _FakeFont:
+        def measure(self, text: str) -> int:
+            measured.append(text)
+            return len(text) * 10
+
+    table._row_font = _FakeFont()
+
+    first = table._truncate_text("Very Long Song Name", 50)
+    second = table._truncate_text("Very Long Song Name", 50)
+
+    assert first == second
+    assert measured.count("Very Long Song Name") == 1

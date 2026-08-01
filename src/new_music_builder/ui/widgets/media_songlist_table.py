@@ -96,6 +96,9 @@ class MediaSonglistTable(tk.Canvas):
         self._table_check_icon_image = self._load_icon(table_check_icon_path)
         self._preview_audio_icon_image = self._load_icon(preview_audio_icon_path)
         self._last_resized_width = self._width
+        self._scroll_offset = 0
+        self._row_overscan = 2
+        self._truncate_cache: dict[tuple[str, int], str] = {}
         self._bind_interactions()
         self.redraw()
 
@@ -121,23 +124,35 @@ class MediaSonglistTable(tk.Canvas):
 
     def visible_row_count(self) -> int:
         available_body_height = max(0, self._viewport_height - self._header_height)
-        rows_for_viewport = max(
+        return max(
             self._min_row_count,
             (available_body_height + self._row_height - 1) // self._row_height,
         )
-        return max(rows_for_viewport, len(self._tracks))
 
     def table_height(self) -> int:
         return self._header_height + (self.visible_row_count() * self._row_height)
 
+    def logical_content_height(self) -> int:
+        logical_rows = max(self._min_row_count, len(self._tracks))
+        return self._header_height + (logical_rows * self._row_height)
+
     def set_tracks(self, tracks: list[TrackEntry]) -> None:
         self._tracks = list(tracks)
+        self._truncate_cache.clear()
         self._selected_indices = {index for index in self._selected_indices if index < len(self._tracks)}
         self._drag_overlay_indices = [index for index in self._drag_overlay_indices if index < len(self._tracks)]
         if self._hover_index is not None and self._hover_index >= len(self._tracks):
             self._hover_index = None
         if self._insertion_index is not None:
             self._insertion_index = max(0, min(len(self._tracks), self._insertion_index))
+        self.redraw()
+
+    def set_scroll_offset(self, scroll_offset: int) -> None:
+        max_offset = max(0, self.logical_content_height() - self._viewport_height)
+        clamped_offset = max(0, min(max_offset, int(scroll_offset)))
+        if clamped_offset == self._scroll_offset:
+            return
+        self._scroll_offset = clamped_offset
         self.redraw()
 
     def set_selection_state(self, selected_indices: set[int]) -> None:
@@ -203,7 +218,7 @@ class MediaSonglistTable(tk.Canvas):
             return None
         if y <= self._header_height:
             return 0
-        relative_y = y - self._header_height
+        relative_y = max(0, y - self._header_height) + self._scroll_offset
         for boundary_index in range(len(self._tracks) + 1):
             boundary_y = boundary_index * self._row_height
             if relative_y < boundary_y + (self._row_height / 2):
@@ -216,11 +231,28 @@ class MediaSonglistTable(tk.Canvas):
         self.configure(height=height, width=self._width)
         self._draw_background(height)
         self._draw_insertion_line()
-        self._draw_header_content()
         self._draw_track_rows()
         self._draw_drag_overlay()
+        self._draw_header_overlay()
 
     def _draw_background(self, height: int) -> None:
+        visible_row_start, visible_row_end = self._visible_row_bounds()
+        for row_index in range(visible_row_start, visible_row_end):
+            row_top = self._row_top_for_index(row_index)
+            row_bottom = row_top + self._row_height
+            self.create_rectangle(0, row_top, self._width, row_bottom, outline='', fill=self._row_fill(row_index))
+
+        column_x = 0
+        for width in self._column_widths[:-1]:
+            column_x += width
+            self.create_rectangle(column_x, 0, column_x + self._divider_width, height, outline='', fill=self._divider_color)
+
+        self.create_rectangle(0, self._header_height, self._width, self._header_height + self._divider_width, outline='', fill=self._divider_color)
+        for row_index in range(max(1, visible_row_start), visible_row_end):
+            row_divider_y = self._row_top_for_index(row_index)
+            self.create_rectangle(0, row_divider_y, self._width, row_divider_y + self._divider_width, outline='', fill=self._divider_color)
+
+    def _draw_header_overlay(self) -> None:
         self.create_rectangle(0, 0, self._width, self._header_height, outline='', fill=spec.MEDIA_ROW_SONGLIST_TABLE_HEADER_BG)
         hovered_column = self._hover_header_column
         if hovered_column in self._sortable_header_columns():
@@ -233,26 +265,33 @@ class MediaSonglistTable(tk.Canvas):
                 outline='',
                 fill=spec.MEDIA_ROW_SONGLIST_TABLE_HEADER_HOVER_BG,
             )
-        body_y = self._header_height
-        for row_index in range(self.visible_row_count()):
-            row_top = body_y + (row_index * self._row_height)
-            row_bottom = row_top + self._row_height
-            self.create_rectangle(0, row_top, self._width, row_bottom, outline='', fill=self._row_fill(row_index))
-
         column_x = 0
         for width in self._column_widths[:-1]:
             column_x += width
-            self.create_rectangle(column_x, 0, column_x + self._divider_width, height, outline='', fill=self._divider_color)
-
-        self.create_rectangle(0, self._header_height, self._width, self._header_height + self._divider_width, outline='', fill=self._divider_color)
-        for row_index in range(1, self.visible_row_count()):
-            row_divider_y = self._header_height + (row_index * self._row_height)
-            self.create_rectangle(0, row_divider_y, self._width, row_divider_y + self._divider_width, outline='', fill=self._divider_color)
+            self.create_rectangle(
+                column_x,
+                0,
+                column_x + self._divider_width,
+                self._header_height,
+                outline='',
+                fill=self._divider_color,
+            )
+        self.create_rectangle(
+            0,
+            self._header_height,
+            self._width,
+            self._header_height + self._divider_width,
+            outline='',
+            fill=self._divider_color,
+        )
+        self._draw_header_content()
 
     def _draw_insertion_line(self) -> None:
         if self._insertion_index is None or not self._tracks:
             return
-        y = self._header_height + (self._insertion_index * self._row_height)
+        y = self._row_top_for_index(self._insertion_index)
+        if y > self.table_height() or y + spec.MEDIA_ROW_SONGLIST_DRAG_INSERT_WIDTH < self._header_height:
+            return
         self.create_rectangle(0, y, self._width, y + spec.MEDIA_ROW_SONGLIST_DRAG_INSERT_WIDTH, outline='', fill=spec.MEDIA_ROW_SONGLIST_DRAG_INSERT_COLOR)
 
     def _draw_drag_overlay(self) -> None:
@@ -312,8 +351,10 @@ class MediaSonglistTable(tk.Canvas):
         self.create_image(center_x, center_y, image=self._ear_icon_image, anchor='c')
 
     def _draw_track_rows(self) -> None:
-        for row_index, track in enumerate(self._tracks):
-            row_top = self._header_height + (row_index * self._row_height)
+        visible_row_start, visible_row_end = self._visible_row_bounds(real_tracks_only=True)
+        for row_index in range(visible_row_start, visible_row_end):
+            track = self._tracks[row_index]
+            row_top = self._row_top_for_index(row_index)
             row_center_y = row_top + (self._row_height / 2)
             self._draw_grab_icon(row_center_y)
             self._draw_ogg_status(track, row_center_y)
@@ -354,13 +395,20 @@ class MediaSonglistTable(tk.Canvas):
         self.create_text(column_left + 6, row_center_y, text=text, fill=spec.MEDIA_ROW_SONGLIST_TABLE_ROW_TEXT_COLOR, font=self._row_font, anchor='w')
 
     def _truncate_text(self, text: str, max_width: int) -> str:
+        cache_key = (text, max_width)
+        cached = self._truncate_cache.get(cache_key)
+        if cached is not None:
+            return cached
         if self._row_font.measure(text) <= max_width:
+            self._truncate_cache[cache_key] = text
             return text
         ellipsis = '...'
         truncated = text
         while truncated and self._row_font.measure(f'{truncated}{ellipsis}') > max_width:
             truncated = truncated[:-1]
-        return f'{truncated}{ellipsis}' if truncated else ellipsis
+        result = f'{truncated}{ellipsis}' if truncated else ellipsis
+        self._truncate_cache[cache_key] = result
+        return result
 
     def _draw_duration(self, track: TrackEntry, row_center_y: float) -> None:
         if not track.duration:
@@ -393,7 +441,7 @@ class MediaSonglistTable(tk.Canvas):
         if self._hover_header_column is not None:
             self._hover_header_column = None
             self.redraw()
-        row_index = self._row_index_at(y)
+        row_index = self._track_index_at(y)
         hover_index = row_index if row_index is not None and row_index < len(self._tracks) else None
         if hover_index == self._hover_index:
             return
@@ -411,7 +459,7 @@ class MediaSonglistTable(tk.Canvas):
         y = int(getattr(event, 'y', -1))
         if 0 <= y < self._header_height:
             return 'break'
-        row_index = self._row_index_at(y)
+        row_index = self._track_index_at(y)
         if row_index is None or row_index >= len(self._tracks):
             self.clear_drag_state()
             return 'break'
@@ -448,7 +496,7 @@ class MediaSonglistTable(tk.Canvas):
         y = int(getattr(event, 'y', -1))
         x_root = int(getattr(event, 'x_root', 0))
         y_root = int(getattr(event, 'y_root', 0))
-        row_index = self._row_index_at(y)
+        row_index = self._track_index_at(y)
         column_index = self._column_index_at(x)
         pressed_row_index = self._pending_grab_row_index
 
@@ -530,9 +578,9 @@ class MediaSonglistTable(tk.Canvas):
             return
         if local_y < self._header_height:
             return
-        if local_y > self.table_height():
+        if local_y > self._viewport_height:
             return
-        max_real_body_y = self._header_height + (len(self._tracks) * self._row_height)
+        max_real_body_y = self._header_height + max(0, (len(self._tracks) * self._row_height) - self._scroll_offset)
         if local_y > max_real_body_y:
             self.set_insertion_index(len(self._tracks))
             return
@@ -543,6 +591,14 @@ class MediaSonglistTable(tk.Canvas):
             return None
         row_index = (y - self._header_height) // self._row_height
         if row_index < 0 or row_index >= self.visible_row_count():
+            return None
+        return int(row_index)
+
+    def _track_index_at(self, y: int) -> int | None:
+        if y < self._header_height:
+            return None
+        row_index = (max(0, y - self._header_height) + self._scroll_offset) // self._row_height
+        if row_index < 0 or row_index >= max(self._min_row_count, len(self._tracks)):
             return None
         return int(row_index)
 
@@ -586,3 +642,21 @@ class MediaSonglistTable(tk.Canvas):
             font=self._sort_font,
             anchor='e',
         )
+
+    def _visible_row_bounds(self, *, real_tracks_only: bool = False) -> tuple[int, int]:
+        total_rows = len(self._tracks) if real_tracks_only else max(self.visible_row_count(), len(self._tracks))
+        if total_rows <= 0:
+            return (0, 0)
+        visible_body_top = self._scroll_offset
+        visible_body_bottom = visible_body_top + max(0, self._viewport_height - self._header_height)
+        start_row = max(0, (visible_body_top // self._row_height) - self._row_overscan)
+        end_row = min(
+            total_rows,
+            ((visible_body_bottom + self._row_height - 1) // self._row_height) + self._row_overscan,
+        )
+        if end_row <= start_row:
+            end_row = min(total_rows, start_row + 1)
+        return (int(start_row), int(end_row))
+
+    def _row_top_for_index(self, row_index: int) -> int:
+        return self._header_height + (row_index * self._row_height) - self._scroll_offset

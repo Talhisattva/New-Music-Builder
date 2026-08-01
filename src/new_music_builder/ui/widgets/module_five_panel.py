@@ -79,8 +79,16 @@ class ModuleFivePanel(tk.Frame):
         self._refresh_rows()
 
     def append_preview_row(self, row: GeneratedPreviewRow) -> None:
-        self._preview_rows.append(deepcopy(row))
-        self._refresh_rows()
+        pinned_to_bottom = self.content_scroll.is_near_bottom()
+        row_copy = deepcopy(row)
+        self._preview_rows.append(row_copy)
+        row_widget = ModuleFivePreviewRow(self.content_scroll.content_frame)
+        row_widget.set_row(row_copy)
+        row_widget.pack(anchor='nw')
+        self._row_widgets.append(row_widget)
+        self.content_scroll.refresh_scroll_region()
+        if pinned_to_bottom:
+            self.content_scroll.scroll_to_bottom()
 
     def reset_preview_rows(self) -> None:
         self._preview_rows = []

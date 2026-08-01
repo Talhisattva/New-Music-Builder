@@ -579,6 +579,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
     def _request_abort_export(self) -> None:
         if not self._build_locked:
             return
+        if self._build_abort_requested:
+            return
         LOGGER.info(
             "[run=%s] abort requested thread=%s",
             self._active_build_run_id or "-",

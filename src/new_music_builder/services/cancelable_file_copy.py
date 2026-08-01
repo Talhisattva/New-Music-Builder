@@ -19,11 +19,13 @@ def copy_file_with_cancel(
     cancel_requested: CancelCheck = None,
     emit_progress: ProgressCallback = None,
     progress_message: str = "Copying file...",
+    emit_every_percent: int = 1,
 ) -> None:
     destination.parent.mkdir(parents=True, exist_ok=True)
     _raise_if_cancelled(cancel_requested)
     total_size = max(1, source.stat().st_size)
     bytes_written = 0
+    last_emitted_percent = -1
 
     try:
         with source.open("rb") as src_handle, destination.open("wb") as dst_handle:
@@ -36,7 +38,10 @@ def copy_file_with_cancel(
                 bytes_written += len(chunk)
                 if emit_progress is not None:
                     percent = max(0, min(100, int(round((bytes_written / total_size) * 100))))
-                    emit_progress(percent, progress_message)
+                    percent_step = max(1, int(emit_every_percent))
+                    if percent == 100 or last_emitted_percent < 0 or percent - last_emitted_percent >= percent_step:
+                        emit_progress(percent, progress_message)
+                        last_emitted_percent = percent
         shutil.copystat(source, destination)
     except ExportAbortedError:
         destination.unlink(missing_ok=True)

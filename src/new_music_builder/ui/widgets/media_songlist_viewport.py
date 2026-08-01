@@ -72,6 +72,7 @@ class MediaSonglistViewport(tk.Frame):
         self.viewport_canvas = self.scroll_viewport.viewport_canvas
         self.content_frame = self.scroll_viewport.content_frame
         self.scrollbar = self.scroll_viewport.scrollbar
+        self.scroll_viewport.set_view_changed_callback(self._handle_view_changed)
 
         self.table = MediaSonglistTable(
             self.content_frame,
@@ -90,6 +91,7 @@ class MediaSonglistViewport(tk.Frame):
         self.table.pack(anchor='nw')
         self.bind('<Destroy>', self._on_destroy, add='+')
         self._bind_drop_target()
+        self.scroll_viewport.set_virtual_content_height(self.table.logical_content_height())
         self.refresh_content()
         self.refresh_scroll_region()
 
@@ -107,15 +109,19 @@ class MediaSonglistViewport(tk.Frame):
             scrollbar_size=(spec.MEDIA_ROW_SONGLIST_SCROLLBAR_SIZE[0], resolved_height),
         )
         self.table.resize(viewport_width, resolved_height)
+        self.scroll_viewport.set_virtual_content_height(self.table.logical_content_height())
+        self._sync_visible_region()
 
     def refresh_scroll_region(self) -> None:
         self.scroll_viewport.refresh_scroll_region()
+        self._sync_visible_region()
 
     def refresh_content(self) -> None:
         self.table.set_tracks(self._active_tracks())
         sort_state = self._row.song_sort_for_side(self._row.selected_side)
         self.table.set_sort_state(sort_state.column, sort_state.direction)
         self.table.set_selection_state(self._selected_track_indices)
+        self.scroll_viewport.set_virtual_content_height(self.table.logical_content_height())
         self.refresh_scroll_region()
 
     def tooltip_widgets(self) -> tuple[tk.Misc, ...]:
@@ -273,3 +279,9 @@ class MediaSonglistViewport(tk.Frame):
     def set_row(self, row: MediaRow) -> None:
         self._row = row
         self.refresh_content()
+
+    def _handle_view_changed(self, _first: float, _last: float) -> None:
+        self._sync_visible_region()
+
+    def _sync_visible_region(self) -> None:
+        self.table.set_scroll_offset(self.scroll_viewport.current_scroll_offset_pixels())

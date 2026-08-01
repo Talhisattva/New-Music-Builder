@@ -348,6 +348,7 @@ class MediaRowShell(tk.Frame):
             resolve_media_strip_path=resolve_media_strip_path,
             on_enabled_media_changed=self._handle_enabled_media_changed,
             on_media_mode_changed=self._handle_media_mode_changed,
+            legacy_mode_enabled_getter=self._legacy_mode_enabled,
         )
         self.expanded_media_type_strip.place(
             x=spec.MEDIA_ROW_MEDIA_STRIP_EXPANDED_POS[0],
@@ -405,6 +406,7 @@ class MediaRowShell(tk.Frame):
             resolve_media_strip_path=resolve_media_strip_path,
             on_enabled_media_changed=self._handle_enabled_media_changed,
             on_media_mode_changed=self._handle_media_mode_changed,
+            legacy_mode_enabled_getter=self._legacy_mode_enabled,
         )
         self.collapsed_media_type_strip.place(
             x=spec.MEDIA_ROW_MEDIA_STRIP_COLLAPSED_POS[0],

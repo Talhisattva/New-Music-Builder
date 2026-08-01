@@ -227,6 +227,9 @@ class ScrollViewport(tk.Frame):
         self._content_bottom_padding = content_bottom_padding
         self._content_height = 0
         self._viewport_height = viewport_size[1]
+        self._virtual_content_height: int | None = None
+        self._virtual_scroll_offset = 0.0
+        self._view_changed_callback: Callable[[float, float], None] | None = None
         ScrollViewport._instances.add(self)
         self._ensure_global_wheel_binding()
 
@@ -324,6 +327,23 @@ class ScrollViewport(tk.Frame):
         self.refresh_scroll_region()
 
     def refresh_scroll_region(self) -> None:
+        if self._virtual_content_height is not None:
+            viewport_height = self._viewport_size[1]
+            content_bottom = max(0, int(self._virtual_content_height))
+            self._content_height = content_bottom
+            self._viewport_height = viewport_height
+            self.viewport_canvas.configure(scrollregion=(0, 0, self._viewport_size[0], viewport_height))
+            self.viewport_canvas.yview_moveto(0.0)
+            self._virtual_scroll_offset = max(
+                0.0,
+                min(self._max_virtual_scroll_offset(), self._virtual_scroll_offset),
+            )
+            self.scrollbar.set_metrics(content_height=content_bottom, viewport_height=viewport_height)
+            first, last = self._virtual_view_fractions()
+            self.scrollbar.set_view(first, last)
+            if self._view_changed_callback is not None:
+                self._view_changed_callback(first, last)
+            return
         self.update_idletasks()
         content_height = self.content_frame.winfo_reqheight()
         viewport_height = self._viewport_size[1]
@@ -337,11 +357,15 @@ class ScrollViewport(tk.Frame):
         self.scrollbar.set_metrics(content_height=content_bottom, viewport_height=viewport_height)
         first, last = self.viewport_canvas.yview()
         self.scrollbar.set_view(first, last)
+        if self._view_changed_callback is not None:
+            self._view_changed_callback(first, last)
 
     def is_scroll_active(self) -> bool:
         return self._content_height > self._viewport_height
 
     def _on_content_configure(self, _event: tk.Event | None = None) -> None:
+        if self._virtual_content_height is not None:
+            return
         self.refresh_scroll_region()
 
     def _on_canvas_configure(self, event: tk.Event) -> None:
@@ -349,9 +373,23 @@ class ScrollViewport(tk.Frame):
         self.refresh_scroll_region()
 
     def _on_canvas_scroll(self, first: str, last: str) -> None:
-        self.scrollbar.set_view(float(first), float(last))
+        if self._virtual_content_height is not None:
+            return
+        first_fraction = float(first)
+        last_fraction = float(last)
+        self.scrollbar.set_view(first_fraction, last_fraction)
+        if self._view_changed_callback is not None:
+            self._view_changed_callback(first_fraction, last_fraction)
 
     def _scroll_to_fraction(self, fraction: float) -> None:
+        if self._virtual_content_height is not None:
+            max_offset = self._max_virtual_scroll_offset()
+            self._virtual_scroll_offset = max(0.0, min(max_offset, fraction * max(0.0, self._content_height)))
+            first, last = self._virtual_view_fractions()
+            self.scrollbar.set_view(first, last)
+            if self._view_changed_callback is not None:
+                self._view_changed_callback(first, last)
+            return
         self.viewport_canvas.yview_moveto(fraction)
 
     def scroll_by_pixels(self, delta_pixels: float) -> None:
@@ -359,9 +397,48 @@ class ScrollViewport(tk.Frame):
 
     def scroll_to_bottom(self) -> None:
         self.refresh_scroll_region()
-        self.viewport_canvas.yview_moveto(1.0)
-        first, last = self.viewport_canvas.yview()
+        if self._virtual_content_height is not None:
+            self._virtual_scroll_offset = self._max_virtual_scroll_offset()
+            first, last = self._virtual_view_fractions()
+        else:
+            self.viewport_canvas.yview_moveto(1.0)
+            first, last = self.viewport_canvas.yview()
         self.scrollbar.set_view(first, last)
+        if self._view_changed_callback is not None:
+            self._view_changed_callback(first, last)
+
+    def set_view_changed_callback(self, callback: Callable[[float, float], None] | None) -> None:
+        self._view_changed_callback = callback
+
+    def set_virtual_content_height(self, content_height: int | None) -> None:
+        self._virtual_content_height = max(0, int(content_height)) if content_height is not None else None
+        if self._virtual_content_height is None:
+            self._virtual_scroll_offset = 0.0
+        else:
+            self._virtual_scroll_offset = max(
+                0.0,
+                min(self._max_virtual_scroll_offset(), self._virtual_scroll_offset),
+            )
+        self.refresh_scroll_region()
+
+    def current_scroll_offset_pixels(self) -> int:
+        if self._virtual_content_height is not None:
+            return int(self._virtual_scroll_offset)
+        first, _last = self.viewport_canvas.yview()
+        return int(first * self._content_height)
+
+    def current_view_fractions(self) -> tuple[float, float]:
+        if self._virtual_content_height is not None:
+            return self._virtual_view_fractions()
+        first, last = self.viewport_canvas.yview()
+        return (float(first), float(last))
+
+    def is_near_bottom(self, *, threshold_px: int = 24) -> bool:
+        if self._content_height <= self._viewport_height:
+            return True
+        current_offset = self.current_scroll_offset_pixels()
+        remaining = max(0, self._content_height - self._viewport_height - current_offset)
+        return remaining <= max(0, int(threshold_px))
 
     def _ensure_global_wheel_binding(self) -> None:
         if ScrollViewport._global_wheel_bound:
@@ -422,6 +499,14 @@ class ScrollViewport(tk.Frame):
         return None
 
     def _scroll_by_pixels(self, delta_pixels: float) -> None:
+        if self._virtual_content_height is not None:
+            max_offset = self._max_virtual_scroll_offset()
+            self._virtual_scroll_offset = max(0.0, min(max_offset, self._virtual_scroll_offset + delta_pixels))
+            first, last = self._virtual_view_fractions()
+            self.scrollbar.set_view(first, last)
+            if self._view_changed_callback is not None:
+                self._view_changed_callback(first, last)
+            return
         scrollable_pixels = max(0, self._content_height - self._viewport_height)
         if scrollable_pixels <= 0:
             return
@@ -430,3 +515,13 @@ class ScrollViewport(tk.Frame):
         target_pixels = max(0.0, min(scrollable_pixels, current_pixels + delta_pixels))
         target_fraction = target_pixels / self._content_height if self._content_height > 0 else 0.0
         self.viewport_canvas.yview_moveto(target_fraction)
+
+    def _max_virtual_scroll_offset(self) -> float:
+        return max(0.0, float(self._content_height - self._viewport_height))
+
+    def _virtual_view_fractions(self) -> tuple[float, float]:
+        if self._content_height <= 0:
+            return (0.0, 1.0)
+        first = max(0.0, min(1.0, self._virtual_scroll_offset / self._content_height))
+        last = max(first, min(1.0, (self._virtual_scroll_offset + self._viewport_height) / self._content_height))
+        return (first, last)

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import tkinter as tk
 
-from new_music_builder.domain.models import ProjectConfig, TrackEntry, default_media_row
+from new_music_builder.domain.models import AudioRunEvent, ProjectConfig, TrackEntry, default_media_row
 from new_music_builder.services.project_session import ProjectSession
 from new_music_builder.services.session_store import SessionAudioPreferences
 from new_music_builder.ui.main_window import MainWindow
@@ -201,6 +201,39 @@ def test_move_module_two_selected_songs_by_moves_block_and_preserves_selection()
     assert row_widget.song_table_refresh_count == 1
     assert row_widget.song_selection_states == [{2, 3}]
     assert getattr(window, "_project_changed", False) is True
+
+
+def test_sync_converted_song_ogg_link_uses_project_legacy_mode_for_source_tracks() -> None:
+    row = default_media_row(1)
+    row.selected_side = "B"
+    row.tracks_a = [TrackEntry(display_label="A1")]
+    row.tracks_b = [TrackEntry(display_label="B1")]
+    session = ProjectSession(project=ProjectConfig(legacy_mode_enabled=True, media_rows=[row]))
+    row_widget = _FakeRowWidget(True, row_id=1)
+    window = MainWindow.__new__(MainWindow)
+    window.session = session
+    window.module_two_song_selected_indices = {(1, "A"): {0}}
+    window.module_two_song_selection_anchor_indices = {(1, "A"): 0}
+    window._expanded_row_widget = lambda row_id: row_widget if row_id == 1 else None
+    window._legacy_mode_preference_enabled = True
+
+    MainWindow._sync_converted_song_ogg_link(
+        window,
+        AudioRunEvent(
+            kind="song_succeeded",
+            row_id=99,
+            side="B",
+            song_index=7,
+            source_row_id=1,
+            source_track_index=0,
+            cached_ogg_path="C:/cache/A1.ogg",
+        ),
+    )
+
+    assert row.tracks_a[0].cached_ogg_path == "C:/cache/A1.ogg"
+    assert row.tracks_a[0].conversion_status == "cached_ogg"
+    assert row_widget.song_table_refresh_count == 1
+    assert row_widget.song_selection_states == [{0}]
 
 
 def test_handle_module_two_keyboard_reorder_uses_last_clicked_song_owner() -> None:

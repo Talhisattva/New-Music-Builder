@@ -31,8 +31,8 @@ class BuildEventPump:
     def __init__(
         self,
         *,
-        max_raw_items_per_tick: int = 200,
-        time_budget_ms: float = 6.0,
+        max_raw_items_per_tick: int = 1000,
+        time_budget_ms: float = 12.0,
     ) -> None:
         self._max_raw_items_per_tick = max_raw_items_per_tick
         self._time_budget_ms = time_budget_ms
@@ -60,6 +60,9 @@ class BuildEventPump:
                 progress_key = (payload.row_id, payload.side, song_index)
                 pending_progress[progress_key] = payload
                 continue
+
+            if kind == "event" and isinstance(payload, AudioRunEvent) and payload.kind == "run_aborted":
+                pending_progress.clear()
 
             self._flush_pending_progress(pending_progress, emitted)
             emitted.append((kind, payload))
