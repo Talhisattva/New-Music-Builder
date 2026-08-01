@@ -312,7 +312,7 @@ def test_write_export_scaffold_legacy_mode_uses_clean_song_ids_for_lua_and_scrip
     sounds_text = (scripts_root / "NMB_LegacyPack_Sounds.txt").read_text(encoding="utf-8")
     items_text = (scripts_root / "NMB_LegacyPack_Items.txt").read_text(encoding="utf-8")
     models_text = (scripts_root / "NMB_LegacyPack_Models.txt").read_text(encoding="utf-8")
-    album_text = (lua_root / "LegacyPack_Album_KiasmosLooped.lua").read_text(encoding="utf-8")
+    album_text = (lua_root / "LegacyPack_Album_MediaMix1.lua").read_text(encoding="utf-8")
 
     assert "11KiasmosLooped" not in album_text
     assert "11KiasmosLooped" not in sounds_text
@@ -326,3 +326,39 @@ def test_write_export_scaffold_legacy_mode_uses_clean_song_ids_for_lua_and_scrip
     assert "item KiasmosLoopedCassette" in items_text
     assert "item KiasmosLoopedVinyl" in items_text
     assert "item KiasmosLoopedCD" in items_text
+
+
+def test_write_export_scaffold_groups_singles_lua_tables_into_one_file_per_source_row(tmp_path: Path) -> None:
+    workshop_root = tmp_path / "Workshop"
+    workshop_root.mkdir()
+    project = ProjectConfig(
+        mod_name="Legacy Pack",
+        mod_id="LegacyPack",
+        workshop_output_folder=str(workshop_root),
+        legacy_mode_enabled=True,
+    )
+    row = default_media_row(1)
+    row.media_name = "Legacy Singles"
+    row.row_mode = "singles"
+    row.tracks_a = [
+        _track("C:/music/intro.ogg", "Kiasmos Looped", "00:01:00"),
+        _track("C:/music/next.ogg", "Lemon Jelly Space Walk", "00:02:00"),
+    ]
+    project.media_rows = [row]
+
+    catalog = AssetCatalog(ASSETS_ROOT).scan()
+    plan = build_export_plan(project, catalog)
+    targets = resolve_export_target(plan, project.workshop_output_folder, mod_name=project.mod_name, mod_id=project.mod_id)
+
+    result = write_export_scaffold(project, plan, targets, catalog)
+
+    assert not result.errors
+    lua_root = Path(targets.v42) / "media" / "lua" / "shared"
+    bootstrap_text = (lua_root / "LegacyPack_PackBootstrap.lua").read_text(encoding="utf-8")
+    grouped_album_text = (lua_root / "LegacyPack_Album_LegacySingles.lua").read_text(encoding="utf-8")
+
+    assert bootstrap_text.count('require "LegacyPack_Album_LegacySingles"') == 1
+    assert 'NMLegacyPackAlbum_KiasmosLooped = {' in grouped_album_text
+    assert 'NMLegacyPackAlbum_LemonJellySpaceWalk = {' in grouped_album_text
+    assert not (lua_root / "LegacyPack_Album_KiasmosLooped.lua").exists()
+    assert not (lua_root / "LegacyPack_Album_LemonJellySpaceWalk.lua").exists()

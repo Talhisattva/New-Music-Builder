@@ -15,8 +15,12 @@ def write_export_lua(
     lua_root = Path(targets.v42) / "media" / "lua" / "shared"
     lua_root.mkdir(parents=True, exist_ok=True)
     (lua_root / f"{lua_pack.module_id}_PackBootstrap.lua").write_text(_render_bootstrap(lua_pack), encoding="utf-8")
+    albums_by_require_name: dict[str, list[LuaAlbumRegistration]] = {}
     for album in lua_pack.albums:
-        (lua_root / f"{album.require_name}.lua").write_text(_render_album(album), encoding="utf-8")
+        albums_by_require_name.setdefault(album.require_name, []).append(album)
+    for require_name in lua_pack.bootstrap_require_names:
+        grouped_albums = albums_by_require_name.get(require_name, [])
+        (lua_root / f"{require_name}.lua").write_text(_render_album_group(grouped_albums), encoding="utf-8")
 
 
 def _render_bootstrap(lua_pack: LuaPackRegistration) -> str:
@@ -105,6 +109,10 @@ def _render_album(album: LuaAlbumRegistration) -> str:
         ]
     )
     return "\n".join(lines)
+
+
+def _render_album_group(albums: list[LuaAlbumRegistration]) -> str:
+    return "".join(_render_album(album) for album in albums)
 
 
 def _render_media_entry(media: LuaAlbumMediaRegistration) -> list[str]:

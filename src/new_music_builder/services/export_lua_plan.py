@@ -15,6 +15,7 @@ from new_music_builder.domain.models import (
     RegisteredAlbum,
 )
 from new_music_builder.services.export_registration_plan import build_export_registration_plan
+from new_music_builder.services.export_ids import sanitize_export_id
 from new_music_builder.services.export_texture_contract import build_cover_texture_decision
 
 _MEDIA_ORDER: tuple[MediaKind, ...] = ("cassette", "vinyl", "cd")
@@ -23,27 +24,47 @@ _MEDIA_ORDER: tuple[MediaKind, ...] = ("cassette", "vinyl", "cd")
 def build_export_lua_plan(project: ProjectConfig, export_plan: ExportPlan) -> LuaPackRegistration:
     registration = build_export_registration_plan(project, export_plan)
     rows_by_id = {row.row_id: row for row in export_plan.rows}
+    source_row_titles = {row.row_id: row.media_name for row in project.media_rows}
     albums = [
-        _build_lua_album(registration.module_id, album, rows_by_id[album.row_id])
+        _build_lua_album(
+            registration.module_id,
+            album,
+            rows_by_id[album.row_id],
+            source_row_title=source_row_titles.get(rows_by_id[album.row_id].source_row_id, ""),
+        )
         for album in registration.albums
     ]
+    bootstrap_require_names: list[str] = []
+    seen_require_names: set[str] = set()
+    for album in albums:
+        if album.require_name in seen_require_names:
+            continue
+        seen_require_names.add(album.require_name)
+        bootstrap_require_names.append(album.require_name)
     return LuaPackRegistration(
         module_id=registration.module_id,
-        bootstrap_require_names=[album.require_name for album in albums],
+        bootstrap_require_names=bootstrap_require_names,
         album_table_names=[album.table_name for album in albums],
         albums=albums,
     )
 
 
-def _build_lua_album(module_id: str, album: RegisteredAlbum, row: PlannedMediaRow) -> LuaAlbumRegistration:
+def _build_lua_album(
+    module_id: str,
+    album: RegisteredAlbum,
+    row: PlannedMediaRow,
+    *,
+    source_row_title: str,
+) -> LuaAlbumRegistration:
     explicit_tracks = _build_explicit_tracks(module_id, album)
+    require_name = _lua_require_name(module_id, album, row, source_row_title=source_row_title)
     return LuaAlbumRegistration(
         album_id=album.album_id,
         title=album.title,
         module_id=module_id,
         sound_prefix=album.sound_prefix,
         table_name=f"NM{module_id}Album_{album.album_id}",
-        require_name=f"{module_id}_Album_{album.album_id}",
+        require_name=require_name,
         track_labels=[
             LuaTrackLabel(
                 key=f"UI_{module_id}_{album.album_id}_Song_{track.sequence_number:02d}",
@@ -56,6 +77,20 @@ def _build_lua_album(module_id: str, album: RegisteredAlbum, row: PlannedMediaRo
         media=_build_lua_media(album),
         cover_groups=_build_cover_groups(album, row),
     )
+
+
+def _lua_require_name(
+    module_id: str,
+    album: RegisteredAlbum,
+    row: PlannedMediaRow,
+    *,
+    source_row_title: str,
+) -> str:
+    if row.row_mode != "singles":
+        return f"{module_id}_Album_{album.album_id}"
+    source_title = source_row_title.strip() or row.media_name
+    source_album_id = sanitize_export_id(source_title, fallback=f"SinglesRow{row.source_row_id}")
+    return f"{module_id}_Album_{source_album_id}"
 
 
 def _build_explicit_tracks(module_id: str, album: RegisteredAlbum) -> dict[str, list[LuaExplicitTrack]]:
