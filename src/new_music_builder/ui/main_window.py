@@ -3163,9 +3163,6 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._sync_phase_one_project_state()
         LOGGER.info("[run=%s] phase-one sync complete duration_ms=%.1f", run_id, (time.perf_counter() - step_started) * 1000.0)
         step_started = time.perf_counter()
-        self._refresh_cached_ogg_indicators()
-        LOGGER.info("[run=%s] cached-ogg refresh complete duration_ms=%.1f", run_id, (time.perf_counter() - step_started) * 1000.0)
-        step_started = time.perf_counter()
         project_snapshot = deepcopy(self.session.project)
         LOGGER.info("[run=%s] project snapshot complete duration_ms=%.1f", run_id, (time.perf_counter() - step_started) * 1000.0)
         step_started = time.perf_counter()
@@ -3181,34 +3178,6 @@ class MainWindow(_DnDCompat, ctk.CTk):
         )
         self._active_preview_rows_by_side = {}
         self._active_successful_sides = []
-        scenario_output_path = ''
-        if not validation_errors:
-            step_started = time.perf_counter()
-            targets = resolve_export_target(
-                plan,
-                project_snapshot.workshop_output_folder,
-                mod_name=project_snapshot.mod_name,
-                mod_id=project_snapshot.mod_id,
-            )
-            LOGGER.info(
-                "[run=%s] resolve_export_target complete root=%s duration_ms=%.1f",
-                run_id,
-                targets.root,
-                (time.perf_counter() - step_started) * 1000.0,
-            )
-            scenario_output_path = targets.root
-        step_started = time.perf_counter()
-        scenario = build_preview_scenario(plan, scenario_output_path)
-        LOGGER.info(
-            "[run=%s] build_preview_scenario complete rows=%s duration_ms=%.1f",
-            run_id,
-            len(scenario.preview_rows),
-            (time.perf_counter() - step_started) * 1000.0,
-        )
-        self._active_preview_rows_by_side = {
-            (row.row_id, row.side): row
-            for row in scenario.preview_rows
-        }
         self._active_successful_sides_by_row = {}
         self._active_emitted_preview_rows.clear()
         self._active_passthrough_song_count = 0
@@ -3244,6 +3213,19 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self._active_build_run_id = None
             return
 
+        step_started = time.perf_counter()
+        targets = resolve_export_target(
+            plan,
+            project_snapshot.workshop_output_folder,
+            mod_name=project_snapshot.mod_name,
+            mod_id=project_snapshot.mod_id,
+        )
+        LOGGER.info(
+            "[run=%s] resolve_export_target complete root=%s duration_ms=%.1f",
+            run_id,
+            targets.root,
+            (time.perf_counter() - step_started) * 1000.0,
+        )
         output_root = Path(targets.root)
         LOGGER.info("[run=%s] export output_root=%s exists=%s", run_id, output_root, output_root.exists())
         if output_root.exists() and not self._confirm_overwrite_export_root(output_root):
@@ -3279,6 +3261,19 @@ class MainWindow(_DnDCompat, ctk.CTk):
                 self.build_summary.refresh()
             self._active_build_run_id = None
             return
+
+        step_started = time.perf_counter()
+        scenario = build_preview_scenario(plan, targets.root)
+        LOGGER.info(
+            "[run=%s] build_preview_scenario complete rows=%s duration_ms=%.1f",
+            run_id,
+            len(scenario.preview_rows),
+            (time.perf_counter() - step_started) * 1000.0,
+        )
+        self._active_preview_rows_by_side = {
+            (row.row_id, row.side): row
+            for row in scenario.preview_rows
+        }
 
         self._build_abort_requested = False
         self._build_abort_event = threading.Event()

@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import tkinter as tk
+from types import SimpleNamespace
 
 from new_music_builder.domain.models import AudioRunEvent, AudioRunResult, BuildSummaryStats, GeneratedPreviewCell, GeneratedPreviewRow, ProjectConfig, TrackEntry, default_media_row
 from new_music_builder.services.project_session import ProjectSession
@@ -327,6 +328,72 @@ def test_finalize_audio_run_aborted_uses_result_size_text_without_directory_scan
     assert getattr(window, "_snapshotted", False) is True
     assert getattr(window, "_summary_refreshed", False) is True
     assert getattr(window, "_cleared", False) is True
+
+
+def test_run_build_preview_defers_preview_scenario_until_after_overwrite_confirm(monkeypatch) -> None:
+    window = MainWindow.__new__(MainWindow)
+    window.session = ProjectSession(project=ProjectConfig())
+    window.asset_catalog = {}
+    window._active_build_run_id = None
+    window._active_emitted_preview_rows = set()
+    window._sync_phase_one_project_state = lambda: None
+    window._is_build_locked = lambda: False
+    window._request_abort_export = lambda: (_ for _ in ()).throw(AssertionError("abort path should not run"))
+    window.module_four_panel = type(
+        "ModuleFour",
+        (),
+        {
+            "archive_current_run": lambda _self: None,
+            "reset_current_run": lambda _self: None,
+            "set_output_path": lambda _self, _path: None,
+            "set_log_lines": lambda _self, _lines: None,
+        },
+    )()
+    window.module_five_panel = type(
+        "ModuleFive",
+        (),
+        {
+            "reset_preview_rows": lambda _self: None,
+            "set_export_active": lambda _self, _active: None,
+        },
+    )()
+    window.module_six_panel = type("ModuleSix", (), {"set_stats": lambda _self, _stats: None})()
+    window.build_summary = type("BuildSummary", (), {"refresh": lambda _self: None})()
+    window.update_idletasks = lambda: None
+    window._set_build_locked = lambda _locked: None
+    window._start_audio_build_run = lambda **_kwargs: (_ for _ in ()).throw(AssertionError("build should not start on cancel"))
+    window._module_four_log_line_text = lambda line: line.prefix_text
+
+    fake_plan = SimpleNamespace(
+        stats=BuildSummaryStats(planned_media_rows=1, planned_total_sides=2, planned_total_songs=3),
+    )
+    calls: list[str] = []
+
+    monkeypatch.setattr("new_music_builder.ui.main_window.build_export_plan", lambda *_args, **_kwargs: fake_plan)
+    monkeypatch.setattr("new_music_builder.ui.main_window.validate_export_request", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(
+        "new_music_builder.ui.main_window.resolve_export_target",
+        lambda *_args, **_kwargs: SimpleNamespace(root="C:/already-exists"),
+    )
+
+    def _build_preview_scenario(*_args, **_kwargs):
+        calls.append("preview")
+        return SimpleNamespace(preview_rows=[])
+
+    monkeypatch.setattr("new_music_builder.ui.main_window.build_preview_scenario", _build_preview_scenario)
+    monkeypatch.setattr("new_music_builder.ui.main_window.deepcopy", lambda project: project)
+    monkeypatch.setattr("new_music_builder.ui.main_window.uuid4", lambda: SimpleNamespace(hex="12345678abcdef"))
+    monkeypatch.setattr("new_music_builder.ui.main_window.Path.exists", lambda _self: True)
+
+    def _confirm(_output_root):
+        calls.append("confirm")
+        return False
+
+    window._confirm_overwrite_export_root = _confirm
+
+    MainWindow.run_build_preview(window)
+
+    assert calls == ["confirm"]
 
 
 def test_handle_module_two_keyboard_reorder_uses_last_clicked_song_owner() -> None:
