@@ -22,14 +22,12 @@ def build_workshop_txt_lines(project: ProjectConfig, plan: ExportPlan) -> list[s
 
     lines.extend(_render_mode_legend(plan))
 
-    ordered_rows = sorted(plan.rows, key=lambda row: row.row_id)
     first_table = True
-    for row in ordered_rows:
-        sections = _row_workshop_sections(row)
+    for title, sections in _ordered_workshop_tables(project, plan):
         for label, tracks in sections:
             if not first_table:
                 lines.append("description=")
-            lines.extend(_render_track_table(row, label, tracks))
+            lines.extend(_render_track_table(title, label, tracks))
             first_table = False
 
     lines.extend(
@@ -75,6 +73,30 @@ def _ordered_sides(row: PlannedMediaRow) -> list[PlannedSide]:
     return sorted(row.sides, key=lambda side: 0 if side.side == "A" else 1)
 
 
+def _ordered_workshop_tables(project: ProjectConfig, plan: ExportPlan) -> list[tuple[str, list[tuple[str, list[PlannedTrack]]]]]:
+    rows_by_source_id: dict[int, list[PlannedMediaRow]] = {}
+    for planned_row in plan.rows:
+        rows_by_source_id.setdefault(planned_row.source_row_id, []).append(planned_row)
+
+    tables: list[tuple[str, list[tuple[str, list[PlannedTrack]]]]] = []
+    for source_row in project.media_rows:
+        source_rows = rows_by_source_id.get(source_row.row_id, [])
+        if not source_rows:
+            continue
+        if source_rows[0].row_mode == "singles":
+            tables.append((source_row.media_name, _singles_workshop_sections(source_rows)))
+            continue
+        for planned_row in sorted(source_rows, key=lambda row: row.row_id):
+            tables.append((planned_row.media_name, _row_workshop_sections(planned_row)))
+    return tables
+
+
+def _singles_workshop_sections(rows: list[PlannedMediaRow]) -> list[tuple[str, list[PlannedTrack]]]:
+    ordered_rows = sorted(rows, key=lambda row: row.row_id)
+    tracks = [track for row in ordered_rows for side in _ordered_sides(row) for track in side.tracks]
+    return [("[b]Singles[/b] [i]Single Item[/i]", tracks)]
+
+
 def _row_workshop_sections(row: PlannedMediaRow) -> list[tuple[str, list[PlannedTrack]]]:
     sides = _ordered_sides(row)
     mode_label = "[b]Singles[/b]" if row.row_mode == "singles" else "[b]Mixtape[/b]"
@@ -93,10 +115,10 @@ def _row_has_split_media(row: PlannedMediaRow) -> bool:
     )
 
 
-def _render_track_table(row: PlannedMediaRow, section_label: str, tracks: list[PlannedTrack]) -> list[str]:
+def _render_track_table(title: str, section_label: str, tracks: list[PlannedTrack]) -> list[str]:
     lines = [
         "description=[table]",
-        f"description=[tr][th]{row.media_name}[/th][/tr]",
+        f"description=[tr][th]{title}[/th][/tr]",
         f"description=[tr][td]{section_label}[/td][/tr]",
     ]
     for index, track in enumerate(tracks, start=1):

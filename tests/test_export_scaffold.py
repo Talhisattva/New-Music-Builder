@@ -735,7 +735,9 @@ def test_write_export_scaffold_uses_singles_legend_and_section_labels_for_single
     assert 'description=[b]Singles[/b]: Each song is its own item.' in workshop_text
     assert 'description=[b]Mixtape[/b]: Dynamic playlist on one item.' not in workshop_text
     assert 'description=[tr][td][b]Singles[/b] [i]Single Item[/i][/td][/tr]' in workshop_text
-    assert workshop_text.find('description=[quote]') < workshop_text.find('description=[tr][th]Song One[/th][/tr]')
+    assert workshop_text.find('description=[quote]') < workshop_text.find('description=[tr][th]Legacy Singles[/th][/tr]')
+    assert workshop_text.count('description=[tr][th]Legacy Singles[/th][/tr]') == 1
+    assert workshop_text.find('description=[tr][td]01 Song One[/td][/tr]') < workshop_text.find('description=[tr][td]02 Song Two[/td][/tr]')
 
 
 def test_write_export_scaffold_emits_one_full_workshop_table_when_all_media_are_full(tmp_path: Path) -> None:
@@ -787,6 +789,37 @@ def test_write_export_scaffold_keeps_duplicate_album_titles_as_separate_workshop
     assert workshop_text.count('description=[table]') == 3
     assert workshop_text.count('description=[tr][th]Same Album[/th][/tr]') == 2
     assert workshop_text.find('description=[tr][td]01 First Song[/td][/tr]') < workshop_text.find('description=[tr][td]01 Second Song[/td][/tr]')
+
+
+def test_write_export_scaffold_groups_singles_into_one_table_per_source_row_and_preserves_builder_order(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    singles = project.media_rows[0]
+    singles.row_mode = 'singles'
+    singles.media_name = 'Legacy Singles'
+    singles.tracks_a = [
+        TrackEntry(source_path='C:/a1.ogg', display_label='Kiasmos - Looped', duration='00:01:00'),
+        TrackEntry(source_path='C:/a2.ogg', display_label='Lemon Jelly - Space Walk', duration='00:02:00'),
+        TrackEntry(source_path='C:/a3.ogg', display_label='Mimicking Birds - Burning Stars', duration='00:03:00'),
+    ]
+    mixtape = default_media_row(2)
+    mixtape.media_name = 'Gen Mix'
+    mixtape.tracks_a = [
+        TrackEntry(source_path='C:/b1.ogg', display_label='Radiohead - Creep', duration='00:01:00'),
+    ]
+    project.media_rows = [singles, mixtape]
+    catalog = AssetCatalog(ASSETS_ROOT).scan()
+    plan = build_export_plan(project, catalog)
+    targets = resolve_export_target(plan, project.workshop_output_folder, mod_name=project.mod_name, mod_id=project.mod_id)
+
+    result = write_export_scaffold(project, plan, targets, catalog)
+
+    assert not result.errors
+    workshop_text = (Path(targets.root) / 'workshop.txt').read_text(encoding='utf-8')
+    assert workshop_text.count('description=[tr][th]Legacy Singles[/th][/tr]') == 1
+    assert workshop_text.count('description=[tr][td][b]Singles[/b] [i]Single Item[/i][/td][/tr]') == 1
+    assert workshop_text.find('description=[tr][th]Legacy Singles[/th][/tr]') < workshop_text.find('description=[tr][th]Gen Mix[/th][/tr]')
+    assert workshop_text.find('description=[tr][td]01 Kiasmos - Looped[/td][/tr]') < workshop_text.find('description=[tr][td]02 Lemon Jelly - Space Walk[/td][/tr]')
+    assert workshop_text.find('description=[tr][td]02 Lemon Jelly - Space Walk[/td][/tr]') < workshop_text.find('description=[tr][td]03 Mimicking Birds - Burning Stars[/td][/tr]')
 
 
 def test_write_export_scaffold_marks_workshop_visibility_public(tmp_path: Path) -> None:
