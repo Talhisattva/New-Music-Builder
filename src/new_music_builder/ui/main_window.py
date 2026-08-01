@@ -374,6 +374,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._locked_module_two_browse_row_id: int | None = None
         self._active_build_final_targets: ExportTargetPaths | None = None
         self._active_preview_rows_by_side: dict[tuple[int, str], GeneratedPreviewRow] = {}
+        self._active_queue_groups_by_side: dict[tuple[int, str], ConversionSideGroup] = {}
         self._active_successful_sides: list[tuple[int, str]] = []
         self._active_successful_sides_by_row: dict[int, set[str]] = {}
         self._active_emitted_preview_rows: set[tuple[int, str]] = set()
@@ -3053,6 +3054,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._last_export_output_path = ''
         self.build_log = []
         self.preview_entries = []
+        self._active_queue_groups_by_side = {}
         if hasattr(self, 'module_four_panel'):
             self.module_four_panel.reset_current_run()
         module_five_panel = self.__dict__.get('module_five_panel')
@@ -3227,6 +3229,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             (time.perf_counter() - step_started) * 1000.0,
         )
         self._active_preview_rows_by_side = {}
+        self._active_queue_groups_by_side = {}
         self._active_successful_sides = []
         self._active_successful_sides_by_row = {}
         self._active_emitted_preview_rows.clear()
@@ -3291,6 +3294,10 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._active_preview_rows_by_side = {
             (row.row_id, row.side): row
             for row in scenario.preview_rows
+        }
+        self._active_queue_groups_by_side = {
+            (group.row_id, group.side): group
+            for group in scenario.queue_groups
         }
 
         self._build_abort_requested = False
@@ -3508,17 +3515,11 @@ class MainWindow(_DnDCompat, ctk.CTk):
             return
         key = (event.row_id, event.side)
         if event.kind == "side_started":
-            label = self._active_preview_rows_by_side.get(key)
-            display_label = label.inventory_cell.label_text.replace(f" ({event.side}-Side)", f"\n{event.side}-SIDE") if label is not None else f"Row {event.row_id}\n{event.side}-SIDE"
             existing_groups = getattr(self.module_four_panel.state, "ordered_groups", [])
             if not any(group.row_id == event.row_id and group.side == event.side for group in existing_groups):
-                row_mode = "mixtape"
-                preview_row = self._active_preview_rows_by_side.get(key)
-                if preview_row is not None and preview_row.inventory_cell.song_count == 1 and "Singles" in preview_row.inventory_cell.label_text:
-                    row_mode = "singles"
-                self.module_four_panel.append_queue_group(
-                    ConversionSideGroup(row_id=event.row_id, side=event.side, row_mode=row_mode, display_label=display_label, songs=[])
-                )
+                planned_group = self._active_queue_groups_by_side.get(key)
+                if planned_group is not None:
+                    self.module_four_panel.append_queue_group(planned_group)
         elif event.kind == "song_started":
             self.module_four_panel.append_song_to_group(
                 event.row_id,

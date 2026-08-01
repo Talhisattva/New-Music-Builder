@@ -12,6 +12,7 @@ from new_music_builder.ui.widgets.scroll_area import ScrollViewport
 
 class ModuleFourPanel(tk.Frame):
     _QUEUE_REFRESH_DELAY_MS = 80
+    _QUEUE_ACTIVE_MARGIN_PX = 24
 
     def __init__(
         self,
@@ -32,9 +33,10 @@ class ModuleFourPanel(tk.Frame):
         self.pack_propagate(False)
         self.state = ExportRunState()
         self._run_counter = 0
-        self._queue_autoscroll = True
+        self._queue_follow_active = True
         self._log_autoscroll = True
         self._queue_refresh_after_id: str | None = None
+        self._queue_internal_scroll_update = False
 
         self.queue_scroll = ScrollViewport(
             self,
@@ -104,26 +106,25 @@ class ModuleFourPanel(tk.Frame):
     def set_queue_groups(self, groups: list[ConversionSideGroup]) -> None:
         self._cancel_pending_queue_refresh()
         self.state.ordered_groups = deepcopy(groups)
-        self._queue_autoscroll = True
+        self._queue_follow_active = True
         self.queue_table.set_groups(self.state.ordered_groups)
         self._refresh_queue_view()
 
     def append_queue_group(self, group: ConversionSideGroup) -> None:
-        self._queue_autoscroll = self.queue_scroll.is_near_bottom()
         self.state.ordered_groups.append(deepcopy(group))
         self._schedule_queue_refresh()
 
     def append_song_to_group(self, row_id: int, side: str, song) -> None:
-        self._queue_autoscroll = self.queue_scroll.is_near_bottom()
-        for group in self.state.ordered_groups:
+        for group_index, group in enumerate(self.state.ordered_groups):
             if group.row_id == row_id and group.side == side:
                 group.songs.append(deepcopy(song))
+                self.state.active_group_index = group_index
+                self.state.active_song_index = max(0, len(group.songs) - 1)
                 self._schedule_queue_refresh()
                 return
 
     def ensure_song(self, row_id: int, side: str, song_index: int, song) -> None:
-        self._queue_autoscroll = self.queue_scroll.is_near_bottom()
-        for group in self.state.ordered_groups:
+        for group_index, group in enumerate(self.state.ordered_groups):
             if group.row_id != row_id or group.side != side:
                 continue
             while len(group.songs) <= song_index:
@@ -134,6 +135,8 @@ class ModuleFourPanel(tk.Frame):
             existing.percent = song.percent
             existing.status = song.status  # type: ignore[assignment]
             existing.size_label = song.size_label
+            self.state.active_group_index = group_index
+            self.state.active_song_index = song_index
             self._schedule_queue_refresh()
             return
 
@@ -148,7 +151,6 @@ class ModuleFourPanel(tk.Frame):
                 song.size_label = size_label
                 self.state.active_group_index = group_index
                 self.state.active_song_index = song_index
-                self._queue_autoscroll = self.queue_scroll.is_near_bottom()
                 self._schedule_queue_refresh()
             return
 
@@ -196,7 +198,7 @@ class ModuleFourPanel(tk.Frame):
         self.state.active_song_index = None
         self.state.current_run_log_lines = []
         self.state.output_path = ""
-        self._queue_autoscroll = True
+        self._queue_follow_active = True
         self._log_autoscroll = True
         self._refresh_views()
 
@@ -231,10 +233,9 @@ class ModuleFourPanel(tk.Frame):
 
     def _refresh_queue_view(self) -> None:
         self.queue_scroll.set_virtual_content_height(self.queue_table.total_content_height())
-        if self._queue_autoscroll:
-            self.queue_scroll.scroll_to_bottom()
-        else:
-            self.queue_scroll.refresh_scroll_region()
+        self.queue_scroll.refresh_scroll_region()
+        if self._queue_follow_active:
+            self._scroll_queue_to_active_row()
 
     def _refresh_log_view(self) -> None:
         self.log_scroll.refresh_scroll_region()
@@ -243,3 +244,46 @@ class ModuleFourPanel(tk.Frame):
 
     def _handle_queue_view_changed(self, _first: float, _last: float) -> None:
         self.queue_table.set_scroll_offset(self.queue_scroll.current_scroll_offset_pixels())
+        if self._queue_internal_scroll_update:
+            return
+        active_bounds = self._active_queue_row_bounds()
+        if active_bounds is None:
+            return
+        visible_top = self.queue_scroll.current_scroll_offset_pixels()
+        visible_bottom = visible_top + spec.PHASE_THREE_MODULE_FOUR_QUEUE_VIEWPORT_SIZE[1]
+        active_top, active_bottom = active_bounds
+        if active_top >= visible_top and active_bottom <= visible_bottom:
+            self._queue_follow_active = True
+            return
+        self._queue_follow_active = False
+
+    def _active_queue_row_bounds(self) -> tuple[int, int] | None:
+        group_index = self.state.active_group_index
+        song_index = self.state.active_song_index
+        if group_index is None or song_index is None:
+            return None
+        row_index = self.queue_table.row_index_for_group_song(group_index, song_index)
+        if row_index is None:
+            return None
+        return self.queue_table.row_bounds_for_index(row_index)
+
+    def _scroll_queue_to_active_row(self) -> None:
+        active_bounds = self._active_queue_row_bounds()
+        if active_bounds is None:
+            return
+        visible_top = self.queue_scroll.current_scroll_offset_pixels()
+        viewport_height = spec.PHASE_THREE_MODULE_FOUR_QUEUE_VIEWPORT_SIZE[1]
+        visible_bottom = visible_top + viewport_height
+        active_top, active_bottom = active_bounds
+        target_offset: int | None = None
+        if active_top - self._QUEUE_ACTIVE_MARGIN_PX < visible_top:
+            target_offset = max(0, active_top - self._QUEUE_ACTIVE_MARGIN_PX)
+        elif active_bottom + self._QUEUE_ACTIVE_MARGIN_PX > visible_bottom:
+            target_offset = max(0, active_bottom + self._QUEUE_ACTIVE_MARGIN_PX - viewport_height)
+        if target_offset is None:
+            return
+        self._queue_internal_scroll_update = True
+        try:
+            self.queue_scroll.scroll_to_offset_pixels(target_offset)
+        finally:
+            self._queue_internal_scroll_update = False

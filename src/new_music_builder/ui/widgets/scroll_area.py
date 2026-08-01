@@ -416,6 +416,23 @@ class ScrollViewport(tk.Frame):
         if self._view_changed_callback is not None:
             self._view_changed_callback(first, last)
 
+    def scroll_to_offset_pixels(self, offset_pixels: int) -> None:
+        self.refresh_scroll_region()
+        if self._virtual_content_height is not None:
+            self._virtual_scroll_offset = max(0.0, min(self._max_virtual_scroll_offset(), float(offset_pixels)))
+            first, last = self._virtual_view_fractions()
+            self.scrollbar.set_view(first, last)
+            if self._view_changed_callback is not None:
+                self._view_changed_callback(first, last)
+            return
+        content_height = max(1, self._content_height)
+        fraction = max(0.0, min(1.0, float(offset_pixels) / content_height))
+        self.viewport_canvas.yview_moveto(fraction)
+        first, last = self.viewport_canvas.yview()
+        self.scrollbar.set_view(first, last)
+        if self._view_changed_callback is not None:
+            self._view_changed_callback(first, last)
+
     def set_view_changed_callback(self, callback: Callable[[float, float], None] | None) -> None:
         self._view_changed_callback = callback
 

@@ -77,6 +77,9 @@ def build_legacy_export_plan(
                 side_id=row_export_id,
                 export_folder_name="",
                 export_relative_dir="",
+                queue_label="Singles",
+                show_side_suffix=False,
+                side_display_text="",
                 tracks=[planned_track],
             )
             planned_row = PlannedMediaRow(

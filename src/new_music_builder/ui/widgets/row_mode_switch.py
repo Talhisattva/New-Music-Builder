@@ -35,15 +35,37 @@ class RowModeSwitch(tk.Frame):
         self._anim_after_id: str | None = None
         self._base_image = load_tk_photoimage(base_image_path, spec.MEDIA_ROW_MODE_SWITCH_TRACK_SIZE)
         self._pill_image = load_tk_photoimage(pill_image_path, spec.MEDIA_ROW_MODE_SWITCH_PILL_SIZE)
+        self._track_x = (spec.MEDIA_ROW_MODE_SWITCH_SIZE[0] - spec.MEDIA_ROW_MODE_SWITCH_TRACK_SIZE[0]) // 2
 
         label_font = (
             spec.MEDIA_ROW_MODE_SWITCH_FONT_FAMILY,
             spec.MEDIA_ROW_MODE_SWITCH_FONT_SIZE,
         )
-        self.left_label = tk.Label(self, text="MIXTAPE", bg=resolved_bg, bd=0, highlightthickness=0, font=label_font)
-        self.right_label = tk.Label(self, text="SINGLES", bg=resolved_bg, bd=0, highlightthickness=0, font=label_font)
-        self.left_label.place(x=0, y=10)
-        self.right_label.place(x=55, y=10)
+        self.left_label = tk.Label(
+            self,
+            text="MIXTAPE",
+            bg=resolved_bg,
+            bd=0,
+            highlightthickness=0,
+            font=label_font,
+            anchor="e",
+            justify="right",
+        )
+        self.right_label = tk.Label(
+            self,
+            text="SINGLES",
+            bg=resolved_bg,
+            bd=0,
+            highlightthickness=0,
+            font=label_font,
+            anchor="w",
+            justify="left",
+        )
+        left_width = max(1, self._track_x - spec.MEDIA_ROW_MODE_SWITCH_LABEL_GAP_X)
+        right_x = self._track_x + spec.MEDIA_ROW_MODE_SWITCH_TRACK_SIZE[0] + spec.MEDIA_ROW_MODE_SWITCH_LABEL_GAP_X
+        right_width = max(1, spec.MEDIA_ROW_MODE_SWITCH_SIZE[0] - right_x)
+        self.left_label.place(x=0, y=spec.MEDIA_ROW_MODE_SWITCH_LABEL_Y, width=left_width)
+        self.right_label.place(x=right_x, y=spec.MEDIA_ROW_MODE_SWITCH_LABEL_Y, width=right_width)
 
         self.track = tk.Canvas(
             self,
@@ -53,7 +75,7 @@ class RowModeSwitch(tk.Frame):
             width=spec.MEDIA_ROW_MODE_SWITCH_TRACK_SIZE[0],
             height=spec.MEDIA_ROW_MODE_SWITCH_TRACK_SIZE[1],
         )
-        self.track.place(x=24, y=10)
+        self.track.place(x=self._track_x, y=spec.MEDIA_ROW_MODE_SWITCH_LABEL_Y)
         self.track.create_image(0, 0, image=self._base_image, anchor="nw")
         self._pill_item = self.track.create_image(0, 0, image=self._pill_image, anchor="nw")
 

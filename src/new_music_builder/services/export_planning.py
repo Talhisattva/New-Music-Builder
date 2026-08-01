@@ -62,6 +62,7 @@ def build_export_plan(project: ProjectConfig, asset_catalog: dict[str, list[Asse
         sides: list[PlannedSide] = []
         row_export_id = unique_export_id(row.media_name, used_row_ids, fallback=f"MediaRow{row.row_id}")
         row_folder_name = build_audio_row_folder_name(row.media_name, row.row_id, export_id=row_export_id)
+        show_side_suffix = _planned_row_uses_split_side_suffix(row)
         for side_name, tracks in (("A", row.tracks_a), ("B", row.tracks_b)):
             if not tracks:
                 continue
@@ -76,6 +77,9 @@ def build_export_plan(project: ProjectConfig, asset_catalog: dict[str, list[Asse
                     side_id=side_id,
                     export_folder_name=side_folder_name,
                     export_relative_dir=str(Path(row_folder_name) / side_folder_name),
+                    queue_label=row.media_name,
+                    show_side_suffix=show_side_suffix,
+                    side_display_text=f"{side_name}-SIDE" if show_side_suffix else "",
                     tracks=[
                         _build_planned_track(
                             row_id=row.row_id,
@@ -267,6 +271,10 @@ def _queue_groups_from_plan(plan: ExportPlan) -> list[ConversionSideGroup]:
             side=side.side,
             row_mode=next((row.row_mode for row in plan.rows if row.row_id == side.row_id), "mixtape"),
             display_label=side.display_label,
+            queue_label=side.queue_label or side.media_name,
+            queue_mode=next((row.row_mode for row in plan.rows if row.row_id == side.row_id), "mixtape"),
+            show_side_suffix=side.show_side_suffix,
+            side_display_text=side.side_display_text,
             songs=[
                 ConversionSongProgress(
                     song_label=track.display_label,
@@ -311,11 +319,9 @@ def _build_preview_cell(planned_row: PlannedMediaRow, side: PlannedSide, *, mode
         appearance = planned_row.appearances.for_kind(appearance_kind)
         slot_paths.append(appearance.world_path if mode == "world" else appearance.inventory_path)
         empty_slot_paths.append(appearance.world_empty_path if mode == "world" else appearance.inventory_empty_path)
-    label_text = (
-        planned_row.media_name
-        if side.song_count == 1 and len(side.tracks) == 1 and planned_row.media_name == side.tracks[0].display_label
-        else f"{planned_row.media_name} ({side.side}-Side)"
-    )
+    label_text = side.queue_label or planned_row.media_name
+    if side.show_side_suffix and side.side_display_text:
+        label_text = f"{label_text} ({side.side_display_text})"
     return GeneratedPreviewCell(
         label_text=label_text,
         section_text="WORLD" if mode == "world" else "INVENTORY",
@@ -351,3 +357,17 @@ def _seconds_from_duration_text(value: str) -> int:
     except ValueError:
         return 0
     return max(0, hours) * 3600 + max(0, minutes) * 60 + max(0, seconds)
+
+
+def _planned_row_uses_split_side_suffix(row) -> bool:
+    if getattr(row, "row_mode", "mixtape") == "singles":
+        return False
+    tracks_b = getattr(row, "tracks_b", [])
+    if not tracks_b:
+        return False
+    enabled_media = getattr(row, "enabled_media", {})
+    media_modes = getattr(row, "media_modes", {})
+    return any(
+        enabled_media.get(kind, False) and media_modes.get(kind, "single" if kind == "cd" else "split") == "split"
+        for kind in ("cassette", "vinyl", "cd")
+    )

@@ -675,6 +675,8 @@ class MediaRowShell(tk.Frame):
         self.side_toggle.set_bg_color(fill_color)
         self.song_actions.set_bg_color(fill_color)
         self.live_preview.set_bg_color(fill_color)
+        if hasattr(self, 'row_mode_switch'):
+            self.row_mode_switch.set_bg_color(fill_color)
         self.collapsed_chevron.set_bg_color(fill_color)
         self.collapsed_details.set_bg_color(fill_color)
         self.collapsed_remove_button.set_bg_color(fill_color)

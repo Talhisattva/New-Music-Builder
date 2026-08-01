@@ -196,6 +196,10 @@ class ConversionSideGroup:
     side: Literal["A", "B"]
     display_label: str
     row_mode: RowMode = "mixtape"
+    queue_label: str = ""
+    queue_mode: RowMode = "mixtape"
+    show_side_suffix: bool = False
+    side_display_text: str = ""
     songs: list[ConversionSongProgress] = field(default_factory=list)
 
 
@@ -317,6 +321,9 @@ class PlannedSide:
     side_id: str = ""
     export_folder_name: str = ""
     export_relative_dir: str = ""
+    queue_label: str = ""
+    show_side_suffix: bool = False
+    side_display_text: str = ""
     tracks: list[PlannedTrack] = field(default_factory=list)
 
     @property
@@ -337,7 +344,9 @@ class PlannedSide:
 
     @property
     def display_label(self) -> str:
-        return f"{self.media_name}\n{self.side}-SIDE"
+        if self.show_side_suffix and self.side_display_text:
+            return f"{self.queue_label or self.media_name}\n{self.side_display_text}"
+        return self.queue_label or self.media_name
 
 
 @dataclass(slots=True)

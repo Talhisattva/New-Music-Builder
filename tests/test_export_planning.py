@@ -185,6 +185,55 @@ def test_preview_scenario_respects_enabled_media_filtering() -> None:
     assert scenario.queue_groups[0].songs[0].song_label == 'Song'
 
 
+def test_preview_scenario_singles_queue_groups_use_singles_label_without_side_suffix() -> None:
+    catalog = AssetCatalog(ASSETS_ROOT).scan()
+    row = default_media_row(1)
+    row.row_mode = 'singles'
+    row.media_name = 'Gen Mix'
+    row.tracks_a = [_track('C:/music/song.ogg', 'Song', '00:03:00')]
+    project = ProjectConfig(media_rows=[row])
+
+    plan = build_export_plan(project, catalog)
+    scenario = build_preview_scenario(plan, 'C:/output')
+
+    assert scenario.queue_groups[0].queue_label == 'Singles'
+    assert scenario.queue_groups[0].show_side_suffix is False
+    assert scenario.preview_rows[0].inventory_cell.label_text == 'Singles'
+
+
+def test_preview_scenario_full_mixtape_rows_omit_side_suffix_in_labels() -> None:
+    catalog = AssetCatalog(ASSETS_ROOT).scan()
+    row = default_media_row(1)
+    row.media_name = 'Gen Mix'
+    row.media_modes = {'cassette': 'single', 'vinyl': 'single', 'cd': 'single'}
+    row.tracks_a = [_track('C:/music/song-a.ogg', 'Song A', '00:03:00')]
+    row.tracks_b = [_track('C:/music/song-b.ogg', 'Song B', '00:02:00')]
+    project = ProjectConfig(media_rows=[row])
+
+    plan = build_export_plan(project, catalog)
+    scenario = build_preview_scenario(plan, 'C:/output')
+
+    assert [group.queue_label for group in scenario.queue_groups] == ['Gen Mix', 'Gen Mix']
+    assert all(group.show_side_suffix is False for group in scenario.queue_groups)
+    assert [preview.inventory_cell.label_text for preview in scenario.preview_rows] == ['Gen Mix', 'Gen Mix']
+
+
+def test_preview_scenario_split_mixtape_rows_include_side_suffix_in_labels() -> None:
+    catalog = AssetCatalog(ASSETS_ROOT).scan()
+    row = default_media_row(1)
+    row.media_name = 'Gen Mix'
+    row.media_modes = {'cassette': 'split', 'vinyl': 'single', 'cd': 'single'}
+    row.tracks_a = [_track('C:/music/song-a.ogg', 'Song A', '00:03:00')]
+    row.tracks_b = [_track('C:/music/song-b.ogg', 'Song B', '00:02:00')]
+    project = ProjectConfig(media_rows=[row])
+
+    plan = build_export_plan(project, catalog)
+    scenario = build_preview_scenario(plan, 'C:/output')
+
+    assert [group.show_side_suffix for group in scenario.queue_groups] == [True, True]
+    assert [preview.inventory_cell.label_text for preview in scenario.preview_rows] == ['Gen Mix (A-SIDE)', 'Gen Mix (B-SIDE)']
+
+
 def test_preview_scenario_keeps_full_mode_media_visible_on_each_side_row() -> None:
     catalog = AssetCatalog(ASSETS_ROOT).scan()
     row = default_media_row(1)

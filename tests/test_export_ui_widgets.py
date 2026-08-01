@@ -39,12 +39,22 @@ class _FakeQueueTable:
     def set_scroll_offset(self, offset: int) -> None:
         self.scroll_offsets.append(offset)
 
+    def row_index_for_group_song(self, group_index: int, song_index: int) -> int | None:
+        if group_index < 0 or song_index < 0:
+            return None
+        return song_index
+
+    def row_bounds_for_index(self, row_index: int) -> tuple[int, int] | None:
+        top = spec.PHASE_THREE_MODULE_FOUR_QUEUE_HEADER_HEIGHT + (row_index * spec.PHASE_THREE_MODULE_FOUR_QUEUE_ROW_HEIGHT)
+        return (top, top + spec.PHASE_THREE_MODULE_FOUR_QUEUE_ROW_HEIGHT)
+
 
 class _FakeScroll:
     def __init__(self, *, near_bottom: bool = True, offset: int = 0) -> None:
         self.near_bottom = near_bottom
         self.offset = offset
         self.scroll_to_bottom_calls = 0
+        self.scroll_to_offset_calls: list[int] = []
         self.refresh_calls = 0
         self.virtual_heights: list[int] = []
         self.view_changed_callbacks: list[object] = []
@@ -54,6 +64,10 @@ class _FakeScroll:
 
     def scroll_to_bottom(self) -> None:
         self.scroll_to_bottom_calls += 1
+
+    def scroll_to_offset_pixels(self, offset: int) -> None:
+        self.offset = offset
+        self.scroll_to_offset_calls.append(offset)
 
     def refresh_scroll_region(self) -> None:
         self.refresh_calls += 1
@@ -214,10 +228,11 @@ def test_module_four_panel_ensure_song_backfills_passthrough_rows() -> None:
 
 def test_module_four_panel_queue_view_updates_virtual_height_and_offset() -> None:
     panel = ModuleFourPanel.__new__(ModuleFourPanel)
-    panel.state = SimpleNamespace(ordered_groups=[], current_run_log_lines=[])
+    panel.state = SimpleNamespace(ordered_groups=[], current_run_log_lines=[], active_group_index=None, active_song_index=None)
     panel.queue_table = _FakeQueueTable()
     panel.queue_scroll = _FakeScroll(offset=96)
-    panel._queue_autoscroll = False
+    panel._queue_follow_active = False
+    panel._queue_internal_scroll_update = False
 
     ModuleFourPanel._refresh_queue_view(panel)
     ModuleFourPanel._handle_queue_view_changed(panel, 0.0, 1.0)
@@ -225,6 +240,43 @@ def test_module_four_panel_queue_view_updates_virtual_height_and_offset() -> Non
     assert panel.queue_scroll.virtual_heights[-1] == 1234
     assert panel.queue_scroll.refresh_calls >= 1
     assert panel.queue_table.scroll_offsets[-1] == 96
+
+
+def test_module_four_panel_refresh_queue_view_follows_active_song() -> None:
+    panel = ModuleFourPanel.__new__(ModuleFourPanel)
+    panel.state = SimpleNamespace(
+        ordered_groups=[SimpleNamespace(songs=[object(), object(), object(), object(), object(), object(), object()])],
+        current_run_log_lines=[],
+        active_group_index=0,
+        active_song_index=6,
+    )
+    panel.queue_table = _FakeQueueTable()
+    panel.queue_scroll = _FakeScroll(offset=0)
+    panel._queue_follow_active = True
+    panel._queue_internal_scroll_update = False
+
+    ModuleFourPanel._refresh_queue_view(panel)
+
+    assert panel.queue_scroll.virtual_heights[-1] == 1234
+    assert panel.queue_scroll.scroll_to_offset_calls
+
+
+def test_module_four_panel_handle_queue_view_changed_disables_follow_when_active_row_leaves_view() -> None:
+    panel = ModuleFourPanel.__new__(ModuleFourPanel)
+    panel.state = SimpleNamespace(
+        ordered_groups=[SimpleNamespace(songs=[object(), object(), object(), object(), object(), object(), object()])],
+        current_run_log_lines=[],
+        active_group_index=0,
+        active_song_index=6,
+    )
+    panel.queue_table = _FakeQueueTable()
+    panel.queue_scroll = _FakeScroll(offset=0)
+    panel._queue_follow_active = True
+    panel._queue_internal_scroll_update = False
+
+    ModuleFourPanel._handle_queue_view_changed(panel, 0.0, 1.0)
+
+    assert panel._queue_follow_active is False
 
 
 def test_module_five_panel_flush_pending_rows_batches_and_virtualizes() -> None:
