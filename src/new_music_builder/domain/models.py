@@ -486,6 +486,7 @@ class LuaAlbumRegistration:
     sound_prefix: str
     table_name: str
     require_name: str
+    row_mode: RowMode = "mixtape"
     track_labels: list[LuaTrackLabel] = field(default_factory=list)
     explicit_tracks: dict[str, list[LuaExplicitTrack]] = field(default_factory=dict)
     media: list[LuaAlbumMediaRegistration] = field(default_factory=list)

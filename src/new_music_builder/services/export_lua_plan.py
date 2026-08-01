@@ -22,6 +22,7 @@ from new_music_builder.services.export_texture_contract import build_cover_textu
 
 _MEDIA_ORDER: tuple[MediaKind, ...] = ("cassette", "vinyl", "cd")
 _DEFAULT_MEDIA_ROW_NAME_RE = re.compile(r"^Media Mix (\d+)$")
+_SINGLES_CHUNK_SIZE = 150
 
 
 def build_export_lua_plan(project: ProjectConfig, export_plan: ExportPlan) -> LuaPackRegistration:
@@ -37,6 +38,7 @@ def build_export_lua_plan(project: ProjectConfig, export_plan: ExportPlan) -> Lu
         )
         for album in registration.albums
     ]
+    _assign_singles_chunk_require_names(albums)
     bootstrap_require_names: list[str] = []
     seen_require_names: set[str] = set()
     for album in albums:
@@ -65,6 +67,7 @@ def _build_lua_album(
         album_id=album.album_id,
         title=album.title,
         module_id=module_id,
+        row_mode=row.row_mode,
         sound_prefix=album.sound_prefix,
         table_name=f"NM{module_id}Album_{album.album_id}",
         require_name=require_name,
@@ -98,6 +101,19 @@ def _lua_require_name(
     else:
         source_album_id = sanitize_export_id(source_title, fallback=f"SinglesGroup{row.source_row_id}")
     return f"{module_id}_Album_{source_album_id}"
+
+
+def _assign_singles_chunk_require_names(albums: list[LuaAlbumRegistration]) -> None:
+    grouped: dict[str, list[LuaAlbumRegistration]] = {}
+    for album in albums:
+        if album.row_mode != "singles":
+            continue
+        grouped.setdefault(album.require_name, []).append(album)
+    for base_require_name, grouped_albums in grouped.items():
+        for chunk_index, start in enumerate(range(0, len(grouped_albums), _SINGLES_CHUNK_SIZE), start=1):
+            chunk_require_name = f"{base_require_name}_Part{chunk_index:02d}"
+            for album in grouped_albums[start:start + _SINGLES_CHUNK_SIZE]:
+                album.require_name = chunk_require_name
 
 
 def _build_explicit_tracks(module_id: str, album: RegisteredAlbum) -> dict[str, list[LuaExplicitTrack]]:

@@ -116,8 +116,8 @@ def test_legacy_lua_plan_groups_multiple_singles_from_one_source_row_into_one_re
     lua_pack = build_export_lua_plan(project, plan)
 
     assert len(lua_pack.albums) == 2
-    assert lua_pack.bootstrap_require_names == ['LegacyPack_Album_LegacySingles']
-    assert {album.require_name for album in lua_pack.albums} == {'LegacyPack_Album_LegacySingles'}
+    assert lua_pack.bootstrap_require_names == ['LegacyPack_Album_LegacySingles_Part01']
+    assert {album.require_name for album in lua_pack.albums} == {'LegacyPack_Album_LegacySingles_Part01'}
 
 
 def test_legacy_lua_plan_uses_singles_group_name_for_default_media_mix_rows() -> None:
@@ -133,8 +133,31 @@ def test_legacy_lua_plan_uses_singles_group_name_for_default_media_mix_rows() ->
     plan = build_export_plan(project, AssetCatalog(assets_root()).scan())
     lua_pack = build_export_lua_plan(project, plan)
 
-    assert lua_pack.bootstrap_require_names == ['LegacyPack_Album_SinglesGroup1']
-    assert {album.require_name for album in lua_pack.albums} == {'LegacyPack_Album_SinglesGroup1'}
+    assert lua_pack.bootstrap_require_names == ['LegacyPack_Album_SinglesGroup1_Part01']
+    assert {album.require_name for album in lua_pack.albums} == {'LegacyPack_Album_SinglesGroup1_Part01'}
+
+
+def test_legacy_lua_plan_chunks_large_singles_rows_into_fixed_size_parts() -> None:
+    project = ProjectConfig(mod_name='Legacy', mod_id='LegacyPack', legacy_mode_enabled=True)
+    row = default_media_row(1)
+    row.row_mode = 'singles'
+    row.tracks_a = [
+        TrackEntry(display_label=f'Song {index:03d}', source_path=f'C:/music/{index}.ogg', duration='00:01:00')
+        for index in range(1, 302)
+    ]
+    project.media_rows = [row]
+
+    plan = build_export_plan(project, AssetCatalog(assets_root()).scan())
+    lua_pack = build_export_lua_plan(project, plan)
+
+    assert lua_pack.bootstrap_require_names == [
+        'LegacyPack_Album_SinglesGroup1_Part01',
+        'LegacyPack_Album_SinglesGroup1_Part02',
+        'LegacyPack_Album_SinglesGroup1_Part03',
+    ]
+    assert sum(1 for album in lua_pack.albums if album.require_name.endswith('Part01')) == 150
+    assert sum(1 for album in lua_pack.albums if album.require_name.endswith('Part02')) == 150
+    assert sum(1 for album in lua_pack.albums if album.require_name.endswith('Part03')) == 1
 
 
 def test_legacy_texture_export_reuses_shared_custom_texture_files(tmp_path) -> None:

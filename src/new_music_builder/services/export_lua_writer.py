@@ -20,7 +20,8 @@ def write_export_lua(
         albums_by_require_name.setdefault(album.require_name, []).append(album)
     for require_name in lua_pack.bootstrap_require_names:
         grouped_albums = albums_by_require_name.get(require_name, [])
-        (lua_root / f"{require_name}.lua").write_text(_render_album_group(grouped_albums), encoding="utf-8")
+        render = _render_singles_chunk if grouped_albums and grouped_albums[0].row_mode == "singles" else _render_album_group
+        (lua_root / f"{require_name}.lua").write_text(render(grouped_albums), encoding="utf-8")
 
 
 def _render_bootstrap(lua_pack: LuaPackRegistration) -> str:
@@ -113,6 +114,91 @@ def _render_album(album: LuaAlbumRegistration) -> str:
 
 def _render_album_group(albums: list[LuaAlbumRegistration]) -> str:
     return "".join(_render_album(album) for album in albums)
+
+
+def _render_singles_chunk(albums: list[LuaAlbumRegistration]) -> str:
+    lines = [
+        "-- Singles runtime chunk:",
+        "-- Lightweight single-track registrations generated in fixed-size batches.",
+        "",
+        "local function _nmb_single_media(items)",
+        "    local media = {}",
+        '    if items.cassette then media.cassette = { mode = "full", items = { full = items.cassette, containerEmpty = "", containerFull = "", }, } end',
+        '    if items.vinyl then media.vinyl = { mode = "full", items = { full = items.vinyl, containerEmpty = "", containerFull = "", }, } end',
+        '    if items.cd then media.cd = { mode = "full", items = { full = items.cd, containerEmpty = "", containerFull = "", }, } end',
+        "    return media",
+        "end",
+        "",
+        "local function _nmb_single_cover(texture, playable)",
+        '    if texture == nil or texture == "" then return {} end',
+        '    return { { mode = "linked", texture = texture, includePlayable = playable, }, }',
+        "end",
+        "",
+        "local function _nmb_register_single(def)",
+        "    local explicit = { { label = def.label, sound = def.sound, trackNumber = 1 }, }",
+        "    _G[def.tableName] = {",
+        "        id = def.id,",
+        "        title = def.title,",
+        "        trackSource = {",
+        "            soundPrefix = def.soundPrefix,",
+        "            explicit = {",
+        "                a = explicit,",
+        "                full = explicit,",
+        "            },",
+        "            labels = { def.label },",
+        "        },",
+        "        media = _nmb_single_media(def.media),",
+        "        coverGroups = _nmb_single_cover(def.coverTexture, def.coverPlayable),",
+        "    }",
+        "end",
+        "",
+    ]
+    for album in albums:
+        lines.extend(_render_singles_entry(album))
+    return "\n".join(lines) + "\n"
+
+
+def _render_singles_entry(album: LuaAlbumRegistration) -> list[str]:
+    label_key = album.track_labels[0].key if album.track_labels else ""
+    sound = album.explicit_tracks.get("full", [])[0].sound if album.explicit_tracks.get("full") else album.sound_prefix
+    media_items = {
+        media.media_kind: media.items.full
+        for media in album.media
+        if media.items.full
+    }
+    cover_group = album.cover_groups[0] if album.cover_groups else None
+    lines = [
+        "_nmb_register_single({",
+        f'    tableName = "{_escape(album.table_name)}",',
+        f'    id = "{_escape(album.album_id)}",',
+        f'    title = "{_escape(album.title)}",',
+        f'    soundPrefix = "{_escape(album.sound_prefix)}",',
+        f'    sound = "{_escape(sound)}",',
+        f'    label = "{_escape(label_key)}",',
+        f"    media = {{ {_render_singles_media_items(media_items)} }},",
+    ]
+    if cover_group is not None and cover_group.texture:
+        lines.append(f'    coverTexture = "{_escape(cover_group.texture)}",')
+        lines.append(f"    coverPlayable = {{ {_render_media_list(cover_group.include_playable)} }},")
+    else:
+        lines.append('    coverTexture = "",')
+        lines.append("    coverPlayable = {},")
+    lines.extend(
+        [
+            "})",
+            "",
+        ]
+    )
+    return lines
+
+
+def _render_singles_media_items(items: dict[str, str]) -> str:
+    ordered = []
+    for kind in ("cassette", "vinyl", "cd"):
+        value = items.get(kind, "")
+        if value:
+            ordered.append(f'{kind} = "{_escape(value)}"')
+    return ", ".join(ordered)
 
 
 def _render_media_entry(media: LuaAlbumMediaRegistration) -> list[str]:
