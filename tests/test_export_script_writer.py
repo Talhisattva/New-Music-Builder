@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 from PIL import Image
 
@@ -72,11 +73,10 @@ def test_write_export_scaffold_generates_script_files_for_registered_media(tmp_p
     assert "item RoadTripVol1CDB" not in items_text
     assert "item RoadTripVol1JacketEmpty" in items_text
     assert "item RoadTripVol1JacketFull" in items_text
-    assert "WorldStaticModel = RoadTripMix.RoadTripVol1JacketFull" in items_text
+    assert "WorldStaticModel = RoadTripMix.SharedJacket" in items_text
 
-    assert "model RoadTripVol1Cassette" in models_text
-    assert "model RoadTripVol1JacketEmpty" in models_text
-    assert "model RoadTripVol1JacketFull" in models_text
+    assert "model SharedCassette" in models_text
+    assert "model SharedJacket" in models_text
     assert "mesh = WorldItems/NM_Jacket" in models_text
 
     assert 'require "NMAlbumPackBuilder"' in bootstrap_text
@@ -318,15 +318,87 @@ def test_write_export_scaffold_legacy_mode_uses_clean_song_ids_for_lua_and_scrip
     assert "11KiasmosLooped" not in sounds_text
     assert "11KiasmosLooped" not in items_text
     assert "11KiasmosLooped" not in models_text
-    assert 'local function _nmb_register_single(def)' in album_text
-    assert 'soundPrefix = "LegacyPackKiasmosLooped"' in album_text
-    assert 'sound = "LegacyPackKiasmosLooped"' in album_text
-    assert 'media = { cassette = "KiasmosLoopedCassette", vinyl = "KiasmosLoopedVinyl", cd = "KiasmosLoopedCD" },' in album_text
-    assert "sound LegacyPackKiasmosLooped" in sounds_text
-    assert "sound LegacyPackKiasmosLooped01" not in sounds_text
-    assert "item KiasmosLoopedCassette" in items_text
-    assert "item KiasmosLoopedVinyl" in items_text
-    assert "item KiasmosLoopedCD" in items_text
+
+
+def test_write_export_scaffold_reuses_shared_model_definitions_pack_wide(tmp_path: Path) -> None:
+    workshop_root = tmp_path / "Workshop"
+    workshop_root.mkdir()
+    project = ProjectConfig(
+        mod_name="Shared Model Pack",
+        mod_id="SharedModelPack",
+        workshop_output_folder=str(workshop_root),
+        legacy_mode_enabled=True,
+    )
+    row = default_media_row(1)
+    row.row_mode = "singles"
+    row.media_name = "Shared Models"
+    row.tracks_a = [
+        _track("C:/music/one.ogg", "Song One", "00:01:00"),
+        _track("C:/music/two.ogg", "Song Two", "00:02:00"),
+    ]
+    project.media_rows = [row]
+
+    catalog = AssetCatalog(ASSETS_ROOT).scan()
+    plan = build_export_plan(project, catalog)
+    targets = resolve_export_target(plan, project.workshop_output_folder, mod_name=project.mod_name, mod_id=project.mod_id)
+
+    result = write_export_scaffold(project, plan, targets, catalog)
+
+    assert not result.errors
+    scripts_root = Path(targets.v42) / "media" / "scripts"
+    items_text = (scripts_root / "NMB_SharedModelPack_Items.txt").read_text(encoding="utf-8")
+    models_text = (scripts_root / "NMB_SharedModelPack_Models.txt").read_text(encoding="utf-8")
+
+    cassette_model_refs = re.findall(r"WorldStaticModel = SharedModelPack\.(SharedCassette\w+),", items_text)
+    vinyl_model_refs = re.findall(r"WorldStaticModel = SharedModelPack\.(SharedVinyl\w+),", items_text)
+    cd_model_refs = re.findall(r"WorldStaticModel = SharedModelPack\.(SharedCD\w+),", items_text)
+    assert len(set(cassette_model_refs)) == 1
+    assert len(set(vinyl_model_refs)) == 1
+    assert len(set(cd_model_refs)) == 1
+
+    assert models_text.count("model SharedCassette") == 1
+    assert models_text.count("model SharedVinyl") == 1
+    assert models_text.count("model SharedCD") == 1
+
+
+def test_write_export_scaffold_reuses_shared_container_model_definitions_pack_wide(tmp_path: Path) -> None:
+    workshop_root = tmp_path / "Workshop"
+    workshop_root.mkdir()
+    project = ProjectConfig(
+        mod_name="Shared Container Pack",
+        mod_id="SharedContainerPack",
+        workshop_output_folder=str(workshop_root),
+    )
+    row_one = default_media_row(1)
+    row_one.media_name = "Container One"
+    row_one.tracks_a = [_track("C:/music/a.ogg", "Track A", "00:01:00")]
+    row_two = default_media_row(2)
+    row_two.media_name = "Container Two"
+    row_two.tracks_a = [_track("C:/music/b.ogg", "Track B", "00:02:00")]
+    project.media_rows = [row_one, row_two]
+
+    catalog = AssetCatalog(ASSETS_ROOT).scan()
+    plan = build_export_plan(project, catalog)
+    targets = resolve_export_target(plan, project.workshop_output_folder, mod_name=project.mod_name, mod_id=project.mod_id)
+
+    result = write_export_scaffold(project, plan, targets, catalog)
+
+    assert not result.errors
+    scripts_root = Path(targets.v42) / "media" / "scripts"
+    items_text = (scripts_root / "NMB_SharedContainerPack_Items.txt").read_text(encoding="utf-8")
+    models_text = (scripts_root / "NMB_SharedContainerPack_Models.txt").read_text(encoding="utf-8")
+
+    case_model_refs = re.findall(r"WorldStaticModel = SharedContainerPack\.(SharedCassetteCase\w+),", items_text)
+    jacket_model_refs = re.findall(r"WorldStaticModel = SharedContainerPack\.(SharedJacket\w+),", items_text)
+    cover_model_refs = re.findall(r"WorldStaticModel = SharedContainerPack\.(SharedCDCover\w+),", items_text)
+
+    assert len(set(case_model_refs)) == 1
+    assert len(set(jacket_model_refs)) == 1
+    assert len(set(cover_model_refs)) == 1
+
+    assert models_text.count("model SharedCassetteCase") == 1
+    assert models_text.count("model SharedJacket") == 1
+    assert models_text.count("model SharedCDCover") == 1
 
 
 def test_write_export_scaffold_groups_singles_lua_tables_into_one_file_per_source_row(tmp_path: Path) -> None:

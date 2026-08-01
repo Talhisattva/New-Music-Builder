@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import re
 from pathlib import Path
 
@@ -7,23 +8,11 @@ from new_music_builder.domain.models import (
     ExportPlan,
     ExportTargetPaths,
     ProjectConfig,
-    RegisteredAlbum,
     RegisteredContainerVariant,
     RegisteredMediaVariant,
 )
+from new_music_builder.services.export_ids import sanitize_export_id
 from new_music_builder.services.export_registration_plan import build_export_registration_plan
-
-_PLAYABLE_MODEL_SUFFIX: dict[str, str] = {
-    "cassette": "Cassette",
-    "vinyl": "Vinyl",
-    "cd": "CD",
-}
-
-_CONTAINER_MODEL_SUFFIX: dict[str, str] = {
-    "cassette": "CassetteCase",
-    "vinyl": "Jacket",
-    "cd": "CDCover",
-}
 
 _MODEL_SPECS: dict[str, dict[str, object]] = {
     "cassette": {
@@ -74,6 +63,15 @@ _CONTAINER_WEIGHT: dict[str, str] = {
 
 _SCRIPT_DISPLAY_WHITESPACE_RE = re.compile(r"\s+")
 
+_MODEL_NAME_PREFIX: dict[str, str] = {
+    "cassette": "Cassette",
+    "vinyl": "Vinyl",
+    "cd": "CD",
+    "case": "CassetteCase",
+    "jacket": "Jacket",
+    "cd_cover": "CDCover",
+}
+
 
 def write_export_scripts(
     project: ProjectConfig,
@@ -113,6 +111,7 @@ def _render_sounds(registration) -> str:
 
 def _render_items(registration) -> str:
     module_name = registration.module_id
+    shared_models = _collect_shared_model_names(registration)
     lines = [
         f"module {module_name}",
         "{",
@@ -124,7 +123,7 @@ def _render_items(registration) -> str:
     ]
     for album in registration.albums:
         for variant in album.media_variants:
-            model_name = _playable_model_name(album, variant)
+            model_name = _playable_model_name(variant, shared_models)
             if variant.mode == "single":
                 lines.extend(
                         _render_item_block(
@@ -154,7 +153,7 @@ def _render_items(registration) -> str:
                     item_id=variant.empty_item_id,
                     display_name=variant.empty_display_name,
                     icon_reference=variant.empty_icon_reference,
-                    model_name=_container_model_name(album, variant, "Empty"),
+                    model_name=_container_model_name(variant, variant.empty_model_reference, shared_models),
                     module_name=module_name,
                     weight=_CONTAINER_WEIGHT[variant.media_kind],
                 )
@@ -164,7 +163,7 @@ def _render_items(registration) -> str:
                     item_id=variant.full_item_id,
                     display_name=variant.full_display_name,
                     icon_reference=variant.full_icon_reference,
-                    model_name=_container_model_name(album, variant, "Full"),
+                    model_name=_container_model_name(variant, variant.full_model_reference, shared_models),
                     module_name=module_name,
                     weight=_CONTAINER_WEIGHT[variant.media_kind],
                 )
@@ -204,6 +203,7 @@ def _pz_safe_display_name(value: str) -> str:
 
 def _render_models(registration) -> str:
     module_name = registration.module_id
+    shared_models = _collect_shared_model_names(registration)
     lines = [
         f"module {module_name}",
         "{",
@@ -213,30 +213,31 @@ def _render_models(registration) -> str:
         "    }",
         "",
     ]
+    rendered: set[str] = set()
     for album in registration.albums:
         for variant in album.media_variants:
-            lines.extend(
-                _render_model_block(
-                    model_name=_playable_model_name(album, variant),
-                    kind=variant.media_kind,
-                    texture_reference=variant.model_reference,
+            signature = _playable_model_signature(variant)
+            if signature not in rendered:
+                lines.extend(
+                    _render_model_block(
+                        model_name=shared_models[signature],
+                        kind=variant.media_kind,
+                        texture_reference=variant.model_reference,
+                    )
                 )
-            )
+                rendered.add(signature)
         for variant in album.container_variants:
-            lines.extend(
-                _render_model_block(
-                    model_name=_container_model_name(album, variant, "Empty"),
-                    kind=variant.container_kind,
-                    texture_reference=variant.empty_model_reference,
-                )
-            )
-            lines.extend(
-                _render_model_block(
-                    model_name=_container_model_name(album, variant, "Full"),
-                    kind=variant.container_kind,
-                    texture_reference=variant.full_model_reference,
-                )
-            )
+            for texture_reference in (variant.empty_model_reference, variant.full_model_reference):
+                signature = _container_model_signature(variant, texture_reference)
+                if signature not in rendered:
+                    lines.extend(
+                        _render_model_block(
+                            model_name=shared_models[signature],
+                            kind=variant.container_kind,
+                            texture_reference=texture_reference,
+                        )
+                    )
+                    rendered.add(signature)
     lines.append("}")
     return "\n".join(lines) + "\n"
 
@@ -271,9 +272,51 @@ def _render_model_block(*, model_name: str, kind: str, texture_reference: str) -
     return lines
 
 
-def _playable_model_name(album: RegisteredAlbum, variant: RegisteredMediaVariant) -> str:
-    return f"{album.album_id}{_PLAYABLE_MODEL_SUFFIX[variant.media_kind]}"
+def _collect_shared_model_names(registration) -> dict[str, str]:
+    shared_models: dict[str, str] = {}
+    for album in registration.albums:
+        for variant in album.media_variants:
+            signature = _playable_model_signature(variant)
+            shared_models.setdefault(signature, _shared_model_name(variant.media_kind, variant.model_reference))
+        for variant in album.container_variants:
+            empty_signature = _container_model_signature(variant, variant.empty_model_reference)
+            shared_models.setdefault(
+                empty_signature,
+                _shared_model_name(variant.container_kind, variant.empty_model_reference),
+            )
+            full_signature = _container_model_signature(variant, variant.full_model_reference)
+            shared_models.setdefault(
+                full_signature,
+                _shared_model_name(variant.container_kind, variant.full_model_reference),
+            )
+    return shared_models
 
 
-def _container_model_name(album: RegisteredAlbum, variant: RegisteredContainerVariant, state: str) -> str:
-    return f"{album.album_id}{_CONTAINER_MODEL_SUFFIX[variant.media_kind]}{state}"
+def _playable_model_name(
+    variant: RegisteredMediaVariant,
+    shared_models: dict[str, str],
+) -> str:
+    return shared_models[_playable_model_signature(variant)]
+
+
+def _container_model_name(
+    variant: RegisteredContainerVariant,
+    texture_reference: str,
+    shared_models: dict[str, str],
+) -> str:
+    return shared_models[_container_model_signature(variant, texture_reference)]
+
+
+def _playable_model_signature(variant: RegisteredMediaVariant) -> str:
+    return f"{variant.media_kind}|{variant.model_reference}"
+
+
+def _container_model_signature(variant: RegisteredContainerVariant, texture_reference: str) -> str:
+    return f"{variant.container_kind}|{texture_reference}"
+
+
+def _shared_model_name(kind: str, texture_reference: str) -> str:
+    prefix = _MODEL_NAME_PREFIX[kind]
+    normalized = sanitize_export_id(texture_reference, fallback=prefix)[:24]
+    digest = hashlib.sha1(f"{kind}:{texture_reference}".encode("utf-8")).hexdigest().upper()[:8]
+    return f"Shared{prefix}{normalized}{digest}"
