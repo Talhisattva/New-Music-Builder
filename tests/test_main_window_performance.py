@@ -386,6 +386,7 @@ def test_finalize_audio_run_sets_preview_rows_in_planned_order() -> None:
     window = MainWindow.__new__(MainWindow)
     module_five = _FakeModuleFivePanel()
     finalized_sides: list[tuple[int, str]] = []
+    finalized_all_nonfailed: list[bool] = []
     flushed_queue_updates: list[bool] = []
     window.module_five_panel = module_five
     window.module_four_panel = type(
@@ -395,6 +396,7 @@ def test_finalize_audio_run_sets_preview_rows_in_planned_order() -> None:
             "append_log_line": lambda _self, _line: None,
             "settle_queue_state": lambda _self: None,
             "finalize_successful_side": lambda _self, row_id, side: finalized_sides.append((row_id, side)),
+            "finalize_all_nonfailed_songs": lambda _self: finalized_all_nonfailed.append(True),
             "flush_queue_updates": lambda _self: flushed_queue_updates.append(True),
             "state": type("State", (), {"current_run_log_lines": []})(),
         },
@@ -427,6 +429,7 @@ def test_finalize_audio_run_sets_preview_rows_in_planned_order() -> None:
 
     assert module_five.set_rows_payloads[-1] == [first, second]
     assert finalized_sides == [(2, "A"), (1, "A")]
+    assert finalized_all_nonfailed == [True]
     assert flushed_queue_updates == [True]
 
 

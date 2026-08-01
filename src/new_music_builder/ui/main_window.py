@@ -3741,6 +3741,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         if hasattr(self, 'module_four_panel') and not result.errors:
             for row_id, side in result.successful_sides:
                 self.module_four_panel.finalize_successful_side(row_id, side)
+            if result.built_song_count >= plan.stats.planned_total_songs and hasattr(self.module_four_panel, 'finalize_all_nonfailed_songs'):
+                self.module_four_panel.finalize_all_nonfailed_songs()
         if module_five_panel is not None:
             if hasattr(module_five_panel, 'set_export_active'):
                 module_five_panel.set_export_active(False)

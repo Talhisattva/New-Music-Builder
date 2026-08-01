@@ -198,6 +198,19 @@ class ModuleFourPanel(tk.Frame):
                 self._schedule_queue_refresh()
             return
 
+    def finalize_all_nonfailed_songs(self) -> None:
+        changed = False
+        for group in self.state.ordered_groups:
+            for song in group.songs:
+                if song.status == "failed":
+                    continue
+                if song.status != "done" or song.percent != 100:
+                    song.status = "done"  # type: ignore[assignment]
+                    song.percent = 100
+                    changed = True
+        if changed:
+            self._schedule_queue_refresh()
+
     def flush_queue_updates(self) -> None:
         if self._queue_refresh_after_id is not None:
             self._flush_pending_queue_refresh()
