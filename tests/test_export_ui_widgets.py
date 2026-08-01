@@ -63,6 +63,7 @@ class _FakePreviewRowWidget:
         self.place_calls: list[dict[str, int]] = []
         self.place_forget_calls = 0
         self.destroy_calls = 0
+        self.clear_calls = 0
 
     def set_row(self, row: GeneratedPreviewRow, *, animate_dual_phase: bool = True) -> None:
         self.row = row
@@ -73,6 +74,10 @@ class _FakePreviewRowWidget:
 
     def place_forget(self) -> None:
         self.place_forget_calls += 1
+
+    def clear_row(self) -> None:
+        self.clear_calls += 1
+        self.row = None
 
     def destroy(self) -> None:
         self.destroy_calls += 1
@@ -155,6 +160,24 @@ def test_module_five_panel_refresh_visible_rows_maps_scroll_window() -> None:
 
     assert [widget.row.inventory_cell.label_text for widget in panel._row_widgets] == ["Row 4", "Row 5", "Row 6"]
     assert all(widget.animate_dual_phase is True for widget in panel._row_widgets)
+
+
+def test_module_five_panel_refresh_visible_rows_clears_hidden_widgets() -> None:
+    panel = ModuleFivePanel.__new__(ModuleFivePanel)
+    panel._preview_rows = [_preview_row("Only Row")]
+    panel._pending_preview_rows = []
+    panel._row_widgets = [_FakePreviewRowWidget(), _FakePreviewRowWidget()]
+    panel._flush_after_id = None
+    panel._export_active = False
+    panel.content_scroll = _FakeScroll(offset=0)
+    panel._ensure_row_widget_pool = lambda: None
+
+    ModuleFivePanel._refresh_visible_rows(panel)
+
+    assert panel._row_widgets[0].row is not None
+    assert panel._row_widgets[1].row is None
+    assert panel._row_widgets[1].clear_calls == 1
+    assert panel._row_widgets[1].place_forget_calls == 1
 
 
 def test_module_five_panel_set_export_active_flushes_pending_rows_when_deactivating() -> None:

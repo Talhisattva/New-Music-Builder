@@ -163,6 +163,7 @@ class ModuleFivePanel(tk.Frame):
         for pool_index, row_widget in enumerate(self._row_widgets):
             preview_index = first_index + pool_index
             if pool_index >= visible_count or preview_index >= len(self._preview_rows):
+                row_widget.clear_row()
                 row_widget.place_forget()
                 continue
             row_widget.set_row(self._preview_rows[preview_index], animate_dual_phase=not self._export_active)

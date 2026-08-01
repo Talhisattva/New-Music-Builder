@@ -26,6 +26,7 @@ class ModuleFivePreviewRow(tk.Canvas):
             height=spec.PHASE_THREE_MODULE_FIVE_ROW_SIZE[1],
         )
         self._row = None
+        self._row_key: tuple[int, str] | None = None
         self._tooltip_hide_after_id: str | None = None
         self._dual_phase_after_id: str | None = None
         self._show_empty = False
@@ -47,18 +48,38 @@ class ModuleFivePreviewRow(tk.Canvas):
         )
 
     def set_row(self, row: GeneratedPreviewRow, *, animate_dual_phase: bool = True) -> None:
+        next_key = (row.row_id, row.side)
+        row_changed = self._row_key != next_key or self._row != row
+        animation_changed = self._animate_dual_phase != animate_dual_phase
         self._row = row
+        self._row_key = next_key
         self._animate_dual_phase = animate_dual_phase
+
         if self._animate_dual_phase:
-            self._restart_dual_phase()
+            if row_changed or animation_changed:
+                self._restart_dual_phase()
         else:
             self._cancel_dual_phase()
-            self._show_empty = False
-        self._redraw()
+            if self._show_empty:
+                self._show_empty = False
+                row_changed = True
 
-    def destroy(self) -> None:
+        if row_changed or animation_changed:
+            self._redraw()
+
+    def clear_row(self) -> None:
         self._cancel_dual_phase()
         self._cancel_tooltip_hide()
+        self._cursor_tooltip.hide()
+        self._row = None
+        self._row_key = None
+        self._show_empty = False
+        self._icon_images.clear()
+        self._cover_images.clear()
+        self.delete('all')
+
+    def destroy(self) -> None:
+        self.clear_row()
         super().destroy()
 
     def _redraw(self) -> None:
