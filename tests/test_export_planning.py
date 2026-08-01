@@ -253,6 +253,38 @@ def test_preview_scenario_keeps_full_mode_media_visible_on_each_side_row() -> No
     assert scenario.preview_rows[1].inventory_cell.slot_paths[2]
 
 
+def test_mixed_export_plan_keeps_queue_row_ids_unique_between_singles_and_mixtape_rows() -> None:
+    catalog = AssetCatalog(ASSETS_ROOT).scan()
+    singles_row = default_media_row(1)
+    singles_row.row_mode = 'singles'
+    singles_row.media_name = 'Singles Source'
+    singles_row.tracks_a = [
+        _track('C:/music/space.ogg', 'Space Ghost Coast To Coast', '00:03:00'),
+        _track('C:/music/portal.ogg', 'STS9 - Portal', '00:04:00'),
+    ]
+    mixtape_row = default_media_row(2)
+    mixtape_row.media_name = 'Gen Mix'
+    mixtape_row.tracks_a = [
+        _track('C:/music/creep.ogg', 'Radiohead - Creep', '00:03:00'),
+        _track('C:/music/rage.ogg', 'Rage Against The Machine - Killing In The Name', '00:05:00'),
+    ]
+    project = ProjectConfig(media_rows=[singles_row, mixtape_row])
+
+    plan = build_export_plan(project, catalog)
+    scenario = build_preview_scenario(plan, 'C:/output')
+
+    planned_keys = [(side.row_id, side.side) for side in plan.sides]
+    queue_keys = [(group.row_id, group.side) for group in scenario.queue_groups]
+    preview_keys = [(row.row_id, row.side) for row in scenario.preview_rows]
+
+    assert len(planned_keys) == len(set(planned_keys))
+    assert len(queue_keys) == len(set(queue_keys))
+    assert len(preview_keys) == len(set(preview_keys))
+    assert [group.queue_label for group in scenario.queue_groups] == ['Singles', 'Singles', 'Gen Mix']
+    assert [row.row_id for row in plan.rows if row.row_mode == 'singles'] == [3, 4]
+    assert [row.row_id for row in plan.rows if row.row_mode == 'mixtape'] == [2]
+
+
 def test_audio_export_naming_removes_commas_from_sound_script_paths() -> None:
     assert build_audio_row_folder_name('Dark Side, Textures', row_id=1) == 'Dark Side Textures'
     assert build_audio_track_file_name('Unlike Pluto - Revenge, And A Little More', track_number=4) == 'Unlike Pluto - Revenge And A Little More.ogg'

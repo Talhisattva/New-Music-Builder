@@ -49,10 +49,15 @@ def build_export_plan(project: ProjectConfig, asset_catalog: dict[str, list[Asse
     planned_sides: list[PlannedSide] = []
     used_row_ids: set[str] = set()
     used_track_ids: set[str] = set()
+    next_singles_exported_row_id = max((row.row_id for row in project.media_rows), default=0)
 
     for row in project.media_rows:
         if row.row_mode == "singles":
             singles_plan = build_legacy_export_plan(project, asset_catalog, source_rows=[row])
+            next_singles_exported_row_id = _remap_singles_plan_row_ids(
+                singles_plan,
+                next_exported_row_id=next_singles_exported_row_id,
+            )
             planned_rows.extend(singles_plan.rows)
             planned_sides.extend(singles_plan.sides)
             used_row_ids.update(item.export_id for item in singles_plan.rows if item.export_id)
@@ -184,6 +189,21 @@ def _build_planned_track(
         track_id=track_id,
         sound_id=track_id,
     )
+
+
+def _remap_singles_plan_row_ids(plan: ExportPlan, *, next_exported_row_id: int) -> int:
+    row_id_map: dict[int, int] = {}
+    for planned_row in plan.rows:
+        next_exported_row_id += 1
+        row_id_map[planned_row.row_id] = next_exported_row_id
+        planned_row.row_id = next_exported_row_id
+        for side in planned_row.sides:
+            side.row_id = next_exported_row_id
+    for side in plan.sides:
+        mapped_row_id = row_id_map.get(side.row_id)
+        if mapped_row_id is not None:
+            side.row_id = mapped_row_id
+    return next_exported_row_id
 
 
 def _resolve_appearance_set(
