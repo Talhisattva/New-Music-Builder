@@ -2,8 +2,129 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from new_music_builder.domain.models import ExportPlan, ExportTargetPaths, LuaAlbumMediaRegistration, LuaAlbumRegistration, LuaCoverGroup, LuaPackRegistration, ProjectConfig
+from new_music_builder.domain.models import (
+    ExportPlan,
+    ExportTargetPaths,
+    LuaAlbumMediaRegistration,
+    LuaAlbumRegistration,
+    LuaCoverGroup,
+    LuaPackRegistration,
+    LuaSinglesChunkRegistration,
+    LuaSinglesEntry,
+    ProjectConfig,
+)
 from new_music_builder.services.export_lua_plan import build_export_lua_plan
+
+_SINGLES_HELPER_REQUIRE = "NMSinglesPackBuilder"
+_SINGLES_HELPER_TEXT = """require "NMTrackCatalog"
+pcall(require, "shared/contracts/NMMediaContract")
+pcall(require, "shared/contracts/NMCoverViewResolver")
+
+NMSinglesPackBuilder = NMSinglesPackBuilder or {}
+
+local carrierByKind = {
+    cassette = "tsarcraft_music_01_62",
+    vinyl = "tsarcraft_music_01_63",
+    cd = "tsarcraft_music_01_64",
+}
+
+local function norm(value)
+    local text = tostring(value or "")
+    if text == "" then
+        return ""
+    end
+    return text
+end
+
+local function fullType(moduleName, itemType)
+    local name = norm(itemType)
+    if name == "" then
+        return ""
+    end
+    if string.find(name, ".", 1, true) then
+        return name
+    end
+    local moduleText = norm(moduleName)
+    if moduleText == "" then
+        return name
+    end
+    return moduleText .. "." .. name
+end
+
+local function registerCarrier(mediaFullType, carrier)
+    if mediaFullType == "" or carrier == "" then
+        return
+    end
+    if NMMediaContract and NMMediaContract.registerMediaTypeAlias then
+        NMMediaContract.registerMediaTypeAlias(mediaFullType, carrier)
+        return
+    end
+    GlobalMusic = GlobalMusic or {}
+    local key = mediaFullType
+    local dotPos = string.find(key, ".", 1, true)
+    if dotPos then
+        key = string.sub(key, dotPos + 1)
+    end
+    GlobalMusic[key] = carrier
+end
+
+local function registerTrack(mediaFullType, carrier, sound, label)
+    if mediaFullType == "" or carrier == "" or sound == "" then
+        return
+    end
+    if NMTrackCatalog and NMTrackCatalog.registerEntry then
+        NMTrackCatalog.registerEntry(mediaFullType, carrier, {
+            { sound = sound, label = label, trackNumber = 1 },
+        })
+    end
+end
+
+local function registerCover(mediaFullType, texture)
+    if mediaFullType == "" or texture == "" then
+        return
+    end
+    if NMCoverViewResolver and NMCoverViewResolver.registerLinkedCover then
+        NMCoverViewResolver.registerLinkedCover(mediaFullType, texture)
+    end
+end
+
+function NMSinglesPackBuilder.registerSinglesChunk(moduleName, chunkDef)
+    if type(chunkDef) ~= "table" then
+        return false
+    end
+    local entries = type(chunkDef.entries) == "table" and chunkDef.entries or {}
+    for i = 1, #entries do
+        local entry = entries[i]
+        local sound = norm(entry.sound)
+        local label = norm(entry.label)
+        local coverTexture = norm(entry.coverTexture)
+        local media = type(entry.media) == "table" and entry.media or {}
+        for _, kind in ipairs({ "cassette", "vinyl", "cd" }) do
+            local itemType = norm(media[kind])
+            local carrier = norm(carrierByKind[kind])
+            local mediaFullType = fullType(moduleName, itemType)
+            if mediaFullType ~= "" and carrier ~= "" and sound ~= "" then
+                registerCarrier(mediaFullType, carrier)
+                registerTrack(mediaFullType, carrier, sound, label)
+                registerCover(mediaFullType, coverTexture)
+            end
+        end
+    end
+    return true
+end
+
+function NMSinglesPackBuilder.registerSinglesPack(packDef)
+    if type(packDef) ~= "table" then
+        return false
+    end
+    local moduleName = norm(packDef.module)
+    local chunks = type(packDef.chunks) == "table" and packDef.chunks or {}
+    for i = 1, #chunks do
+        NMSinglesPackBuilder.registerSinglesChunk(moduleName, chunks[i])
+    end
+    return true
+end
+"""
 
 
 def write_export_lua(
@@ -15,42 +136,70 @@ def write_export_lua(
     lua_root = Path(targets.v42) / "media" / "lua" / "shared"
     lua_root.mkdir(parents=True, exist_ok=True)
     (lua_root / f"{lua_pack.module_id}_PackBootstrap.lua").write_text(_render_bootstrap(lua_pack), encoding="utf-8")
+
     albums_by_require_name: dict[str, list[LuaAlbumRegistration]] = {}
-    for album in lua_pack.albums:
+    for album in lua_pack.mixtape_albums:
         albums_by_require_name.setdefault(album.require_name, []).append(album)
-    for require_name in lua_pack.bootstrap_require_names:
+    for require_name in lua_pack.mixtape_bootstrap_require_names:
         grouped_albums = albums_by_require_name.get(require_name, [])
-        render = _render_singles_chunk if grouped_albums and grouped_albums[0].row_mode == "singles" else _render_album_group
-        (lua_root / f"{require_name}.lua").write_text(render(grouped_albums), encoding="utf-8")
+        (lua_root / f"{require_name}.lua").write_text(_render_album_group(grouped_albums), encoding="utf-8")
+
+    for chunk in lua_pack.singles_chunks:
+        (lua_root / f"{chunk.require_name}.lua").write_text(_render_singles_chunk(chunk), encoding="utf-8")
+
+    if lua_pack.singles_chunks:
+        (lua_root / f"{_SINGLES_HELPER_REQUIRE}.lua").write_text(_SINGLES_HELPER_TEXT, encoding="utf-8")
 
 
 def _render_bootstrap(lua_pack: LuaPackRegistration) -> str:
-    lines = [
-        'pcall(require, "shared/contracts/NMMediaContract")',
-        'require "NMAlbumPackBuilder"',
-    ]
-    lines.extend(f'require "{require_name}"' for require_name in lua_pack.bootstrap_require_names)
+    lines = ['pcall(require, "shared/contracts/NMMediaContract")']
+    if lua_pack.mixtape_albums:
+        lines.append('require "NMAlbumPackBuilder"')
+    if lua_pack.singles_chunks:
+        lines.append(f'require "{_SINGLES_HELPER_REQUIRE}"')
+    lines.extend(f'require "{require_name}"' for require_name in lua_pack.mixtape_bootstrap_require_names)
+    lines.extend(f'require "{require_name}"' for require_name in lua_pack.singles_bootstrap_require_names)
     lines.extend(
         [
             "",
             "-- Pack bootstrap:",
-            "-- Define the item/module namespace here, then list the album tables below.",
-            "-- Most pack edits should happen in the album files, not in this file.",
+            "-- Mixtapes stay on NMAlbumPackBuilder; Singles use flat direct registration.",
             f'local PACK_MODULE = "{lua_pack.module_id}"',
             "",
-            "NMAlbumPackBuilder.registerAlbumPack({",
-            "    module = PACK_MODULE,",
-            "    albums = {",
         ]
     )
-    lines.extend(f"        {table_name}," for table_name in lua_pack.album_table_names)
-    lines.extend(
-        [
-            "    },",
-            "})",
-            "",
-        ]
-    )
+    if lua_pack.mixtape_albums:
+        lines.extend(
+            [
+                "NMAlbumPackBuilder.registerAlbumPack({",
+                "    module = PACK_MODULE,",
+                "    albums = {",
+            ]
+        )
+        lines.extend(f"        {table_name}," for table_name in lua_pack.mixtape_album_table_names)
+        lines.extend(
+            [
+                "    },",
+                "})",
+                "",
+            ]
+        )
+    if lua_pack.singles_chunks:
+        lines.extend(
+            [
+                "NMSinglesPackBuilder.registerSinglesPack({",
+                "    module = PACK_MODULE,",
+                "    chunks = {",
+            ]
+        )
+        lines.extend(f"        {chunk.table_name}," for chunk in lua_pack.singles_chunks)
+        lines.extend(
+            [
+                "    },",
+                "})",
+                "",
+            ]
+        )
     return "\n".join(lines)
 
 
@@ -81,7 +230,7 @@ def _render_album(album: LuaAlbumRegistration) -> str:
     lines.extend(
         [
             "        },",
-        "        labels = {",
+            "        labels = {",
         ]
     )
     lines.extend(f'            "{_escape(label.key)}",' for label in album.track_labels)
@@ -116,89 +265,50 @@ def _render_album_group(albums: list[LuaAlbumRegistration]) -> str:
     return "".join(_render_album(album) for album in albums)
 
 
-def _render_singles_chunk(albums: list[LuaAlbumRegistration]) -> str:
+def _render_singles_chunk(chunk: LuaSinglesChunkRegistration) -> str:
     lines = [
         "-- Singles runtime chunk:",
-        "-- Lightweight single-track registrations generated in fixed-size batches.",
+        "-- Direct one-track registrations; no album-contract tables.",
         "",
-        "local function _nmb_single_media(items)",
-        "    local media = {}",
-        '    if items.cassette then media.cassette = { mode = "full", items = { full = items.cassette, containerEmpty = "", containerFull = "", }, } end',
-        '    if items.vinyl then media.vinyl = { mode = "full", items = { full = items.vinyl, containerEmpty = "", containerFull = "", }, } end',
-        '    if items.cd then media.cd = { mode = "full", items = { full = items.cd, containerEmpty = "", containerFull = "", }, } end',
-        "    return media",
-        "end",
-        "",
-        "local function _nmb_single_cover(texture, playable)",
-        '    if texture == nil or texture == "" then return {} end',
-        '    return { { mode = "linked", texture = texture, includePlayable = playable, }, }',
-        "end",
-        "",
-        "local function _nmb_register_single(def)",
-        "    local explicit = { { label = def.label, sound = def.sound, trackNumber = 1 }, }",
-        "    _G[def.tableName] = {",
-        "        id = def.id,",
-        "        title = def.title,",
-        "        trackSource = {",
-        "            soundPrefix = def.soundPrefix,",
-        "            explicit = {",
-        "                a = explicit,",
-        "                full = explicit,",
-        "            },",
-        "            labels = { def.label },",
-        "        },",
-        "        media = _nmb_single_media(def.media),",
-        "        coverGroups = _nmb_single_cover(def.coverTexture, def.coverPlayable),",
-        "    }",
-        "end",
-        "",
+        f"{chunk.table_name} = {{",
+        "    entries = {",
     ]
-    for album in albums:
-        lines.extend(_render_singles_entry(album))
-    return "\n".join(lines) + "\n"
-
-
-def _render_singles_entry(album: LuaAlbumRegistration) -> list[str]:
-    label_key = album.track_labels[0].key if album.track_labels else ""
-    sound = album.explicit_tracks.get("full", [])[0].sound if album.explicit_tracks.get("full") else album.sound_prefix
-    media_items = {
-        media.media_kind: media.items.full
-        for media in album.media
-        if media.items.full
-    }
-    cover_group = album.cover_groups[0] if album.cover_groups else None
-    lines = [
-        "_nmb_register_single({",
-        f'    tableName = "{_escape(album.table_name)}",',
-        f'    id = "{_escape(album.album_id)}",',
-        f'    title = "{_escape(album.title)}",',
-        f'    soundPrefix = "{_escape(album.sound_prefix)}",',
-        f'    sound = "{_escape(sound)}",',
-        f'    label = "{_escape(label_key)}",',
-        f"    media = {{ {_render_singles_media_items(media_items)} }},",
-    ]
-    if cover_group is not None and cover_group.texture:
-        lines.append(f'    coverTexture = "{_escape(cover_group.texture)}",')
-        lines.append(f"    coverPlayable = {{ {_render_media_list(cover_group.include_playable)} }},")
-    else:
-        lines.append('    coverTexture = "",')
-        lines.append("    coverPlayable = {},")
+    for entry in chunk.entries:
+        lines.extend(_render_singles_entry(entry))
     lines.extend(
         [
-            "})",
+            "    },",
+            "}",
             "",
         ]
     )
+    return "\n".join(lines)
+
+
+def _render_singles_entry(entry: LuaSinglesEntry) -> list[str]:
+    lines = [
+        "        {",
+        f'            id = "{_escape(entry.album_id)}",',
+        f'            title = "{_escape(entry.title)}",',
+        f'            sound = "{_escape(entry.sound)}",',
+        f'            label = "{_escape(entry.track_label.key)}",',
+        "            media = {",
+    ]
+    if entry.media.cassette:
+        lines.append(f'                cassette = "{_escape(entry.media.cassette)}",')
+    if entry.media.vinyl:
+        lines.append(f'                vinyl = "{_escape(entry.media.vinyl)}",')
+    if entry.media.cd:
+        lines.append(f'                cd = "{_escape(entry.media.cd)}",')
+    lines.extend(
+        [
+            "            },",
+            f'            coverTexture = "{_escape(entry.cover_texture)}",',
+            f"            coverPlayable = {{ {_render_media_list(entry.cover_playable)} }},",
+            "        },",
+        ]
+    )
     return lines
-
-
-def _render_singles_media_items(items: dict[str, str]) -> str:
-    ordered = []
-    for kind in ("cassette", "vinyl", "cd"):
-        value = items.get(kind, "")
-        if value:
-            ordered.append(f'{kind} = "{_escape(value)}"')
-    return ", ".join(ordered)
 
 
 def _render_media_entry(media: LuaAlbumMediaRegistration) -> list[str]:
@@ -232,11 +342,7 @@ def _render_media_entry(media: LuaAlbumMediaRegistration) -> list[str]:
                 "            },",
             ]
         )
-    lines.extend(
-        [
-            "        },",
-        ]
-    )
+    lines.extend(["        },"])
     return lines
 
 
@@ -252,11 +358,7 @@ def _render_cover_group(group: LuaCoverGroup) -> list[str]:
         lines.append(f"            includeContainers = {{ {_render_media_list(group.include_containers)} }},")
     if group.include_empty_containers:
         lines.append(f"            includeEmptyContainers = {{ {_render_media_list(group.include_empty_containers)} }},")
-    lines.extend(
-        [
-            "        },",
-        ]
-    )
+    lines.extend(["        },"])
     return lines
 
 

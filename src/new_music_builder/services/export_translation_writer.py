@@ -16,9 +16,14 @@ def write_export_translations(
     lua_pack = build_export_lua_plan(project, plan)
     track_labels = [
         label
-        for album in lua_pack.albums
+        for album in lua_pack.mixtape_albums
         for label in album.track_labels
     ]
+    track_labels.extend(
+        entry.track_label
+        for chunk in lua_pack.singles_chunks
+        for entry in chunk.entries
+    )
     translation_root = Path(targets.common) / "media" / "lua" / "shared" / "Translate"
     written_paths: list[Path] = []
     for locale in SUPPORTED_TRANSLATION_LOCALES:

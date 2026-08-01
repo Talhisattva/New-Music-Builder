@@ -431,8 +431,11 @@ def test_write_export_scaffold_groups_singles_lua_tables_into_one_file_per_sourc
     grouped_album_text = (lua_root / "LegacyPack_Album_LegacySingles_Part01.lua").read_text(encoding="utf-8")
 
     assert bootstrap_text.count('require "LegacyPack_Album_LegacySingles_Part01"') == 1
-    assert '_nmb_register_single({' in grouped_album_text
-    assert 'tableName = "NMLegacyPackAlbum_KiasmosLooped"' in grouped_album_text
-    assert 'tableName = "NMLegacyPackAlbum_LemonJellySpaceWalk"' in grouped_album_text
+    assert 'require "NMSinglesPackBuilder"' in bootstrap_text
+    assert 'NMSinglesPackBuilder.registerSinglesPack({' in bootstrap_text
+    assert '_nmb_register_single({' not in grouped_album_text
+    assert 'sound = "LegacyPackKiasmosLooped"' in grouped_album_text
+    assert 'cassette = "KiasmosLoopedCassette"' in grouped_album_text
+    assert 'cd = "KiasmosLoopedCD"' in grouped_album_text
     assert not (lua_root / "LegacyPack_Album_KiasmosLooped.lua").exists()
     assert not (lua_root / "LegacyPack_Album_LemonJellySpaceWalk.lua").exists()

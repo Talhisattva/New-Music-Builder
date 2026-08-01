@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import logging
+import os
 import shutil
+import tempfile
 from collections.abc import Callable
+from datetime import datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 
@@ -18,6 +21,9 @@ BuildEventEmitter = Callable[[AudioRunEvent], None]
 CancelCheck = Callable[[], bool]
 LOGGER = logging.getLogger('new_music_builder')
 _EMPTY_EXPORT_ERROR = "Unknown export error: emitted pack is empty (0 KB). Please try different songs or images."
+_STAGING_PREFIX = "nmb_staging_"
+_LEGACY_STAGING_GLOB = ".nmb_staging_*"
+_STALE_STAGING_MAX_AGE = timedelta(hours=12)
 
 
 def run_staged_export(
@@ -35,6 +41,7 @@ def run_staged_export(
     log_run_id = run_id or "-"
     LOGGER.info("[run=%s] run_staged_export start final_root=%s", log_run_id, final_root)
     result = AudioRunResult(output_path=str(final_root))
+    cleanup_export_staging_artifacts(final_targets.workshop_root)
     staging_targets = create_staging_targets(final_targets)
     staging_root = Path(staging_targets.root)
 
@@ -118,7 +125,7 @@ def run_staged_export(
 
 
 def create_staging_targets(final_targets: ExportTargetPaths) -> ExportTargetPaths:
-    staging_root = Path(final_targets.workshop_root) / f".nmb_staging_{uuid4().hex}"
+    staging_root = _builder_staging_parent() / final_targets.inner_folder_name / f"{_STAGING_PREFIX}{uuid4().hex}"
     contents = staging_root / "Contents"
     mods_root = contents / "mods"
     mod_base = mods_root / final_targets.inner_folder_name
@@ -141,11 +148,47 @@ def create_staging_targets(final_targets: ExportTargetPaths) -> ExportTargetPath
     )
 
 
+def cleanup_export_staging_artifacts(workshop_root: str | Path | None = None) -> None:
+    _cleanup_builder_staging_root(_builder_staging_parent())
+    if workshop_root is not None:
+        _cleanup_legacy_workshop_staging_dirs(Path(workshop_root))
+
+
 def _promote_staging_export_root(staging_root: Path, final_root: Path) -> None:
     if final_root.exists():
         shutil.rmtree(final_root)
     if staging_root.exists():
         shutil.move(str(staging_root), str(final_root))
+
+
+def _builder_staging_parent() -> Path:
+    local_appdata = os.getenv("LOCALAPPDATA", "").strip()
+    if local_appdata:
+        return Path(local_appdata) / "NewMusicBuilder" / "staging"
+    return Path(tempfile.gettempdir()) / "NewMusicBuilder" / "staging"
+
+
+def _cleanup_builder_staging_root(root: Path) -> None:
+    cutoff = datetime.now() - _STALE_STAGING_MAX_AGE
+    if not root.exists():
+        return
+    for path in root.rglob(f"{_STAGING_PREFIX}*"):
+        if not path.is_dir():
+            continue
+        try:
+            modified = datetime.fromtimestamp(path.stat().st_mtime)
+        except OSError:
+            continue
+        if modified <= cutoff:
+            shutil.rmtree(path, ignore_errors=True)
+
+
+def _cleanup_legacy_workshop_staging_dirs(workshop_root: Path) -> None:
+    if not workshop_root.exists():
+        return
+    for path in workshop_root.glob(_LEGACY_STAGING_GLOB):
+        if path.is_dir():
+            shutil.rmtree(path, ignore_errors=True)
 
 
 def _emit(

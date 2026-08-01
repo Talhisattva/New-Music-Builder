@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from new_music_builder.domain.models import AudioRunResult, ExportPlan, ExportTargetPaths, ProjectConfig, ScaffoldResult
-from new_music_builder.services.export_build_runner import run_staged_export
+from new_music_builder.services.export_build_runner import create_staging_targets, cleanup_export_staging_artifacts, run_staged_export
 
 
 def _targets(tmp_path: Path) -> ExportTargetPaths:
@@ -103,3 +104,35 @@ def test_run_staged_export_keeps_non_empty_output_successful(monkeypatch, tmp_pa
     assert result.errors == []
     assert result.mod_size_text != "0 B"
     assert all(kind != "run_failed" for kind, _message in events)
+
+
+def test_create_staging_targets_uses_external_builder_staging_root(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "LocalAppData"))
+    targets = _targets(tmp_path)
+
+    staging = create_staging_targets(targets)
+
+    assert Path(staging.root).is_relative_to(tmp_path / "LocalAppData")
+    assert not Path(staging.root).is_relative_to(Path(targets.workshop_root))
+
+
+def test_cleanup_export_staging_artifacts_removes_legacy_and_stale_staging_dirs(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "LocalAppData"))
+    workshop_root = tmp_path / "Workshop"
+    workshop_root.mkdir()
+    legacy = workshop_root / ".nmb_staging_old"
+    legacy.mkdir()
+
+    builder_root = tmp_path / "LocalAppData" / "NewMusicBuilder" / "staging" / "PackId"
+    builder_root.mkdir(parents=True)
+    stale = builder_root / "nmb_staging_stale"
+    stale.mkdir()
+    old_time = (datetime.now() - timedelta(days=2)).timestamp()
+    stale.touch()
+    import os
+    os.utime(stale, (old_time, old_time))
+
+    cleanup_export_staging_artifacts(workshop_root)
+
+    assert not legacy.exists()
+    assert not stale.exists()

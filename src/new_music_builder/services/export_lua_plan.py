@@ -7,6 +7,9 @@ from new_music_builder.domain.models import (
     LuaAlbumMediaItems,
     LuaAlbumMediaRegistration,
     LuaAlbumRegistration,
+    LuaSinglesChunkRegistration,
+    LuaSinglesEntry,
+    LuaSinglesMediaItems,
     LuaExplicitTrack,
     LuaTrackLabel,
     LuaCoverGroup,
@@ -29,7 +32,7 @@ def build_export_lua_plan(project: ProjectConfig, export_plan: ExportPlan) -> Lu
     registration = build_export_registration_plan(project, export_plan)
     rows_by_id = {row.row_id: row for row in export_plan.rows}
     source_row_titles = {row.row_id: row.media_name for row in project.media_rows}
-    albums = [
+    mixtape_albums = [
         _build_lua_album(
             registration.module_id,
             album,
@@ -37,20 +40,24 @@ def build_export_lua_plan(project: ProjectConfig, export_plan: ExportPlan) -> Lu
             source_row_title=source_row_titles.get(rows_by_id[album.row_id].source_row_id, ""),
         )
         for album in registration.albums
+        if rows_by_id[album.row_id].row_mode != "singles"
     ]
-    _assign_singles_chunk_require_names(albums)
-    bootstrap_require_names: list[str] = []
+    singles_chunks = _build_singles_chunks(registration.module_id, registration.albums, rows_by_id, source_row_titles)
+
+    mixtape_bootstrap_require_names: list[str] = []
     seen_require_names: set[str] = set()
-    for album in albums:
+    for album in mixtape_albums:
         if album.require_name in seen_require_names:
             continue
         seen_require_names.add(album.require_name)
-        bootstrap_require_names.append(album.require_name)
+        mixtape_bootstrap_require_names.append(album.require_name)
     return LuaPackRegistration(
         module_id=registration.module_id,
-        bootstrap_require_names=bootstrap_require_names,
-        album_table_names=[album.table_name for album in albums],
-        albums=albums,
+        mixtape_bootstrap_require_names=mixtape_bootstrap_require_names,
+        mixtape_album_table_names=[album.table_name for album in mixtape_albums],
+        mixtape_albums=mixtape_albums,
+        singles_bootstrap_require_names=[chunk.require_name for chunk in singles_chunks],
+        singles_chunks=singles_chunks,
     )
 
 
@@ -103,17 +110,65 @@ def _lua_require_name(
     return f"{module_id}_Album_{source_album_id}"
 
 
-def _assign_singles_chunk_require_names(albums: list[LuaAlbumRegistration]) -> None:
-    grouped: dict[str, list[LuaAlbumRegistration]] = {}
+def _build_singles_chunks(
+    module_id: str,
+    albums: list[RegisteredAlbum],
+    rows_by_id: dict[int, PlannedMediaRow],
+    source_row_titles: dict[int, str],
+) -> list[LuaSinglesChunkRegistration]:
+    grouped: dict[str, list[LuaSinglesEntry]] = {}
     for album in albums:
-        if album.row_mode != "singles":
+        row = rows_by_id[album.row_id]
+        if row.row_mode != "singles":
             continue
-        grouped.setdefault(album.require_name, []).append(album)
-    for base_require_name, grouped_albums in grouped.items():
-        for chunk_index, start in enumerate(range(0, len(grouped_albums), _SINGLES_CHUNK_SIZE), start=1):
-            chunk_require_name = f"{base_require_name}_Part{chunk_index:02d}"
-            for album in grouped_albums[start:start + _SINGLES_CHUNK_SIZE]:
-                album.require_name = chunk_require_name
+        base_require_name = _lua_require_name(
+            module_id,
+            album,
+            row,
+            source_row_title=source_row_titles.get(row.source_row_id, ""),
+        )
+        grouped.setdefault(base_require_name, []).append(_build_singles_entry(module_id, album, row))
+
+    chunks: list[LuaSinglesChunkRegistration] = []
+    for base_require_name, entries in grouped.items():
+        for chunk_index, start in enumerate(range(0, len(entries), _SINGLES_CHUNK_SIZE), start=1):
+            require_name = f"{base_require_name}_Part{chunk_index:02d}"
+            table_name = f"NM{module_id}SinglesChunk_{sanitize_export_id(require_name, fallback='SinglesChunk')}"
+            chunks.append(
+                LuaSinglesChunkRegistration(
+                    require_name=require_name,
+                    table_name=table_name,
+                    entries=entries[start:start + _SINGLES_CHUNK_SIZE],
+                )
+            )
+    return chunks
+
+
+def _build_singles_entry(module_id: str, album: RegisteredAlbum, row: PlannedMediaRow) -> LuaSinglesEntry:
+    track = album.sides[0].tracks[0]
+    label = LuaTrackLabel(
+        key=f"UI_{module_id}_{album.album_id}_Song_{track.sequence_number:02d}",
+        text=track.display_label,
+    )
+    media_items = LuaSinglesMediaItems()
+    for media in _build_lua_media(album):
+        if media.media_kind == "cassette":
+            media_items.cassette = media.items.full
+        elif media.media_kind == "vinyl":
+            media_items.vinyl = media.items.full
+        elif media.media_kind == "cd":
+            media_items.cd = media.items.full
+    cover_groups = _build_cover_groups(album, row)
+    cover_group = cover_groups[0] if cover_groups else None
+    return LuaSinglesEntry(
+        album_id=album.album_id,
+        title=album.title,
+        sound=track.sound_id,
+        track_label=label,
+        media=media_items,
+        cover_texture=cover_group.texture if cover_group is not None else "",
+        cover_playable=cover_group.include_playable if cover_group is not None else (),
+    )
 
 
 def _build_explicit_tracks(module_id: str, album: RegisteredAlbum) -> dict[str, list[LuaExplicitTrack]]:

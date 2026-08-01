@@ -494,11 +494,38 @@ class LuaAlbumRegistration:
 
 
 @dataclass(slots=True)
+class LuaSinglesMediaItems:
+    cassette: str = ""
+    vinyl: str = ""
+    cd: str = ""
+
+
+@dataclass(slots=True)
+class LuaSinglesEntry:
+    album_id: str
+    title: str
+    sound: str
+    track_label: LuaTrackLabel
+    media: LuaSinglesMediaItems = field(default_factory=LuaSinglesMediaItems)
+    cover_texture: str = ""
+    cover_playable: tuple[MediaKind, ...] = ()
+
+
+@dataclass(slots=True)
+class LuaSinglesChunkRegistration:
+    require_name: str
+    table_name: str
+    entries: list[LuaSinglesEntry] = field(default_factory=list)
+
+
+@dataclass(slots=True)
 class LuaPackRegistration:
     module_id: str
-    bootstrap_require_names: list[str] = field(default_factory=list)
-    album_table_names: list[str] = field(default_factory=list)
-    albums: list[LuaAlbumRegistration] = field(default_factory=list)
+    mixtape_bootstrap_require_names: list[str] = field(default_factory=list)
+    mixtape_album_table_names: list[str] = field(default_factory=list)
+    mixtape_albums: list[LuaAlbumRegistration] = field(default_factory=list)
+    singles_bootstrap_require_names: list[str] = field(default_factory=list)
+    singles_chunks: list[LuaSinglesChunkRegistration] = field(default_factory=list)
 
 
 @dataclass(slots=True)
