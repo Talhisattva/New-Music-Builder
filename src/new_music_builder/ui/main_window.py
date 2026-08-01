@@ -385,6 +385,9 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._active_successful_sides: list[tuple[int, str]] = []
         self._active_successful_sides_by_row: dict[int, set[str]] = {}
         self._active_emitted_preview_rows: set[tuple[int, str]] = set()
+        self._active_passthrough_song_count = 0
+        self._active_passthrough_logged_count = 0
+        self._active_passthrough_log_step = 50
         self._module_three_cover_generation_tokens: dict[int, int] = {}
         self._module_three_cover_generation_seq = 0
 
@@ -3208,6 +3211,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         }
         self._active_successful_sides_by_row = {}
         self._active_emitted_preview_rows.clear()
+        self._active_passthrough_song_count = 0
+        self._active_passthrough_logged_count = 0
 
         LOGGER.info("[run=%s] resetting module four/five current run state", run_id)
         if hasattr(self, 'module_four_panel'):
@@ -3507,6 +3512,18 @@ class MainWindow(_DnDCompat, ctk.CTk):
                 ),
             )
         elif event.kind in {"song_progress", "song_succeeded", "song_failed"} and event.song_index is not None:
+            self.module_four_panel.ensure_song(
+                event.row_id,
+                event.side,
+                event.song_index,
+                ConversionSongProgress(
+                    song_label=event.display_label,
+                    queue_index=event.track_number or (event.song_index + 1),
+                    percent=100 if self._is_passthrough_success_event(event) else event.percent,
+                    status="done" if self._is_passthrough_success_event(event) else "converting",
+                    size_label=event.size_text,
+                ),
+            )
             status = "converting"
             if event.kind == "song_succeeded":
                 status = "done"
@@ -3543,15 +3560,18 @@ class MainWindow(_DnDCompat, ctk.CTk):
         elif event.kind == "song_succeeded":
             self._active_successful_sides_by_row.setdefault(event.row_id, set()).add(event.side)
             self._sync_converted_song_ogg_link(event)
-            self.module_four_panel.finalize_active_log_line(
-                ExportLogLine(
-                    timestamp=datetime.now().strftime("%H:%M:%S"),
-                    prefix_text="Exported:",
-                    subject_text=event.display_label,
-                    size_text=event.size_text,
-                    color_role="done",
+            if self._is_passthrough_success_event(event):
+                self._record_passthrough_song_success()
+            else:
+                self.module_four_panel.finalize_active_log_line(
+                    ExportLogLine(
+                        timestamp=datetime.now().strftime("%H:%M:%S"),
+                        prefix_text="Exported:",
+                        subject_text=event.display_label,
+                        size_text=event.size_text,
+                        color_role="done",
+                    )
                 )
-            )
         elif event.kind == "song_failed":
             self.module_four_panel.finalize_active_log_line(
                 ExportLogLine(
@@ -3593,6 +3613,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         expanded_widget.set_song_selection_state(self._module_two_song_selection_for_row(source_row_id, selection_side))
 
     def _mark_preview_row_ready(self, row_id: int, side: str) -> None:
+        if self._build_locked:
+            return
         preview_key = (row_id, side)
         if preview_key in self._active_emitted_preview_rows:
             return
@@ -3616,6 +3638,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         )
         final_targets = self._active_build_final_targets
         if result.aborted:
+            self._flush_passthrough_song_log(force=True)
             output_path = Path(final_targets.root) if final_targets is not None else Path(result.output_path)
             self._last_export_output_path = str(output_path) if output_path.exists() else ''
             stats = BuildSummaryStats(
@@ -3642,6 +3665,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self._clear_active_build_run_state()
             return
         if result.fatal_error:
+            self._flush_passthrough_song_log(force=True)
             output_path = Path(final_targets.root) if final_targets is not None else Path(result.output_path)
             self._last_export_output_path = str(output_path) if output_path.exists() else ''
             stats = BuildSummaryStats(
@@ -3671,6 +3695,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         output_path = Path(final_targets.root) if final_targets is not None else Path(result.output_path)
         result.output_path = str(output_path)
         self._last_export_output_path = str(output_path) if output_path.exists() else ''
+        self._flush_passthrough_song_log(force=True)
         successful_rows = {row_id for row_id, _side in result.successful_sides}
         preview_rows = [
             self._active_preview_rows_by_side[key]
@@ -3717,6 +3742,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         final_targets = self._active_build_final_targets
         output_path = Path(final_targets.root) if final_targets is not None else Path(output_root)
         self._last_export_output_path = str(output_path) if output_path.exists() else ''
+        self._flush_passthrough_song_log(force=True)
         if hasattr(self, 'module_four_panel'):
             self.module_four_panel.append_log_line(
                 ExportLogLine(
@@ -3800,6 +3826,36 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._build_abort_event = None
         self._active_build_final_targets = None
         self._active_build_run_id = None
+        self._active_passthrough_song_count = 0
+        self._active_passthrough_logged_count = 0
+
+    def _is_passthrough_success_event(self, event: AudioRunEvent) -> bool:
+        return event.kind == "song_succeeded" and not event.cached_ogg_path.strip()
+
+    def _record_passthrough_song_success(self) -> None:
+        self._active_passthrough_song_count += 1
+        self._flush_passthrough_song_log()
+
+    def _flush_passthrough_song_log(self, *, force: bool = False) -> None:
+        module_four_panel = self.__dict__.get('module_four_panel')
+        if module_four_panel is None:
+            return
+        if self._active_passthrough_song_count <= 0:
+            return
+        pending = self._active_passthrough_song_count - self._active_passthrough_logged_count
+        if pending <= 0:
+            return
+        if not force and pending < self._active_passthrough_log_step:
+            return
+        self._active_passthrough_logged_count = self._active_passthrough_song_count
+        module_four_panel.append_log_line(
+            ExportLogLine(
+                timestamp=datetime.now().strftime("%H:%M:%S"),
+                prefix_text="Fast-pathed .ogg songs:",
+                trailing_text=str(self._active_passthrough_song_count),
+                color_role="done",
+            )
+        )
 
     def _module_five_preview_rows(self) -> list[GeneratedPreviewRow]:
         return self._build_preview_scenario('').preview_rows

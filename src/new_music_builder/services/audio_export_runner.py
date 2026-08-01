@@ -34,16 +34,17 @@ def run_audio_export(
         side_built_any = False
         for song_index, item in enumerate(items):
             _raise_if_cancelled(cancel_requested, result)
-            emit_side(
-                "song_started",
-                song_index=song_index,
-                track_number=item.track_number,
-                source_row_id=item.source_row_id,
-                source_track_index=item.source_track_index,
-                display_label=item.display_label,
-                percent=0,
-                message=item.reason,
-            )
+            if item.action != "copy_ogg":
+                emit_side(
+                    "song_started",
+                    song_index=song_index,
+                    track_number=item.track_number,
+                    source_row_id=item.source_row_id,
+                    source_track_index=item.source_track_index,
+                    display_label=item.display_label,
+                    percent=0,
+                    message=item.reason,
+                )
 
             if item.action == "error":
                 result.failed_song_count += 1

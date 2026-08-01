@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from new_music_builder.domain.models import ExportLogLine, GeneratedPreviewCell, GeneratedPreviewRow
+from new_music_builder.domain.models import ConversionSongProgress, ExportLogLine, GeneratedPreviewCell, GeneratedPreviewRow
 from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.module_five_panel import ModuleFivePanel
 from new_music_builder.ui.widgets.module_four_panel import ModuleFourPanel
@@ -27,9 +27,16 @@ class _FakeLogView:
 class _FakeQueueTable:
     def __init__(self) -> None:
         self.set_calls: list[object] = []
+        self.scroll_offsets: list[int] = []
 
     def set_groups(self, groups) -> None:
         self.set_calls.append(groups)
+
+    def total_content_height(self) -> int:
+        return 1234
+
+    def set_scroll_offset(self, offset: int) -> None:
+        self.scroll_offsets.append(offset)
 
 
 class _FakeScroll:
@@ -122,6 +129,49 @@ def test_module_four_panel_update_active_log_line_updates_incrementally() -> Non
     assert panel.state.current_run_log_lines == [panel.log_view.update_calls[0]]
     assert panel.log_scroll.scroll_to_bottom_calls == 0
     assert panel.log_scroll.refresh_calls == 1
+
+
+def test_module_four_panel_ensure_song_backfills_passthrough_rows() -> None:
+    panel = ModuleFourPanel.__new__(ModuleFourPanel)
+    panel.state = SimpleNamespace(
+        ordered_groups=[SimpleNamespace(row_id=7, side="A", songs=[])],
+        active_group_index=None,
+        active_song_index=None,
+        current_run_log_lines=[],
+    )
+    panel.queue_table = _FakeQueueTable()
+    panel.queue_scroll = _FakeScroll()
+    panel._schedule_queue_refresh = lambda: setattr(panel, "_queue_refresh_scheduled", True)
+
+    ModuleFourPanel.ensure_song(
+        panel,
+        7,
+        "A",
+        0,
+        ConversionSongProgress(song_label="Alpha Side", queue_index=1, percent=100, status="done", size_label="1.0 MB"),
+    )
+
+    assert len(panel.state.ordered_groups[0].songs) == 1
+    song = panel.state.ordered_groups[0].songs[0]
+    assert song.song_label == "Alpha Side"
+    assert song.percent == 100
+    assert song.status == "done"
+    assert getattr(panel, "_queue_refresh_scheduled", False) is True
+
+
+def test_module_four_panel_queue_view_updates_virtual_height_and_offset() -> None:
+    panel = ModuleFourPanel.__new__(ModuleFourPanel)
+    panel.state = SimpleNamespace(ordered_groups=[], current_run_log_lines=[])
+    panel.queue_table = _FakeQueueTable()
+    panel.queue_scroll = _FakeScroll(offset=96)
+    panel._queue_autoscroll = False
+
+    ModuleFourPanel._refresh_queue_view(panel)
+    ModuleFourPanel._handle_queue_view_changed(panel, 0.0, 1.0)
+
+    assert panel.queue_scroll.virtual_heights[-1] == 1234
+    assert panel.queue_scroll.refresh_calls >= 1
+    assert panel.queue_table.scroll_offsets[-1] == 96
 
 
 def test_module_five_panel_flush_pending_rows_batches_and_virtualizes() -> None:

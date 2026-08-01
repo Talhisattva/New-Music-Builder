@@ -263,6 +263,7 @@ def test_run_audio_export_copies_source_ogg_directly_without_cache(tmp_path: Pat
     assert target.read_bytes() == b"source-ogg"
     assert list(cache_root.rglob("*.ogg")) == []
     assert [event.cached_ogg_path for event in events if event.kind == "song_succeeded"] == [""]
+    assert [event.kind for event in events if event.kind == "song_started"] == []
     assert [event.kind for event in events if event.kind == "song_progress"] == []
 
 
@@ -328,6 +329,8 @@ def test_run_audio_export_mixed_passthrough_and_conversion_behaviors(tmp_path: P
     assert result.converted_count == 1
     assert target_ogg.read_bytes() == b"source-ogg"
     assert target_wav.read_bytes() == b"converted-ogg"
+    assert [event.kind for event in events if event.display_label == "Source"] == ["song_succeeded"]
+    assert [event.kind for event in events if event.display_label == "Converted" and event.kind == "song_started"] == ["song_started"]
     succeeded_paths = [event.cached_ogg_path for event in events if event.kind == "song_succeeded"]
     assert succeeded_paths[0] == ""
     assert succeeded_paths[1].endswith(".ogg")

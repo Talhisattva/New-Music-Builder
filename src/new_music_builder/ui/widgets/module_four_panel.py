@@ -46,6 +46,7 @@ class ModuleFourPanel(tk.Frame):
             bg_color=spec.PHASE_THREE_MODULE_FOUR_QUEUE_BG,
         )
         self.queue_scroll.place(x=0, y=0)
+        self.queue_scroll.set_view_changed_callback(self._handle_queue_view_changed)
         self.queue_table = ModuleFourQueueTable(
             self.queue_scroll.content_frame,
             check_icon_path=status_check_icon_path,
@@ -53,6 +54,7 @@ class ModuleFourPanel(tk.Frame):
             queued_icon_path=status_queued_icon_path,
         )
         self.queue_table.pack(anchor='nw')
+        self.queue_scroll.set_virtual_content_height(self.queue_table.total_content_height())
 
         self.log_scroll = ScrollViewport(
             self,
@@ -83,7 +85,7 @@ class ModuleFourPanel(tk.Frame):
             viewport_size=(queue_viewport_width, spec.PHASE_THREE_MODULE_FOUR_QUEUE_VIEWPORT_SIZE[1]),
             scrollbar_size=spec.PHASE_THREE_MODULE_FOUR_QUEUE_SCROLLBAR_SIZE,
         )
-        self.queue_table.resize(queue_viewport_width)
+        self.queue_table.resize(queue_viewport_width, spec.PHASE_THREE_MODULE_FOUR_QUEUE_VIEWPORT_SIZE[1])
 
         log_viewport_width = max(1, width - spec.PHASE_THREE_MODULE_FOUR_LOG_SCROLLBAR_SIZE[0])
         self.log_scroll.resize(
@@ -118,6 +120,22 @@ class ModuleFourPanel(tk.Frame):
                 group.songs.append(deepcopy(song))
                 self._schedule_queue_refresh()
                 return
+
+    def ensure_song(self, row_id: int, side: str, song_index: int, song) -> None:
+        self._queue_autoscroll = self.queue_scroll.is_near_bottom()
+        for group in self.state.ordered_groups:
+            if group.row_id != row_id or group.side != side:
+                continue
+            while len(group.songs) <= song_index:
+                group.songs.append(deepcopy(song))
+            existing = group.songs[song_index]
+            existing.song_label = song.song_label
+            existing.queue_index = song.queue_index
+            existing.percent = song.percent
+            existing.status = song.status  # type: ignore[assignment]
+            existing.size_label = song.size_label
+            self._schedule_queue_refresh()
+            return
 
     def update_song_progress(self, row_id: int, side: str, song_index: int, percent: int, status: str, size_label: str) -> None:
         for group_index, group in enumerate(self.state.ordered_groups):
@@ -212,11 +230,16 @@ class ModuleFourPanel(tk.Frame):
         self._queue_refresh_after_id = None
 
     def _refresh_queue_view(self) -> None:
-        self.queue_scroll.refresh_scroll_region()
+        self.queue_scroll.set_virtual_content_height(self.queue_table.total_content_height())
         if self._queue_autoscroll:
             self.queue_scroll.scroll_to_bottom()
+        else:
+            self.queue_scroll.refresh_scroll_region()
 
     def _refresh_log_view(self) -> None:
         self.log_scroll.refresh_scroll_region()
         if self._log_autoscroll:
             self.log_scroll.scroll_to_bottom()
+
+    def _handle_queue_view_changed(self, _first: float, _last: float) -> None:
+        self.queue_table.set_scroll_offset(self.queue_scroll.current_scroll_offset_pixels())

@@ -274,6 +274,7 @@ def test_handle_audio_run_event_appends_preview_row_when_side_completes_after_su
         {
             "state": type("State", (), {"current_run_log_lines": []})(),
             "append_queue_group": lambda _self, _group: None,
+            "ensure_song": lambda _self, *_args: None,
             "update_song_progress": lambda _self, *_args: None,
             "finalize_active_log_line": lambda _self, _line: None,
             "append_log_line": lambda _self, _line: None,
@@ -284,6 +285,10 @@ def test_handle_audio_run_event_appends_preview_row_when_side_completes_after_su
     window._active_preview_rows_by_side = {(7, "A"): preview_row}
     window._active_successful_sides_by_row = {}
     window._active_emitted_preview_rows = set()
+    window._active_passthrough_song_count = 0
+    window._active_passthrough_logged_count = 0
+    window._active_passthrough_log_step = 50
+    window._build_locked = False
     window._sync_converted_song_ogg_link = lambda _event: None
 
     MainWindow._handle_audio_run_event(
