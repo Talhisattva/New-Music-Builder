@@ -11,7 +11,7 @@ from new_music_builder.ui.widgets.scroll_area import ScrollViewport
 
 
 class ModuleFourPanel(tk.Frame):
-    _REFRESH_DELAY_MS = 48
+    _REFRESH_DELAY_MS = 16
 
     def __init__(
         self,
