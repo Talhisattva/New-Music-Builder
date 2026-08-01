@@ -11,6 +11,8 @@ from new_music_builder.ui.widgets.scroll_area import ScrollViewport
 
 
 class ModuleFourPanel(tk.Frame):
+    _QUEUE_REFRESH_DELAY_MS = 80
+
     def __init__(
         self,
         parent: tk.Misc,
@@ -32,6 +34,7 @@ class ModuleFourPanel(tk.Frame):
         self._run_counter = 0
         self._queue_autoscroll = True
         self._log_autoscroll = True
+        self._queue_refresh_after_id: str | None = None
 
         self.queue_scroll = ScrollViewport(
             self,
@@ -97,21 +100,23 @@ class ModuleFourPanel(tk.Frame):
         self.log_view.resize(log_viewport_width)
 
     def set_queue_groups(self, groups: list[ConversionSideGroup]) -> None:
+        self._cancel_pending_queue_refresh()
         self.state.ordered_groups = deepcopy(groups)
         self._queue_autoscroll = True
-        self._refresh_views()
+        self.queue_table.set_groups(self.state.ordered_groups)
+        self._refresh_queue_view()
 
     def append_queue_group(self, group: ConversionSideGroup) -> None:
         self._queue_autoscroll = self.queue_scroll.is_near_bottom()
         self.state.ordered_groups.append(deepcopy(group))
-        self._refresh_views()
+        self._schedule_queue_refresh()
 
     def append_song_to_group(self, row_id: int, side: str, song) -> None:
         self._queue_autoscroll = self.queue_scroll.is_near_bottom()
         for group in self.state.ordered_groups:
             if group.row_id == row_id and group.side == side:
                 group.songs.append(deepcopy(song))
-                self._refresh_views()
+                self._schedule_queue_refresh()
                 return
 
     def update_song_progress(self, row_id: int, side: str, song_index: int, percent: int, status: str, size_label: str) -> None:
@@ -126,7 +131,7 @@ class ModuleFourPanel(tk.Frame):
                 self.state.active_group_index = group_index
                 self.state.active_song_index = song_index
                 self._queue_autoscroll = self.queue_scroll.is_near_bottom()
-                self._refresh_views()
+                self._schedule_queue_refresh()
             return
 
     def set_output_path(self, path: str) -> None:
@@ -167,6 +172,7 @@ class ModuleFourPanel(tk.Frame):
         )
 
     def reset_current_run(self) -> None:
+        self._cancel_pending_queue_refresh()
         self.state.ordered_groups = []
         self.state.active_group_index = None
         self.state.active_song_index = None
@@ -181,6 +187,29 @@ class ModuleFourPanel(tk.Frame):
         self.log_view.set_lines(self.state.current_run_log_lines)
         self._refresh_queue_view()
         self._refresh_log_view()
+
+    def _schedule_queue_refresh(self) -> None:
+        if self._queue_refresh_after_id is not None:
+            return
+        after = getattr(self, 'after', None)
+        if callable(after):
+            self._queue_refresh_after_id = after(self._QUEUE_REFRESH_DELAY_MS, self._flush_pending_queue_refresh)
+            return
+        self._flush_pending_queue_refresh()
+
+    def _flush_pending_queue_refresh(self) -> None:
+        self._queue_refresh_after_id = None
+        self.queue_table.set_groups(self.state.ordered_groups)
+        self._refresh_queue_view()
+
+    def _cancel_pending_queue_refresh(self) -> None:
+        if self._queue_refresh_after_id is None:
+            return
+        try:
+            self.after_cancel(self._queue_refresh_after_id)
+        except tk.TclError:
+            pass
+        self._queue_refresh_after_id = None
 
     def _refresh_queue_view(self) -> None:
         self.queue_scroll.refresh_scroll_region()

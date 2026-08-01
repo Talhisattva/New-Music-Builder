@@ -91,11 +91,9 @@ def run_audio_export(
                         result.converted_count += 1
 
                 _raise_if_cancelled(cancel_requested, result)
-                copy_file_with_cancel(
-                    export_source_path,
-                    target_path,
-                    cancel_requested=cancel_requested,
-                    emit_progress=lambda percent, message: emit_side(
+                progress_callback = None
+                if item.action != "copy_ogg":
+                    progress_callback = lambda percent, message: emit_side(
                         "song_progress",
                         song_index=song_index,
                         track_number=item.track_number,
@@ -105,9 +103,14 @@ def run_audio_export(
                         percent=percent,
                         message=message,
                         size_text="",
-                    ),
+                    )
+                copy_file_with_cancel(
+                    export_source_path,
+                    target_path,
+                    cancel_requested=cancel_requested,
+                    emit_progress=progress_callback,
                     progress_message="Copying exported song...",
-                    emit_every_percent=25 if item.action == "copy_ogg" else 10,
+                    emit_every_percent=100 if item.action == "copy_ogg" else 10,
                 )
                 size_text = _format_size_text(target_path.stat().st_size)
                 result.built_song_count += 1

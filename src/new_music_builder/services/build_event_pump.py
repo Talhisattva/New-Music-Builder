@@ -28,24 +28,32 @@ class BuildEventPumpBatch:
 
 
 class BuildEventPump:
+    _ABORT_TERMINAL_EVENT_KINDS = frozenset({"run_aborted", "run_failed"})
+
     def __init__(
         self,
         *,
         max_raw_items_per_tick: int = 1000,
         time_budget_ms: float = 12.0,
+        abort_max_raw_items_per_tick: int = 50000,
+        abort_time_budget_ms: float = 30.0,
     ) -> None:
         self._max_raw_items_per_tick = max_raw_items_per_tick
         self._time_budget_ms = time_budget_ms
+        self._abort_max_raw_items_per_tick = abort_max_raw_items_per_tick
+        self._abort_time_budget_ms = abort_time_budget_ms
 
-    def drain(self, event_queue: queue.Queue[object]) -> BuildEventPumpBatch:
+    def drain(self, event_queue: queue.Queue[object], *, abort_requested: bool = False) -> BuildEventPumpBatch:
         stats = BuildEventPumpStats(queue_size_before=_safe_qsize(event_queue))
         started = time.perf_counter()
         emitted: list[QueuedBuildItem] = []
         pending_progress: OrderedDict[tuple[int, str, int], AudioRunEvent] = OrderedDict()
+        max_raw_items = self._abort_max_raw_items_per_tick if abort_requested else self._max_raw_items_per_tick
+        time_budget_ms = self._abort_time_budget_ms if abort_requested else self._time_budget_ms
 
-        while stats.raw_items_processed < self._max_raw_items_per_tick:
+        while stats.raw_items_processed < max_raw_items:
             elapsed_ms = (time.perf_counter() - started) * 1000.0
-            if elapsed_ms >= self._time_budget_ms:
+            if elapsed_ms >= time_budget_ms:
                 break
             try:
                 queued_item = event_queue.get_nowait()
@@ -63,6 +71,10 @@ class BuildEventPump:
 
             if kind == "event" and isinstance(payload, AudioRunEvent) and payload.kind == "run_aborted":
                 pending_progress.clear()
+
+            if abort_requested and kind == "event" and isinstance(payload, AudioRunEvent):
+                if payload.kind not in self._ABORT_TERMINAL_EVENT_KINDS:
+                    continue
 
             self._flush_pending_progress(pending_progress, emitted)
             emitted.append((kind, payload))
