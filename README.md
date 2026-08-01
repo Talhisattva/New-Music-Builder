@@ -94,3 +94,12 @@ pytest -q
 - `workspace/` and `logs/` are runtime/state locations and should be treated carefully during release cleanup.
 - `Generated Textures/` is generated output and should not be treated as source content.
 - `_references/` is kept out of Git and is not part of the public source distribution.
+
+## Copyright and License
+
+Copyright © 2026 Talismon. All rights reserved.
+
+This repository is published to establish authorship and development history.
+No part of this project may be copied, redistributed, reuploaded, modified for release, or incorporated into another application, mod, tool, or project without explicit written permission.
+
+See [LICENSE.md](LICENSE.md) for full terms.
