@@ -385,6 +385,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._active_successful_sides: list[tuple[int, str]] = []
         self._active_successful_sides_by_row: dict[int, set[str]] = {}
         self._active_emitted_preview_rows: set[tuple[int, str]] = set()
+        self._active_converting_song_keys: set[tuple[int, str, int]] = set()
         self._active_passthrough_song_count = 0
         self._active_passthrough_logged_count = 0
         self._active_passthrough_log_step = 50
@@ -3223,6 +3224,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._active_successful_sides = []
         self._active_successful_sides_by_row = {}
         self._active_emitted_preview_rows.clear()
+        self._active_converting_song_keys.clear()
         self._active_passthrough_song_count = 0
         self._active_passthrough_logged_count = 0
 
@@ -3544,6 +3546,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             )
 
         if event.kind == "song_started":
+            self._active_converting_song_keys_set().add(self._audio_event_song_key(event))
             self.module_four_panel.append_log_line(
                 ExportLogLine(
                     timestamp=datetime.now().strftime("%H:%M:%S"),
@@ -3552,17 +3555,20 @@ class MainWindow(_DnDCompat, ctk.CTk):
                     color_role="queued",
                 )
             )
+            self._update_parallel_conversion_log_line()
         elif event.kind == "song_progress":
-            self.module_four_panel.update_active_log_line(
-                ExportLogLine(
-                    timestamp=datetime.now().strftime("%H:%M:%S"),
-                    prefix_text="Converting:",
-                    subject_text=event.display_label,
-                    trailing_text=f"{event.percent}%",
-                    color_role="converting",
+            if not self._update_parallel_conversion_log_line():
+                self.module_four_panel.update_active_log_line(
+                    ExportLogLine(
+                        timestamp=datetime.now().strftime("%H:%M:%S"),
+                        prefix_text="Converting:",
+                        subject_text=event.display_label,
+                        trailing_text=f"{event.percent}%",
+                        color_role="converting",
+                    )
                 )
-            )
         elif event.kind == "song_succeeded":
+            self._active_converting_song_keys_set().discard(self._audio_event_song_key(event))
             self._active_successful_sides_by_row.setdefault(event.row_id, set()).add(event.side)
             self._sync_converted_song_ogg_link(event)
             if self._is_passthrough_success_event(event):
@@ -3578,6 +3584,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
                     )
                 )
         elif event.kind == "song_failed":
+            self._active_converting_song_keys_set().discard(self._audio_event_song_key(event))
             self.module_four_panel.finalize_active_log_line(
                 ExportLogLine(
                     timestamp=datetime.now().strftime("%H:%M:%S"),
@@ -3857,8 +3864,47 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._build_abort_event = None
         self._active_build_final_targets = None
         self._active_build_run_id = None
+        self._active_converting_song_keys_set().clear()
         self._active_passthrough_song_count = 0
         self._active_passthrough_logged_count = 0
+
+    def _audio_event_song_key(self, event: AudioRunEvent) -> tuple[int, str, int]:
+        return (event.row_id, event.side, event.song_index if event.song_index is not None else -1)
+
+    def _active_converting_song_keys_set(self) -> set[tuple[int, str, int]]:
+        keys = self.__dict__.get('_active_converting_song_keys')
+        if keys is None:
+            keys = set()
+            self.__dict__['_active_converting_song_keys'] = keys
+        return keys
+
+    def _update_parallel_conversion_log_line(self) -> bool:
+        module_four_panel = self.__dict__.get('module_four_panel')
+        if module_four_panel is None:
+            return False
+        active_count = len(self._active_converting_song_keys_set())
+        if active_count <= 1:
+            return False
+        subject_text = f"{active_count} songs simultaneously"
+        current_lines = getattr(module_four_panel.state, 'current_run_log_lines', [])
+        if current_lines:
+            current_line = current_lines[-1]
+            if (
+                current_line.prefix_text == "Converting:"
+                and current_line.subject_text == subject_text
+                and current_line.trailing_text == ""
+                and current_line.color_role == "converting"
+            ):
+                return True
+        module_four_panel.update_active_log_line(
+            ExportLogLine(
+                timestamp=datetime.now().strftime("%H:%M:%S"),
+                prefix_text="Converting:",
+                subject_text=subject_text,
+                color_role="converting",
+            )
+        )
+        return True
 
     def _is_passthrough_success_event(self, event: AudioRunEvent) -> bool:
         return event.kind == "song_succeeded" and not event.cached_ogg_path.strip()

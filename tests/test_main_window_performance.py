@@ -307,6 +307,70 @@ def test_handle_audio_run_event_appends_preview_row_when_side_completes_after_su
     assert window._active_emitted_preview_rows == {(7, "A")}
 
 
+def test_handle_audio_run_event_aggregates_parallel_conversion_log_line() -> None:
+    updates: list[object] = []
+    appended: list[object] = []
+
+    class _ModuleFour:
+        def __init__(self) -> None:
+            self.state = type("State", (), {"current_run_log_lines": []})()
+
+        def append_queue_group(self, _group) -> None:
+            pass
+
+        def append_song_to_group(self, _row_id, _side, _song) -> None:
+            pass
+
+        def ensure_song(self, *_args) -> None:
+            pass
+
+        def update_song_progress(self, *_args) -> None:
+            pass
+
+        def append_log_line(self, line) -> None:
+            self.state.current_run_log_lines.append(line)
+            appended.append(line)
+
+        def update_active_log_line(self, line) -> None:
+            if self.state.current_run_log_lines:
+                self.state.current_run_log_lines[-1] = line
+            else:
+                self.state.current_run_log_lines.append(line)
+            updates.append(line)
+
+        def finalize_active_log_line(self, line) -> None:
+            self.update_active_log_line(line)
+
+    window = MainWindow.__new__(MainWindow)
+    window.module_four_panel = _ModuleFour()
+    window._active_preview_rows_by_side = {}
+    window._active_successful_sides_by_row = {}
+    window._active_emitted_preview_rows = set()
+    window._active_converting_song_keys = set()
+    window._active_passthrough_song_count = 0
+    window._active_passthrough_logged_count = 0
+    window._active_passthrough_log_step = 50
+    window._sync_converted_song_ogg_link = lambda _event: None
+
+    MainWindow._handle_audio_run_event(
+        window,
+        AudioRunEvent(kind="song_started", row_id=7, side="A", song_index=0, track_number=1, display_label="Alpha"),
+    )
+    MainWindow._handle_audio_run_event(
+        window,
+        AudioRunEvent(kind="song_started", row_id=7, side="A", song_index=1, track_number=2, display_label="Beta"),
+    )
+    MainWindow._handle_audio_run_event(
+        window,
+        AudioRunEvent(kind="song_progress", row_id=7, side="A", song_index=1, track_number=2, display_label="Beta", percent=35),
+    )
+
+    assert appended[0].prefix_text == "Starting song:"
+    assert updates[-1].prefix_text == "Converting:"
+    assert updates[-1].subject_text == "2 songs simultaneously"
+    assert updates[-1].trailing_text == ""
+
+
 def test_finalize_audio_run_aborted_uses_result_size_text_without_directory_scan() -> None:
     window = MainWindow.__new__(MainWindow)
     window._active_build_run_id = "testrun"
