@@ -253,7 +253,8 @@ def test_write_export_scaffold_creates_expected_files(tmp_path: Path) -> None:
     assert 'description=[td][url=https://steamcommunity.com/sharedfiles/filedetails/?id=3739256725][img]https://images.steamusercontent.com/ugc/11030006687843634655/D41A026AB76E264A5BDA091F326BFDA74041A401/?imw=268&imh=268&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=true[/img][/url][/td]' in workshop_text
     assert 'description=[td][url=https://steamcommunity.com/sharedfiles/filedetails/?id=3750003838][img]https://images.steamusercontent.com/ugc/10075766136295686800/382CF43D2EAD857CD95D5F170DE94F741FFAA305/?imw=268&imh=268&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=true[/img][/url][/td]' in workshop_text
     assert 'description=[table]' in workshop_text
-    assert 'description=[b]Mixtape[/b]: Dynamic playlist on one item.' in workshop_text
+    assert 'description=[quote]' not in workshop_text
+    assert 'description=[b]Mixtape[/b]: Dynamic playlist on one item.' not in workshop_text
     assert 'description=[tr][td][b]Mixtape[/b] [b]Full Album[/b][/td][/tr]' in workshop_text
     assert 'description=[tr][td]01 Song[/td][/tr]' in workshop_text
 
@@ -731,11 +732,10 @@ def test_write_export_scaffold_uses_singles_legend_and_section_labels_for_single
 
     assert not result.errors
     workshop_text = (Path(targets.root) / 'workshop.txt').read_text(encoding='utf-8')
-    assert 'description=[quote]' in workshop_text
-    assert 'description=[b]Singles[/b]: Each song is its own item.' in workshop_text
+    assert 'description=[quote]' not in workshop_text
+    assert 'description=[b]Singles[/b]: Each song is its own item.' not in workshop_text
     assert 'description=[b]Mixtape[/b]: Dynamic playlist on one item.' not in workshop_text
     assert 'description=[tr][td][b]Singles[/b] [i]Single Item[/i][/td][/tr]' in workshop_text
-    assert workshop_text.find('description=[quote]') < workshop_text.find('description=[tr][th]Legacy Singles[/th][/tr]')
     assert workshop_text.count('description=[tr][th]Legacy Singles[/th][/tr]') == 1
     assert workshop_text.find('description=[tr][td]01 Song One[/td][/tr]') < workshop_text.find('description=[tr][td]02 Song Two[/td][/tr]')
 

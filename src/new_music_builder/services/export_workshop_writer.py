@@ -58,13 +58,11 @@ def _render_support_table() -> list[str]:
 def _render_mode_legend(plan: ExportPlan) -> list[str]:
     has_singles = any(row.row_mode == "singles" for row in plan.rows)
     has_mixtapes = any(row.row_mode == "mixtape" for row in plan.rows)
-    if not has_singles and not has_mixtapes:
+    if not (has_singles and has_mixtapes):
         return []
     lines = ["description=[quote]"]
-    if has_singles:
-        lines.append("description=[b]Singles[/b]: Each song is its own item.")
-    if has_mixtapes:
-        lines.append("description=[b]Mixtape[/b]: Dynamic playlist on one item.")
+    lines.append("description=[b]Singles[/b]: Each song is its own item.")
+    lines.append("description=[b]Mixtape[/b]: Dynamic playlist on one item.")
     lines.extend(["description=[/quote]", "description="])
     return lines
 
