@@ -3398,6 +3398,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         keep_polling = True
         for kind, payload in batch.items:
             if kind == "event":
+                if self._build_abort_requested and payload.kind not in {"run_aborted", "run_failed"}:
+                    continue
                 self._handle_audio_run_event(payload)
             elif kind == "result":
                 self._finalize_audio_run(plan, payload)
@@ -3477,6 +3479,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self.module_four_panel.append_queue_group(
                 ConversionSideGroup(row_id=event.row_id, side=event.side, display_label=display_label, songs=[])
             )
+            self._append_active_preview_row(event.row_id, event.side)
         elif event.kind == "song_started":
             self.module_four_panel.append_song_to_group(
                 event.row_id,
@@ -3524,7 +3527,6 @@ class MainWindow(_DnDCompat, ctk.CTk):
                 )
             )
         elif event.kind == "song_succeeded":
-            self._active_successful_sides_by_row.setdefault(event.row_id, set()).add(event.side)
             self._sync_converted_song_ogg_link(event)
             self.module_four_panel.finalize_active_log_line(
                 ExportLogLine(
@@ -3546,7 +3548,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
                 )
             )
         elif event.kind == "side_completed":
-            self._mark_preview_row_ready(event.row_id, event.side)
+            self._append_active_preview_row(event.row_id, event.side)
 
     def _sync_converted_song_ogg_link(self, event: AudioRunEvent) -> None:
         if not event.cached_ogg_path.strip():
@@ -3575,12 +3577,11 @@ class MainWindow(_DnDCompat, ctk.CTk):
         selection_side = "A" if legacy_mode_enabled else event.side
         expanded_widget.set_song_selection_state(self._module_two_song_selection_for_row(source_row_id, selection_side))
 
-    def _mark_preview_row_ready(self, row_id: int, side: str) -> None:
+    def _append_active_preview_row(self, row_id: int, side: str) -> None:
         preview_key = (row_id, side)
         if preview_key in self._active_emitted_preview_rows:
             return
-        successful_sides = self._active_successful_sides_by_row.get(row_id, set())
-        if side not in successful_sides or not hasattr(self, 'module_five_panel'):
+        if not hasattr(self, 'module_five_panel'):
             return
         preview_row = self._active_preview_rows_by_side.get(preview_key)
         if preview_row is None:
@@ -3611,7 +3612,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
                 planned_total_sides=plan.stats.planned_total_sides,
                 planned_total_songs=plan.stats.planned_total_songs,
                 converted=result.converted_count,
-                mod_size_text=self._directory_size_text(output_path),
+                mod_size_text=result.mod_size_text or "0 KB",
                 errors=max(1, len(result.errors) + 1),
             )
             if hasattr(self, 'module_six_panel'):

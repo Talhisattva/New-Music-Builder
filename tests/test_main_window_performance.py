@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import tkinter as tk
 
-from new_music_builder.domain.models import AudioRunEvent, ProjectConfig, TrackEntry, default_media_row
+from new_music_builder.domain.models import AudioRunEvent, AudioRunResult, BuildSummaryStats, GeneratedPreviewCell, GeneratedPreviewRow, ProjectConfig, TrackEntry, default_media_row
 from new_music_builder.services.project_session import ProjectSession
 from new_music_builder.services.session_store import SessionAudioPreferences
 from new_music_builder.ui.main_window import MainWindow
@@ -97,6 +97,32 @@ class _FakeCollapsedDetails:
 
     def refresh_content(self, row) -> None:
         self.refreshed_rows.append(row)
+
+
+class _FakeModuleFivePanel:
+    def __init__(self) -> None:
+        self.appended_rows: list[GeneratedPreviewRow] = []
+        self.reset_count = 0
+        self.set_rows_payloads: list[list[GeneratedPreviewRow]] = []
+
+    def append_preview_row(self, row: GeneratedPreviewRow) -> None:
+        self.appended_rows.append(row)
+
+    def reset_preview_rows(self) -> None:
+        self.reset_count += 1
+
+    def set_preview_rows(self, rows: list[GeneratedPreviewRow]) -> None:
+        self.set_rows_payloads.append(list(rows))
+
+
+def _generated_preview_row(row_id: int, side: str, label_text: str) -> GeneratedPreviewRow:
+    cell = GeneratedPreviewCell(
+        label_text=label_text,
+        section_text=f"{side}-SIDE",
+        song_count=1,
+        duration_text="00:01:00",
+    )
+    return GeneratedPreviewRow(row_id=row_id, side=side, inventory_cell=cell, world_cell=cell)
 
 
 def test_add_module_two_media_row_uses_incremental_row_list() -> None:
@@ -234,6 +260,54 @@ def test_sync_converted_song_ogg_link_uses_project_legacy_mode_for_source_tracks
     assert row.tracks_a[0].conversion_status == "cached_ogg"
     assert row_widget.song_table_refresh_count == 1
     assert row_widget.song_selection_states == [{0}]
+
+
+def test_handle_audio_run_event_appends_preview_row_when_side_starts() -> None:
+    window = MainWindow.__new__(MainWindow)
+    window.module_four_panel = type(
+        "ModuleFour",
+        (),
+        {
+            "state": type("State", (), {"current_run_log_lines": []})(),
+            "append_queue_group": lambda _self, _group: None,
+            "append_log_line": lambda _self, _line: None,
+        },
+    )()
+    window.module_five_panel = _FakeModuleFivePanel()
+    preview_row = _generated_preview_row(7, "A", "Alpha Side")
+    window._active_preview_rows_by_side = {(7, "A"): preview_row}
+    window._active_emitted_preview_rows = set()
+
+    MainWindow._handle_audio_run_event(
+        window,
+        AudioRunEvent(kind="side_started", row_id=7, side="A", message="Starting A-Side"),
+    )
+
+    assert window.module_five_panel.appended_rows == [preview_row]
+    assert window._active_emitted_preview_rows == {(7, "A")}
+
+
+def test_finalize_audio_run_aborted_uses_result_size_text_without_directory_scan() -> None:
+    window = MainWindow.__new__(MainWindow)
+    window._active_build_run_id = "testrun"
+    window._active_build_final_targets = None
+    window._last_export_output_path = ""
+    window.preview_entries = []
+    window.module_six_panel = type("ModuleSix", (), {"set_stats": lambda _self, stats: setattr(window, "_final_stats", stats)})()
+    window._snapshot_current_build_log = lambda: setattr(window, "_snapshotted", True)
+    window._refresh_build_summary = lambda: setattr(window, "_summary_refreshed", True)
+    window._clear_active_build_run_state = lambda: setattr(window, "_cleared", True)
+    window._directory_size_text = lambda _path: (_ for _ in ()).throw(AssertionError("directory size scan should not run on abort"))
+
+    plan = type("Plan", (), {"stats": BuildSummaryStats(planned_media_rows=2, planned_total_sides=4, planned_total_songs=40)})()
+    result = AudioRunResult(output_path="C:/temp/out", aborted=True, converted_count=3, mod_size_text="0 KB")
+
+    MainWindow._finalize_audio_run(window, plan, result)
+
+    assert getattr(window, "_final_stats").mod_size_text == "0 KB"
+    assert getattr(window, "_snapshotted", False) is True
+    assert getattr(window, "_summary_refreshed", False) is True
+    assert getattr(window, "_cleared", False) is True
 
 
 def test_handle_module_two_keyboard_reorder_uses_last_clicked_song_owner() -> None:

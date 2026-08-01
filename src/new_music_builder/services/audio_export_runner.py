@@ -128,7 +128,7 @@ def run_audio_export(
                 result.aborted = True
                 result.abort_message = str(exc)
                 result.fatal_error = str(exc)
-                result.mod_size_text = _format_size_text(_directory_size_bytes(output_dir))
+                result.mod_size_text = ""
                 return result
             except Exception as exc:
                 result.failed_song_count += 1
