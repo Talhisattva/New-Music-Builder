@@ -184,6 +184,8 @@ class MediaRowShell(tk.Frame):
         self._selected_count = selected_count
         self._automatic_textures_enabled_getter = automatic_textures_enabled_getter
         self._legacy_mode_enabled_getter = legacy_mode_enabled_getter
+        self._pill_switch_base_path = pill_switch_base_path
+        self._pill_switch_pill_path = pill_switch_pill_path
         self._hovered = False
         self._on_select = on_select
         self._on_background_selected = on_background_selected
