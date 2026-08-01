@@ -837,3 +837,46 @@ def test_write_export_scaffold_marks_workshop_visibility_public(tmp_path: Path) 
     assert not result.errors
     workshop_text = (Path(targets.root) / 'workshop.txt').read_text(encoding='utf-8')
     assert 'visibility=public' in workshop_text
+
+
+def test_write_export_scaffold_truncates_huge_singles_workshop_sections_to_upload_safe_size(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    row = project.media_rows[0]
+    row.row_mode = 'singles'
+    row.tracks_a = [
+        TrackEntry(source_path=f'C:/{index}.ogg', display_label=f'Song {index:04d}', duration='00:01:00')
+        for index in range(1, 1601)
+    ]
+    catalog = AssetCatalog(ASSETS_ROOT).scan()
+    plan = build_export_plan(project, catalog)
+    targets = resolve_export_target(plan, project.workshop_output_folder, mod_name=project.mod_name, mod_id=project.mod_id)
+
+    result = write_export_scaffold(project, plan, targets, catalog)
+
+    assert not result.errors
+    workshop_path = Path(targets.root) / 'workshop.txt'
+    workshop_text = workshop_path.read_text(encoding='utf-8')
+    assert workshop_path.stat().st_size < 8000
+    assert 'description=[tr][td]01 Song 0001[/td][/tr]' in workshop_text
+    assert 'description=[tr][td]02 Song 0002[/td][/tr]' in workshop_text
+    assert 'description=[tr][td][i]... plus ' in workshop_text
+    assert 'description=[tr][td]1600 Song 1600[/td][/tr]' not in workshop_text
+
+
+def test_write_export_scaffold_escapes_square_brackets_in_workshop_track_labels(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    row = project.media_rows[0]
+    row.row_mode = 'singles'
+    row.tracks_a = [
+        TrackEntry(source_path='C:/song.ogg', display_label='Art of Noise - Close [To The Edit]', duration='00:03:00'),
+    ]
+    catalog = AssetCatalog(ASSETS_ROOT).scan()
+    plan = build_export_plan(project, catalog)
+    targets = resolve_export_target(plan, project.workshop_output_folder, mod_name=project.mod_name, mod_id=project.mod_id)
+
+    result = write_export_scaffold(project, plan, targets, catalog)
+
+    assert not result.errors
+    workshop_text = (Path(targets.root) / 'workshop.txt').read_text(encoding='utf-8')
+    assert 'description=[tr][td]01 Art of Noise - Close (To The Edit)[/td][/tr]' in workshop_text
+    assert 'description=[tr][td]01 Art of Noise - Close [To The Edit][/td][/tr]' not in workshop_text

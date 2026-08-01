@@ -6,10 +6,17 @@ NEW_MUSIC_WORKSHOP_URL = "https://steamcommunity.com/sharedfiles/filedetails/?id
 NEW_MUSIC_WORKSHOP_IMAGE = "https://images.steamusercontent.com/ugc/11030006687843634655/D41A026AB76E264A5BDA091F326BFDA74041A401/?imw=268&imh=268&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=true"
 NEW_MUSIC_BUILDER_WORKSHOP_URL = "https://steamcommunity.com/sharedfiles/filedetails/?id=3750003838"
 NEW_MUSIC_BUILDER_WORKSHOP_IMAGE = "https://images.steamusercontent.com/ugc/10075766136295686800/382CF43D2EAD857CD95D5F170DE94F741FFAA305/?imw=268&imh=268&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=true"
+WORKSHOP_TOTAL_CHAR_BUDGET = 7400
+WORKSHOP_MIN_TRACK_ROWS_PER_TABLE = 3
+WORKSHOP_TAIL_LINES = [
+    "tags=Build 42;Audio",
+    "visibility=public",
+    "",
+]
 
 
 def build_workshop_txt_lines(project: ProjectConfig, plan: ExportPlan) -> list[str]:
-    mod_name = (project.mod_name or "").strip()
+    mod_name = _escape_workshop_text((project.mod_name or "").strip())
     mixed_modes = _has_mixed_modes(plan)
     lines = [
         "version=1",
@@ -28,16 +35,18 @@ def build_workshop_txt_lines(project: ProjectConfig, plan: ExportPlan) -> list[s
         for label, tracks in sections:
             if not first_table:
                 lines.append("description=")
-            lines.extend(_render_track_table(title, label, tracks))
+            lines.extend(
+                _render_track_table(
+                    title,
+                    label,
+                    tracks,
+                    current_chars=_line_char_count(lines),
+                    reserved_chars=_line_char_count(WORKSHOP_TAIL_LINES),
+                )
+            )
             first_table = False
 
-    lines.extend(
-        [
-            "tags=Build 42;Audio",
-            "visibility=public",
-            "",
-        ]
-    )
+    lines.extend(WORKSHOP_TAIL_LINES)
     return lines
 
 
@@ -95,7 +104,7 @@ def _ordered_workshop_tables(
             tables.append((None, _singles_workshop_sections(source_rows, mixed_modes=mixed_modes)))
             continue
         for planned_row in sorted(source_rows, key=lambda row: row.row_id):
-            tables.append((planned_row.media_name, _row_workshop_sections(planned_row, mixed_modes=mixed_modes)))
+            tables.append((_escape_workshop_text(planned_row.media_name), _row_workshop_sections(planned_row, mixed_modes=mixed_modes)))
     return tables
 
 
@@ -127,12 +136,48 @@ def _row_has_split_media(row: PlannedMediaRow) -> bool:
     )
 
 
-def _render_track_table(title: str | None, section_label: str, tracks: list[PlannedTrack]) -> list[str]:
+def _render_track_table(
+    title: str | None,
+    section_label: str,
+    tracks: list[PlannedTrack],
+    *,
+    current_chars: int = 0,
+    reserved_chars: int = 0,
+) -> list[str]:
     lines = ["description=[table]"]
     if title:
         lines.append(f"description=[tr][th]{title}[/th][/tr]")
     lines.append(f"description=[tr][td]{section_label}[/td][/tr]")
+    omitted_count = 0
     for index, track in enumerate(tracks, start=1):
-        lines.append(f"description=[tr][td]{index:02d} {track.display_label}[/td][/tr]")
+        candidate = f"description=[tr][td]{index:02d} {_escape_workshop_text(track.display_label)}[/td][/tr]"
+        remaining_count = len(tracks) - index
+        summary_line = (
+            f"description=[tr][td][i]... plus {remaining_count} more song"
+            f"{'' if remaining_count == 1 else 's'} in this section.[/i][/td][/tr]"
+        )
+        candidate_total = current_chars + _line_char_count(lines + [candidate, "description=[/table]"]) + reserved_chars
+        summary_total = current_chars + _line_char_count(lines + [summary_line, "description=[/table]"]) + reserved_chars
+        if candidate_total <= WORKSHOP_TOTAL_CHAR_BUDGET:
+            lines.append(candidate)
+            continue
+        if index <= WORKSHOP_MIN_TRACK_ROWS_PER_TABLE and summary_total > WORKSHOP_TOTAL_CHAR_BUDGET:
+            lines.append(candidate)
+            continue
+        omitted_count = remaining_count + 1
+        break
+    if omitted_count:
+        lines.append(
+            f"description=[tr][td][i]... plus {omitted_count} more song"
+            f"{'' if omitted_count == 1 else 's'} in this section.[/i][/td][/tr]"
+        )
     lines.append("description=[/table]")
     return lines
+
+
+def _line_char_count(lines: list[str]) -> int:
+    return sum(len(line) + 1 for line in lines)
+
+
+def _escape_workshop_text(value: str) -> str:
+    return value.replace("[", "(").replace("]", ")")
