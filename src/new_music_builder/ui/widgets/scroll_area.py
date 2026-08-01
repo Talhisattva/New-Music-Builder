@@ -332,7 +332,14 @@ class ScrollViewport(tk.Frame):
             content_bottom = max(0, int(self._virtual_content_height))
             self._content_height = content_bottom
             self._viewport_height = viewport_height
-            self.viewport_canvas.configure(scrollregion=(0, 0, self._viewport_size[0], viewport_height))
+            window_height = max(viewport_height, content_bottom)
+            self.content_frame.configure(width=self._viewport_size[0], height=window_height)
+            self.viewport_canvas.itemconfigure(
+                self._content_window_id,
+                width=self._viewport_size[0],
+                height=window_height,
+            )
+            self.viewport_canvas.configure(scrollregion=(0, 0, self._viewport_size[0], content_bottom))
             self.viewport_canvas.yview_moveto(0.0)
             self._virtual_scroll_offset = max(
                 0.0,
@@ -347,7 +354,9 @@ class ScrollViewport(tk.Frame):
         self.update_idletasks()
         content_height = self.content_frame.winfo_reqheight()
         viewport_height = self._viewport_size[1]
-        self.viewport_canvas.itemconfigure(self._content_window_id, width=self._viewport_size[0])
+        window_height = max(viewport_height, content_height)
+        self.content_frame.configure(width=self._viewport_size[0], height=window_height)
+        self.viewport_canvas.itemconfigure(self._content_window_id, width=self._viewport_size[0], height=window_height)
         content_bottom = content_height + self._content_bottom_padding
         self._content_height = content_bottom
         self._viewport_height = viewport_height

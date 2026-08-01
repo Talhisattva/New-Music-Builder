@@ -6,6 +6,7 @@ from new_music_builder.domain.models import ConversionSongProgress, ExportLogLin
 from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.module_five_panel import ModuleFivePanel
 from new_music_builder.ui.widgets.module_four_panel import ModuleFourPanel
+from new_music_builder.ui.widgets.scroll_area import ScrollViewport
 
 
 class _FakeLogView:
@@ -92,6 +93,54 @@ class _FakePreviewRowWidget:
 
     def destroy(self) -> None:
         self.destroy_calls += 1
+
+
+class _FakeCanvas:
+    def __init__(self) -> None:
+        self.configure_calls: list[dict[str, object]] = []
+        self.itemconfigure_calls: list[tuple[object, dict[str, object]]] = []
+        self.yview_moveto_calls: list[float] = []
+
+    def configure(self, **kwargs) -> None:
+        self.configure_calls.append(kwargs)
+
+    def itemconfigure(self, item_id, **kwargs) -> None:
+        self.itemconfigure_calls.append((item_id, kwargs))
+
+    def yview_moveto(self, fraction: float) -> None:
+        self.yview_moveto_calls.append(fraction)
+
+    def yview(self) -> tuple[float, float]:
+        return (0.0, 1.0)
+
+
+class _FakeFrame:
+    def __init__(self, *, reqheight: int = 0) -> None:
+        self.configure_calls: list[dict[str, object]] = []
+        self.reqheight = reqheight
+
+    def configure(self, **kwargs) -> None:
+        self.configure_calls.append(kwargs)
+
+    def winfo_reqheight(self) -> int:
+        return self.reqheight
+
+
+class _FakeScrollbar:
+    def __init__(self) -> None:
+        self.metrics_calls: list[dict[str, int]] = []
+        self.view_calls: list[tuple[float, float]] = []
+
+    def set_metrics(self, *, content_height: int, viewport_height: int) -> None:
+        self.metrics_calls.append(
+            {
+                "content_height": content_height,
+                "viewport_height": viewport_height,
+            }
+        )
+
+    def set_view(self, first: float, last: float) -> None:
+        self.view_calls.append((first, last))
 
 
 def _preview_row(label: str) -> GeneratedPreviewRow:
@@ -282,3 +331,43 @@ def test_module_five_panel_live_mode_uses_bounded_logical_height() -> None:
     viewport_height = spec.PHASE_THREE_MODULE_FIVE_CONTENT_VIEWPORT_SIZE[1]
 
     assert panel._logical_content_height() == max(viewport_height, row_height * 2)
+
+
+def test_scroll_viewport_virtual_refresh_uses_logical_height_for_window_and_scrollregion() -> None:
+    viewport = ScrollViewport.__new__(ScrollViewport)
+    viewport._viewport_size = (400, 180)
+    viewport._virtual_content_height = 640
+    viewport._content_height = 0
+    viewport._viewport_height = 0
+    viewport._virtual_scroll_offset = 0.0
+    viewport._content_window_id = "window"
+    viewport.viewport_canvas = _FakeCanvas()
+    viewport.content_frame = _FakeFrame()
+    viewport.scrollbar = _FakeScrollbar()
+    viewport._view_changed_callback = None
+
+    ScrollViewport.refresh_scroll_region(viewport)
+
+    assert viewport.content_frame.configure_calls[-1]["height"] == 640
+    assert viewport.viewport_canvas.itemconfigure_calls[-1] == ("window", {"width": 400, "height": 640})
+    assert viewport.viewport_canvas.configure_calls[-1]["scrollregion"] == (0, 0, 400, 640)
+
+
+def test_scroll_viewport_virtual_refresh_keeps_minimum_window_height_when_content_is_short() -> None:
+    viewport = ScrollViewport.__new__(ScrollViewport)
+    viewport._viewport_size = (400, 180)
+    viewport._virtual_content_height = 80
+    viewport._content_height = 0
+    viewport._viewport_height = 0
+    viewport._virtual_scroll_offset = 0.0
+    viewport._content_window_id = "window"
+    viewport.viewport_canvas = _FakeCanvas()
+    viewport.content_frame = _FakeFrame()
+    viewport.scrollbar = _FakeScrollbar()
+    viewport._view_changed_callback = None
+
+    ScrollViewport.refresh_scroll_region(viewport)
+
+    assert viewport.content_frame.configure_calls[-1]["height"] == 180
+    assert viewport.viewport_canvas.itemconfigure_calls[-1] == ("window", {"width": 400, "height": 180})
+    assert viewport.viewport_canvas.configure_calls[-1]["scrollregion"] == (0, 0, 400, 80)
