@@ -226,6 +226,64 @@ def test_module_four_panel_ensure_song_backfills_passthrough_rows() -> None:
     assert getattr(panel, "_queue_refresh_scheduled", False) is True
 
 
+def test_module_four_panel_activate_song_updates_existing_planned_row_without_duplication() -> None:
+    planned = ConversionSongProgress(song_label="Queued", queue_index=1, percent=0, status="queued", size_label="")
+    panel = ModuleFourPanel.__new__(ModuleFourPanel)
+    panel.state = SimpleNamespace(
+        ordered_groups=[SimpleNamespace(row_id=7, side="A", songs=[planned])],
+        active_group_index=None,
+        active_song_index=None,
+        current_run_log_lines=[],
+    )
+    panel.queue_table = _FakeQueueTable()
+    panel.queue_scroll = _FakeScroll()
+    panel._schedule_queue_refresh = lambda: setattr(panel, "_queue_refresh_scheduled", True)
+
+    ModuleFourPanel.activate_song(
+        panel,
+        7,
+        "A",
+        0,
+        ConversionSongProgress(song_label="Alpha Side", queue_index=1, percent=0, status="converting", size_label=""),
+    )
+
+    assert len(panel.state.ordered_groups[0].songs) == 1
+    song = panel.state.ordered_groups[0].songs[0]
+    assert song.song_label == "Alpha Side"
+    assert song.status == "converting"
+    assert getattr(panel, "_queue_refresh_scheduled", False) is True
+
+
+def test_module_four_panel_settle_queue_state_clears_stale_converting_rows() -> None:
+    panel = ModuleFourPanel.__new__(ModuleFourPanel)
+    panel.state = SimpleNamespace(
+        ordered_groups=[
+            SimpleNamespace(
+                row_id=7,
+                side="A",
+                songs=[
+                    ConversionSongProgress(song_label="Done", queue_index=1, percent=100, status="done", size_label="1 MB"),
+                    ConversionSongProgress(song_label="Stale", queue_index=2, percent=0, status="converting", size_label=""),
+                ],
+            )
+        ],
+        active_group_index=0,
+        active_song_index=1,
+        current_run_log_lines=[],
+    )
+    panel.queue_table = _FakeQueueTable()
+    panel.queue_scroll = _FakeScroll()
+    panel._schedule_queue_refresh = lambda: setattr(panel, "_queue_refresh_scheduled", True)
+
+    ModuleFourPanel.settle_queue_state(panel)
+
+    songs = panel.state.ordered_groups[0].songs
+    assert songs[0].status == "done"
+    assert songs[1].status == "queued"
+    assert songs[1].percent == 0
+    assert getattr(panel, "_queue_refresh_scheduled", False) is True
+
+
 def test_module_four_panel_queue_view_updates_virtual_height_and_offset() -> None:
     panel = ModuleFourPanel.__new__(ModuleFourPanel)
     panel.state = SimpleNamespace(ordered_groups=[], current_run_log_lines=[], active_group_index=None, active_song_index=None)

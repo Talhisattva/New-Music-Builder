@@ -123,6 +123,23 @@ class ModuleFourPanel(tk.Frame):
                 self._schedule_queue_refresh()
                 return
 
+    def activate_song(self, row_id: int, side: str, song_index: int, song) -> None:
+        for group_index, group in enumerate(self.state.ordered_groups):
+            if group.row_id != row_id or group.side != side:
+                continue
+            while len(group.songs) <= song_index:
+                group.songs.append(deepcopy(song))
+            existing = group.songs[song_index]
+            existing.song_label = song.song_label
+            existing.queue_index = song.queue_index
+            existing.percent = 0
+            existing.status = "converting"  # type: ignore[assignment]
+            existing.size_label = song.size_label
+            self.state.active_group_index = group_index
+            self.state.active_song_index = song_index
+            self._schedule_queue_refresh()
+            return
+
     def ensure_song(self, row_id: int, side: str, song_index: int, song) -> None:
         for group_index, group in enumerate(self.state.ordered_groups):
             if group.row_id != row_id or group.side != side:
@@ -153,6 +170,17 @@ class ModuleFourPanel(tk.Frame):
                 self.state.active_song_index = song_index
                 self._schedule_queue_refresh()
             return
+
+    def settle_queue_state(self) -> None:
+        changed = False
+        for group in self.state.ordered_groups:
+            for song in group.songs:
+                if song.status == "converting":
+                    song.status = "queued"  # type: ignore[assignment]
+                    song.percent = 0
+                    changed = True
+        if changed:
+            self._schedule_queue_refresh()
 
     def set_output_path(self, path: str) -> None:
         self.state.output_path = path

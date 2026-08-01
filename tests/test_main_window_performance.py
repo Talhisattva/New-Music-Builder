@@ -318,13 +318,16 @@ def test_handle_audio_run_event_aggregates_parallel_conversion_log_line() -> Non
         def append_queue_group(self, _group) -> None:
             pass
 
-        def append_song_to_group(self, _row_id, _side, _song) -> None:
+        def activate_song(self, _row_id, _side, _song_index, _song) -> None:
             pass
 
         def ensure_song(self, *_args) -> None:
             pass
 
         def update_song_progress(self, *_args) -> None:
+            pass
+
+        def settle_queue_state(self) -> None:
             pass
 
         def append_log_line(self, line) -> None:

@@ -3521,9 +3521,10 @@ class MainWindow(_DnDCompat, ctk.CTk):
                 if planned_group is not None:
                     self.module_four_panel.append_queue_group(planned_group)
         elif event.kind == "song_started":
-            self.module_four_panel.append_song_to_group(
+            self.module_four_panel.activate_song(
                 event.row_id,
                 event.side,
+                event.song_index or 0,
                 ConversionSongProgress(
                     song_label=event.display_label,
                     queue_index=event.track_number or ((event.song_index or 0) + 1),
@@ -3757,6 +3758,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         )
         if hasattr(self, 'module_six_panel'):
             self.module_six_panel.set_stats(stats)
+        if hasattr(self, 'module_four_panel'):
+            self.module_four_panel.settle_queue_state()
         self._snapshot_current_build_log()
         self.preview_entries = [f"{row.inventory_cell.label_text}" for row in preview_rows]
         self._refresh_build_summary()
@@ -3777,6 +3780,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
                     color_role="error",
                 )
             )
+            self.module_four_panel.settle_queue_state()
         stats = BuildSummaryStats(
             media_rows=0,
             exported_media_rows=0,
