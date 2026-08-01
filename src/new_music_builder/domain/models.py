@@ -139,7 +139,7 @@ class ProjectConfig:
     workshop_output_folder: str = ""
     sample_rate: int = 44100
     compression_quality: float = DEFAULT_COMPRESSION_QUALITY
-    reencode_existing_ogg: bool = True
+    reencode_existing_ogg: bool = False
     automatic_textures_enabled: bool = True
     legacy_mode_enabled: bool = False
     media_rows: list[MediaRow] = field(default_factory=list)
@@ -799,7 +799,7 @@ def project_from_dict(data: dict[str, Any]) -> ProjectConfig:
         workshop_output_folder=str(data.get("workshop_output_folder", "")),
         sample_rate=_coerce_int(data.get("sample_rate", 44100), 44100, minimum=1),
         compression_quality=snap_compression_quality(data.get("compression_quality", DEFAULT_COMPRESSION_QUALITY)),
-        reencode_existing_ogg=bool(data.get("reencode_existing_ogg", True)),
+        reencode_existing_ogg=bool(data.get("reencode_existing_ogg", False)),
         automatic_textures_enabled=bool(data.get("automatic_textures_enabled", True)),
         media_rows=rows,
         custom_assets=_coerce_custom_assets(data.get("custom_assets", {})),

@@ -203,14 +203,14 @@ def test_session_store_load_returns_default_project_for_invalid_payload(tmp_path
     assert current_path == ''
     assert project.sample_rate == 44100
     assert project.compression_quality == 0.5
-    assert project.reencode_existing_ogg is True
+    assert project.reencode_existing_ogg is False
     assert project.write_mod_name_on_poster is True
     assert len(project.media_rows) == 1
     assert store.last_dialog_folder_memory.song_folder == ''
     assert store.last_dialog_folder_memory.image_folder == ''
     assert store.last_audio_preferences.sample_rate == 44100
     assert store.last_audio_preferences.compression_quality == 0.5
-    assert store.last_audio_preferences.reencode_existing_ogg is True
+    assert store.last_audio_preferences.reencode_existing_ogg is False
     assert store.last_ogg_output_folder == ''
     assert store.last_automatic_textures_enabled is True
     assert store.last_text_tooltips_enabled is True

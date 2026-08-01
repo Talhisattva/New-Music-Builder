@@ -20,7 +20,7 @@ LOGGER = logging.getLogger('new_music_builder')
 class SessionAudioPreferences:
     sample_rate: int = 44100
     compression_quality: float = 0.5
-    reencode_existing_ogg: bool = True
+    reencode_existing_ogg: bool = False
 
 
 class SessionStore:
