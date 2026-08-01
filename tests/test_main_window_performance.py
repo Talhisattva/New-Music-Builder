@@ -330,7 +330,7 @@ def test_finalize_audio_run_aborted_uses_result_size_text_without_directory_scan
     assert getattr(window, "_cleared", False) is True
 
 
-def test_run_build_preview_defers_preview_scenario_until_after_overwrite_confirm(monkeypatch) -> None:
+def test_run_build_preview_skips_export_planning_when_overwrite_is_cancelled(monkeypatch) -> None:
     window = MainWindow.__new__(MainWindow)
     window.session = ProjectSession(project=ProjectConfig())
     window.asset_catalog = {}
@@ -364,23 +364,16 @@ def test_run_build_preview_defers_preview_scenario_until_after_overwrite_confirm
     window._start_audio_build_run = lambda **_kwargs: (_ for _ in ()).throw(AssertionError("build should not start on cancel"))
     window._module_four_log_line_text = lambda line: line.prefix_text
 
-    fake_plan = SimpleNamespace(
-        stats=BuildSummaryStats(planned_media_rows=1, planned_total_sides=2, planned_total_songs=3),
-    )
     calls: list[str] = []
 
-    monkeypatch.setattr("new_music_builder.ui.main_window.build_export_plan", lambda *_args, **_kwargs: fake_plan)
-    monkeypatch.setattr("new_music_builder.ui.main_window.validate_export_request", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(
+        "new_music_builder.ui.main_window.build_export_plan",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("export planning should not run before overwrite confirm")),
+    )
     monkeypatch.setattr(
         "new_music_builder.ui.main_window.resolve_export_target",
         lambda *_args, **_kwargs: SimpleNamespace(root="C:/already-exists"),
     )
-
-    def _build_preview_scenario(*_args, **_kwargs):
-        calls.append("preview")
-        return SimpleNamespace(preview_rows=[])
-
-    monkeypatch.setattr("new_music_builder.ui.main_window.build_preview_scenario", _build_preview_scenario)
     monkeypatch.setattr("new_music_builder.ui.main_window.deepcopy", lambda project: project)
     monkeypatch.setattr("new_music_builder.ui.main_window.uuid4", lambda: SimpleNamespace(hex="12345678abcdef"))
     monkeypatch.setattr("new_music_builder.ui.main_window.Path.exists", lambda _self: True)

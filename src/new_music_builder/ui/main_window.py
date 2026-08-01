@@ -3166,6 +3166,49 @@ class MainWindow(_DnDCompat, ctk.CTk):
         project_snapshot = deepcopy(self.session.project)
         LOGGER.info("[run=%s] project snapshot complete duration_ms=%.1f", run_id, (time.perf_counter() - step_started) * 1000.0)
         step_started = time.perf_counter()
+        early_targets = resolve_export_target(
+            None,
+            project_snapshot.workshop_output_folder,
+            mod_name=project_snapshot.mod_name,
+            mod_id=project_snapshot.mod_id,
+        )
+        LOGGER.info(
+            "[run=%s] early resolve_export_target complete root=%s duration_ms=%.1f",
+            run_id,
+            early_targets.root,
+            (time.perf_counter() - step_started) * 1000.0,
+        )
+        early_output_root = Path(early_targets.root)
+        LOGGER.info("[run=%s] early export output_root=%s exists=%s", run_id, early_output_root, early_output_root.exists())
+        if early_output_root.exists() and not self._confirm_overwrite_export_root(early_output_root):
+            LOGGER.info("[run=%s] overwrite cancelled before export planning output_root=%s", run_id, early_output_root)
+            cancelled_line = ExportLogLine(
+                timestamp=datetime.now().strftime("%H:%M:%S"),
+                prefix_text="Build cancelled.",
+                trailing_text="Existing export was not overwritten.",
+                color_role="error",
+            )
+            cancelled_stats = self._cancelled_build_stats(project_snapshot)
+            self._last_export_output_path = ''
+            if hasattr(self, 'module_four_panel'):
+                self.module_four_panel.archive_current_run()
+                self.module_four_panel.reset_current_run()
+                self.module_four_panel.set_output_path(str(early_output_root))
+                self.module_four_panel.set_log_lines([cancelled_line])
+            module_five_panel = self.__dict__.get('module_five_panel')
+            if module_five_panel is not None:
+                module_five_panel.reset_preview_rows()
+                if hasattr(module_five_panel, 'set_export_active'):
+                    module_five_panel.set_export_active(False)
+            if hasattr(self, 'module_six_panel'):
+                self.module_six_panel.set_stats(cancelled_stats)
+            self.build_log = [self._module_four_log_line_text(cancelled_line)]
+            self.preview_entries = []
+            if hasattr(self, 'build_summary'):
+                self.build_summary.refresh()
+            self._active_build_run_id = None
+            return
+        step_started = time.perf_counter()
         plan = build_export_plan(project_snapshot, self.asset_catalog)
         LOGGER.info("[run=%s] build_export_plan complete duration_ms=%.1f", run_id, (time.perf_counter() - step_started) * 1000.0)
         step_started = time.perf_counter()
@@ -3228,39 +3271,6 @@ class MainWindow(_DnDCompat, ctk.CTk):
         )
         output_root = Path(targets.root)
         LOGGER.info("[run=%s] export output_root=%s exists=%s", run_id, output_root, output_root.exists())
-        if output_root.exists() and not self._confirm_overwrite_export_root(output_root):
-            LOGGER.info("[run=%s] overwrite cancelled output_root=%s", run_id, output_root)
-            cancelled_line = ExportLogLine(
-                timestamp=datetime.now().strftime("%H:%M:%S"),
-                prefix_text="Build cancelled.",
-                trailing_text="Existing export was not overwritten.",
-                color_role="error",
-            )
-            cancelled_stats = BuildSummaryStats(
-                media_rows=0,
-                exported_media_rows=0,
-                total_sides=0,
-                total_songs=0,
-                built_songs=0,
-                planned_media_rows=plan.stats.planned_media_rows,
-                planned_total_sides=plan.stats.planned_total_sides,
-                planned_total_songs=plan.stats.planned_total_songs,
-                converted=0,
-                mod_size_text="0 KB",
-                errors=1,
-            )
-            self._last_export_output_path = ''
-            if hasattr(self, 'module_four_panel'):
-                self.module_four_panel.set_output_path(str(output_root))
-                self.module_four_panel.set_log_lines([cancelled_line])
-            if hasattr(self, 'module_six_panel'):
-                self.module_six_panel.set_stats(cancelled_stats)
-            self.build_log = [self._module_four_log_line_text(cancelled_line)]
-            self.preview_entries = []
-            if hasattr(self, 'build_summary'):
-                self.build_summary.refresh()
-            self._active_build_run_id = None
-            return
 
         step_started = time.perf_counter()
         scenario = build_preview_scenario(plan, targets.root)
@@ -3802,6 +3812,33 @@ class MainWindow(_DnDCompat, ctk.CTk):
         if line.size_text:
             parts.append(line.size_text)
         return ' '.join(parts)
+
+    def _cancelled_build_stats(self, project_snapshot) -> BuildSummaryStats:
+        planned_media_rows = len(project_snapshot.media_rows)
+        planned_total_sides = 0
+        planned_total_songs = 0
+        for row in project_snapshot.media_rows:
+            tracks_a = getattr(row, 'tracks_a', [])
+            tracks_b = getattr(row, 'tracks_b', [])
+            if tracks_a:
+                planned_total_sides += 1
+                planned_total_songs += len(tracks_a)
+            if tracks_b:
+                planned_total_sides += 1
+                planned_total_songs += len(tracks_b)
+        return BuildSummaryStats(
+            media_rows=0,
+            exported_media_rows=0,
+            total_sides=0,
+            total_songs=0,
+            built_songs=0,
+            planned_media_rows=planned_media_rows,
+            planned_total_sides=planned_total_sides,
+            planned_total_songs=planned_total_songs,
+            converted=0,
+            mod_size_text="0 KB",
+            errors=1,
+        )
 
     def _snapshot_current_build_log(self) -> None:
         if not hasattr(self, 'module_four_panel'):
