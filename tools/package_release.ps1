@@ -68,7 +68,6 @@ project.legacy_mode_enabled = False
 store = SessionStore(workspace / "last_session.json")
 store.last_ogg_output_folder = ""
 store.last_automatic_textures_enabled = True
-store.last_legacy_mode_enabled = False
 store.last_regenerate_textures_on_project_load_enabled = False
 store.last_text_tooltips_enabled = True
 store.save(project, "")

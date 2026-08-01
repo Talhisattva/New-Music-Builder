@@ -1,4 +1,4 @@
-![New Music Builder](docs/images/NewMusicBuilder-640-transparent.png)
+![New Music Builder](docs/images/NewMusicBuilder0.4.0-640-transparent.png)
 
 # New Music Builder
 
@@ -26,9 +26,17 @@ Created specifically for media packs where multiple tracks and media appearances
 
 ## Version
 
-Current version: `0.3.1`
+Current version: `0.4.0`
 
-This is a small patch release in the `0.2.x` line focused on safer export identity handling, `.ogg` re-encoding stability, and release polish for the current Tali's New Music workflow.
+This is the `0.4.0` release focused on scaling mixed `Mixtape` and `Singles` packs cleanly, preserving fast export behavior on very large libraries, and stabilizing the export queue and generated preview flow for 1000+ song builds.
+
+Highlights:
+
+- streamlined Module 2, Module 4, and Module 5 behavior for large packs
+- faster export throughput with bounded simultaneous conversion and calmer live logging
+- improved `.ogg` passthrough and abort responsiveness during heavy builds
+- moved Legacy Mode from a global project toggle to a per-row `Mixtape` / `Singles` switch
+- added clean mixed-pack support so both row types can live in the same export
 
 ## Platform Support
 

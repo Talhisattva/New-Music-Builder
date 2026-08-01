@@ -312,7 +312,7 @@ def test_write_export_scaffold_legacy_mode_uses_clean_song_ids_for_lua_and_scrip
     sounds_text = (scripts_root / "NMB_LegacyPack_Sounds.txt").read_text(encoding="utf-8")
     items_text = (scripts_root / "NMB_LegacyPack_Items.txt").read_text(encoding="utf-8")
     models_text = (scripts_root / "NMB_LegacyPack_Models.txt").read_text(encoding="utf-8")
-    album_text = (lua_root / "LegacyPack_Album_MediaMix1.lua").read_text(encoding="utf-8")
+    album_text = (lua_root / "LegacyPack_Album_SinglesGroup1.lua").read_text(encoding="utf-8")
 
     assert "11KiasmosLooped" not in album_text
     assert "11KiasmosLooped" not in sounds_text

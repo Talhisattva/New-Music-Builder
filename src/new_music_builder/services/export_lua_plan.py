@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from new_music_builder.domain.models import (
     ExportPlan,
     LuaAlbumMediaItems,
@@ -19,6 +21,7 @@ from new_music_builder.services.export_ids import sanitize_export_id
 from new_music_builder.services.export_texture_contract import build_cover_texture_decision
 
 _MEDIA_ORDER: tuple[MediaKind, ...] = ("cassette", "vinyl", "cd")
+_DEFAULT_MEDIA_ROW_NAME_RE = re.compile(r"^Media Mix (\d+)$")
 
 
 def build_export_lua_plan(project: ProjectConfig, export_plan: ExportPlan) -> LuaPackRegistration:
@@ -89,7 +92,11 @@ def _lua_require_name(
     if row.row_mode != "singles":
         return f"{module_id}_Album_{album.album_id}"
     source_title = source_row_title.strip() or row.media_name
-    source_album_id = sanitize_export_id(source_title, fallback=f"SinglesRow{row.source_row_id}")
+    default_match = _DEFAULT_MEDIA_ROW_NAME_RE.fullmatch(source_title)
+    if default_match:
+        source_album_id = f"SinglesGroup{default_match.group(1)}"
+    else:
+        source_album_id = sanitize_export_id(source_title, fallback=f"SinglesGroup{row.source_row_id}")
     return f"{module_id}_Album_{source_album_id}"
 
 

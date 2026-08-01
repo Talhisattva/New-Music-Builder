@@ -198,7 +198,7 @@ def test_preview_scenario_singles_queue_groups_use_singles_label_without_side_su
 
     assert scenario.queue_groups[0].queue_label == 'Singles'
     assert scenario.queue_groups[0].show_side_suffix is False
-    assert scenario.preview_rows[0].inventory_cell.label_text == 'Singles'
+    assert scenario.preview_rows[0].inventory_cell.label_text == 'Song'
 
 
 def test_preview_scenario_full_mixtape_rows_omit_side_suffix_in_labels() -> None:

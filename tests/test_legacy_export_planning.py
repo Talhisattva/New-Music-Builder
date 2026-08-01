@@ -120,6 +120,23 @@ def test_legacy_lua_plan_groups_multiple_singles_from_one_source_row_into_one_re
     assert {album.require_name for album in lua_pack.albums} == {'LegacyPack_Album_LegacySingles'}
 
 
+def test_legacy_lua_plan_uses_singles_group_name_for_default_media_mix_rows() -> None:
+    project = ProjectConfig(mod_name='Legacy', mod_id='LegacyPack', legacy_mode_enabled=True)
+    row = default_media_row(1)
+    row.row_mode = 'singles'
+    row.tracks_a = [
+        TrackEntry(display_label='First Song', source_path='C:/music/first.ogg', duration='00:01:00'),
+        TrackEntry(display_label='Second Song', source_path='C:/music/second.ogg', duration='00:02:00'),
+    ]
+    project.media_rows = [row]
+
+    plan = build_export_plan(project, AssetCatalog(assets_root()).scan())
+    lua_pack = build_export_lua_plan(project, plan)
+
+    assert lua_pack.bootstrap_require_names == ['LegacyPack_Album_SinglesGroup1']
+    assert {album.require_name for album in lua_pack.albums} == {'LegacyPack_Album_SinglesGroup1'}
+
+
 def test_legacy_texture_export_reuses_shared_custom_texture_files(tmp_path) -> None:
     project = ProjectConfig(
         mod_name='Legacy',

@@ -339,8 +339,8 @@ def _build_preview_cell(planned_row: PlannedMediaRow, side: PlannedSide, *, mode
         appearance = planned_row.appearances.for_kind(appearance_kind)
         slot_paths.append(appearance.world_path if mode == "world" else appearance.inventory_path)
         empty_slot_paths.append(appearance.world_empty_path if mode == "world" else appearance.inventory_empty_path)
-    label_text = side.queue_label or planned_row.media_name
-    if side.show_side_suffix and side.side_display_text:
+    label_text = planned_row.media_name if planned_row.row_mode == "singles" else (side.queue_label or planned_row.media_name)
+    if planned_row.row_mode != "singles" and side.show_side_suffix and side.side_display_text:
         label_text = f"{label_text} ({side.side_display_text})"
     return GeneratedPreviewCell(
         label_text=label_text,
