@@ -20,6 +20,9 @@ def build_workshop_txt_lines(project: ProjectConfig, plan: ExportPlan) -> list[s
         "description=",
     ]
 
+    if project.legacy_mode_enabled:
+        lines.extend(_render_legacy_intro())
+
     ordered_rows = sorted(plan.rows, key=lambda row: row.row_id)
     first_table = True
     for row in ordered_rows:
@@ -52,6 +55,14 @@ def _render_support_table() -> list[str]:
         f"description=[td][url={NEW_MUSIC_BUILDER_WORKSHOP_URL}][img]{NEW_MUSIC_BUILDER_WORKSHOP_IMAGE}[/img][/url][/td]",
         "description=[/tr]",
         "description=[/table]",
+    ]
+
+
+def _render_legacy_intro() -> list[str]:
+    return [
+        "description=[h3]Legacy Style Pack[/h3]",
+        "description=[i]Single-song media items[/i]",
+        "description=",
     ]
 
 

@@ -713,6 +713,39 @@ def test_write_export_scaffold_emits_one_workshop_table_per_split_side(tmp_path:
     assert 'description=[tr][td]01 B One[/td][/tr]' in workshop_text
 
 
+def test_write_export_scaffold_adds_legacy_workshop_intro_only_in_legacy_mode(tmp_path: Path) -> None:
+    project = _project(tmp_path)
+    project.legacy_mode_enabled = True
+    row = project.media_rows[0]
+    row.media_name = 'Legacy Singles'
+    row.tracks_a = [
+        TrackEntry(source_path='C:/a1.ogg', display_label='Song One', duration='00:01:00'),
+        TrackEntry(source_path='C:/a2.ogg', display_label='Song Two', duration='00:02:00'),
+    ]
+    catalog = AssetCatalog(ASSETS_ROOT).scan()
+    plan = build_export_plan(project, catalog)
+    targets = resolve_export_target(plan, project.workshop_output_folder, mod_name=project.mod_name, mod_id=project.mod_id)
+
+    result = write_export_scaffold(project, plan, targets, catalog)
+
+    assert not result.errors
+    workshop_text = (Path(targets.root) / 'workshop.txt').read_text(encoding='utf-8')
+    assert 'description=[h3]Legacy Style Pack[/h3]' in workshop_text
+    assert 'description=[i]Single-song media items[/i]' in workshop_text
+    assert workshop_text.find('description=[h3]Legacy Style Pack[/h3]') < workshop_text.find('description=[tr][th]Song One[/th][/tr]')
+
+    project.legacy_mode_enabled = False
+    plan = build_export_plan(project, catalog)
+    targets = resolve_export_target(plan, project.workshop_output_folder, mod_name=project.mod_name, mod_id=project.mod_id)
+
+    result = write_export_scaffold(project, plan, targets, catalog)
+
+    assert not result.errors
+    workshop_text = (Path(targets.root) / 'workshop.txt').read_text(encoding='utf-8')
+    assert 'description=[h3]Legacy Style Pack[/h3]' not in workshop_text
+    assert 'description=[i]Single-song media items[/i]' not in workshop_text
+
+
 def test_write_export_scaffold_emits_one_full_workshop_table_when_all_media_are_full(tmp_path: Path) -> None:
     project = _project(tmp_path)
     row = project.media_rows[0]
