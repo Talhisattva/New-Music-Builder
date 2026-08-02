@@ -67,6 +67,10 @@ If you are cautious about packaged executables, the source/manual-run path below
 
 ## Run From Source
 
+### Linux / macOS
+
+Run these commands from the repo folder:
+
 ```bash
 python3.12 -m venv .venv
 source .venv/bin/activate
@@ -74,7 +78,13 @@ pip install -r requirements.txt
 python main.py
 ```
 
-On Windows, run from source manually:
+If `python3.12` is not installed, use your system package manager first.
+
+If `tkinter` is missing, install your distro's Tk package and try again.
+
+### Windows
+
+Run these commands from the repo folder:
 
 ```powershell
 python -m venv .venv
@@ -83,7 +93,7 @@ pip install -r requirements.txt
 python main.py
 ```
 
-If double-clicking `main.py` just flashes and closes, use [Launch New Music Builder.bat](<c:\Users\chowl\Zomboid\Workshop\New Music Builder\Launch New Music Builder.bat>) instead so startup errors stay visible.
+If double-clicking `main.py` just flashes and closes, use `Launch New Music Builder.bat` instead so startup errors stay visible.
 
 ## Repo Notes
 
