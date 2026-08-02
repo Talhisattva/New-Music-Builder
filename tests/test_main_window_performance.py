@@ -289,6 +289,7 @@ def test_handle_audio_run_event_appends_preview_row_when_side_completes_after_su
     window._active_successful_sides_by_row = {}
     window._active_emitted_preview_rows = set()
     window._active_ready_preview_keys = set()
+    window._active_next_preview_emit_index = 0
     window._active_passthrough_song_count = 0
     window._active_passthrough_logged_count = 0
     window._active_passthrough_log_step = 50
@@ -306,7 +307,8 @@ def test_handle_audio_run_event_appends_preview_row_when_side_completes_after_su
         AudioRunEvent(kind="side_completed", row_id=7, side="A", message="Side complete."),
     )
 
-    assert window.module_five_panel.set_rows_payloads[-1] == [preview_row]
+    assert window.module_five_panel.appended_rows == [preview_row]
+    assert window.module_five_panel.set_rows_payloads == []
     assert window._active_emitted_preview_rows == {(7, "A")}
 
 
@@ -357,6 +359,7 @@ def test_handle_audio_run_event_aggregates_parallel_conversion_log_line() -> Non
     window._active_successful_sides_by_row = {}
     window._active_emitted_preview_rows = set()
     window._active_ready_preview_keys = set()
+    window._active_next_preview_emit_index = 0
     window._active_converting_song_keys = set()
     window._active_passthrough_song_count = 0
     window._active_passthrough_logged_count = 0
@@ -415,6 +418,7 @@ def test_finalize_audio_run_sets_preview_rows_in_planned_order() -> None:
     window._clear_active_build_run_state = lambda: None
     window.preview_entries = []
     window._directory_size_text = lambda _path: "0 KB"
+    window._active_next_preview_emit_index = 0
 
     plan = type("Plan", (), {"stats": BuildSummaryStats(planned_media_rows=2, planned_total_sides=2, planned_total_songs=2)})()
     result = AudioRunResult(
