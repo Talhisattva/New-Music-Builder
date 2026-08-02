@@ -21,6 +21,10 @@ output/
 build/
 dist/
 release/
+/tests/
+/tools/
+/NewMusicBuilder.spec
+/requirements-packaging.txt
 
 # Reference / generated
 _references/
@@ -30,7 +34,11 @@ _references/
 /Figma Prompt - New Music Builder.md
 /docs/*.md
 !/docs/images/
-/docs/images/NewMusicBuilder0.3.2-640-transparent.png
+/docs/windows-release-checklist.md
+/docs/changelog-0.4.0.md
+/docs/images/NewMusicBuilder0.2*.png
+/docs/images/NewMusicBuilder0.3*.png
+/docs/images/NewMusicBuilder0.4.0-640-transparent.png
 
 # OS
 .DS_Store

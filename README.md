@@ -1,4 +1,4 @@
-![New Music Builder](docs/images/NewMusicBuilder0.4.0-640-transparent.png)
+![New Music Builder](docs/images/NewMusicBuilder-640-transparent.png)
 
 # New Music Builder
 
@@ -83,22 +83,10 @@ pip install -r requirements.txt
 python main.py
 ```
 
-## Validate
-
-```powershell
-python -m compileall src
-pytest -q
-```
-
-## Windows Release Ops
-
-Use the packaged release checklist in [docs/windows-release-checklist.md](docs/windows-release-checklist.md) before publishing a new Windows zip.
-
 ## Repo Notes
 
 - `src/new_music_builder/` contains the application code.
 - `assets/` contains runtime assets used by the builder.
-- `tests/` contains automated validation coverage.
 - `workspace/`, `logs/`, and `Generated Textures/` are source-run runtime/state locations and should not be treated as source content.
 - packaged Windows releases create runtime state under `%LOCALAPPDATA%\NewMusicBuilder`.
 - `_references/` is kept out of Git and is not part of the public source distribution.
