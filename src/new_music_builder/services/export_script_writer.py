@@ -92,11 +92,15 @@ def _render_sounds(registration) -> str:
         f"module {registration.module_id}",
         "{",
     ]
+    rendered_sound_ids: set[str] = set()
     for album in registration.albums:
         for side in album.sides:
             for track in side.tracks:
                 sound_ids = track.singles_sound_ids.values() if track.singles_sound_ids else (track.sound_id,)
                 for sound_id in sound_ids:
+                    if sound_id in rendered_sound_ids:
+                        continue
+                    rendered_sound_ids.add(sound_id)
                     lines.extend(
                         [
                             f"    sound {sound_id}",

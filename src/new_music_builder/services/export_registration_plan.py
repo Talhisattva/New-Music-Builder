@@ -105,15 +105,14 @@ def _build_registered_side(
     tracks: list[RegisteredTrack] = []
     for offset, track in enumerate(side.tracks):
         sequence_number = start_sequence_number + offset
+        sound_id = f"{sound_prefix}{sequence_number:02d}"
         singles_sound_ids: dict[MediaKind, str] = {}
         if singles_mode and len(side.tracks) == 1:
             for variant in media_variants:
                 if variant.mode != "single" or not variant.full_item_id:
                     continue
+                # Singles use a true flat contract: item type and sound id match.
                 singles_sound_ids[variant.media_kind] = variant.full_item_id
-            sound_id = singles_sound_ids.get("cassette") or next(iter(singles_sound_ids.values()), sound_prefix)
-        else:
-            sound_id = f"{sound_prefix}{sequence_number:02d}"
         tracks.append(
             RegisteredTrack(
                 sequence_number=sequence_number,

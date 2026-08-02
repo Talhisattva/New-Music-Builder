@@ -38,9 +38,8 @@ def write_export_lua(
 
 
 def _render_bootstrap(lua_pack: LuaPackRegistration) -> str:
-    lines: list[str] = []
+    lines: list[str] = ['pcall(require, "shared/contracts/NMMediaContract")']
     if lua_pack.mixtape_albums:
-        lines.append('pcall(require, "shared/contracts/NMMediaContract")')
         lines.append('require "NMAlbumPackBuilder"')
     lines.extend(f'require "{require_name}"' for require_name in lua_pack.bootstrap_require_names)
     lines.extend(
@@ -136,26 +135,65 @@ def _render_album_group(albums: list[LuaAlbumRegistration]) -> str:
 def _render_singles_file(module_id: str, singles_file: LuaSinglesFileRegistration) -> str:
     lines = [
         'pcall(require, "TCMusicDefenitions")',
+        'pcall(require, "shared/contracts/NMCoverViewResolver")',
         'local CASSETTE_CARRIER = "tsarcraft_music_01_62"',
         'local VINYL_CARRIER = "tsarcraft_music_01_63"',
         'local CD_CARRIER = "tsarcraft_music_01_64"',
         "",
         "GlobalMusic = GlobalMusic or {}",
         "",
+        "local function norm(value)",
+        '    local text = tostring(value or "")',
+        '    if text == "" then',
+        '        return ""',
+        "    end",
+        "    return text",
+        "end",
+        "",
+        "local function shortType(itemType)",
+        "    local name = norm(itemType)",
+        '    local dotPos = string.find(name, ".", 1, true)',
+        "    if dotPos then",
+        '        return string.sub(name, dotPos + 1)',
+        "    end",
+        "    return name",
+        "end",
+        "",
+        "local function registerCarrier(itemType, carrier)",
+        "    local key = shortType(itemType)",
+        '    if key == "" or carrier == "" then',
+        "        return",
+        "    end",
+        "    GlobalMusic[key] = carrier",
+        "end",
+        "",
+        "local function registerCover(mediaFullType, texture)",
+        '    if mediaFullType == "" or texture == "" then',
+        "        return",
+        "    end",
+        "    if NMCoverViewResolver and NMCoverViewResolver.registerLinkedCover then",
+        "        NMCoverViewResolver.registerLinkedCover(mediaFullType, texture)",
+        "    end",
+        "end",
+        "",
         "-- Singles runtime:",
         "-- Direct legacy-flat registrations for fast load.",
         "",
     ]
     for entry in singles_file.entries:
-        lines.extend(_render_singles_entry(entry))
+        lines.extend(_render_singles_entry(module_id, entry))
     return "\n".join(lines)
 
 
-def _render_singles_entry(entry: LuaSinglesEntry) -> list[str]:
+def _render_singles_entry(module_id: str, entry: LuaSinglesEntry) -> list[str]:
     carrier_name = f"{entry.media_kind.upper()}_CARRIER"
     lines = [
-        f'GlobalMusic["{_escape(entry.item_type)}"] = {carrier_name}',
+        f'registerCarrier("{_escape(entry.item_type)}", {carrier_name})',
     ]
+    if entry.cover_texture:
+        lines.append(
+            f'registerCover("{_escape(module_id)}.{_escape(entry.item_type)}", "{_escape(entry.cover_texture)}")'
+        )
     lines.append("")
     return lines
 
