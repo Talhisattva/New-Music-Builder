@@ -67,24 +67,6 @@ If you are cautious about packaged executables, the source/manual-run path below
 
 ## Run From Source
 
-On macOS and Linux, use the repo launcher:
-
-```bash
-./run_from_source.sh
-```
-
-The launcher:
-
-- checks that this looks like a real source checkout
-- prefers Python `3.12`, but can use a newer installed version if it already works
-- can offer a side-by-side Python `3.12` install on supported `brew`, `apt-get`, and `dnf` systems
-- creates or repairs this repo's `.venv`
-- asks before installing Python packages into `.venv`
-
-It does not replace your default `python3`, and it keeps Python packages inside this repo's `.venv`.
-
-Manual fallback commands:
-
 ```bash
 python3.12 -m venv .venv
 source .venv/bin/activate
