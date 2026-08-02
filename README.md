@@ -44,6 +44,20 @@ Highlights:
 - Linux and macOS are expected to run from source with Python 3.12+.
 - The codebase tries to stay cross-platform where practical, but Windows is still the primary supported release environment.
 
+## Windows Packaged Release Notes
+
+The Windows download is an unsigned packaged Python desktop app.
+
+That means some antivirus tools may show heuristic warnings for the release even when the bundle is clean, because the app ships with Python runtime files, native DLLs, and application assets together.
+
+To reduce false positives, the packaged release is kept as static as possible:
+
+- runtime state is created on first launch under `%LOCALAPPDATA%\NewMusicBuilder`
+- the shipped app folder is kept focused on the executable and required runtime files
+- unnecessary packaging leftovers are pruned from the release zip
+
+If you are cautious about packaged executables, the source/manual-run path below remains available.
+
 ## Current State
 
 - Song pack export is working end to end.
@@ -94,13 +108,17 @@ python -m compileall src
 pytest -q
 ```
 
+## Windows Release Ops
+
+Use the packaged release checklist in [docs/windows-release-checklist.md](docs/windows-release-checklist.md) before publishing a new Windows zip.
+
 ## Repo Notes
 
 - `src/new_music_builder/` contains the application code.
 - `assets/` contains runtime assets used by the builder.
 - `tests/` contains automated validation coverage.
-- `workspace/` and `logs/` are runtime/state locations and should be treated carefully during release cleanup.
-- `Generated Textures/` is generated output and should not be treated as source content.
+- `workspace/`, `logs/`, and `Generated Textures/` are source-run runtime/state locations and should not be treated as source content.
+- packaged Windows releases create runtime state under `%LOCALAPPDATA%\NewMusicBuilder`.
 - `_references/` is kept out of Git and is not part of the public source distribution.
 
 ## Copyright and License

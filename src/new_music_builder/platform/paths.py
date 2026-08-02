@@ -17,6 +17,14 @@ def runtime_root() -> Path:
     return Path(__file__).resolve().parents[3]
 
 
+def state_root() -> Path:
+    if getattr(sys, 'frozen', False):
+        local_appdata = os.getenv('LOCALAPPDATA', '').strip()
+        if local_appdata:
+            return Path(local_appdata) / 'NewMusicBuilder'
+    return runtime_root()
+
+
 def resource_root() -> Path:
     bundled_root = getattr(sys, '_MEIPASS', None)
     if bundled_root:
@@ -29,19 +37,19 @@ def assets_root() -> Path:
 
 
 def data_root() -> Path:
-    root = runtime_root() / 'workspace'
+    root = state_root() / 'workspace'
     root.mkdir(parents=True, exist_ok=True)
     return root
 
 
 def logs_root() -> Path:
-    root = runtime_root() / 'logs'
+    root = state_root() / 'logs'
     root.mkdir(parents=True, exist_ok=True)
     return root
 
 
 def generated_textures_root() -> Path:
-    root = runtime_root() / 'Generated Textures'
+    root = state_root() / 'Generated Textures'
     root.mkdir(parents=True, exist_ok=True)
     return root
 

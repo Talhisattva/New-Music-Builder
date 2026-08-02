@@ -9,6 +9,7 @@ $distRoot = Join-Path $repoRoot 'dist'
 $releaseRoot = Join-Path $repoRoot 'release'
 $specPath = Join-Path $repoRoot 'NewMusicBuilder.spec'
 $appDistRoot = Join-Path $distRoot 'NewMusicBuilder'
+
 function Invoke-Step {
     param(
         [Parameter(Mandatory = $true)]
@@ -23,62 +24,6 @@ function Invoke-Step {
     }
 }
 
-function Initialize-PackagedRuntimeState {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$TargetRoot
-    )
-
-    $targetPath = [System.IO.Path]::GetFullPath($TargetRoot)
-    $workspacePath = Join-Path $targetPath 'workspace'
-    $logsPath = Join-Path $targetPath 'logs'
-    $generatedTexturesPath = Join-Path $targetPath 'Generated Textures'
-    $diagnosticsPath = Join-Path $workspacePath 'diagnostics'
-
-    New-Item -ItemType Directory -Path $workspacePath -Force | Out-Null
-    New-Item -ItemType Directory -Path $logsPath -Force | Out-Null
-    New-Item -ItemType Directory -Path $generatedTexturesPath -Force | Out-Null
-    New-Item -ItemType Directory -Path $diagnosticsPath -Force | Out-Null
-
-    Set-Content -Path (Join-Path $logsPath 'new_music_builder.log') -Value '' -NoNewline
-    Set-Content -Path (Join-Path $logsPath 'startup_fatal.log') -Value '' -NoNewline
-    Set-Content -Path (Join-Path $logsPath 'runtime_fatal.log') -Value '' -NoNewline
-
-    $runtimeSeed = @'
-from pathlib import Path
-import json
-import sys
-
-target_root = Path(sys.argv[1]).resolve()
-workspace = target_root / "workspace"
-workspace.mkdir(parents=True, exist_ok=True)
-
-sys.path.insert(0, str(Path("src").resolve()))
-
-from new_music_builder.domain.models import ProjectConfig
-from new_music_builder.services.recent_projects import RecentProjectsStore
-from new_music_builder.services.session_store import SessionStore
-
-project = ProjectConfig()
-project.ensure_defaults()
-project.ogg_output_folder = ""
-project.workshop_output_folder = ""
-project.legacy_mode_enabled = False
-
-store = SessionStore(workspace / "last_session.json")
-store.last_ogg_output_folder = ""
-store.last_automatic_textures_enabled = True
-store.last_regenerate_textures_on_project_load_enabled = False
-store.last_text_tooltips_enabled = True
-store.save(project, "")
-
-recent = RecentProjectsStore(workspace / "recent.json")
-recent.file_path.write_text(json.dumps({"recent": []}, indent=2), encoding="utf-8")
-'@
-
-    Invoke-Step -Action { $runtimeSeed | python - $targetPath } -FailureMessage 'Packaged runtime seed failed.'
-}
-
 function Prune-WindowsReleaseArtifacts {
     param(
         [Parameter(Mandatory = $true)]
@@ -86,6 +31,16 @@ function Prune-WindowsReleaseArtifacts {
     )
 
     $targetPath = [System.IO.Path]::GetFullPath($TargetRoot)
+
+    Get-ChildItem -Path $targetPath -Recurse -Force -File -Filter '.DS_Store' -ErrorAction SilentlyContinue |
+        Remove-Item -Force -ErrorAction SilentlyContinue
+
+    Get-ChildItem -Path $targetPath -Recurse -Force -Directory -Filter '*.dist-info' -ErrorAction SilentlyContinue |
+        Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+
+    Get-ChildItem -Path $targetPath -Recurse -Force -Directory -Filter '__pycache__' -ErrorAction SilentlyContinue |
+        Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+
     $tkdndRoot = Join-Path $targetPath '_internal\tkinterdnd2\tkdnd'
     if (-not (Test-Path $tkdndRoot)) {
         return
@@ -112,6 +67,72 @@ function Prune-WindowsReleaseArtifacts {
             $_.Extension -eq '.tcl' -and $_.Name -notin $keepFiles
         )
     } | Remove-Item -Force
+}
+
+function New-StagedReleaseRoot {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$SourceRoot,
+        [Parameter(Mandatory = $true)]
+        [string]$StageRoot,
+        [Parameter(Mandatory = $true)]
+        [string]$FolderName
+    )
+
+    if (Test-Path $StageRoot) {
+        Remove-Item -LiteralPath $StageRoot -Recurse -Force
+    }
+
+    $stageFolder = Join-Path $StageRoot $FolderName
+    New-Item -ItemType Directory -Path $stageFolder -Force | Out-Null
+
+    $allowedTopLevel = @(
+        'NewMusicBuilder.exe',
+        '_internal'
+    )
+
+    foreach ($name in $allowedTopLevel) {
+        $source = Join-Path $SourceRoot $name
+        if (-not (Test-Path $source)) {
+            throw "Expected packaged release entry was not found: $source"
+        }
+        Copy-Item -LiteralPath $source -Destination $stageFolder -Recurse -Force
+    }
+
+    return $stageFolder
+}
+
+function Assert-ReleaseLayout {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$TargetRoot
+    )
+
+    $targetPath = [System.IO.Path]::GetFullPath($TargetRoot)
+    $forbidden = @(
+        'workspace',
+        'logs',
+        'Generated Textures'
+    )
+
+    foreach ($entry in $forbidden) {
+        $path = Join-Path $targetPath $entry
+        if (Test-Path $path) {
+            throw "Packaged app should not ship pre-seeded runtime state: $path"
+        }
+    }
+
+    $required = @(
+        'NewMusicBuilder.exe',
+        '_internal'
+    )
+
+    foreach ($entry in $required) {
+        $path = Join-Path $targetPath $entry
+        if (-not (Test-Path $path)) {
+            throw "Packaged app is missing required release content: $path"
+        }
+    }
 }
 
 Push-Location $repoRoot
@@ -143,16 +164,24 @@ try {
     }
 
     Prune-WindowsReleaseArtifacts -TargetRoot $appDistRoot
-    Initialize-PackagedRuntimeState -TargetRoot $appDistRoot
+
+    $stageRoot = Join-Path ([System.IO.Path]::GetTempPath()) "NewMusicBuilder-release-$version"
+    $stageFolder = New-StagedReleaseRoot -SourceRoot $appDistRoot -StageRoot $stageRoot -FolderName 'NewMusicBuilder'
+    Assert-ReleaseLayout -TargetRoot $stageFolder
 
     $zipPath = Join-Path $releaseRoot "NewMusicBuilder-v$version-win64.zip"
     if (Test-Path $zipPath) {
         Remove-Item -LiteralPath $zipPath -Force
     }
 
-    Compress-Archive -Path $appDistRoot -DestinationPath $zipPath -CompressionLevel Optimal
+    Compress-Archive -Path (Join-Path $stageRoot '*') -DestinationPath $zipPath -CompressionLevel Optimal
+
+    if (Test-Path $stageRoot) {
+        Remove-Item -LiteralPath $stageRoot -Recurse -Force
+    }
 
     Write-Host "Windows release package created: $zipPath"
+    Write-Host 'Reminder: verify first-run AppData initialization, then submit any remaining false positives to Microsoft Defender and Bkav.'
 }
 finally {
     Pop-Location

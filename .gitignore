@@ -14,10 +14,8 @@ htmlcov/
 .cache/
 output/
 /Generated Textures/
-/logs/*.log
-/workspace/last_session.json
-/workspace/recent.json
-/workspace/diagnostics/
+/logs/
+/workspace/
 
 # Packaging artifacts
 build/
