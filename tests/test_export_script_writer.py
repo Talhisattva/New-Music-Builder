@@ -312,12 +312,21 @@ def test_write_export_scaffold_legacy_mode_uses_clean_song_ids_for_lua_and_scrip
     sounds_text = (scripts_root / "NMB_LegacyPack_Sounds.txt").read_text(encoding="utf-8")
     items_text = (scripts_root / "NMB_LegacyPack_Items.txt").read_text(encoding="utf-8")
     models_text = (scripts_root / "NMB_LegacyPack_Models.txt").read_text(encoding="utf-8")
-    album_text = (lua_root / "LegacyPack_Album_SinglesGroup1_Part01.lua").read_text(encoding="utf-8")
+    album_text = (lua_root / "LegacyPack_Album_SinglesGroup1.lua").read_text(encoding="utf-8")
 
     assert "11KiasmosLooped" not in album_text
     assert "11KiasmosLooped" not in sounds_text
     assert "11KiasmosLooped" not in items_text
     assert "11KiasmosLooped" not in models_text
+    assert "sound KiasmosLoopedCassette" in sounds_text
+    assert "sound KiasmosLoopedVinyl" in sounds_text
+    assert "sound KiasmosLoopedCD" in sounds_text
+    assert 'local CASSETTE_CARRIER = "tsarcraft_music_01_62"' in album_text
+    assert 'local VINYL_CARRIER = "tsarcraft_music_01_63"' in album_text
+    assert 'local CD_CARRIER = "tsarcraft_music_01_64"' in album_text
+    assert 'GlobalMusic["KiasmosLoopedCassette"] = CASSETTE_CARRIER' in album_text
+    assert 'GlobalMusic["KiasmosLoopedVinyl"] = VINYL_CARRIER' in album_text
+    assert 'GlobalMusic["KiasmosLoopedCD"] = CD_CARRIER' in album_text
 
 
 def test_write_export_scaffold_reuses_shared_model_definitions_pack_wide(tmp_path: Path) -> None:
@@ -428,17 +437,57 @@ def test_write_export_scaffold_groups_singles_lua_tables_into_one_file_per_sourc
     assert not result.errors
     lua_root = Path(targets.v42) / "media" / "lua" / "shared"
     bootstrap_text = (lua_root / "LegacyPack_PackBootstrap.lua").read_text(encoding="utf-8")
-    grouped_album_text = (lua_root / "LegacyPack_Album_LegacySingles_Part01.lua").read_text(encoding="utf-8")
-    helper_text = (lua_root / "NMSinglesPackBuilder.lua").read_text(encoding="utf-8")
+    grouped_album_text = (lua_root / "LegacyPack_Album_LegacySingles.lua").read_text(encoding="utf-8")
 
-    assert bootstrap_text.count('require "LegacyPack_Album_LegacySingles_Part01"') == 1
-    assert 'require "NMSinglesPackBuilder"' in bootstrap_text
-    assert 'NMSinglesPackBuilder.registerSinglesPack({' in bootstrap_text
-    assert '_nmb_register_single({' not in grouped_album_text
-    assert 'local function shortType(itemType)' in helper_text
-    assert 'NMMediaContract.registerMediaTypeAlias(short, carrier)' in helper_text
-    assert 'sound = "LegacyPackKiasmosLooped"' in grouped_album_text
-    assert 'cassette = "KiasmosLoopedCassette"' in grouped_album_text
-    assert 'cd = "KiasmosLoopedCD"' in grouped_album_text
+    assert bootstrap_text.count('require "LegacyPack_Album_LegacySingles"') == 1
+    assert 'require "NMSinglesPackBuilder"' not in bootstrap_text
+    assert 'registerSinglesPack' not in bootstrap_text
+    assert 'entries = {' not in grouped_album_text
+    assert 'NMTrackCatalog.registerEntry' not in grouped_album_text
+    assert 'GlobalMusic["KiasmosLoopedCassette"] = CASSETTE_CARRIER' in grouped_album_text
+    assert 'GlobalMusic["KiasmosLoopedCD"] = CD_CARRIER' in grouped_album_text
+    assert 'if registerAlias then registerAlias("KiasmosLoopedCassette", CASSETTE_CARRIER) end' in grouped_album_text
     assert not (lua_root / "LegacyPack_Album_KiasmosLooped.lua").exists()
     assert not (lua_root / "LegacyPack_Album_LemonJellySpaceWalk.lua").exists()
+
+
+def test_write_export_scaffold_preserves_mixed_bootstrap_require_order(tmp_path: Path) -> None:
+    workshop_root = tmp_path / "Workshop"
+    workshop_root.mkdir()
+    project = ProjectConfig(
+        mod_name="Mixed Pack",
+        mod_id="MixedPack",
+        workshop_output_folder=str(workshop_root),
+        legacy_mode_enabled=True,
+    )
+    singles = default_media_row(1)
+    singles.media_name = "Legacy Singles"
+    singles.row_mode = "singles"
+    singles.enabled_media = {"cassette": True, "vinyl": False, "cd": False}
+    singles.tracks_a = [_track("C:/music/intro.ogg", "Single Song", "00:01:00")]
+
+    mixtape = default_media_row(2)
+    mixtape.media_name = "Road Trip"
+    mixtape.row_mode = "mixtape"
+    mixtape.enabled_media = {"cassette": True, "vinyl": False, "cd": False}
+    mixtape.tracks_a = [_track("C:/music/a.ogg", "Track A", "00:01:00")]
+    mixtape.tracks_b = [_track("C:/music/b.ogg", "Track B", "00:01:00")]
+    project.media_rows = [singles, mixtape]
+
+    catalog = AssetCatalog(ASSETS_ROOT).scan()
+    plan = build_export_plan(project, catalog)
+    targets = resolve_export_target(plan, project.workshop_output_folder, mod_name=project.mod_name, mod_id=project.mod_id)
+
+    result = write_export_scaffold(project, plan, targets, catalog)
+
+    assert not result.errors
+    lua_root = Path(targets.v42) / "media" / "lua" / "shared"
+    bootstrap_text = (lua_root / "MixedPack_PackBootstrap.lua").read_text(encoding="utf-8")
+
+    singles_require = 'require "MixedPack_Album_LegacySingles"'
+    mixtape_require = 'require "MixedPack_Album_RoadTrip"'
+    assert singles_require in bootstrap_text
+    assert mixtape_require in bootstrap_text
+    assert bootstrap_text.index(singles_require) < bootstrap_text.index(mixtape_require)
+    assert 'registerSinglesPack' not in bootstrap_text
+    assert 'NMAlbumPackBuilder.registerAlbumPack({' in bootstrap_text

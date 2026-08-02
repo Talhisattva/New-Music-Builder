@@ -14,16 +14,7 @@ def write_export_translations(
     targets: ExportTargetPaths,
 ) -> list[Path]:
     lua_pack = build_export_lua_plan(project, plan)
-    track_labels = [
-        label
-        for album in lua_pack.mixtape_albums
-        for label in album.track_labels
-    ]
-    track_labels.extend(
-        entry.track_label
-        for chunk in lua_pack.singles_chunks
-        for entry in chunk.entries
-    )
+    track_labels = _collect_track_labels(lua_pack)
     translation_root = Path(targets.common) / "media" / "lua" / "shared" / "Translate"
     written_paths: list[Path] = []
     for locale in SUPPORTED_TRANSLATION_LOCALES:
@@ -51,6 +42,18 @@ def _render_ui_table(locale: str, track_labels: list[LuaTrackLabel]) -> str:
 def _render_ui_json(track_labels: list[LuaTrackLabel]) -> str:
     payload = {label.key: label.text for label in track_labels}
     return json.dumps(payload, ensure_ascii=False, indent=4) + "\n"
+
+
+def _collect_track_labels(lua_pack) -> list[LuaTrackLabel]:
+    labels_by_key: dict[str, LuaTrackLabel] = {}
+    for album in lua_pack.mixtape_albums:
+        for label in album.track_labels:
+            labels_by_key.setdefault(label.key, label)
+    for singles_file in lua_pack.singles_files:
+        for entry in singles_file.entries:
+            labels_by_key.setdefault(entry.track_label.key, entry.track_label)
+    return list(labels_by_key.values())
+
 
 def _escape_text_value(value: str) -> str:
     return value.replace("\\", "\\\\").replace('"', '\\"')

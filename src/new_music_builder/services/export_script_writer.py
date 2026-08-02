@@ -95,16 +95,18 @@ def _render_sounds(registration) -> str:
     for album in registration.albums:
         for side in album.sides:
             for track in side.tracks:
-                lines.extend(
-                    [
-                        f"    sound {track.sound_id}",
-                        "    {",
-                        "        category = Music,",
-                        "        master = Music,",
-                        f"        clip {{ file = {track.export_audio_relative_path}, distanceMax = 30, }}",
-                        "    }",
-                    ]
-                )
+                sound_ids = track.singles_sound_ids.values() if track.singles_sound_ids else (track.sound_id,)
+                for sound_id in sound_ids:
+                    lines.extend(
+                        [
+                            f"    sound {sound_id}",
+                            "    {",
+                            "        category = Music,",
+                            "        master = Music,",
+                            f"        clip {{ file = {track.export_audio_relative_path}, distanceMax = 30, }}",
+                            "    }",
+                        ]
+                    )
     lines.append("}")
     return "\n".join(lines) + "\n"
 

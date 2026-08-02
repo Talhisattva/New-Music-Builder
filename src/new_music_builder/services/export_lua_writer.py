@@ -9,127 +9,11 @@ from new_music_builder.domain.models import (
     LuaAlbumRegistration,
     LuaCoverGroup,
     LuaPackRegistration,
-    LuaSinglesChunkRegistration,
     LuaSinglesEntry,
+    LuaSinglesFileRegistration,
     ProjectConfig,
 )
 from new_music_builder.services.export_lua_plan import build_export_lua_plan
-
-_SINGLES_HELPER_REQUIRE = "NMSinglesPackBuilder"
-_SINGLES_HELPER_TEXT = """require "NMTrackCatalog"
-pcall(require, "shared/contracts/NMMediaContract")
-pcall(require, "shared/contracts/NMCoverViewResolver")
-
-NMSinglesPackBuilder = NMSinglesPackBuilder or {}
-
-local carrierByKind = {
-    cassette = "tsarcraft_music_01_62",
-    vinyl = "tsarcraft_music_01_63",
-    cd = "tsarcraft_music_01_64",
-}
-
-local function norm(value)
-    local text = tostring(value or "")
-    if text == "" then
-        return ""
-    end
-    return text
-end
-
-local function fullType(moduleName, itemType)
-    local name = norm(itemType)
-    if name == "" then
-        return ""
-    end
-    if string.find(name, ".", 1, true) then
-        return name
-    end
-    local moduleText = norm(moduleName)
-    if moduleText == "" then
-        return name
-    end
-    return moduleText .. "." .. name
-end
-
-local function shortType(itemType)
-    local key = norm(itemType)
-    local dotPos = string.find(key, ".", 1, true)
-    if dotPos then
-        return string.sub(key, dotPos + 1)
-    end
-    return key
-end
-
-local function registerCarrier(mediaFullType, carrier)
-    local short = shortType(mediaFullType)
-    if short == "" or carrier == "" then
-        return
-    end
-    if NMMediaContract and NMMediaContract.registerMediaTypeAlias then
-        NMMediaContract.registerMediaTypeAlias(short, carrier)
-        return
-    end
-    GlobalMusic = GlobalMusic or {}
-    GlobalMusic[short] = carrier
-end
-
-local function registerTrack(mediaFullType, carrier, sound, label)
-    if mediaFullType == "" or carrier == "" or sound == "" then
-        return
-    end
-    if NMTrackCatalog and NMTrackCatalog.registerEntry then
-        NMTrackCatalog.registerEntry(mediaFullType, carrier, {
-            { sound = sound, label = label, trackNumber = 1 },
-        })
-    end
-end
-
-local function registerCover(mediaFullType, texture)
-    if mediaFullType == "" or texture == "" then
-        return
-    end
-    if NMCoverViewResolver and NMCoverViewResolver.registerLinkedCover then
-        NMCoverViewResolver.registerLinkedCover(mediaFullType, texture)
-    end
-end
-
-function NMSinglesPackBuilder.registerSinglesChunk(moduleName, chunkDef)
-    if type(chunkDef) ~= "table" then
-        return false
-    end
-    local entries = type(chunkDef.entries) == "table" and chunkDef.entries or {}
-    for i = 1, #entries do
-        local entry = entries[i]
-        local sound = norm(entry.sound)
-        local label = norm(entry.label)
-        local coverTexture = norm(entry.coverTexture)
-        local media = type(entry.media) == "table" and entry.media or {}
-        for _, kind in ipairs({ "cassette", "vinyl", "cd" }) do
-            local itemType = norm(media[kind])
-            local carrier = norm(carrierByKind[kind])
-            local mediaFullType = fullType(moduleName, itemType)
-            if mediaFullType ~= "" and carrier ~= "" and sound ~= "" then
-                registerCarrier(mediaFullType, carrier)
-                registerTrack(mediaFullType, carrier, sound, label)
-                registerCover(mediaFullType, coverTexture)
-            end
-        end
-    end
-    return true
-end
-
-function NMSinglesPackBuilder.registerSinglesPack(packDef)
-    if type(packDef) ~= "table" then
-        return false
-    end
-    local moduleName = norm(packDef.module)
-    local chunks = type(packDef.chunks) == "table" and packDef.chunks or {}
-    for i = 1, #chunks do
-        NMSinglesPackBuilder.registerSinglesChunk(moduleName, chunks[i])
-    end
-    return true
-end
-"""
 
 
 def write_export_lua(
@@ -149,26 +33,20 @@ def write_export_lua(
         grouped_albums = albums_by_require_name.get(require_name, [])
         (lua_root / f"{require_name}.lua").write_text(_render_album_group(grouped_albums), encoding="utf-8")
 
-    for chunk in lua_pack.singles_chunks:
-        (lua_root / f"{chunk.require_name}.lua").write_text(_render_singles_chunk(chunk), encoding="utf-8")
-
-    if lua_pack.singles_chunks:
-        (lua_root / f"{_SINGLES_HELPER_REQUIRE}.lua").write_text(_SINGLES_HELPER_TEXT, encoding="utf-8")
+    for singles_file in lua_pack.singles_files:
+        (lua_root / f"{singles_file.require_name}.lua").write_text(_render_singles_file(lua_pack.module_id, singles_file), encoding="utf-8")
 
 
 def _render_bootstrap(lua_pack: LuaPackRegistration) -> str:
     lines = ['pcall(require, "shared/contracts/NMMediaContract")']
     if lua_pack.mixtape_albums:
         lines.append('require "NMAlbumPackBuilder"')
-    if lua_pack.singles_chunks:
-        lines.append(f'require "{_SINGLES_HELPER_REQUIRE}"')
-    lines.extend(f'require "{require_name}"' for require_name in lua_pack.mixtape_bootstrap_require_names)
-    lines.extend(f'require "{require_name}"' for require_name in lua_pack.singles_bootstrap_require_names)
+    lines.extend(f'require "{require_name}"' for require_name in lua_pack.bootstrap_require_names)
     lines.extend(
         [
             "",
             "-- Pack bootstrap:",
-            "-- Mixtapes stay on NMAlbumPackBuilder; Singles use flat direct registration.",
+            "-- Mixtapes stay on NMAlbumPackBuilder; Singles self-register on require.",
             f'local PACK_MODULE = "{lua_pack.module_id}"',
             "",
         ]
@@ -182,22 +60,6 @@ def _render_bootstrap(lua_pack: LuaPackRegistration) -> str:
             ]
         )
         lines.extend(f"        {table_name}," for table_name in lua_pack.mixtape_album_table_names)
-        lines.extend(
-            [
-                "    },",
-                "})",
-                "",
-            ]
-        )
-    if lua_pack.singles_chunks:
-        lines.extend(
-            [
-                "NMSinglesPackBuilder.registerSinglesPack({",
-                "    module = PACK_MODULE,",
-                "    chunks = {",
-            ]
-        )
-        lines.extend(f"        {chunk.table_name}," for chunk in lua_pack.singles_chunks)
         lines.extend(
             [
                 "    },",
@@ -270,49 +132,41 @@ def _render_album_group(albums: list[LuaAlbumRegistration]) -> str:
     return "".join(_render_album(album) for album in albums)
 
 
-def _render_singles_chunk(chunk: LuaSinglesChunkRegistration) -> str:
+def _render_singles_file(module_id: str, singles_file: LuaSinglesFileRegistration) -> str:
     lines = [
-        "-- Singles runtime chunk:",
-        "-- Direct one-track registrations; no album-contract tables.",
+        'pcall(require, "TCMusicDefenitions")',
+        'pcall(require, "shared/contracts/NMMediaContract")',
+        'pcall(require, "shared/contracts/NMCoverViewResolver")',
         "",
-        f"{chunk.table_name} = {{",
-        "    entries = {",
+        'local CASSETTE_CARRIER = "tsarcraft_music_01_62"',
+        'local VINYL_CARRIER = "tsarcraft_music_01_63"',
+        'local CD_CARRIER = "tsarcraft_music_01_64"',
+        "local registerAlias = NMMediaContract and NMMediaContract.registerMediaTypeAlias",
+        "local registerCover = NMCoverViewResolver and NMCoverViewResolver.registerLinkedCover",
+        f'local coverPrefix = "{_escape(module_id)}."',
+        "",
+        "GlobalMusic = GlobalMusic or {}",
+        "",
+        "-- Singles runtime:",
+        "-- Direct legacy-flat registrations for fast load.",
+        "",
     ]
-    for entry in chunk.entries:
-        lines.extend(_render_singles_entry(entry))
-    lines.extend(
-        [
-            "    },",
-            "}",
-            "",
-        ]
-    )
+    for entry in singles_file.entries:
+        lines.extend(_render_singles_entry(module_id, entry))
     return "\n".join(lines)
 
 
-def _render_singles_entry(entry: LuaSinglesEntry) -> list[str]:
+def _render_singles_entry(module_id: str, entry: LuaSinglesEntry) -> list[str]:
+    carrier_name = f"{entry.media_kind.upper()}_CARRIER"
     lines = [
-        "        {",
-        f'            id = "{_escape(entry.album_id)}",',
-        f'            title = "{_escape(entry.title)}",',
-        f'            sound = "{_escape(entry.sound)}",',
-        f'            label = "{_escape(entry.track_label.key)}",',
-        "            media = {",
+        f'if registerAlias then registerAlias("{_escape(entry.item_type)}", {carrier_name}) end',
+        f'GlobalMusic["{_escape(entry.item_type)}"] = {carrier_name}',
     ]
-    if entry.media.cassette:
-        lines.append(f'                cassette = "{_escape(entry.media.cassette)}",')
-    if entry.media.vinyl:
-        lines.append(f'                vinyl = "{_escape(entry.media.vinyl)}",')
-    if entry.media.cd:
-        lines.append(f'                cd = "{_escape(entry.media.cd)}",')
-    lines.extend(
-        [
-            "            },",
-            f'            coverTexture = "{_escape(entry.cover_texture)}",',
-            f"            coverPlayable = {{ {_render_media_list(entry.cover_playable)} }},",
-            "        },",
-        ]
-    )
+    if entry.cover_texture:
+        lines.append(
+            f'if registerCover then registerCover(coverPrefix .. "{_escape(entry.item_type)}", "{_escape(entry.cover_texture)}") end'
+        )
+    lines.append("")
     return lines
 
 

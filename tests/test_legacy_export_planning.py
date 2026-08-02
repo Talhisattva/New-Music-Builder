@@ -94,13 +94,15 @@ def test_legacy_lua_plan_allows_missing_container_variants() -> None:
     lua_pack = build_export_lua_plan(project, plan)
 
     assert lua_pack.mixtape_albums == []
-    assert lua_pack.singles_bootstrap_require_names == ['LegacyPack_Album_SinglesGroup1_Part01']
-    assert len(lua_pack.singles_chunks) == 1
-    entry = lua_pack.singles_chunks[0].entries[0]
-    assert entry.media.cassette != ""
-    assert entry.media.cd != ""
-    assert entry.media.vinyl == ""
-    assert entry.cover_playable == ()
+    assert lua_pack.singles_bootstrap_require_names == ['LegacyPack_Album_SinglesGroup1']
+    assert len(lua_pack.singles_files) == 1
+    entries = lua_pack.singles_files[0].entries
+    assert [entry.media_kind for entry in entries] == ['cassette', 'cd']
+    assert entries[0].item_type != ""
+    assert entries[0].sound.endswith("Cassette")
+    assert entries[1].item_type != ""
+    assert entries[1].sound.endswith("CD")
+    assert all(entry.cover_texture == "" for entry in entries)
 
 
 def test_legacy_lua_plan_groups_multiple_singles_from_one_source_row_into_one_require_name() -> None:
@@ -118,9 +120,9 @@ def test_legacy_lua_plan_groups_multiple_singles_from_one_source_row_into_one_re
     lua_pack = build_export_lua_plan(project, plan)
 
     assert lua_pack.mixtape_albums == []
-    assert len(lua_pack.singles_chunks) == 1
-    assert lua_pack.singles_bootstrap_require_names == ['LegacyPack_Album_LegacySingles_Part01']
-    assert len(lua_pack.singles_chunks[0].entries) == 2
+    assert len(lua_pack.singles_files) == 1
+    assert lua_pack.singles_bootstrap_require_names == ['LegacyPack_Album_LegacySingles']
+    assert len(lua_pack.singles_files[0].entries) == 6
 
 
 def test_legacy_lua_plan_uses_singles_group_name_for_default_media_mix_rows() -> None:
@@ -136,8 +138,8 @@ def test_legacy_lua_plan_uses_singles_group_name_for_default_media_mix_rows() ->
     plan = build_export_plan(project, AssetCatalog(assets_root()).scan())
     lua_pack = build_export_lua_plan(project, plan)
 
-    assert lua_pack.singles_bootstrap_require_names == ['LegacyPack_Album_SinglesGroup1_Part01']
-    assert [chunk.require_name for chunk in lua_pack.singles_chunks] == ['LegacyPack_Album_SinglesGroup1_Part01']
+    assert lua_pack.singles_bootstrap_require_names == ['LegacyPack_Album_SinglesGroup1']
+    assert [singles_file.require_name for singles_file in lua_pack.singles_files] == ['LegacyPack_Album_SinglesGroup1']
 
 
 def test_legacy_lua_plan_chunks_large_singles_rows_into_fixed_size_parts() -> None:
@@ -153,14 +155,9 @@ def test_legacy_lua_plan_chunks_large_singles_rows_into_fixed_size_parts() -> No
     plan = build_export_plan(project, AssetCatalog(assets_root()).scan())
     lua_pack = build_export_lua_plan(project, plan)
 
-    assert lua_pack.singles_bootstrap_require_names == [
-        'LegacyPack_Album_SinglesGroup1_Part01',
-        'LegacyPack_Album_SinglesGroup1_Part02',
-        'LegacyPack_Album_SinglesGroup1_Part03',
-    ]
-    assert len(lua_pack.singles_chunks[0].entries) == 150
-    assert len(lua_pack.singles_chunks[1].entries) == 150
-    assert len(lua_pack.singles_chunks[2].entries) == 1
+    assert lua_pack.singles_bootstrap_require_names == ['LegacyPack_Album_SinglesGroup1']
+    assert len(lua_pack.singles_files) == 1
+    assert len(lua_pack.singles_files[0].entries) == 903
 
 
 def test_legacy_texture_export_reuses_shared_custom_texture_files(tmp_path) -> None:
