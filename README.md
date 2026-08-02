@@ -83,6 +83,8 @@ pip install -r requirements.txt
 python main.py
 ```
 
+If double-clicking `main.py` just flashes and closes, use [Launch New Music Builder.bat](<c:\Users\chowl\Zomboid\Workshop\New Music Builder\Launch New Music Builder.bat>) instead so startup errors stay visible.
+
 ## Repo Notes
 
 - `src/new_music_builder/` contains the application code.
