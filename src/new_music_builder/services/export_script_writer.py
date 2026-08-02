@@ -117,11 +117,7 @@ def _render_items(registration) -> str:
     lines = [
         f"module {module_name}",
         "{",
-        "    imports",
-        "    {",
-        "        Base",
-        "    }",
-        "",
+        "    imports { Base }",
     ]
     for album in registration.albums:
         for variant in album.media_variants:
@@ -194,7 +190,6 @@ def _render_item_block(
         f"        WorldStaticModel = {module_name}.{model_name},",
         "        CanSpawn = true,",
         "    }",
-        "",
     ]
 
 
@@ -209,11 +204,7 @@ def _render_models(registration) -> str:
     lines = [
         f"module {module_name}",
         "{",
-        "    imports",
-        "    {",
-        "        Base",
-        "    }",
-        "",
+        "    imports { Base }",
     ]
     rendered: set[str] = set()
     for album in registration.albums:
@@ -258,19 +249,10 @@ def _render_model_block(*, model_name: str, kind: str, texture_reference: str) -
         offset, rotate = attachment
         lines.extend(
             [
-                "        attachment world",
-                "        {",
-                f"            offset = {offset},",
-                f"            rotate = {rotate},",
-                "        }",
+                f"        attachment world {{ offset = {offset}, rotate = {rotate}, }}",
             ]
         )
-    lines.extend(
-        [
-            "    }",
-            "",
-        ]
-    )
+    lines.append("    }")
     return lines
 
 

@@ -38,8 +38,9 @@ def write_export_lua(
 
 
 def _render_bootstrap(lua_pack: LuaPackRegistration) -> str:
-    lines = ['pcall(require, "shared/contracts/NMMediaContract")']
+    lines: list[str] = []
     if lua_pack.mixtape_albums:
+        lines.append('pcall(require, "shared/contracts/NMMediaContract")')
         lines.append('require "NMAlbumPackBuilder"')
     lines.extend(f'require "{require_name}"' for require_name in lua_pack.bootstrap_require_names)
     lines.extend(
@@ -135,15 +136,9 @@ def _render_album_group(albums: list[LuaAlbumRegistration]) -> str:
 def _render_singles_file(module_id: str, singles_file: LuaSinglesFileRegistration) -> str:
     lines = [
         'pcall(require, "TCMusicDefenitions")',
-        'pcall(require, "shared/contracts/NMMediaContract")',
-        'pcall(require, "shared/contracts/NMCoverViewResolver")',
-        "",
         'local CASSETTE_CARRIER = "tsarcraft_music_01_62"',
         'local VINYL_CARRIER = "tsarcraft_music_01_63"',
         'local CD_CARRIER = "tsarcraft_music_01_64"',
-        "local registerAlias = NMMediaContract and NMMediaContract.registerMediaTypeAlias",
-        "local registerCover = NMCoverViewResolver and NMCoverViewResolver.registerLinkedCover",
-        f'local coverPrefix = "{_escape(module_id)}."',
         "",
         "GlobalMusic = GlobalMusic or {}",
         "",
@@ -152,20 +147,15 @@ def _render_singles_file(module_id: str, singles_file: LuaSinglesFileRegistratio
         "",
     ]
     for entry in singles_file.entries:
-        lines.extend(_render_singles_entry(module_id, entry))
+        lines.extend(_render_singles_entry(entry))
     return "\n".join(lines)
 
 
-def _render_singles_entry(module_id: str, entry: LuaSinglesEntry) -> list[str]:
+def _render_singles_entry(entry: LuaSinglesEntry) -> list[str]:
     carrier_name = f"{entry.media_kind.upper()}_CARRIER"
     lines = [
-        f'if registerAlias then registerAlias("{_escape(entry.item_type)}", {carrier_name}) end',
         f'GlobalMusic["{_escape(entry.item_type)}"] = {carrier_name}',
     ]
-    if entry.cover_texture:
-        lines.append(
-            f'if registerCover then registerCover(coverPrefix .. "{_escape(entry.item_type)}", "{_escape(entry.cover_texture)}") end'
-        )
     lines.append("")
     return lines
 

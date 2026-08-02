@@ -327,6 +327,8 @@ def test_write_export_scaffold_legacy_mode_uses_clean_song_ids_for_lua_and_scrip
     assert 'GlobalMusic["KiasmosLoopedCassette"] = CASSETTE_CARRIER' in album_text
     assert 'GlobalMusic["KiasmosLoopedVinyl"] = VINYL_CARRIER' in album_text
     assert 'GlobalMusic["KiasmosLoopedCD"] = CD_CARRIER' in album_text
+    assert 'registerMediaTypeAlias' not in album_text
+    assert 'registerLinkedCover' not in album_text
 
 
 def test_write_export_scaffold_reuses_shared_model_definitions_pack_wide(tmp_path: Path) -> None:
@@ -446,7 +448,8 @@ def test_write_export_scaffold_groups_singles_lua_tables_into_one_file_per_sourc
     assert 'NMTrackCatalog.registerEntry' not in grouped_album_text
     assert 'GlobalMusic["KiasmosLoopedCassette"] = CASSETTE_CARRIER' in grouped_album_text
     assert 'GlobalMusic["KiasmosLoopedCD"] = CD_CARRIER' in grouped_album_text
-    assert 'if registerAlias then registerAlias("KiasmosLoopedCassette", CASSETTE_CARRIER) end' in grouped_album_text
+    assert 'registerMediaTypeAlias' not in grouped_album_text
+    assert 'registerLinkedCover' not in grouped_album_text
     assert not (lua_root / "LegacyPack_Album_KiasmosLooped.lua").exists()
     assert not (lua_root / "LegacyPack_Album_LemonJellySpaceWalk.lua").exists()
 
@@ -491,3 +494,9 @@ def test_write_export_scaffold_preserves_mixed_bootstrap_require_order(tmp_path:
     assert bootstrap_text.index(singles_require) < bootstrap_text.index(mixtape_require)
     assert 'registerSinglesPack' not in bootstrap_text
     assert 'NMAlbumPackBuilder.registerAlbumPack({' in bootstrap_text
+    singles_text = (lua_root / "MixedPack_Album_LegacySingles.lua").read_text(encoding="utf-8")
+    mixtape_text = (lua_root / "MixedPack_Album_RoadTrip.lua").read_text(encoding="utf-8")
+    assert 'GlobalMusic["SingleSongCassette"] = CASSETTE_CARRIER' in singles_text
+    assert 'registerMediaTypeAlias' not in singles_text
+    assert 'registerLinkedCover' not in singles_text
+    assert 'coverGroups = {' in mixtape_text
