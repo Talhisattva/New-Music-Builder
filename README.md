@@ -26,9 +26,9 @@ Created specifically for media packs where multiple tracks and media appearances
 
 ## Version
 
-Current version: `0.4.1`
+Current version: `0.4.2`
 
-This is the `0.4.1` release focused on scaling mixed `Mixtape` and `Singles` packs cleanly, preserving fast export behavior on very large libraries, and stabilizing the export queue and generated preview flow for 1000+ song builds.
+This is the `0.4.2` release focused on scaling mixed `Mixtape` and `Singles` packs cleanly, preserving fast export behavior on very large libraries, and stabilizing the export queue and generated preview flow for 1000+ song builds.
 
 Highlights:
 
