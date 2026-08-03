@@ -9,7 +9,6 @@ from new_music_builder.domain.models import (
     LuaAlbumRegistration,
     LuaSinglesChunkRegistration,
     LuaSinglesEntry,
-    LuaSinglesMediaItems,
     LuaExplicitTrack,
     LuaTrackLabel,
     LuaCoverGroup,
@@ -127,7 +126,7 @@ def _build_singles_chunks(
             row,
             source_row_title=source_row_titles.get(row.source_row_id, ""),
         )
-        grouped.setdefault(base_require_name, []).append(_build_singles_entry(module_id, album, row))
+        grouped.setdefault(base_require_name, []).extend(_build_singles_entries(module_id, album, row))
 
     chunks: list[LuaSinglesChunkRegistration] = []
     for base_require_name, entries in grouped.items():
@@ -144,31 +143,33 @@ def _build_singles_chunks(
     return chunks
 
 
-def _build_singles_entry(module_id: str, album: RegisteredAlbum, row: PlannedMediaRow) -> LuaSinglesEntry:
+def _build_singles_entries(module_id: str, album: RegisteredAlbum, row: PlannedMediaRow) -> list[LuaSinglesEntry]:
     track = album.sides[0].tracks[0]
     label = LuaTrackLabel(
         key=f"UI_{module_id}_{album.album_id}_Song_{track.sequence_number:02d}",
         text=track.display_label,
     )
-    media_items = LuaSinglesMediaItems()
-    for media in _build_lua_media(album):
-        if media.media_kind == "cassette":
-            media_items.cassette = media.items.full
-        elif media.media_kind == "vinyl":
-            media_items.vinyl = media.items.full
-        elif media.media_kind == "cd":
-            media_items.cd = media.items.full
     cover_groups = _build_cover_groups(album, row)
     cover_group = cover_groups[0] if cover_groups else None
-    return LuaSinglesEntry(
-        album_id=album.album_id,
-        title=album.title,
-        sound=track.sound_id,
-        track_label=label,
-        media=media_items,
-        cover_texture=cover_group.texture if cover_group is not None else "",
-        cover_playable=cover_group.include_playable if cover_group is not None else (),
-    )
+    cover_media = cover_group.include_playable if cover_group is not None else ()
+    media_by_kind = {media.media_kind: media for media in _build_lua_media(album)}
+    entries: list[LuaSinglesEntry] = []
+    for media_kind in _MEDIA_ORDER:
+        sound_id = track.singles_sound_ids.get(media_kind)
+        media = media_by_kind.get(media_kind)
+        item_type = media.items.full if media is not None else ""
+        if not sound_id or not item_type:
+            continue
+        entries.append(
+            LuaSinglesEntry(
+                item_type=item_type,
+                sound=sound_id,
+                media_kind=media_kind,
+                track_label=label,
+                cover_texture=cover_group.texture if cover_group is not None and media_kind in cover_media else "",
+            )
+        )
+    return entries
 
 
 def _build_explicit_tracks(module_id: str, album: RegisteredAlbum) -> dict[str, list[LuaExplicitTrack]]:

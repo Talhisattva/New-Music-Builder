@@ -65,6 +65,7 @@ def _build_registered_album(module_id: str, row: PlannedMediaRow) -> RegisteredA
     album_id = row.export_id or sanitize_export_id(row.media_name, fallback=f"MediaRow{row.row_id}")
     sound_prefix = f"{module_id}{album_id}"
     singles_mode = row.row_mode == "singles"
+    media_variants = _build_media_variants(module_id, row, singles_mode=singles_mode)
     registered_sides: list[RegisteredSide] = []
     next_sequence_number = 1
     for side in ordered_sides:
@@ -74,10 +75,10 @@ def _build_registered_album(module_id: str, row: PlannedMediaRow) -> RegisteredA
             side,
             next_sequence_number,
             singles_mode=singles_mode,
+            media_variants=media_variants,
         )
         registered_sides.append(registered_side)
         next_sequence_number = registered_side.end_track_number + 1
-    media_variants = _build_media_variants(module_id, row, singles_mode=singles_mode)
     mode: RegistrationMode = "split" if any(variant.mode == "split" for variant in media_variants) else "single"
     return RegisteredAlbum(
         row_id=row.row_id,
@@ -99,11 +100,18 @@ def _build_registered_side(
     start_sequence_number: int,
     *,
     singles_mode: bool,
+    media_variants: list[RegisteredMediaVariant],
 ) -> RegisteredSide:
     tracks: list[RegisteredTrack] = []
     for offset, track in enumerate(side.tracks):
         sequence_number = start_sequence_number + offset
-        sound_id = sound_prefix if singles_mode and len(side.tracks) == 1 else f"{sound_prefix}{sequence_number:02d}"
+        sound_id = f"{sound_prefix}{sequence_number:02d}"
+        singles_sound_ids: dict[MediaKind, str] = {}
+        if singles_mode and len(side.tracks) == 1:
+            for variant in media_variants:
+                if variant.mode != "single" or not variant.full_item_id:
+                    continue
+                singles_sound_ids[variant.media_kind] = variant.full_item_id
         tracks.append(
             RegisteredTrack(
                 sequence_number=sequence_number,
@@ -114,6 +122,7 @@ def _build_registered_side(
                     f"media/sound/{module_id}/"
                     f"{(track.shared_export_relative_path or track.export_relative_path).replace('\\', '/')}"
                 ),
+                singles_sound_ids=singles_sound_ids,
             )
         )
     return RegisteredSide(
