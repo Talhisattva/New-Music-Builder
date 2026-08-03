@@ -96,9 +96,9 @@ class _SongDragGhost:
             anchor='w',
             justify='left',
             padx=8,
-            pady=(0, 5),
+            pady=0,
         )
-        self._detail_label.pack(fill='x')
+        self._detail_label.pack(fill='x', pady=(0, 5))
         self._window.withdraw()
 
 
