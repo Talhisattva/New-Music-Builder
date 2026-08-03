@@ -308,6 +308,7 @@ class PlannedTrack:
     source_track_index: int = 0
     export_file_name: str = ""
     export_relative_path: str = ""
+    shared_export_relative_path: str = ""
     track_id: str = ""
     sound_id: str = ""
 

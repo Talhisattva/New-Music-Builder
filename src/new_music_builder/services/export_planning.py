@@ -32,6 +32,7 @@ from new_music_builder.services.export_naming import (
     build_audio_track_file_name,
     build_audio_track_relative_path,
 )
+from new_music_builder.services.shared_audio_export_paths import assign_shared_audio_export_paths
 from new_music_builder.ui.widgets.appearance_entries import merge_appearance_grid_entries
 
 _SLOT_KINDS: tuple[tuple[AppearanceKind, MediaKind], ...] = (
@@ -134,7 +135,9 @@ def build_export_plan(project: ProjectConfig, asset_catalog: dict[str, list[Asse
         mod_size_text="0 KB",
         errors=0,
     )
-    return ExportPlan(rows=planned_rows, sides=planned_sides, stats=stats)
+    export_plan = ExportPlan(rows=planned_rows, sides=planned_sides, stats=stats)
+    assign_shared_audio_export_paths(export_plan)
+    return export_plan
 
 
 def build_preview_scenario(plan: ExportPlan, output_path: str) -> BuildPreviewScenario:
@@ -186,6 +189,7 @@ def _build_planned_track(
             export_id=row_export_id,
             track_id=track_id,
         ),
+        shared_export_relative_path="",
         track_id=track_id,
         sound_id=track_id,
     )

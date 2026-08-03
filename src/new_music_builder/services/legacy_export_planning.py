@@ -17,6 +17,7 @@ from new_music_builder.services.asset_catalog import AssetEntry
 from new_music_builder.services.export_ids import sanitize_export_id
 from new_music_builder.services.export_naming import sanitize_sound_script_path_component
 from new_music_builder.services.generated_asset_registry import visible_generated_entries_for_kind
+from new_music_builder.services.shared_audio_export_paths import assign_shared_audio_export_paths
 from new_music_builder.ui.widgets.appearance_entries import merge_appearance_grid_entries
 
 
@@ -66,6 +67,7 @@ def build_legacy_export_plan(
                 source_track_index=max(0, track_index - 1),
                 export_file_name=export_file_name,
                 export_relative_path=export_file_name,
+                shared_export_relative_path="",
                 track_id=track_id,
                 sound_id=track_id,
             )
@@ -112,7 +114,9 @@ def build_legacy_export_plan(
         mod_size_text="0 KB",
         errors=0,
     )
-    return ExportPlan(rows=planned_rows, sides=planned_sides, stats=stats)
+    export_plan = ExportPlan(rows=planned_rows, sides=planned_sides, stats=stats)
+    assign_shared_audio_export_paths(export_plan)
+    return export_plan
 
 
 def _resolve_legacy_track_appearance_set(
