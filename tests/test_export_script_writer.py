@@ -437,8 +437,41 @@ def test_write_export_scaffold_groups_singles_lua_tables_into_one_file_per_sourc
     assert '_nmb_register_single({' not in grouped_album_text
     assert 'local function shortType(itemType)' in helper_text
     assert 'NMMediaContract.registerMediaTypeAlias(short, carrier)' in helper_text
-    assert 'sound = "LegacyPackKiasmosLooped"' in grouped_album_text
     assert 'cassette = "KiasmosLoopedCassette"' in grouped_album_text
     assert 'cd = "KiasmosLoopedCD"' in grouped_album_text
     assert not (lua_root / "LegacyPack_Album_KiasmosLooped.lua").exists()
     assert not (lua_root / "LegacyPack_Album_LemonJellySpaceWalk.lua").exists()
+
+
+def test_write_export_scaffold_legacy_mode_uses_flat_item_named_sounds(tmp_path: Path) -> None:
+    workshop_root = tmp_path / "Workshop"
+    workshop_root.mkdir()
+    project = ProjectConfig(
+        mod_name="Legacy Pack",
+        mod_id="LegacyPack",
+        workshop_output_folder=str(workshop_root),
+        legacy_mode_enabled=True,
+    )
+    row = default_media_row(1)
+    row.row_mode = "singles"
+    row.media_name = "Legacy Singles"
+    row.tracks_a = [_track("C:/music/intro.ogg", "Kiasmos Looped", "00:01:00")]
+    project.media_rows = [row]
+
+    catalog = AssetCatalog(ASSETS_ROOT).scan()
+    plan = build_export_plan(project, catalog)
+    targets = resolve_export_target(plan, project.workshop_output_folder, mod_name=project.mod_name, mod_id=project.mod_id)
+
+    result = write_export_scaffold(project, plan, targets, catalog)
+
+    assert not result.errors
+    scripts_root = Path(targets.v42) / "media" / "scripts"
+    lua_root = Path(targets.v42) / "media" / "lua" / "shared"
+    sounds_text = (scripts_root / "NMB_LegacyPack_Sounds.txt").read_text(encoding="utf-8")
+    helper_text = (lua_root / "NMSinglesPackBuilder.lua").read_text(encoding="utf-8")
+
+    assert "sound KiasmosLoopedCassette" in sounds_text
+    assert "sound KiasmosLoopedVinyl" in sounds_text
+    assert "sound KiasmosLoopedCD" in sounds_text
+    assert "sound LegacyPackKiasmosLooped" not in sounds_text
+    assert 'require "NMTrackCatalog"' not in helper_text

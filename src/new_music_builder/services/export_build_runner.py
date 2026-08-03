@@ -1,11 +1,8 @@
 from __future__ import annotations
 
 import logging
-import os
 import shutil
-import tempfile
 from collections.abc import Callable
-from datetime import datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 
@@ -21,9 +18,9 @@ BuildEventEmitter = Callable[[AudioRunEvent], None]
 CancelCheck = Callable[[], bool]
 LOGGER = logging.getLogger('new_music_builder')
 _EMPTY_EXPORT_ERROR = "Unknown export error: emitted pack is empty (0 KB). Please try different songs or images."
-_STAGING_PREFIX = "nmb_staging_"
+_STAGING_PREFIX = ".nmbs_"
 _LEGACY_STAGING_GLOB = ".nmb_staging_*"
-_STALE_STAGING_MAX_AGE = timedelta(hours=12)
+_MAX_SAFE_STAGING_PATH = 240
 
 
 def run_staged_export(
@@ -46,6 +43,7 @@ def run_staged_export(
     staging_root = Path(staging_targets.root)
 
     try:
+        _validate_staging_targets(staging_targets)
         LOGGER.info("[run=%s] run_staged_export emit preparing staging_root=%s", log_run_id, staging_root)
         _emit(emit, "run_preparing", message="Preparing export...")
         _raise_if_cancelled(cancel_requested)
@@ -112,6 +110,12 @@ def run_staged_export(
         result.fatal_error = str(exc)
         _emit(emit, "run_aborted", message=result.abort_message)
         return result
+    except OSError as exc:
+        LOGGER.warning("[run=%s] run_staged_export path/layout failure: %s", log_run_id, exc)
+        result.fatal_error = str(exc)
+        result.errors.append(result.fatal_error)
+        _emit(emit, "run_failed", message=result.fatal_error)
+        return result
     except Exception as exc:
         LOGGER.exception("[run=%s] run_staged_export failed: %s", log_run_id, exc)
         result.fatal_error = str(exc)
@@ -125,7 +129,7 @@ def run_staged_export(
 
 
 def create_staging_targets(final_targets: ExportTargetPaths) -> ExportTargetPaths:
-    staging_root = _builder_staging_parent() / final_targets.inner_folder_name / f"{_STAGING_PREFIX}{uuid4().hex}"
+    staging_root = Path(final_targets.workshop_root) / f"{_STAGING_PREFIX}{uuid4().hex[:8]}"
     contents = staging_root / "Contents"
     mods_root = contents / "mods"
     mod_base = mods_root / final_targets.inner_folder_name
@@ -149,7 +153,6 @@ def create_staging_targets(final_targets: ExportTargetPaths) -> ExportTargetPath
 
 
 def cleanup_export_staging_artifacts(workshop_root: str | Path | None = None) -> None:
-    _cleanup_builder_staging_root(_builder_staging_parent())
     if workshop_root is not None:
         _cleanup_legacy_workshop_staging_dirs(Path(workshop_root))
 
@@ -161,34 +164,27 @@ def _promote_staging_export_root(staging_root: Path, final_root: Path) -> None:
         shutil.move(str(staging_root), str(final_root))
 
 
-def _builder_staging_parent() -> Path:
-    local_appdata = os.getenv("LOCALAPPDATA", "").strip()
-    if local_appdata:
-        return Path(local_appdata) / "NewMusicBuilder" / "staging"
-    return Path(tempfile.gettempdir()) / "NewMusicBuilder" / "staging"
-
-
-def _cleanup_builder_staging_root(root: Path) -> None:
-    cutoff = datetime.now() - _STALE_STAGING_MAX_AGE
-    if not root.exists():
-        return
-    for path in root.rglob(f"{_STAGING_PREFIX}*"):
-        if not path.is_dir():
-            continue
-        try:
-            modified = datetime.fromtimestamp(path.stat().st_mtime)
-        except OSError:
-            continue
-        if modified <= cutoff:
-            shutil.rmtree(path, ignore_errors=True)
-
-
 def _cleanup_legacy_workshop_staging_dirs(workshop_root: Path) -> None:
     if not workshop_root.exists():
         return
-    for path in workshop_root.glob(_LEGACY_STAGING_GLOB):
+    for path in list(workshop_root.glob(_LEGACY_STAGING_GLOB)) + list(workshop_root.glob(f"{_STAGING_PREFIX}*")):
         if path.is_dir():
             shutil.rmtree(path, ignore_errors=True)
+
+
+def _validate_staging_targets(targets: ExportTargetPaths) -> None:
+    critical_paths = [
+        Path(targets.v42) / "media" / "scripts" / f"NMB_{targets.inner_folder_name}_Sounds.txt",
+        Path(targets.v42) / "media" / "scripts" / f"NMB_{targets.inner_folder_name}_Items.txt",
+        Path(targets.v42) / "media" / "lua" / "shared" / f"{targets.inner_folder_name}_PackBootstrap.lua",
+    ]
+    too_long = [str(path) for path in critical_paths if len(str(path)) > _MAX_SAFE_STAGING_PATH]
+    if too_long:
+        joined = "; ".join(too_long)
+        raise OSError(
+            "Export path is too long for Windows staging. Shorten the Mod Name or Mod ID and try again. "
+            f"Offending paths: {joined}"
+        )
 
 
 def _emit(

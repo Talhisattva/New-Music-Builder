@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
 from pathlib import Path
 
 from new_music_builder.domain.models import AudioRunResult, ExportPlan, ExportTargetPaths, ProjectConfig, ScaffoldResult
@@ -106,33 +105,52 @@ def test_run_staged_export_keeps_non_empty_output_successful(monkeypatch, tmp_pa
     assert all(kind != "run_failed" for kind, _message in events)
 
 
-def test_create_staging_targets_uses_external_builder_staging_root(monkeypatch, tmp_path: Path) -> None:
-    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "LocalAppData"))
+def test_create_staging_targets_uses_short_workshop_local_staging_root(tmp_path: Path) -> None:
     targets = _targets(tmp_path)
 
     staging = create_staging_targets(targets)
 
-    assert Path(staging.root).is_relative_to(tmp_path / "LocalAppData")
-    assert not Path(staging.root).is_relative_to(Path(targets.workshop_root))
+    assert Path(staging.root).is_relative_to(Path(targets.workshop_root))
+    assert Path(staging.root).name.startswith(".nmbs_")
+    assert len(Path(staging.root).name) < len(".nmb_staging_1234567890abcdef")
 
 
-def test_cleanup_export_staging_artifacts_removes_legacy_and_stale_staging_dirs(monkeypatch, tmp_path: Path) -> None:
-    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "LocalAppData"))
+def test_cleanup_export_staging_artifacts_removes_legacy_and_short_staging_dirs(tmp_path: Path) -> None:
     workshop_root = tmp_path / "Workshop"
     workshop_root.mkdir()
     legacy = workshop_root / ".nmb_staging_old"
     legacy.mkdir()
-
-    builder_root = tmp_path / "LocalAppData" / "NewMusicBuilder" / "staging" / "PackId"
-    builder_root.mkdir(parents=True)
-    stale = builder_root / "nmb_staging_stale"
-    stale.mkdir()
-    old_time = (datetime.now() - timedelta(days=2)).timestamp()
-    stale.touch()
-    import os
-    os.utime(stale, (old_time, old_time))
+    short = workshop_root / ".nmbs_deadbeef"
+    short.mkdir()
 
     cleanup_export_staging_artifacts(workshop_root)
 
     assert not legacy.exists()
-    assert not stale.exists()
+    assert not short.exists()
+
+
+def test_run_staged_export_fails_early_with_friendly_path_length_message(monkeypatch, tmp_path: Path) -> None:
+    targets = _targets(tmp_path)
+    targets = ExportTargetPaths(
+        workshop_root=targets.workshop_root,
+        outer_folder_name=targets.outer_folder_name,
+        inner_folder_name=("SunnyDayRealEstateHowitFeelstobeSomethingon" * 4),
+        root=targets.root,
+        contents=targets.contents,
+        mods_root=targets.mods_root,
+        mod_base=targets.mod_base,
+        common=targets.common,
+        v42=targets.v42,
+        audio_root=targets.audio_root,
+        audio_pack_root=targets.audio_pack_root,
+    )
+
+    result = run_staged_export(
+        ProjectConfig(),
+        ExportPlan(),
+        targets,
+        asset_catalog={},
+        cache_root=tmp_path / "cache",
+    )
+
+    assert "Export path is too long for Windows staging." in result.fatal_error

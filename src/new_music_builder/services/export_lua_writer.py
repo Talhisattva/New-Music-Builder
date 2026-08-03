@@ -16,8 +16,7 @@ from new_music_builder.domain.models import (
 from new_music_builder.services.export_lua_plan import build_export_lua_plan
 
 _SINGLES_HELPER_REQUIRE = "NMSinglesPackBuilder"
-_SINGLES_HELPER_TEXT = """require "NMTrackCatalog"
-pcall(require, "shared/contracts/NMMediaContract")
+_SINGLES_HELPER_TEXT = """pcall(require, "shared/contracts/NMMediaContract")
 pcall(require, "shared/contracts/NMCoverViewResolver")
 
 NMSinglesPackBuilder = NMSinglesPackBuilder or {}
@@ -73,17 +72,6 @@ local function registerCarrier(mediaFullType, carrier)
     GlobalMusic[short] = carrier
 end
 
-local function registerTrack(mediaFullType, carrier, sound, label)
-    if mediaFullType == "" or carrier == "" or sound == "" then
-        return
-    end
-    if NMTrackCatalog and NMTrackCatalog.registerEntry then
-        NMTrackCatalog.registerEntry(mediaFullType, carrier, {
-            { sound = sound, label = label, trackNumber = 1 },
-        })
-    end
-end
-
 local function registerCover(mediaFullType, texture)
     if mediaFullType == "" or texture == "" then
         return
@@ -100,17 +88,14 @@ function NMSinglesPackBuilder.registerSinglesChunk(moduleName, chunkDef)
     local entries = type(chunkDef.entries) == "table" and chunkDef.entries or {}
     for i = 1, #entries do
         local entry = entries[i]
-        local sound = norm(entry.sound)
-        local label = norm(entry.label)
         local coverTexture = norm(entry.coverTexture)
         local media = type(entry.media) == "table" and entry.media or {}
         for _, kind in ipairs({ "cassette", "vinyl", "cd" }) do
             local itemType = norm(media[kind])
             local carrier = norm(carrierByKind[kind])
             local mediaFullType = fullType(moduleName, itemType)
-            if mediaFullType ~= "" and carrier ~= "" and sound ~= "" then
+            if mediaFullType ~= "" and carrier ~= "" then
                 registerCarrier(mediaFullType, carrier)
-                registerTrack(mediaFullType, carrier, sound, label)
                 registerCover(mediaFullType, coverTexture)
             end
         end
