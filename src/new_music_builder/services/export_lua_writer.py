@@ -9,110 +9,17 @@ from new_music_builder.domain.models import (
     LuaAlbumRegistration,
     LuaCoverGroup,
     LuaPackRegistration,
-    LuaSinglesChunkRegistration,
+    LuaSinglesGroupRegistration,
     LuaSinglesEntry,
     ProjectConfig,
 )
 from new_music_builder.services.export_lua_plan import build_export_lua_plan
 
-_SINGLES_HELPER_REQUIRE = "NMSinglesPackBuilder"
-_SINGLES_HELPER_TEXT = """pcall(require, "shared/contracts/NMMediaContract")
-pcall(require, "shared/contracts/NMCoverViewResolver")
-
-NMSinglesPackBuilder = NMSinglesPackBuilder or {}
-
-local carrierByKind = {
-    cassette = "tsarcraft_music_01_62",
-    vinyl = "tsarcraft_music_01_63",
-    cd = "tsarcraft_music_01_64",
+_CARRIER_BY_KIND = {
+    "cassette": "tsarcraft_music_01_62",
+    "vinyl": "tsarcraft_music_01_63",
+    "cd": "tsarcraft_music_01_64",
 }
-
-local function norm(value)
-    local text = tostring(value or "")
-    if text == "" then
-        return ""
-    end
-    return text
-end
-
-local function fullType(moduleName, itemType)
-    local name = norm(itemType)
-    if name == "" then
-        return ""
-    end
-    if string.find(name, ".", 1, true) then
-        return name
-    end
-    local moduleText = norm(moduleName)
-    if moduleText == "" then
-        return name
-    end
-    return moduleText .. "." .. name
-end
-
-local function shortType(itemType)
-    local key = norm(itemType)
-    local dotPos = string.find(key, ".", 1, true)
-    if dotPos then
-        return string.sub(key, dotPos + 1)
-    end
-    return key
-end
-
-local function registerCarrier(mediaFullType, carrier)
-    local short = shortType(mediaFullType)
-    if short == "" or carrier == "" then
-        return
-    end
-    if NMMediaContract and NMMediaContract.registerMediaTypeAlias then
-        NMMediaContract.registerMediaTypeAlias(short, carrier)
-        return
-    end
-    GlobalMusic = GlobalMusic or {}
-    GlobalMusic[short] = carrier
-end
-
-local function registerCover(mediaFullType, texture)
-    if mediaFullType == "" or texture == "" then
-        return
-    end
-    if NMCoverViewResolver and NMCoverViewResolver.registerLinkedCover then
-        NMCoverViewResolver.registerLinkedCover(mediaFullType, texture)
-    end
-end
-
-function NMSinglesPackBuilder.registerSinglesChunk(moduleName, chunkDef)
-    if type(chunkDef) ~= "table" then
-        return false
-    end
-    local entries = type(chunkDef.entries) == "table" and chunkDef.entries or {}
-    for i = 1, #entries do
-        local entry = entries[i]
-        local itemType = norm(entry.itemType)
-        local mediaKind = norm(entry.mediaKind)
-        local carrier = norm(carrierByKind[mediaKind])
-        local coverTexture = norm(entry.coverTexture)
-        local mediaFullType = fullType(moduleName, itemType)
-        if mediaFullType ~= "" and carrier ~= "" then
-            registerCarrier(mediaFullType, carrier)
-            registerCover(mediaFullType, coverTexture)
-        end
-    end
-    return true
-end
-
-function NMSinglesPackBuilder.registerSinglesPack(packDef)
-    if type(packDef) ~= "table" then
-        return false
-    end
-    local moduleName = norm(packDef.module)
-    local chunks = type(packDef.chunks) == "table" and packDef.chunks or {}
-    for i = 1, #chunks do
-        NMSinglesPackBuilder.registerSinglesChunk(moduleName, chunks[i])
-    end
-    return true
-end
-"""
 
 
 def write_export_lua(
@@ -132,27 +39,24 @@ def write_export_lua(
         grouped_albums = albums_by_require_name.get(require_name, [])
         (lua_root / f"{require_name}.lua").write_text(_render_album_group(grouped_albums), encoding="utf-8")
 
-    for chunk in lua_pack.singles_chunks:
-        (lua_root / f"{chunk.require_name}.lua").write_text(_render_singles_chunk(chunk), encoding="utf-8")
-
-    if lua_pack.singles_chunks:
-        (lua_root / f"{_SINGLES_HELPER_REQUIRE}.lua").write_text(_SINGLES_HELPER_TEXT, encoding="utf-8")
+    for group in lua_pack.singles_groups:
+        (lua_root / f"{group.require_name}.lua").write_text(
+            _render_singles_group(lua_pack.module_id, group),
+            encoding="utf-8",
+        )
 
 
 def _render_bootstrap(lua_pack: LuaPackRegistration) -> str:
     lines = ['pcall(require, "shared/contracts/NMMediaContract")']
     if lua_pack.mixtape_albums:
         lines.append('require "NMAlbumPackBuilder"')
-    if lua_pack.singles_chunks:
-        lines.append(f'require "{_SINGLES_HELPER_REQUIRE}"')
     lines.extend(f'require "{require_name}"' for require_name in lua_pack.mixtape_bootstrap_require_names)
     lines.extend(f'require "{require_name}"' for require_name in lua_pack.singles_bootstrap_require_names)
     lines.extend(
         [
             "",
             "-- Pack bootstrap:",
-            "-- Mixtapes stay on NMAlbumPackBuilder; Singles use flat direct registration.",
-            f'local PACK_MODULE = "{lua_pack.module_id}"',
+            "-- Mixtapes stay on NMAlbumPackBuilder; Singles self-register directly.",
             "",
         ]
     )
@@ -160,27 +64,11 @@ def _render_bootstrap(lua_pack: LuaPackRegistration) -> str:
         lines.extend(
             [
                 "NMAlbumPackBuilder.registerAlbumPack({",
-                "    module = PACK_MODULE,",
+                f'    module = "{lua_pack.module_id}",',
                 "    albums = {",
             ]
         )
         lines.extend(f"        {table_name}," for table_name in lua_pack.mixtape_album_table_names)
-        lines.extend(
-            [
-                "    },",
-                "})",
-                "",
-            ]
-        )
-    if lua_pack.singles_chunks:
-        lines.extend(
-            [
-                "NMSinglesPackBuilder.registerSinglesPack({",
-                "    module = PACK_MODULE,",
-                "    chunks = {",
-            ]
-        )
-        lines.extend(f"        {chunk.table_name}," for chunk in lua_pack.singles_chunks)
         lines.extend(
             [
                 "    },",
@@ -253,36 +141,38 @@ def _render_album_group(albums: list[LuaAlbumRegistration]) -> str:
     return "".join(_render_album(album) for album in albums)
 
 
-def _render_singles_chunk(chunk: LuaSinglesChunkRegistration) -> str:
+def _render_singles_group(module_id: str, group: LuaSinglesGroupRegistration) -> str:
     lines = [
-        "-- Singles runtime chunk:",
-        "-- Direct one-track registrations; no album-contract tables.",
+        'pcall(require, "TCMusicDefenitions")',
+        'pcall(require, "shared/contracts/NMCoverViewResolver")',
         "",
-        f"{chunk.table_name} = {{",
-        "    entries = {",
+        "GlobalMusic = GlobalMusic or {}",
+        "",
+        "-- Singles runtime:",
+        "-- Direct one-track registrations with item-type-matched sound ids.",
+        "",
     ]
-    for entry in chunk.entries:
-        lines.extend(_render_singles_entry(entry))
-    lines.extend(
-        [
-            "    },",
-            "}",
-            "",
-        ]
-    )
+    for entry in group.entries:
+        lines.extend(_render_singles_entry(module_id, entry))
     return "\n".join(lines)
 
 
-def _render_singles_entry(entry: LuaSinglesEntry) -> list[str]:
+def _render_singles_entry(module_id: str, entry: LuaSinglesEntry) -> list[str]:
+    carrier = _CARRIER_BY_KIND[entry.media_kind]
+    full_item_type = f"{module_id}.{entry.item_type}"
     lines = [
-        "        {",
-        f'            itemType = "{_escape(entry.item_type)}",',
-        f'            sound = "{_escape(entry.sound)}",',
-        f'            mediaKind = "{_escape(entry.media_kind)}",',
-        f'            label = "{_escape(entry.track_label.key)}",',
-        f'            coverTexture = "{_escape(entry.cover_texture)}",',
-        "        },",
+        f'GlobalMusic["{_escape(entry.item_type)}"] = "{carrier}"',
+        "",
     ]
+    if entry.cover_texture:
+        lines.extend(
+            [
+                "if NMCoverViewResolver and NMCoverViewResolver.registerLinkedCover then",
+                f'    NMCoverViewResolver.registerLinkedCover("{_escape(full_item_type)}", "{_escape(entry.cover_texture)}")',
+                "end",
+                "",
+            ]
+        )
     return lines
 
 

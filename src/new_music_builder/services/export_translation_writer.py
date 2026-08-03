@@ -21,8 +21,8 @@ def write_export_translations(
     ]
     track_labels.extend(
         entry.track_label
-        for chunk in lua_pack.singles_chunks
-        for entry in chunk.entries
+        for group in lua_pack.singles_groups
+        for entry in group.entries
     )
     translation_root = Path(targets.common) / "media" / "lua" / "shared" / "Translate"
     written_paths: list[Path] = []
