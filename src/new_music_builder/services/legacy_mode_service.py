@@ -28,6 +28,7 @@ def enable_legacy_mode(
     chooser = randomizer or random.Random()
     for row in project.media_rows:
         row.ensure_appearances()
+        row.media_name = singles_group_name_for_mode_switch(row.row_id, row.media_name)
         row.row_mode = "singles"
         flattened_tracks = list(row.tracks_a) + list(row.tracks_b)
         row.tracks_a = flattened_tracks
@@ -45,6 +46,7 @@ def disable_legacy_mode(
 ) -> None:
     selections = selected_track_by_row_id or {}
     for row in project.media_rows:
+        row.media_name = default_media_row_name(row.row_id, row_mode="mixtape")
         row.row_mode = "mixtape"
         row.selected_side = "A"
         row.tracks_b = []
