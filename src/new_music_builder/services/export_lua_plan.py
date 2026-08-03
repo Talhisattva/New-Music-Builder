@@ -133,6 +133,7 @@ def _build_singles_groups(
             LuaSinglesGroupRegistration(
                 require_name=base_require_name,
                 entries=entries,
+                has_linked_covers=any(bool(entry.cover_texture) for entry in entries),
             )
         )
     return groups

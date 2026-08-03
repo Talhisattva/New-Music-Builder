@@ -142,15 +142,19 @@ def _render_album_group(albums: list[LuaAlbumRegistration]) -> str:
 
 
 def _render_singles_group(module_id: str, group: LuaSinglesGroupRegistration) -> str:
-    lines = [
-        'pcall(require, "TCMusicDefenitions")',
-        "",
-        "GlobalMusic = GlobalMusic or {}",
-        "",
-        "-- Singles runtime:",
-        "-- Direct one-track registrations with item-type-matched sound ids.",
-        "",
-    ]
+    lines = ['pcall(require, "TCMusicDefenitions")']
+    if group.has_linked_covers:
+        lines.append('pcall(require, "shared/contracts/NMCoverViewResolver")')
+    lines.extend(
+        [
+            "",
+            "GlobalMusic = GlobalMusic or {}",
+            "",
+            "-- Singles runtime:",
+            "-- Direct one-track registrations with item-type-matched sound ids.",
+            "",
+        ]
+    )
     for entry in group.entries:
         lines.extend(_render_singles_entry(module_id, entry))
     return "\n".join(lines)
@@ -160,8 +164,14 @@ def _render_singles_entry(module_id: str, entry: LuaSinglesEntry) -> list[str]:
     carrier = _CARRIER_BY_KIND[entry.media_kind]
     lines = [
         f'GlobalMusic["{_escape(entry.item_type)}"] = "{carrier}"',
-        "",
     ]
+    if entry.cover_texture:
+        lines.extend(
+            [
+                f'if NMCoverViewResolver then NMCoverViewResolver.registerLinkedCover("{_escape(module_id)}.{_escape(entry.item_type)}", "{_escape(entry.cover_texture)}") end',
+            ]
+        )
+    lines.append("")
     return lines
 
 

@@ -508,6 +508,7 @@ class LuaSinglesEntry:
 class LuaSinglesGroupRegistration:
     require_name: str
     entries: list[LuaSinglesEntry] = field(default_factory=list)
+    has_linked_covers: bool = False
 
 
 @dataclass(slots=True)
