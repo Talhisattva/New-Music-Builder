@@ -380,6 +380,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._active_successful_sides_by_row: dict[int, set[str]] = {}
         self._active_emitted_preview_rows: set[tuple[int, str]] = set()
         self._active_ready_preview_keys: set[tuple[int, str]] = set()
+        self._active_next_preview_emit_index = 0
         self._active_converting_song_keys: set[tuple[int, str, int]] = set()
         self._active_passthrough_song_count = 0
         self._active_passthrough_logged_count = 0
@@ -3059,6 +3060,8 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._active_preview_keys_in_order = []
         self._active_queue_groups_by_side = {}
         self._active_ready_preview_keys = set()
+        self._active_emitted_preview_rows = set()
+        self._active_next_preview_emit_index = 0
         if hasattr(self, 'module_four_panel'):
             self.module_four_panel.reset_current_run()
         module_five_panel = self.__dict__.get('module_five_panel')
@@ -3239,6 +3242,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self._active_successful_sides_by_row = {}
         self._active_emitted_preview_rows.clear()
         self._active_ready_preview_keys.clear()
+        self._active_next_preview_emit_index = 0
         self._active_converting_song_keys.clear()
         self._active_passthrough_song_count = 0
         self._active_passthrough_logged_count = 0
@@ -3657,9 +3661,21 @@ class MainWindow(_DnDCompat, ctk.CTk):
         if side not in successful_sides or module_five_panel is None:
             return
         self._active_ready_preview_keys.add(preview_key)
-        ordered_rows = self._ordered_ready_preview_rows()
-        module_five_panel.set_preview_rows(ordered_rows)
-        self._active_emitted_preview_rows = set(self._active_ready_preview_keys)
+        next_preview_emit_index = int(self.__dict__.get('_active_next_preview_emit_index', 0))
+        while next_preview_emit_index < len(self._active_preview_keys_in_order):
+            next_key = self._active_preview_keys_in_order[next_preview_emit_index]
+            if next_key in self._active_emitted_preview_rows:
+                next_preview_emit_index += 1
+                continue
+            if next_key not in self._active_ready_preview_keys:
+                break
+            row = self._active_preview_rows_by_side.get(next_key)
+            next_preview_emit_index += 1
+            if row is None:
+                continue
+            module_five_panel.append_preview_row(row)
+            self._active_emitted_preview_rows.add(next_key)
+        self.__dict__['_active_next_preview_emit_index'] = next_preview_emit_index
 
     def _finalize_audio_run(self, plan, result: AudioRunResult) -> None:
         LOGGER.info(
