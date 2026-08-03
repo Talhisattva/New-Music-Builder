@@ -505,9 +505,8 @@ class LuaSinglesEntry:
 
 
 @dataclass(slots=True)
-class LuaSinglesChunkRegistration:
+class LuaSinglesGroupRegistration:
     require_name: str
-    table_name: str
     entries: list[LuaSinglesEntry] = field(default_factory=list)
 
 
@@ -518,7 +517,7 @@ class LuaPackRegistration:
     mixtape_album_table_names: list[str] = field(default_factory=list)
     mixtape_albums: list[LuaAlbumRegistration] = field(default_factory=list)
     singles_bootstrap_require_names: list[str] = field(default_factory=list)
-    singles_chunks: list[LuaSinglesChunkRegistration] = field(default_factory=list)
+    singles_groups: list[LuaSinglesGroupRegistration] = field(default_factory=list)
 
 
 @dataclass(slots=True)
