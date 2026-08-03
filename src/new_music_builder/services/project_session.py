@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -145,6 +146,68 @@ class ProjectSession:
 
         return list(range(adjusted_target, adjusted_target + len(moving_tracks)))
 
+    def copy_tracks_between_media_rows(
+        self,
+        source_row_id: int,
+        source_side: str,
+        selected_indices: set[int],
+        target_row_id: int,
+        target_side: str,
+    ) -> list[int]:
+        source_row = next((row for row in self.project.media_rows if row.row_id == source_row_id), None)
+        target_row = next((row for row in self.project.media_rows if row.row_id == target_row_id), None)
+        if source_row is None or target_row is None or source_side not in {'A', 'B'} or target_side not in {'A', 'B'}:
+            return []
+
+        source_tracks = source_row.tracks_a if source_side == 'A' else source_row.tracks_b
+        target_tracks = target_row.tracks_a if target_side == 'A' else target_row.tracks_b
+        selected = sorted({index for index in selected_indices if 0 <= index < len(source_tracks)})
+        if not selected:
+            return []
+
+        inserted_indices: list[int] = []
+        for index in selected:
+            target_tracks.append(deepcopy(source_tracks[index]))
+            inserted_indices.append(len(target_tracks) - 1)
+        self._reset_song_sort(target_row, target_side)
+        return inserted_indices
+
+    def move_tracks_between_media_row_sides(
+        self,
+        row_id: int,
+        source_side: str,
+        selected_indices: set[int],
+        target_side: str,
+    ) -> list[int]:
+        if source_side not in {'A', 'B'} or target_side not in {'A', 'B'} or source_side == target_side:
+            return []
+
+        target_row = next((row for row in self.project.media_rows if row.row_id == row_id), None)
+        if target_row is None:
+            return []
+
+        source_tracks = target_row.tracks_a if source_side == 'A' else target_row.tracks_b
+        destination_tracks = target_row.tracks_a if target_side == 'A' else target_row.tracks_b
+        selected = sorted({index for index in selected_indices if 0 <= index < len(source_tracks)})
+        if not selected:
+            return []
+
+        moved_tracks = [source_tracks[index] for index in selected]
+        moved_set = set(selected)
+        remaining_tracks = [track for index, track in enumerate(source_tracks) if index not in moved_set]
+        destination_start = len(destination_tracks)
+
+        if source_side == 'A':
+            target_row.tracks_a = remaining_tracks
+            target_row.tracks_b = destination_tracks + moved_tracks
+        else:
+            target_row.tracks_b = remaining_tracks
+            target_row.tracks_a = destination_tracks + moved_tracks
+
+        self._reset_song_sort(target_row, source_side)
+        self._reset_song_sort(target_row, target_side)
+        return list(range(destination_start, destination_start + len(moved_tracks)))
+
     def sort_tracks_in_media_row(self, row_id: int, side: str, column: SongSortColumn) -> SongSortState | None:
         target_row = next((row for row in self.project.media_rows if row.row_id == row_id), None)
         if target_row is None or side not in {'A', 'B'}:
@@ -173,6 +236,10 @@ class ProjectSession:
         if column == 'ogg':
             return 'desc'
         return 'asc'
+
+    def _reset_song_sort(self, row, side: str) -> None:
+        row.song_sort_for_side(side).column = None
+        row.song_sort_for_side(side).direction = 'asc'
 
     def _track_sort_key(self, track: TrackEntry, column: SongSortColumn) -> tuple[object, ...]:
         if column == 'ogg':
