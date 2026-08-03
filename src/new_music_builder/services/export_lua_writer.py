@@ -88,16 +88,14 @@ function NMSinglesPackBuilder.registerSinglesChunk(moduleName, chunkDef)
     local entries = type(chunkDef.entries) == "table" and chunkDef.entries or {}
     for i = 1, #entries do
         local entry = entries[i]
+        local itemType = norm(entry.itemType)
+        local mediaKind = norm(entry.mediaKind)
+        local carrier = norm(carrierByKind[mediaKind])
         local coverTexture = norm(entry.coverTexture)
-        local media = type(entry.media) == "table" and entry.media or {}
-        for _, kind in ipairs({ "cassette", "vinyl", "cd" }) do
-            local itemType = norm(media[kind])
-            local carrier = norm(carrierByKind[kind])
-            local mediaFullType = fullType(moduleName, itemType)
-            if mediaFullType ~= "" and carrier ~= "" then
-                registerCarrier(mediaFullType, carrier)
-                registerCover(mediaFullType, coverTexture)
-            end
+        local mediaFullType = fullType(moduleName, itemType)
+        if mediaFullType ~= "" and carrier ~= "" then
+            registerCarrier(mediaFullType, carrier)
+            registerCover(mediaFullType, coverTexture)
         end
     end
     return true
@@ -278,26 +276,13 @@ def _render_singles_chunk(chunk: LuaSinglesChunkRegistration) -> str:
 def _render_singles_entry(entry: LuaSinglesEntry) -> list[str]:
     lines = [
         "        {",
-        f'            id = "{_escape(entry.album_id)}",',
-        f'            title = "{_escape(entry.title)}",',
+        f'            itemType = "{_escape(entry.item_type)}",',
         f'            sound = "{_escape(entry.sound)}",',
+        f'            mediaKind = "{_escape(entry.media_kind)}",',
         f'            label = "{_escape(entry.track_label.key)}",',
-        "            media = {",
+        f'            coverTexture = "{_escape(entry.cover_texture)}",',
+        "        },",
     ]
-    if entry.media.cassette:
-        lines.append(f'                cassette = "{_escape(entry.media.cassette)}",')
-    if entry.media.vinyl:
-        lines.append(f'                vinyl = "{_escape(entry.media.vinyl)}",')
-    if entry.media.cd:
-        lines.append(f'                cd = "{_escape(entry.media.cd)}",')
-    lines.extend(
-        [
-            "            },",
-            f'            coverTexture = "{_escape(entry.cover_texture)}",',
-            f"            coverPlayable = {{ {_render_media_list(entry.cover_playable)} }},",
-            "        },",
-        ]
-    )
     return lines
 
 

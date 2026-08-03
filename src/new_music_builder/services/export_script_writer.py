@@ -94,18 +94,9 @@ def _render_sounds(registration) -> str:
     ]
     rendered_sound_ids: set[str] = set()
     for album in registration.albums:
-        is_flat_single = (
-            len(album.sides) == 1
-            and len(album.sides[0].tracks) == 1
-            and album.sides[0].tracks[0].sound_id == album.sound_prefix
-        )
         for side in album.sides:
             for track in side.tracks:
-                sound_ids = (
-                    [variant.full_item_id for variant in album.media_variants if variant.mode == "single" and variant.full_item_id]
-                    if is_flat_single
-                    else [track.sound_id]
-                )
+                sound_ids = track.singles_sound_ids.values() if track.singles_sound_ids else (track.sound_id,)
                 for sound_id in sound_ids:
                     if sound_id in rendered_sound_ids:
                         continue
