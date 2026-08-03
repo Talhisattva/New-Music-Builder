@@ -16,9 +16,9 @@ from new_music_builder.domain.models import (
 from new_music_builder.services.export_lua_plan import build_export_lua_plan
 
 _CARRIER_BY_KIND = {
-    "cassette": "tsarcraft_music_01_62",
-    "vinyl": "tsarcraft_music_01_63",
-    "cd": "tsarcraft_music_01_64",
+    "cassette": "nm_carrier_cassette",
+    "vinyl": "nm_carrier_vinyl",
+    "cd": "nm_carrier_cd",
 }
 
 
