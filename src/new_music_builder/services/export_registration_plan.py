@@ -110,7 +110,10 @@ def _build_registered_side(
                 track_id=track.track_id,
                 sound_id=sound_id,
                 display_label=track.display_label,
-                export_audio_relative_path=f"media/sound/{module_id}/{track.export_relative_path.replace('\\', '/')}",
+                export_audio_relative_path=(
+                    f"media/sound/{module_id}/"
+                    f"{(track.shared_export_relative_path or track.export_relative_path).replace('\\', '/')}"
+                ),
             )
         )
     return RegisteredSide(

@@ -9,6 +9,7 @@ from new_music_builder.services.track_import import SUPPORTED_AUDIO_SUFFIXES
 
 def build_audio_work_plan(project: ProjectConfig, plan: ExportPlan, targets: ExportTargetPaths) -> AudioWorkPlan:
     items: list[PlannedAudioWorkItem] = []
+    seen_target_relative_paths: set[str] = set()
     audio_pack_root = Path(targets.audio_pack_root)
     export_compression_quality = effective_export_compression_quality(project.compression_quality)
 
@@ -16,8 +17,11 @@ def build_audio_work_plan(project: ProjectConfig, plan: ExportPlan, targets: Exp
         for track in side.tracks:
             source_path = Path(track.source_path) if track.source_path else None
             action, reason = _classify_audio_action(source_path, project.reencode_existing_ogg)
-            target_relative_path = track.export_relative_path.replace("\\", "/")
-            target_path = audio_pack_root / Path(track.export_relative_path)
+            target_relative_path = (track.shared_export_relative_path or track.export_relative_path).replace("\\", "/")
+            if target_relative_path in seen_target_relative_paths:
+                continue
+            seen_target_relative_paths.add(target_relative_path)
+            target_path = audio_pack_root / Path(target_relative_path)
             items.append(
                 PlannedAudioWorkItem(
                     row_id=side.row_id,
