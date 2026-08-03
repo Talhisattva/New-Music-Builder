@@ -1,4 +1,4 @@
-![New Music Builder](docs/images/NewMusicBuilder0.4.0-640-transparent.png)
+![New Music Builder](docs/images/NewMusicBuilder-640-transparent.png)
 
 # New Music Builder
 
@@ -26,17 +26,16 @@ Created specifically for media packs where multiple tracks and media appearances
 
 ## Version
 
-Current version: `0.4.0`
+Current version: `0.4.3`
 
-This is the `0.4.0` release focused on scaling mixed `Mixtape` and `Singles` packs cleanly, preserving fast export behavior on very large libraries, and stabilizing the export queue and generated preview flow for 1000+ song builds.
+This is the `0.4.3` recovery line focused on keeping the stable `0.4.0` packaging spine while restoring safe export fixes for current builder projects.
 
 Highlights:
 
-- streamlined Module 2, Module 4, and Module 5 behavior for large packs
-- faster export throughput with bounded simultaneous conversion and calmer live logging
-- improved `.ogg` passthrough and abort responsiveness during heavy builds
-- moved Legacy Mode from a global project toggle to a per-row `Mixtape` / `Singles` switch
-- added clean mixed-pack support so both row types can live in the same export
+- restored a true flat Singles export contract so cassette, vinyl, and CD singles insert and play correctly
+- deduped Singles sound definitions while keeping the simpler legacy-safe runtime shape
+- shortened Windows staging paths and added a friendlier path-length failure before export scaffolding breaks
+- kept the proven `0.4.0` packaged runtime layout in place while this recovery line stabilizes
 
 ## Platform Support
 
@@ -53,23 +52,9 @@ Highlights:
 
 ## Run From Source
 
-On macOS and Linux, use the repo launcher:
+### Linux / macOS
 
-```bash
-./run_from_source.sh
-```
-
-The launcher:
-
-- checks that this looks like a real source checkout
-- prefers Python `3.12`, but can use a newer installed version if it already works
-- can offer a side-by-side Python `3.12` install on supported `brew`, `apt-get`, and `dnf` systems
-- creates or repairs this repo's `.venv`
-- asks before installing Python packages into `.venv`
-
-It does not replace your default `python3`, and it keeps Python packages inside this repo's `.venv`.
-
-Manual fallback commands:
+Run these commands from the repo folder:
 
 ```bash
 python3.12 -m venv .venv
@@ -78,7 +63,13 @@ pip install -r requirements.txt
 python main.py
 ```
 
-On Windows, run from source manually:
+If `python3.12` is not installed, use your system package manager first.
+
+If `tkinter` is missing, install your distro's Tk package and try again.
+
+### Windows
+
+Run these commands from the repo folder:
 
 ```powershell
 python -m venv .venv
@@ -87,20 +78,14 @@ pip install -r requirements.txt
 python main.py
 ```
 
-## Validate
-
-```powershell
-python -m compileall src
-pytest -q
-```
+If double-clicking `main.py` just flashes and closes, use `Launch New Music Builder.bat` instead so startup errors stay visible.
 
 ## Repo Notes
 
 - `src/new_music_builder/` contains the application code.
 - `assets/` contains runtime assets used by the builder.
-- `tests/` contains automated validation coverage.
-- `workspace/` and `logs/` are runtime/state locations and should be treated carefully during release cleanup.
-- `Generated Textures/` is generated output and should not be treated as source content.
+- `workspace/`, `logs/`, and `Generated Textures/` are source-run runtime/state locations and should not be treated as source content.
+- automated tests and Windows packaging scripts live in the separate `New Music Builder - Dev Tools` workspace.
 - `_references/` is kept out of Git and is not part of the public source distribution.
 
 ## Copyright and License
