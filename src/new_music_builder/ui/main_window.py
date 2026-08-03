@@ -2292,6 +2292,29 @@ class MainWindow(_DnDCompat, ctk.CTk):
             None,
         )
 
+    def _module_two_song_copy_drop_target(self, source_row_id: int, x_root: int, y_root: int) -> int | None:
+        if not hasattr(self, 'module_two_row_list'):
+            return None
+        for widget in self.module_two_row_list.row_widgets:
+            target_row_id = getattr(widget, '_row_id', None)
+            if target_row_id is None or target_row_id == source_row_id:
+                continue
+            if bool(getattr(widget, '_expanded', False)):
+                continue
+            contains_point = getattr(widget, 'contains_root_point', None)
+            if callable(contains_point) and contains_point(x_root, y_root):
+                return int(target_row_id)
+        return None
+
+    def _module_two_song_side_drop_target(self, row_id: int, x_root: int, y_root: int) -> str | None:
+        row_widget = self._row_widget_by_id(row_id)
+        if row_widget is None:
+            return None
+        side_target = getattr(row_widget, 'side_drop_target_at_root_point', None)
+        if not callable(side_target):
+            return None
+        return side_target(x_root, y_root)
+
     def _cancel_module_two_song_drag(self) -> None:
         if self._module_two_song_drag_session is None:
             return
@@ -2944,15 +2967,77 @@ class MainWindow(_DnDCompat, ctk.CTk):
         if expanded_widget is None:
             self._module_two_song_drag_session = None
             return
-        insertion_index = expanded_widget.finish_song_drag(x_root, y_root)
         drag_session = self._module_two_song_drag_session
         self._module_two_song_drag_session = None
-        if insertion_index is None:
-            return
         side = str(drag_session.get('side', ''))
         dragged_indices = set(drag_session.get('dragged_indices', set()))
         target_row = next((row for row in self.session.project.media_rows if row.row_id == row_id), None)
         if target_row is None:
+            return
+        side_drop_target = self._module_two_song_side_drop_target(row_id, x_root, y_root)
+        if side_drop_target is not None and side_drop_target != side and target_row.row_mode == 'mixtape':
+            expanded_widget.cancel_song_drag()
+            moved_indices = self.session.move_tracks_between_media_row_sides(
+                row_id,
+                side,
+                dragged_indices,
+                side_drop_target,
+            )
+            if not moved_indices:
+                return
+            target_row.selected_side = side_drop_target
+            source_key = (row_id, side)
+            target_key = (row_id, side_drop_target)
+            moved_selection = set(moved_indices)
+            self.module_two_song_selected_indices.pop(source_key, None)
+            self.module_two_song_selection_anchor_indices.pop(source_key, None)
+            self.module_two_song_selected_indices[target_key] = moved_selection
+            self.module_two_song_selection_anchor_indices[target_key] = moved_indices[0] if moved_indices else None
+            if moved_indices:
+                self._module_two_last_clicked_song_index_by_row[row_id] = moved_indices[-1]
+            self._set_module_two_keyboard_owner('songs', target_key)
+            row_widget = self._row_widget_by_id(row_id)
+            if row_widget is not None and hasattr(row_widget, 'set_row'):
+                row_widget.set_row(target_row)
+            expanded_widget.refresh_song_table()
+            expanded_widget.set_song_selection_state(moved_selection)
+            self.module_two_row_list.refresh_media_type_strips_for_row(row_id)
+            self.module_two_row_list.refresh_collapsed_details_for_row(row_id)
+            self.on_project_change()
+            return
+
+        copy_target_row_id = self._module_two_song_copy_drop_target(row_id, x_root, y_root)
+        if copy_target_row_id is not None:
+            expanded_widget.cancel_song_drag()
+            copy_target_row = next(
+                (row for row in self.session.project.media_rows if row.row_id == copy_target_row_id),
+                None,
+            )
+            if copy_target_row is None:
+                return
+            copy_target_side = copy_target_row.selected_side if copy_target_row.row_mode == 'mixtape' else 'A'
+            copied_indices = self.session.copy_tracks_between_media_rows(
+                row_id,
+                side,
+                dragged_indices,
+                copy_target_row_id,
+                copy_target_side,
+            )
+            if not copied_indices:
+                return
+            copy_target_widget = self._row_widget_by_id(copy_target_row_id)
+            if copy_target_widget is not None and hasattr(copy_target_widget, 'set_row'):
+                copy_target_widget.set_row(copy_target_row)
+            expanded_widget.set_song_selection_state(dragged_indices)
+            self.module_two_row_list.refresh_media_type_strips_for_row(copy_target_row_id)
+            self.module_two_row_list.refresh_collapsed_details_for_row(copy_target_row_id)
+            if self._row_id_uses_singles_mode(row_id) or self._row_id_uses_singles_mode(copy_target_row_id):
+                self._refresh_module_three_appearance_selector(rebuild_grid=False)
+            self.on_project_change()
+            return
+
+        insertion_index = expanded_widget.finish_song_drag(x_root, y_root)
+        if insertion_index is None:
             return
         moved_indices = self.session.move_tracks_within_media_row(row_id, side, dragged_indices, insertion_index)
         if not moved_indices:

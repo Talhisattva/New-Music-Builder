@@ -706,6 +706,31 @@ class MediaRowShell(tk.Frame):
     def refresh_collapsed_details(self) -> None:
         self.collapsed_details.refresh_content(self._row)
 
+    def contains_root_point(self, x_root: int, y_root: int) -> bool:
+        try:
+            left = self.winfo_rootx()
+            top = self.winfo_rooty()
+            right = left + self.winfo_width()
+            bottom = top + self.winfo_height()
+        except tk.TclError:
+            return False
+        return left <= x_root <= right and top <= y_root <= bottom
+
+    def side_drop_target_at_root_point(self, x_root: int, y_root: int) -> str | None:
+        if not self._expanded or self._row.row_mode != 'mixtape':
+            return None
+        for side, button in (('A', self.side_toggle.a_button), ('B', self.side_toggle.b_button)):
+            try:
+                left = button.winfo_rootx()
+                top = button.winfo_rooty()
+                right = left + button.winfo_width()
+                bottom = top + button.winfo_height()
+            except tk.TclError:
+                continue
+            if left <= x_root <= right and top <= y_root <= bottom:
+                return side
+        return None
+
     def set_song_selection_state(self, selected_song_indices: set[int]) -> None:
         self.songlist_viewport.set_selection_state(selected_song_indices)
 
