@@ -19,6 +19,89 @@ class TrackSelectionModifiers:
     additive: bool = False
 
 
+class _SongDragGhost:
+    def __init__(self, owner: tk.Misc) -> None:
+        self._owner = owner
+        self._window: tk.Toplevel | None = None
+        self._frame: tk.Frame | None = None
+        self._title_label: tk.Label | None = None
+        self._detail_label: tk.Label | None = None
+
+    def show(self, tracks: list[TrackEntry], x_root: int, y_root: int) -> None:
+        if not tracks:
+            return
+        self._ensure_window()
+        if self._title_label is None or self._detail_label is None or self._window is None:
+            return
+        first_label = (tracks[0].display_label or Path(tracks[0].source_path).stem or "Song").strip() or "Song"
+        self._title_label.configure(text=first_label)
+        if len(tracks) == 1:
+            detail_text = tracks[0].duration or "1 song"
+        else:
+            detail_text = f"{len(tracks)} songs"
+        self._detail_label.configure(text=detail_text)
+        self.move_to_cursor(x_root, y_root)
+        self._window.deiconify()
+        self._window.lift()
+
+    def move_to_cursor(self, x_root: int, y_root: int) -> None:
+        if self._window is None:
+            return
+        self._window.geometry(f"+{int(x_root) + 18}+{int(y_root) + 18}")
+
+    def hide(self) -> None:
+        if self._window is not None:
+            self._window.withdraw()
+
+    def _ensure_window(self) -> None:
+        if self._window is not None:
+            return
+        self._window = tk.Toplevel(self._owner.winfo_toplevel())
+        self._window.overrideredirect(True)
+        self._window.attributes('-topmost', True)
+        try:
+            self._window.attributes('-alpha', 0.94)
+        except tk.TclError:
+            pass
+        self._frame = tk.Frame(
+            self._window,
+            bg=spec.MEDIA_ROW_SONGLIST_TABLE_HEADER_BG,
+            bd=1,
+            highlightthickness=1,
+            highlightbackground=spec.MEDIA_ROW_SONGLIST_TABLE_DIVIDER_COLOR,
+        )
+        self._frame.pack()
+        self._title_label = tk.Label(
+            self._frame,
+            bg=spec.MEDIA_ROW_SONGLIST_TABLE_HEADER_BG,
+            fg=spec.MEDIA_ROW_SONGLIST_TABLE_ROW_TEXT_COLOR,
+            font=(
+                spec.MEDIA_ROW_SONGLIST_TABLE_ROW_FONT_FAMILY,
+                spec.MEDIA_ROW_SONGLIST_TABLE_ROW_FONT_SIZE,
+            ),
+            anchor='w',
+            justify='left',
+            padx=8,
+            pady=4,
+        )
+        self._title_label.pack(fill='x')
+        self._detail_label = tk.Label(
+            self._frame,
+            bg=spec.MEDIA_ROW_SONGLIST_TABLE_HEADER_BG,
+            fg=spec.MEDIA_ROW_SONGLIST_TABLE_HEADER_TEXT_COLOR,
+            font=(
+                spec.MEDIA_ROW_SONGLIST_TABLE_HEADER_FONT_FAMILY,
+                spec.MEDIA_ROW_SONGLIST_TABLE_HEADER_FONT_SIZE,
+            ),
+            anchor='w',
+            justify='left',
+            padx=8,
+            pady=(0, 5),
+        )
+        self._detail_label.pack(fill='x')
+        self._window.withdraw()
+
+
 class MediaSonglistTable(tk.Canvas):
     def __init__(
         self,
@@ -67,6 +150,7 @@ class MediaSonglistTable(tk.Canvas):
         self._drag_overlay_indices: list[int] = []
         self._drag_overlay_cursor_y: int | None = None
         self._drag_overlay_anchor_offset_y = 0
+        self._drag_ghost: _SongDragGhost | None = None
         self._on_track_selected = on_track_selected
         self._on_track_remove_requested = on_track_remove_requested
         self._on_header_sort_requested = on_header_sort_requested
@@ -191,6 +275,11 @@ class MediaSonglistTable(tk.Canvas):
         self._drag_overlay_anchor_offset_y = max(0, local_y - anchor_row_top)
         self._drag_overlay_cursor_y = local_y
         self._set_drag_insertion_from_local_y(local_y)
+        self._show_drag_ghost(
+            [self._tracks[index] for index in self._drag_overlay_indices if 0 <= index < len(self._tracks)],
+            x_root,
+            y_root,
+        )
         self.redraw()
 
     def update_drag_overlay(self, x_root: int, y_root: int) -> None:
@@ -199,6 +288,7 @@ class MediaSonglistTable(tk.Canvas):
         local_y = self._canvas_y_from_root(y_root)
         self._drag_overlay_cursor_y = local_y
         self._set_drag_insertion_from_local_y(local_y)
+        self._move_drag_ghost(x_root, y_root)
         self.redraw()
 
     def clear_drag_state(self) -> None:
@@ -211,6 +301,7 @@ class MediaSonglistTable(tk.Canvas):
         self._drag_overlay_indices = []
         self._drag_overlay_cursor_y = None
         self._drag_overlay_anchor_offset_y = 0
+        self._hide_drag_ghost()
         self.set_insertion_index(None)
 
     def insertion_index_at_canvas_y(self, y: int) -> int | None:
@@ -533,6 +624,23 @@ class MediaSonglistTable(tk.Canvas):
         dx = abs(x_root - self._grab_press_x_root)
         dy = abs(y_root - self._grab_press_y_root)
         return max(dx, dy) >= spec.MEDIA_ROW_SONGLIST_DRAG_THRESHOLD_PX
+
+    def _show_drag_ghost(self, tracks: list[TrackEntry], x_root: int, y_root: int) -> None:
+        if not tracks:
+            return
+        if self._drag_ghost is None:
+            self._drag_ghost = _SongDragGhost(self)
+        self._drag_ghost.show(tracks, x_root, y_root)
+
+    def _move_drag_ghost(self, x_root: int, y_root: int) -> None:
+        if self._drag_ghost is None:
+            return
+        self._drag_ghost.move_to_cursor(x_root, y_root)
+
+    def _hide_drag_ghost(self) -> None:
+        if self._drag_ghost is None:
+            return
+        self._drag_ghost.hide()
 
     def _bind_drag_capture(self) -> None:
         owner = self.winfo_toplevel()
