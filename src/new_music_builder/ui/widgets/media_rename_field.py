@@ -6,18 +6,10 @@ import tkinter as tk
 import tkinter.font as tkfont
 
 from new_music_builder.domain.models import MediaRow
+from new_music_builder.services.row_naming import canonical_media_name
 from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.images import load_tk_photoimage
 from new_music_builder.ui.widgets.text_edit_bindings import bind_standard_text_shortcuts
-
-
-def canonical_media_name(row_id: int, value: str) -> str:
-    trimmed = value.strip()
-    default_name = f'Media Mix {row_id}'
-    legacy_default = f'Media Row {row_id}'
-    if not trimmed or trimmed == legacy_default:
-        return default_name
-    return trimmed
 
 
 class EditIconButton(tk.Canvas):
@@ -124,7 +116,7 @@ class MediaRenameField(tk.Frame):
         self._bg_color = bg_color
         self._on_name_committed = on_name_committed
         self._font = tkfont.Font(family=spec.MEDIA_ROW_RENAME_FONT_FAMILY, size=spec.MEDIA_ROW_RENAME_FONT_SIZE)
-        self._display_name = canonical_media_name(row.row_id, row.media_name)
+        self._display_name = canonical_media_name(row.row_id, row.media_name, row_mode=row.row_mode)
         self._pre_edit_name = self._display_name
         self._editing = False
         self._enabled = True
@@ -268,7 +260,7 @@ class MediaRenameField(tk.Frame):
         )
 
     def _commit_name(self) -> None:
-        committed_name = canonical_media_name(self._row.row_id, self._entry_var.get())
+        committed_name = canonical_media_name(self._row.row_id, self._entry_var.get(), row_mode=self._row.row_mode)
         self._display_name = committed_name
         self._entry_var.set(committed_name)
         self._exit_edit_mode()
@@ -358,7 +350,7 @@ class MediaRenameField(tk.Frame):
     def set_enabled(self, enabled: bool) -> None:
         self._enabled = enabled
         if not enabled and self._editing:
-            self._display_name = canonical_media_name(self._row.row_id, self._entry_var.get())
+            self._display_name = canonical_media_name(self._row.row_id, self._entry_var.get(), row_mode=self._row.row_mode)
             self._exit_edit_mode()
         self.edit_button.set_enabled(enabled)
         if enabled:
@@ -375,7 +367,7 @@ class MediaRenameField(tk.Frame):
         self._row = row
         if self._editing:
             return
-        self._display_name = canonical_media_name(row.row_id, row.media_name)
+        self._display_name = canonical_media_name(row.row_id, row.media_name, row_mode=row.row_mode)
         self._pre_edit_name = self._display_name
         self._last_valid_entry_value = self._display_name
         self._entry_var.set(self._display_name)

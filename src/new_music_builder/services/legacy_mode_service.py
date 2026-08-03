@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from new_music_builder.domain.models import MediaKind, MediaRow, ProjectConfig, TrackAppearanceSelection, TrackEntry
 from new_music_builder.services.asset_catalog import AssetEntry
+from new_music_builder.services.row_naming import default_media_row_name, singles_group_name_for_mode_switch
 from new_music_builder.ui.widgets.appearance_entries import AppearanceGridEntry, apply_selection_from_grid_entry, merge_appearance_grid_entries
 from new_music_builder.ui.widgets.appearance_entries import entry_for_selected_key
 from new_music_builder.services.generated_asset_registry import visible_generated_entries_for_kind
@@ -60,6 +61,7 @@ def enable_row_singles_mode(
 ) -> None:
     chooser = randomizer or random.Random()
     row.ensure_appearances()
+    row.media_name = singles_group_name_for_mode_switch(row.row_id, row.media_name)
     row.row_mode = "singles"
     row.tracks_a = list(row.tracks_a) + list(row.tracks_b)
     row.tracks_b = []
@@ -68,6 +70,7 @@ def enable_row_singles_mode(
 
 
 def disable_row_singles_mode(row: MediaRow, *, selected_track_index: int | None = None) -> None:
+    row.media_name = default_media_row_name(row.row_id, row_mode="mixtape")
     row.row_mode = "mixtape"
     row.selected_side = "A"
     row.tracks_b = []
