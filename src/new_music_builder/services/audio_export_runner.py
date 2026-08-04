@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 
 from new_music_builder.domain.models import AudioRunEvent, AudioRunResult, AudioWorkPlan, PlannedAudioWorkItem
+from new_music_builder.platform.i18n import t
 from new_music_builder.services.audio_cache_lookup import cache_path_for_work_item
 from new_music_builder.services.audio_conversion import ensure_cached_ogg
 from new_music_builder.services.cancelable_file_copy import copy_file_with_cancel
@@ -100,7 +101,7 @@ def run_audio_export(
             kind="run_completed",
             row_id=0,
             side="A",
-            message="Audio export run complete.",
+            message=t("Audio export run complete."),
         )
     )
     result.mod_size_text = _format_size_text(_directory_size_bytes(output_dir))
@@ -114,7 +115,7 @@ def _prepare_side_progress(
     side_progress: dict[tuple[int, str], _SideProgress] = {}
     for (row_id, side), items in grouped_items:
         emit_side = _emit_wrapper(emit, row_id, side)
-        emit_side("side_started", message=f"Starting {side}-Side")
+        emit_side("side_started", message=t("Starting {}-Side").format(side))
         side_progress[(row_id, side)] = _SideProgress(emit_side, len(items))
     return side_progress
 
@@ -138,7 +139,7 @@ def _run_parallel_conversions(
             if not aborting:
                 if cancel_requested is not None and cancel_requested():
                     result.aborted = True
-                    result.abort_message = "Build aborted by user."
+                    result.abort_message = t("Build aborted by user.")
                     result.fatal_error = result.abort_message
                     aborting = True
                 else:
@@ -172,7 +173,7 @@ def _run_parallel_conversions(
                 if terminal.terminal_kind == "aborted":
                     aborting = True
         if aborting and not result.abort_message:
-            result.abort_message = "Build aborted by user."
+            result.abort_message = t("Build aborted by user.")
             result.fatal_error = result.abort_message
     finally:
         executor.shutdown(wait=True, cancel_futures=True)
@@ -213,7 +214,7 @@ def _export_single_item(
             target_path,
             cancel_requested=cancel_requested,
             emit_progress=progress_callback,
-            progress_message="Copying exported song...",
+            progress_message=t("Copying exported song..."),
             emit_every_percent=100 if item.action == "copy_ogg" else 10,
         )
         return _TerminalItemResult(
@@ -256,7 +257,7 @@ def _record_terminal_result(
             display_label=terminal.display_label,
             cached_ogg_path=terminal.cached_ogg_path,
             percent=100,
-            message="Exported song.",
+            message=t("Exported song."),
             size_text=terminal.size_text,
         )
     elif terminal.terminal_kind == "song_failed":
@@ -274,7 +275,7 @@ def _record_terminal_result(
         )
     elif terminal.terminal_kind == "aborted":
         result.aborted = True
-        result.abort_message = terminal.error_message or "Build aborted by user."
+        result.abort_message = terminal.error_message or t("Build aborted by user.")
         result.fatal_error = result.abort_message
         return
 
@@ -283,7 +284,7 @@ def _record_terminal_result(
         return
     if side_state.built_any:
         result.successful_sides.append(side_key)
-    side_state.emit_side("side_completed", message="Side complete.")
+    side_state.emit_side("side_completed", message=t("Side complete."))
 
 
 def _emit_song_started(
@@ -364,9 +365,9 @@ def _raise_if_cancelled(cancel_requested: Callable[[], bool] | None, result: Aud
     if cancel_requested is not None and cancel_requested():
         if result is not None:
             result.aborted = True
-            result.abort_message = "Build aborted by user."
+            result.abort_message = t("Build aborted by user.")
             result.fatal_error = result.abort_message
-        raise ExportAbortedError("Build aborted by user.")
+        raise ExportAbortedError(t("Build aborted by user."))
 
 
 def _group_items(work_plan: AudioWorkPlan) -> list[tuple[tuple[int, str], list[PlannedAudioWorkItem]]]:

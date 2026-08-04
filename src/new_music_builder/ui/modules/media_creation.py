@@ -6,6 +6,7 @@ import tkinter.filedialog as fd
 import customtkinter as ctk
 
 from new_music_builder.domain.models import MediaRow, TrackEntry
+from new_music_builder.platform.i18n import t
 from new_music_builder.services.asset_catalog import AssetEntry
 from new_music_builder.ui import theme
 from new_music_builder.ui.widgets.buttons import make_builder_button
@@ -17,7 +18,7 @@ from new_music_builder.ui.widgets.tooltip import Tooltip
 
 class MediaCreationModule(ModulePanel):
     def __init__(self, master, session, asset_catalog, on_change, on_select_row):
-        super().__init__(master, 'PHASE 2: MEDIA CREATION')
+        super().__init__(master, t('PHASE 2: MEDIA CREATION'))
         self.session = session
         self.asset_catalog = asset_catalog
         self.on_change = on_change
@@ -55,12 +56,12 @@ class MediaCreationModule(ModulePanel):
             child.destroy()
         actions = ctk.CTkFrame(self.scroll, fg_color='transparent')
         actions.pack(fill='x', pady=(0, 8))
-        add_button = make_builder_button(actions, '+ Add Media Row', self.add_row)
+        add_button = make_builder_button(actions, t('+ Add Media Row'), self.add_row)
         add_button.pack(side='left', expand=True, fill='x', padx=(0, 4))
-        Tooltip(add_button, 'Click to add a new media row to your project.')
-        remove_button = make_builder_button(actions, 'X Remove Media Row', self.remove_active_row, variant='secondary')
+        Tooltip(add_button, t('Click to add a new media row to your project.'))
+        remove_button = make_builder_button(actions, t('X Remove Media Row'), self.remove_active_row, variant='secondary')
         remove_button.pack(side='left', expand=True, fill='x', padx=(4, 0))
-        Tooltip(remove_button, 'Remove the current expanded active media row.')
+        Tooltip(remove_button, t('Remove the current expanded active media row.'))
 
         for row in self.session.project.media_rows:
             self._render_row(row)
@@ -79,15 +80,15 @@ class MediaCreationModule(ModulePanel):
             size='compact',
         )
         number.pack(side='left')
-        cover = make_builder_label(top, 'Cover', width=56, size=11, weight='bold')
+        cover = make_builder_label(top, t('Cover'), width=56, size=11, weight='bold')
         cover.pack(side='left', padx=(8, 8))
         cover_image = load_ctk_image(row.cover_path, (48, 48))
         if cover_image is not None:
             cover.configure(text='', image=cover_image)
             cover.image = cover_image
-        media_text = ' '.join([label for key, label in [('cassette', 'Cas'), ('vinyl', 'Vin'), ('cd', 'CD')] if row.enabled_media.get(key)])
-        make_builder_label(top, media_text or 'No Media', text_color=theme.MUTED, size=11).pack(side='left', padx=(0, 12))
-        summary = f"A-Side ({len(row.tracks_a)} Songs)    B-Side ({len(row.tracks_b)} Songs)"
+        media_text = ' '.join([label for key, label in [('cassette', t('Cas')), ('vinyl', t('Vin')), ('cd', t('CD'))] if row.enabled_media.get(key)])
+        make_builder_label(top, media_text or t('No Media'), text_color=theme.MUTED, size=11).pack(side='left', padx=(0, 12))
+        summary = f"{t('A-Side')} ({len(row.tracks_a)} {t('Songs')})    {t('B-Side')} ({len(row.tracks_b)} {t('Songs')})"
         make_builder_label(top, summary, text_color=theme.TEXT, anchor='w', size=12, weight='bold').pack(side='left', fill='x', expand=True)
 
         if row.expanded:
@@ -114,8 +115,8 @@ class MediaCreationModule(ModulePanel):
 
         left = ctk.CTkFrame(body, fg_color='transparent')
         left.grid(row=0, column=0, sticky='ns', padx=(10, 6), pady=10)
-        make_builder_label(left, 'ARTWORK', text_color=theme.ACCENT_LIGHT, size=12, weight='bold').pack(anchor='w', pady=(0, 8))
-        cover_btn = make_builder_button(left, 'Pick Cover', lambda rid=row.row_id: self._pick_cover(rid), width=140)
+        make_builder_label(left, t('ARTWORK'), text_color=theme.ACCENT_LIGHT, size=12, weight='bold').pack(anchor='w', pady=(0, 8))
+        cover_btn = make_builder_button(left, t('Pick Cover'), lambda rid=row.row_id: self._pick_cover(rid), width=140)
         cover_btn.configure(height=140, corner_radius=14)
         cover_btn.pack(anchor='w')
         if row.cover_path:
@@ -125,7 +126,7 @@ class MediaCreationModule(ModulePanel):
                 cover_btn.image = cover_image
         toggle_row = ctk.CTkFrame(left, fg_color='transparent')
         toggle_row.pack(fill='x', pady=(10, 0))
-        for kind, label in [('cassette', 'Cas'), ('vinyl', 'Vin'), ('cd', 'CD')]:
+        for kind, label in [('cassette', t('Cas')), ('vinyl', t('Vin')), ('cd', t('CD'))]:
             button = make_builder_button(
                 toggle_row,
                 label,
@@ -138,7 +139,7 @@ class MediaCreationModule(ModulePanel):
 
         center = ctk.CTkFrame(body, fg_color='transparent')
         center.grid(row=0, column=1, sticky='nsew', padx=6, pady=10)
-        make_builder_label(center, 'MEDIA DETAILS', text_color=theme.ACCENT_LIGHT, size=12, weight='bold').pack(anchor='w', pady=(0, 8))
+        make_builder_label(center, t('MEDIA DETAILS'), text_color=theme.ACCENT_LIGHT, size=12, weight='bold').pack(anchor='w', pady=(0, 8))
         name_var = ctk.StringVar(value=row.media_name)
         name_entry = ctk.CTkEntry(center, textvariable=name_var)
         apply_builder_entry_style(name_entry, font_size=14)
@@ -149,7 +150,7 @@ class MediaCreationModule(ModulePanel):
         for side in ['A', 'B']:
             button = make_builder_button(
                 side_bar,
-                f'{side} - Side',
+                f'{side} - {t("Side")}',
                 lambda current=side: self._switch_side(current),
                 variant='selected' if self.active_side == side else 'subtle',
                 size='compact',
@@ -160,13 +161,13 @@ class MediaCreationModule(ModulePanel):
         right = ctk.CTkFrame(body, fg_color='transparent', width=240)
         right.grid(row=0, column=2, sticky='nsew', padx=(6, 10), pady=10)
         right.grid_propagate(False)
-        make_builder_label(right, 'LIVE PREVIEW', text_color=theme.ACCENT_LIGHT, size=12, weight='bold').pack(anchor='w')
+        make_builder_label(right, t('LIVE PREVIEW'), text_color=theme.ACCENT_LIGHT, size=12, weight='bold').pack(anchor='w')
         preview_box = ctk.CTkFrame(right, fg_color=theme.PANEL, width=220, height=180)
         preview_box.pack(fill='x', pady=(8, 0))
         preview_box.pack_propagate(False)
         preview_items = self._preview_assets_for_row(row)
         if not preview_items:
-            make_builder_label(preview_box, 'Enable media types to preview selected art.', text_color=theme.MUTED, wraplength=180, justify='left', size=11).pack(anchor='w', padx=12, pady=12)
+            make_builder_label(preview_box, t('Enable media types to preview selected art.'), text_color=theme.MUTED, wraplength=180, justify='left', size=11).pack(anchor='w', padx=12, pady=12)
         for item in preview_items:
             image = load_ctk_image(item.inventory_path, (48, 48))
             label = make_builder_label(preview_box, item.label, image=image, compound='top', size=11, weight='bold')
@@ -175,10 +176,10 @@ class MediaCreationModule(ModulePanel):
 
     def _render_track_list(self, master, row: MediaRow) -> None:
         tracks = row.tracks_a if self.active_side == 'A' else row.tracks_b
-        count_label = f'{len(tracks)} track' if len(tracks) == 1 else f'{len(tracks)} tracks'
+        count_label = f'{len(tracks)} {t("track")}' if len(tracks) == 1 else f'{len(tracks)} {t("tracks")}'
         header = ctk.CTkFrame(master, fg_color='transparent')
         header.pack(fill='x', pady=(0, 6))
-        make_builder_label(header, f'SIDE {self.active_side} TRACKS', text_color=theme.TEXT, size=12, weight='bold').pack(side='left')
+        make_builder_label(header, f'{t("SIDE")} {self.active_side} {t("TRACKS")}', text_color=theme.TEXT, size=12, weight='bold').pack(side='left')
         make_builder_label(header, count_label, text_color=theme.MUTED, size=11).pack(side='right')
         box = ctk.CTkScrollableFrame(
             master,
@@ -192,12 +193,12 @@ class MediaCreationModule(ModulePanel):
             line = ctk.CTkFrame(box, fg_color=theme.PANEL)
             line.pack(fill='x', pady=(0, 4))
             make_builder_label(line, f'{index:02d}', width=28, size=11, weight='bold').pack(side='left', padx=4)
-            make_builder_label(line, track.display_label or Path(track.source_path).name or 'Empty Track', anchor='w', size=11).pack(side='left', fill='x', expand=True)
-            make_builder_label(line, track.duration or '--:--', size=11).pack(side='left', padx=4)
+            make_builder_label(line, track.display_label or Path(track.source_path).name or t('Empty Track'), anchor='w', size=11).pack(side='left', fill='x', expand=True)
+            make_builder_label(line, track.duration or t('--:--'), size=11).pack(side='left', padx=4)
         controls = ctk.CTkFrame(master, fg_color='transparent')
         controls.pack(fill='x', pady=(8, 0))
-        make_builder_button(controls, '+ Add Songs', lambda rid=row.row_id: self._add_songs(rid)).pack(side='left', padx=(0, 6))
-        make_builder_button(controls, '- Clear Side', lambda rid=row.row_id: self._clear_side(rid), variant='secondary').pack(side='left')
+        make_builder_button(controls, t('+ Add Songs'), lambda rid=row.row_id: self._add_songs(rid)).pack(side='left', padx=(0, 6))
+        make_builder_button(controls, t('- Clear Side'), lambda rid=row.row_id: self._clear_side(rid), variant='secondary').pack(side='left')
 
     def _switch_side(self, side: str) -> None:
         self.active_side = side
@@ -206,7 +207,7 @@ class MediaCreationModule(ModulePanel):
     def _rename_row(self, row_id: int, value: str) -> None:
         for row in self.session.project.media_rows:
             if row.row_id == row_id:
-                row.media_name = value.strip() or f'Media Row {row_id}'
+                row.media_name = value.strip() or f'{t("Media Row")} {row_id}'
                 break
         self.on_change()
 

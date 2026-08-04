@@ -14,6 +14,7 @@ SRC = ROOT / 'src'
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
+from new_music_builder.platform.i18n import load_translations, t
 from new_music_builder.platform.paths import startup_fatal_log_path
 
 FATAL_LOG = startup_fatal_log_path()
@@ -26,7 +27,7 @@ def _show_error_dialog(message: str) -> None:
 
         root = tk.Tk()
         root.withdraw()
-        messagebox.showerror('New Music Builder Startup Error', message)
+        messagebox.showerror(t('New Music Builder Startup Error'), message)
         root.destroy()
     except Exception:
         pass
@@ -50,6 +51,7 @@ def _write_fatal_log(exc: BaseException) -> None:
 
 def main() -> int:
     os.chdir(ROOT)
+    load_translations()
     from new_music_builder.app.application import run
 
     return run()
@@ -63,7 +65,7 @@ if __name__ == '__main__':
     except Exception as exc:
         _write_fatal_log(exc)
         _show_error_dialog(
-            'New Music Builder failed to start.\n\n'
+            f'{t("New Music Builder failed to start.")}\n\n'
             f'See: {FATAL_LOG}'
         )
         raise

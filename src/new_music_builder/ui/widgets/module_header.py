@@ -51,7 +51,7 @@ class ModuleHeader(tk.Frame):
             fg=text_color,
             bd=0,
             highlightthickness=0,
-            font=('Orbitron Medium', spec.MODULE_HEADER_FONT_SIZE),
+            font=(spec.LABEL_CJK_FONT_FAMILY, spec.MODULE_HEADER_FONT_SIZE),
             anchor='w',
         )
         self.text_label.place(x=label_x, y=center_y, anchor='w')

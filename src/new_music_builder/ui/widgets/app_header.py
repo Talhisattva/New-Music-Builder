@@ -39,7 +39,7 @@ class AppHeader(ctk.CTkFrame):
             self,
             text=title,
             text_color=text_color,
-            font=ctk.CTkFont(family='Orbitron', size=spec.HEADER_TITLE_SIZE, weight='bold'),
+            font=ctk.CTkFont(family=spec.LABEL_CJK_FONT_FAMILY, size=spec.HEADER_TITLE_SIZE, weight='bold'),
         )
         self.title_label.pack(side='left', padx=title_pad, pady=10)
 
@@ -47,7 +47,7 @@ class AppHeader(ctk.CTkFrame):
             self,
             text=version,
             text_color=text_color,
-            font=ctk.CTkFont(family='Orbitron', size=spec.HEADER_VERSION_SIZE, weight='normal'),
+            font=ctk.CTkFont(family=spec.LABEL_CJK_FONT_FAMILY, size=spec.HEADER_VERSION_SIZE, weight='normal'),
         )
         self.version_label.pack(side='left', pady=14)
 

@@ -286,10 +286,10 @@ class MenuStrip(ctk.CTkFrame):
         self._global_bind_active = False
         self._toplevel_press_bind_id: str | None = None
         self._toplevel_escape_bind_id: str | None = None
-        self._top_font = ctk.CTkFont(family='Orbitron', size=spec.MENU_FONT_SIZE, weight='normal')
-        self._measure_font = tkfont.Font(family='Orbitron', size=spec.MENU_FONT_SIZE, weight='normal')
-        self._accelerator_font = ctk.CTkFont(family='Perfect DOS VGA 437 Win', size=spec.MENU_ACCELERATOR_FONT_SIZE)
-        self._accelerator_measure_font = tkfont.Font(family='Perfect DOS VGA 437 Win', size=spec.MENU_ACCELERATOR_FONT_SIZE)
+        self._top_font = ctk.CTkFont(family=spec.LABEL_CJK_FONT_FAMILY, size=spec.MENU_FONT_SIZE)
+        self._measure_font = tkfont.Font(family=spec.LABEL_CJK_FONT_FAMILY, size=spec.MENU_FONT_SIZE)
+        self._accelerator_font = ctk.CTkFont(family=spec.LABEL_CJK_MONO_FONT_FAMILY, size=spec.MENU_ACCELERATOR_FONT_SIZE)
+        self._accelerator_measure_font = tkfont.Font(family=spec.LABEL_CJK_MONO_FONT_FAMILY, size=spec.MENU_ACCELERATOR_FONT_SIZE)
 
         items_frame = ctk.CTkFrame(self, fg_color='transparent')
         items_frame.pack(side='left')

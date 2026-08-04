@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import customtkinter as ctk
 
-from new_music_builder.ui import theme
+from new_music_builder.ui import spec, theme
 
 
 def apply_builder_button_style(
@@ -28,7 +28,7 @@ def apply_builder_button_style(
         border_width=1,
         border_color=border_color,
         text_color=text_color,
-        font=ctk.CTkFont(family='Orbitron', size=font_size, weight='bold'),
+        font=ctk.CTkFont(family=spec.LABEL_CJK_FONT_FAMILY, size=font_size, weight='bold'),
         corner_radius=corner_radius,
         height=height,
     )

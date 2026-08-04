@@ -4,6 +4,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
+from new_music_builder.platform.i18n import t
 from new_music_builder.services.audio_profile import DEFAULT_COMPRESSION_QUALITY, snap_compression_quality
 
 MediaKind = Literal["cassette", "vinyl", "cd"]
@@ -614,7 +615,7 @@ class TextureExportResult:
 
 
 def default_media_row(row_id: int) -> MediaRow:
-    row = MediaRow(row_id=row_id, media_name=f"Media Mix {row_id}", expanded=(row_id == 1))
+    row = MediaRow(row_id=row_id, media_name=f"{t('Media Mix')} {row_id}", expanded=(row_id == 1))
     row.ensure_appearances()
     return row
 
@@ -760,7 +761,7 @@ def project_from_dict(data: dict[str, Any]) -> ProjectConfig:
     for raw_row in data.get("media_rows", []):
         row = MediaRow(
             row_id=_coerce_int(raw_row.get("row_id", len(rows) + 1), len(rows) + 1, minimum=1),
-            media_name=str(raw_row.get("media_name", f"Media Row {len(rows) + 1}")),
+            media_name=str(raw_row.get("media_name", f"{t('Media Row')} {len(rows) + 1}")),
             row_mode=(
                 str(raw_row.get("row_mode", "singles" if legacy_project_mode else "mixtape"))
                 if str(raw_row.get("row_mode", "singles" if legacy_project_mode else "mixtape")) in {"mixtape", "singles"}

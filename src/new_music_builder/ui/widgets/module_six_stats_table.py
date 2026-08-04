@@ -4,17 +4,18 @@ import tkinter as tk
 import tkinter.font as tkfont
 
 from new_music_builder.domain.models import BuildSummaryStats
+from new_music_builder.platform.i18n import t
 from new_music_builder.ui import spec
 
 
 class ModuleSixStatsTable(tk.Canvas):
     _ROW_LABELS = (
-        ('Media Rows', 'media_rows'),
-        ('Total Sides', 'total_sides'),
-        ('Total Songs', 'total_songs'),
-        ('Converted', 'converted'),
-        ('Mod Size', 'mod_size_text'),
-        ('Errors', 'errors'),
+        (t('Media Rows'), 'media_rows'),
+        (t('Total Sides'), 'total_sides'),
+        (t('Total Songs'), 'total_songs'),
+        (t('Converted'), 'converted'),
+        (t('Mod Size'), 'mod_size_text'),
+        (t('Errors'), 'errors'),
     )
 
     def __init__(self, parent: tk.Misc) -> None:

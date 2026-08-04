@@ -128,7 +128,7 @@ class LabeledCheckbox(tk.Frame):
             fg=text_color,
             bd=0,
             highlightthickness=0,
-            font=('Orbitron Medium', font_size),
+            font=(spec.LABEL_CJK_FONT_FAMILY, font_size),
             anchor='w',
             justify='left',
         )

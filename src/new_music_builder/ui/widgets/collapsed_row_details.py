@@ -3,6 +3,7 @@ from __future__ import annotations
 import tkinter as tk
 
 from new_music_builder.domain.models import MediaRow
+from new_music_builder.platform.i18n import t
 from new_music_builder.services.media_metrics import summarize_tracks
 from new_music_builder.ui import spec
 
@@ -131,9 +132,9 @@ class CollapsedRowDetails(tk.Frame):
         self.a_side_label = _SegmentedLine(
             self.stats_table,
             segments=[
-                ('A-Side (', spec.MEDIA_ROW_COLLAPSED_STATS_MUTED_COLOR),
-                ('0 Songs', spec.MEDIA_ROW_COLLAPSED_STATS_VALUE_COLOR),
-                (')', spec.MEDIA_ROW_COLLAPSED_STATS_MUTED_COLOR),
+                (t('A-Side ('), spec.MEDIA_ROW_COLLAPSED_STATS_MUTED_COLOR),
+                (t('0 Songs'), spec.MEDIA_ROW_COLLAPSED_STATS_VALUE_COLOR),
+                (t(')'), spec.MEDIA_ROW_COLLAPSED_STATS_MUTED_COLOR),
             ],
             bg_color=bg_color,
         )
@@ -147,8 +148,8 @@ class CollapsedRowDetails(tk.Frame):
         self.a_duration_label = _SegmentedLine(
             self.stats_table,
             segments=[
-                ('Duration: ', spec.MEDIA_ROW_COLLAPSED_STATS_MUTED_COLOR),
-                ('00:00:00', spec.MEDIA_ROW_COLLAPSED_STATS_VALUE_COLOR),
+                (t('Duration: '), spec.MEDIA_ROW_COLLAPSED_STATS_MUTED_COLOR),
+                (t('00:00:00'), spec.MEDIA_ROW_COLLAPSED_STATS_VALUE_COLOR),
             ],
             bg_color=bg_color,
         )
@@ -162,9 +163,9 @@ class CollapsedRowDetails(tk.Frame):
         self.b_side_label = _SegmentedLine(
             self.stats_table,
             segments=[
-                ('B-Side (', spec.MEDIA_ROW_COLLAPSED_STATS_MUTED_COLOR),
-                ('0 Songs', spec.MEDIA_ROW_COLLAPSED_STATS_VALUE_COLOR),
-                (')', spec.MEDIA_ROW_COLLAPSED_STATS_MUTED_COLOR),
+                (t('B-Side ('), spec.MEDIA_ROW_COLLAPSED_STATS_MUTED_COLOR),
+                (t('0 Songs'), spec.MEDIA_ROW_COLLAPSED_STATS_VALUE_COLOR),
+                (t(')'), spec.MEDIA_ROW_COLLAPSED_STATS_MUTED_COLOR),
             ],
             bg_color=bg_color,
         )
@@ -178,8 +179,8 @@ class CollapsedRowDetails(tk.Frame):
         self.b_duration_label = _SegmentedLine(
             self.stats_table,
             segments=[
-                ('Duration: ', spec.MEDIA_ROW_COLLAPSED_STATS_MUTED_COLOR),
-                ('00:00:00', spec.MEDIA_ROW_COLLAPSED_STATS_VALUE_COLOR),
+                (t('Duration: '), spec.MEDIA_ROW_COLLAPSED_STATS_MUTED_COLOR),
+                (t('00:00:00'), spec.MEDIA_ROW_COLLAPSED_STATS_VALUE_COLOR),
             ],
             bg_color=bg_color,
         )
@@ -207,27 +208,27 @@ class CollapsedRowDetails(tk.Frame):
         self.title_label.configure(text=row.media_name)
         self.a_side_label.set_segments(
             [
-                ('A-Side (', spec.MEDIA_ROW_COLLAPSED_STATS_MUTED_COLOR),
-                (f'{a_song_count} Songs', spec.MEDIA_ROW_COLLAPSED_STATS_VALUE_COLOR),
-                (')', spec.MEDIA_ROW_COLLAPSED_STATS_MUTED_COLOR),
+                (t('A-Side ('), spec.MEDIA_ROW_COLLAPSED_STATS_MUTED_COLOR),
+                (f'{a_song_count} {t("Songs")}', spec.MEDIA_ROW_COLLAPSED_STATS_VALUE_COLOR),
+                (t(')'), spec.MEDIA_ROW_COLLAPSED_STATS_MUTED_COLOR),
             ]
         )
         self.a_duration_label.set_segments(
             [
-                ('Duration: ', spec.MEDIA_ROW_COLLAPSED_STATS_MUTED_COLOR),
+                (t('Duration: '), spec.MEDIA_ROW_COLLAPSED_STATS_MUTED_COLOR),
                 (a_duration, spec.MEDIA_ROW_COLLAPSED_STATS_VALUE_COLOR),
             ]
         )
         self.b_side_label.set_segments(
             [
-                ('B-Side (', spec.MEDIA_ROW_COLLAPSED_STATS_MUTED_COLOR),
-                (f'{b_song_count} Songs', spec.MEDIA_ROW_COLLAPSED_STATS_VALUE_COLOR),
-                (')', spec.MEDIA_ROW_COLLAPSED_STATS_MUTED_COLOR),
+                (t('B-Side ('), spec.MEDIA_ROW_COLLAPSED_STATS_MUTED_COLOR),
+                (f'{b_song_count} {t("Songs")}', spec.MEDIA_ROW_COLLAPSED_STATS_VALUE_COLOR),
+                (t(')'), spec.MEDIA_ROW_COLLAPSED_STATS_MUTED_COLOR),
             ]
         )
         self.b_duration_label.set_segments(
             [
-                ('Duration: ', spec.MEDIA_ROW_COLLAPSED_STATS_MUTED_COLOR),
+                (t('Duration: '), spec.MEDIA_ROW_COLLAPSED_STATS_MUTED_COLOR),
                 (b_duration, spec.MEDIA_ROW_COLLAPSED_STATS_VALUE_COLOR),
             ]
         )

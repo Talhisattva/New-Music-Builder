@@ -4,6 +4,7 @@ from collections.abc import Callable
 import tkinter as tk
 
 from new_music_builder.domain.models import AppearanceKind, MediaRow
+from new_music_builder.platform.i18n import t
 from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.cursor_tooltip import CursorTooltip
 from new_music_builder.ui.widgets.images import cache_token_for_path, load_tk_photoimage_contained
@@ -101,8 +102,8 @@ class MediaLivePreview(tk.Frame):
 
         self.mode_toggle = PreviewModeToggle(
             self.mode_strip,
-            left_text='Inventory',
-            right_text='World',
+            left_text=t('Inventory'),
+            right_text=t('World'),
             left_mode='inventory',
             right_mode='world',
             left_width=spec.MEDIA_ROW_LIVE_PREVIEW_MODE_BUTTON_SIZE[0],
@@ -205,7 +206,7 @@ class MediaLivePreview(tk.Frame):
         )
         self.media_label = tk.Label(
             self.content_area,
-            text='MEDIA',
+            text=t('MEDIA'),
             bg=self._content_bg,
             fg=spec.MEDIA_ROW_LIVE_PREVIEW_COLUMN_LABEL_COLOR,
             bd=0,
@@ -215,7 +216,7 @@ class MediaLivePreview(tk.Frame):
         )
         self.case_label = tk.Label(
             self.content_area,
-            text='CASE',
+            text=t('CASE'),
             bg=self._content_bg,
             fg=spec.MEDIA_ROW_LIVE_PREVIEW_COLUMN_LABEL_COLOR,
             bd=0,

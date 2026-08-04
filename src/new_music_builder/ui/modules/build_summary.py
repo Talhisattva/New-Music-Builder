@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import customtkinter as ctk
 
+from new_music_builder.platform.i18n import t
 from new_music_builder.ui import theme
 from new_music_builder.ui.widgets.fields import make_builder_label
 from new_music_builder.ui.widgets.module_panel import ModulePanel
@@ -9,7 +10,7 @@ from new_music_builder.ui.widgets.module_panel import ModulePanel
 
 class BuildSummaryModule(ModulePanel):
     def __init__(self, master, session):
-        super().__init__(master, 'BUILD SUMMARY')
+        super().__init__(master, t('BUILD SUMMARY'))
         self.session = session
         self.rows = {}
         self._build()
@@ -21,7 +22,7 @@ class BuildSummaryModule(ModulePanel):
         for label in ['Media Rows', 'Total Sides', 'Total Songs', 'Converted', 'Queued', 'Errors']:
             row = ctk.CTkFrame(self.stats, fg_color=theme.PANEL)
             row.pack(fill='x', pady=(0, 3))
-            make_builder_label(row, label, text_color=theme.TEXT, size=11, weight='bold').pack(side='left', padx=8, pady=5)
+            make_builder_label(row, t(label), text_color=theme.TEXT, size=11, weight='bold').pack(side='left', padx=8, pady=5)
             value = make_builder_label(row, '0', text_color=theme.TEXT, size=11, weight='bold')
             value.pack(side='right', padx=8)
             self.rows[label] = value

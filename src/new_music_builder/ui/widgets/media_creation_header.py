@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 import tkinter as tk
 
+from new_music_builder.platform.i18n import t
 from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.main_button import MainButton
 
@@ -45,7 +46,7 @@ class MediaCreationHeader(tk.Frame):
         add_x, add_y = spec.MODULE_TWO_TOP_HEADER_BUTTON_OFFSET
         self.add_button = MainButton(
             self.surface,
-            text='+ Add Media Row',
+            text=t('+ Add Media Row'),
             command=add_command,
             variant='positive',
             size=spec.MODULE_TWO_TOP_HEADER_BUTTON_SIZE,
@@ -55,7 +56,7 @@ class MediaCreationHeader(tk.Frame):
         remove_x = add_x + spec.MODULE_TWO_TOP_HEADER_BUTTON_SIZE[0] + spec.MODULE_TWO_TOP_HEADER_BUTTON_GAP_X
         self.remove_button = MainButton(
             self.surface,
-            text='- Remove Row',
+            text=t('- Remove Row'),
             command=remove_command,
             variant='negative',
             size=spec.MODULE_TWO_TOP_HEADER_BUTTON_SIZE,

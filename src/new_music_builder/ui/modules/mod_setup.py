@@ -5,6 +5,7 @@ import tkinter.filedialog as fd
 
 import customtkinter as ctk
 
+from new_music_builder.platform.i18n import t
 from new_music_builder.platform.paths import detect_workshop_dir
 from new_music_builder.services.export_scaffold import render_square_image
 from new_music_builder.ui import theme
@@ -18,7 +19,7 @@ from new_music_builder.ui.widgets.tooltip import Tooltip
 
 class ModSetupModule(ModulePanel):
     def __init__(self, master, session, on_change, save_callback, load_callback, reset_callback):
-        super().__init__(master, 'PHASE 1: MOD SETUP')
+        super().__init__(master, t('PHASE 1: MOD SETUP'))
         self.session = session
         self.on_change = on_change
         self.save_callback = save_callback
@@ -48,18 +49,18 @@ class ModSetupModule(ModulePanel):
 
         poster_stack = ctk.CTkFrame(top, fg_color='transparent')
         poster_stack.grid(row=0, column=0, sticky='nw', padx=(0, 8), pady=(0, 6))
-        make_builder_label(poster_stack, 'WORKSHOP POSTER', text_color=theme.ACCENT_LIGHT, size=11, weight='bold').pack(anchor='w', pady=(0, 4))
+        make_builder_label(poster_stack, t('WORKSHOP POSTER'), text_color=theme.ACCENT_LIGHT, size=11, weight='bold').pack(anchor='w', pady=(0, 4))
         self.poster_frame = ctk.CTkFrame(poster_stack, width=144, height=144, fg_color=theme.PANEL, border_color=theme.BORDER, border_width=1, corner_radius=12)
         self.poster_frame.pack(anchor='w')
         self.poster_frame.pack_propagate(False)
-        self.poster_label = make_builder_label(self.poster_frame, 'Click To Pick Poster', size=10, weight='bold', justify='center', wraplength=114)
+        self.poster_label = make_builder_label(self.poster_frame, t('Click To Pick Poster'), size=10, weight='bold', justify='center', wraplength=114)
         self.poster_label.pack(expand=True, padx=10, pady=10)
         self.poster_frame.bind('<Button-1>', lambda _event: self.pick_poster())
         self.poster_label.bind('<Button-1>', lambda _event: self.pick_poster())
-        Tooltip(self.poster_frame, 'Click to choose the Workshop preview/poster image for this project.')
+        Tooltip(self.poster_frame, t('Click to choose the Workshop preview/poster image for this project.'))
         write_name = make_builder_checkbox(
             poster_stack,
-            'Write Name\nOn Mod Poster',
+            t('Write Name\nOn Mod Poster'),
             self._vars['write_name'],
             command=self._commit_boolean,
         )
@@ -70,10 +71,10 @@ class ModSetupModule(ModulePanel):
         meta_form.grid_columnconfigure(0, weight=1)
 
         field_specs = [
-            ('mod_name', 'Mod Name'),
-            ('mod_id', 'Mod ID'),
-            ('parent_mod_id', 'Parent Mod ID'),
-            ('author', 'Author'),
+            ('mod_name', t('Mod Name')),
+            ('mod_id', t('Mod ID')),
+            ('parent_mod_id', t('Parent Mod ID')),
+            ('author', t('Author')),
         ]
         for index, (key, label) in enumerate(field_specs):
             row = LabeledEntry(meta_form, label, self._vars[key], label_size=10, entry_font_size=10, entry_height=26, width=220)
@@ -86,20 +87,20 @@ class ModSetupModule(ModulePanel):
 
         ogg_row = ctk.CTkFrame(lower_form, fg_color='transparent')
         ogg_row.grid(row=0, column=0, sticky='ew', padx=0, pady=(0, 4))
-        self._folder_row(ogg_row, 'OGG Output Folder', 'ogg_output_folder', self.pick_ogg_folder)
+        self._folder_row(ogg_row, t('OGG Output Folder'), 'ogg_output_folder', self.pick_ogg_folder)
 
         workshop_row = ctk.CTkFrame(lower_form, fg_color='transparent')
         workshop_row.grid(row=1, column=0, sticky='ew', padx=0, pady=(0, 4))
-        self._folder_row(workshop_row, 'Zomboid Workshop Folder', 'workshop_output_folder', self.pick_workshop_folder, detected=True)
+        self._folder_row(workshop_row, t('Zomboid Workshop Folder'), 'workshop_output_folder', self.pick_workshop_folder, detected=True)
 
         action_row = ctk.CTkFrame(lower_form, fg_color='transparent')
         action_row.grid(row=2, column=0, sticky='ew', padx=0, pady=(4, 0))
         action_row.grid_columnconfigure(0, weight=1)
         action_row.grid_columnconfigure(1, weight=1)
         action_row.grid_columnconfigure(2, weight=1)
-        make_builder_button(action_row, 'SAVE', self.save_callback, size='compact').grid(row=0, column=0, sticky='ew', padx=(0, 3))
-        make_builder_button(action_row, 'OPEN', self.load_callback, size='compact').grid(row=0, column=1, sticky='ew', padx=3)
-        make_builder_button(action_row, 'RESET', self.reset_callback, variant='secondary', size='compact').grid(row=0, column=2, sticky='ew', padx=(3, 0))
+        make_builder_button(action_row, t('SAVE'), self.save_callback, size='compact').grid(row=0, column=0, sticky='ew', padx=(0, 3))
+        make_builder_button(action_row, t('OPEN'), self.load_callback, size='compact').grid(row=0, column=1, sticky='ew', padx=3)
+        make_builder_button(action_row, t('RESET'), self.reset_callback, variant='secondary', size='compact').grid(row=0, column=2, sticky='ew', padx=(3, 0))
 
     def _folder_row(self, master, label_text: str, key: str, command, detected: bool = False) -> None:
         row = ctk.CTkFrame(master, fg_color='transparent')
@@ -111,7 +112,7 @@ class ModSetupModule(ModulePanel):
         apply_builder_entry_style(entry, font_size=10, height=26, corner_radius=8)
         entry.pack(side='left', expand=True, fill='x')
         entry.bind('<FocusOut>', self._commit_text)
-        browse_button = make_builder_button(inner, 'Browse', command, width=76, size='compact')
+        browse_button = make_builder_button(inner, t('Browse'), command, width=76, size='compact')
         browse_button.configure(height=26)
         browse_button.pack(side='left', padx=(5, 0))
         if detected:
@@ -180,14 +181,14 @@ class ModSetupModule(ModulePanel):
             self._vars['workshop_output_folder'].set(str(detected))
             self.session.project.workshop_output_folder = str(detected)
         if self.detected_label is not None:
-            self.detected_label.configure(text='✓ DETECTED' if detected else '')
+            self.detected_label.configure(text=t('✓ DETECTED') if detected else '')
         self._refresh_poster_preview()
 
     def _refresh_poster_preview(self) -> None:
         image = self._build_poster_preview()
         if self.poster_label is not None:
             if image is None:
-                self.poster_label.configure(text='Click To Pick Poster', image=None)
+                self.poster_label.configure(text=t('Click To Pick Poster'), image=None)
                 self.poster_label.image = None
             else:
                 self.poster_label.configure(text='', image=image)

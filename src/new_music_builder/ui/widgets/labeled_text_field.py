@@ -167,7 +167,7 @@ class LabeledTextField(tk.Frame):
             fg=label_text_color,
             bd=0,
             highlightthickness=0,
-            font=('Orbitron Medium', label_font_size),
+            font=(spec.LABEL_CJK_FONT_FAMILY, label_font_size),
             anchor='w',
             justify='left',
         )

@@ -10,6 +10,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from new_music_builder.domain.models import AudioRunEvent, AudioRunResult, ExportPlan, ExportTargetPaths, ProjectConfig
+from new_music_builder.platform.i18n import t
 from new_music_builder.services.asset_catalog import AssetEntry
 from new_music_builder.services.audio_export_runner import run_audio_export
 from new_music_builder.services.audio_work_plan import build_audio_work_plan
@@ -47,11 +48,11 @@ def run_staged_export(
 
     try:
         LOGGER.info("[run=%s] run_staged_export emit preparing staging_root=%s", log_run_id, staging_root)
-        _emit(emit, "run_preparing", message="Preparing export...")
+        _emit(emit, "run_preparing", message=t("Preparing export..."))
         _raise_if_cancelled(cancel_requested)
 
         LOGGER.info("[run=%s] run_staged_export scaffold start staging_root=%s", log_run_id, staging_root)
-        _emit(emit, "scaffold_started", message="Writing export scaffold...")
+        _emit(emit, "scaffold_started", message=t("Writing export scaffold..."))
         scaffold_result = write_export_scaffold(project, plan, staging_targets, asset_catalog)
         LOGGER.info(
             "[run=%s] run_staged_export scaffold complete errors=%s size=%s",
@@ -89,7 +90,7 @@ def run_staged_export(
 
         if result.aborted:
             LOGGER.info("[run=%s] run_staged_export audio aborted message=%s", log_run_id, result.abort_message)
-            _emit(emit, "run_aborted", message=result.abort_message or "Build aborted by user.")
+            _emit(emit, "run_aborted", message=result.abort_message or t("Build aborted by user."))
             return result
 
         _raise_if_cancelled(cancel_requested)
@@ -98,7 +99,7 @@ def run_staged_export(
         final_size_bytes = _directory_size_bytes(final_root)
         result.mod_size_text = _format_size_text(final_size_bytes)
         if final_size_bytes == 0:
-            result.fatal_error = f"{_EMPTY_EXPORT_ERROR} Output: {final_root}"
+            result.fatal_error = t(_EMPTY_EXPORT_ERROR) + f" Output: {final_root}"
             result.errors.append(result.fatal_error)
             LOGGER.error("[run=%s] run_staged_export empty final export root=%s", log_run_id, final_root)
             _emit(emit, "run_failed", message=result.fatal_error)
@@ -213,7 +214,7 @@ def _emit(
 
 def _raise_if_cancelled(cancel_requested: CancelCheck | None) -> None:
     if cancel_requested is not None and cancel_requested():
-        raise ExportAbortedError("Build aborted by user.")
+        raise ExportAbortedError(t("Build aborted by user."))
 
 
 def _directory_size_bytes(root: Path) -> int:

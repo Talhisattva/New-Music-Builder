@@ -8,6 +8,7 @@ import tkinter.font as tkfont
 from PIL import ImageTk
 
 from new_music_builder.domain.models import ConversionSideGroup, ConversionSongProgress
+from new_music_builder.platform.i18n import t
 from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.images import load_tk_photoimage
 
@@ -307,18 +308,18 @@ class ModuleFourQueueTable(tk.Canvas):
     def _draw_status_cell(self, status: str, row_center_y: float) -> None:
         column_left = self._column_left_x(3)
         icon = self._queued_icon
-        text = 'QUEUED'
+        text = t('QUEUED')
         text_color = spec.PHASE_THREE_MODULE_FOUR_STATUS_QUEUED_COLOR
         if status == 'done':
             icon = self._done_icon
-            text = 'DONE'
+            text = t('DONE')
             text_color = spec.PHASE_THREE_MODULE_FOUR_STATUS_DONE_COLOR
         elif status == 'converting':
             icon = self._converting_icon
-            text = 'CONVERTING'
+            text = t('CONVERTING')
         elif status == 'failed':
             icon = None
-            text = 'ERROR'
+            text = t('ERROR')
             text_color = spec.MAIN_BUTTON_NEGATIVE_TEXT_COLOR
 
         if icon is not None:

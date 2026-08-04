@@ -4,6 +4,7 @@ from collections.abc import Callable
 import tkinter as tk
 
 from new_music_builder.domain.models import MediaRow
+from new_music_builder.platform.i18n import t
 from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.main_button import MainButton
 
@@ -35,7 +36,7 @@ class MediaSideToggle(tk.Frame):
 
         self.a_button = MainButton(
             self,
-            text='A-Side',
+            text=t('A-Side'),
             command=lambda: self._select_side('A'),
             size=spec.MEDIA_ROW_SIDE_TOGGLE_BUTTON_SIZE,
         )
@@ -43,7 +44,7 @@ class MediaSideToggle(tk.Frame):
 
         self.b_button = MainButton(
             self,
-            text='B-side',
+            text=t('B-side'),
             command=lambda: self._select_side('B'),
             size=spec.MEDIA_ROW_SIDE_TOGGLE_BUTTON_SIZE,
         )

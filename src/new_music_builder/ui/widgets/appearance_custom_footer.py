@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 import tkinter as tk
 
+from new_music_builder.platform.i18n import t
 from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.images import load_tk_photoimage_contained
 
@@ -314,9 +315,9 @@ class AppearanceSingleCustomFooter(_FooterBase):
         self.main_surface.place(x=1, y=1)
 
         label_font = (spec.MODULE_THREE_CUSTOM_SELECTOR_LABEL_FONT_FAMILY, spec.MODULE_THREE_CUSTOM_SELECTOR_LABEL_FONT_SIZE)
-        self.inventory_label = tk.Label(self.main_surface, text='Inventory', bg=spec.MODULE_THREE_CUSTOM_ROW_BG, fg=spec.MODULE_THREE_CUSTOM_SELECTOR_LABEL_COLOR, bd=0, highlightthickness=0, font=label_font, anchor='center')
+        self.inventory_label = tk.Label(self.main_surface, text=t('Inventory'), bg=spec.MODULE_THREE_CUSTOM_ROW_BG, fg=spec.MODULE_THREE_CUSTOM_SELECTOR_LABEL_COLOR, bd=0, highlightthickness=0, font=label_font, anchor='center')
         self.inventory_label.place(x=spec.MODULE_THREE_CUSTOM_SELECTOR_ONE_POS[0], y=spec.MODULE_THREE_CUSTOM_SELECTOR_LABEL_Y, width=spec.MODULE_THREE_CUSTOM_SELECTOR_SIZE[0], height=spec.MODULE_THREE_CUSTOM_SELECTOR_LABEL_HEIGHT)
-        self.world_label = tk.Label(self.main_surface, text='World', bg=spec.MODULE_THREE_CUSTOM_ROW_BG, fg=spec.MODULE_THREE_CUSTOM_SELECTOR_LABEL_COLOR, bd=0, highlightthickness=0, font=label_font, anchor='center')
+        self.world_label = tk.Label(self.main_surface, text=t('World'), bg=spec.MODULE_THREE_CUSTOM_ROW_BG, fg=spec.MODULE_THREE_CUSTOM_SELECTOR_LABEL_COLOR, bd=0, highlightthickness=0, font=label_font, anchor='center')
         self.world_label.place(x=spec.MODULE_THREE_CUSTOM_SELECTOR_TWO_POS[0], y=spec.MODULE_THREE_CUSTOM_SELECTOR_LABEL_Y, width=spec.MODULE_THREE_CUSTOM_SELECTOR_SIZE[0], height=spec.MODULE_THREE_CUSTOM_SELECTOR_LABEL_HEIGHT)
 
         self.inventory_box = _SelectorBox(self.main_surface, command=on_pick_inventory)
@@ -326,7 +327,7 @@ class AppearanceSingleCustomFooter(_FooterBase):
 
         self.main_label = tk.Label(
             self.main_surface,
-            text='Add Custom',
+            text=t('Add Custom'),
             bg=spec.MODULE_THREE_CUSTOM_ROW_BG,
             fg=spec.MODULE_THREE_CUSTOM_ACTION_LABEL_COLOR,
             bd=0,
@@ -339,7 +340,7 @@ class AppearanceSingleCustomFooter(_FooterBase):
         self.reset_strip = _VerticalStrip(
             self,
             size=spec.MODULE_THREE_CUSTOM_RESET_SIZE,
-            text='RESET',
+            text=t('RESET'),
             default_bg=spec.MODULE_THREE_CUSTOM_RESET_BG,
             hover_bg=spec.MODULE_THREE_CUSTOM_RESET_HOVER_BG,
             pressed_bg=spec.MODULE_THREE_CUSTOM_RESET_PRESSED_BG,
@@ -471,14 +472,14 @@ class AppearanceDualCustomFooter(_FooterBase):
         )
         self.main_surface.place(x=1, y=1)
 
-        label_texts = ('Inventory', 'World', 'Inventory', 'World')
+        label_texts = (t('Inventory'), t('World'), t('Inventory'), t('World'))
         box_commands = (
             on_pick_inventory_full,
             on_pick_world_full,
             on_pick_inventory_empty,
             on_pick_world_empty,
         )
-        box_captions = ('FULL', 'FULL', 'EMPTY', 'EMPTY')
+        box_captions = (t('FULL'), t('FULL'), t('EMPTY'), t('EMPTY'))
         self.boxes: list[_SelectorBox] = []
         self.box_labels: list[tk.Label] = []
         for index in range(4):
@@ -507,7 +508,7 @@ class AppearanceDualCustomFooter(_FooterBase):
         self.add_custom_strip = _VerticalStrip(
             self,
             size=spec.MODULE_THREE_DUAL_CUSTOM_ADD_SIZE,
-            text='ADD CUSTOM',
+            text=t('ADD CUSTOM'),
             default_bg=spec.MODULE_THREE_DUAL_CUSTOM_ADD_BG,
             hover_bg=spec.MODULE_THREE_DUAL_CUSTOM_ADD_HOVER_BG,
             pressed_bg=spec.MODULE_THREE_DUAL_CUSTOM_ADD_PRESSED_BG,
@@ -520,7 +521,7 @@ class AppearanceDualCustomFooter(_FooterBase):
         self.reset_strip = _VerticalStrip(
             self,
             size=spec.MODULE_THREE_CUSTOM_RESET_SIZE,
-            text='RESET',
+            text=t('RESET'),
             default_bg=spec.MODULE_THREE_CUSTOM_RESET_BG,
             hover_bg=spec.MODULE_THREE_CUSTOM_RESET_HOVER_BG,
             pressed_bg=spec.MODULE_THREE_CUSTOM_RESET_PRESSED_BG,

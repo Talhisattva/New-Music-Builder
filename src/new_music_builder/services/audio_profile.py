@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from new_music_builder.platform.i18n import t
+
 
 @dataclass(frozen=True, slots=True)
 class AudioCompressionPreset:
@@ -10,11 +12,11 @@ class AudioCompressionPreset:
 
 
 AUDIO_COMPRESSION_PRESETS: tuple[AudioCompressionPreset, ...] = (
-    AudioCompressionPreset("Lowest", 0.20),
-    AudioCompressionPreset("Low", 0.35),
-    AudioCompressionPreset("Medium", 0.50),
-    AudioCompressionPreset("High", 0.65),
-    AudioCompressionPreset("Highest", 0.80),
+    AudioCompressionPreset(t("Lowest"), 0.20),
+    AudioCompressionPreset(t("Low"), 0.35),
+    AudioCompressionPreset(t("Medium"), 0.50),
+    AudioCompressionPreset(t("High"), 0.65),
+    AudioCompressionPreset(t("Highest"), 0.80),
 )
 
 DEFAULT_COMPRESSION_QUALITY = 0.50

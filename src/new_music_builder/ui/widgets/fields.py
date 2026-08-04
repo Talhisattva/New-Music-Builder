@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import customtkinter as ctk
 
-from new_music_builder.ui import theme
+from new_music_builder.ui import spec, theme
 from new_music_builder.ui.widgets.text_edit_bindings import bind_standard_text_shortcuts
 
 
 def make_builder_font(*, size: int = 12, weight: str = 'normal') -> ctk.CTkFont:
-    return ctk.CTkFont(family='Orbitron', size=size, weight=weight)
+    return ctk.CTkFont(family=spec.LABEL_CJK_FONT_FAMILY, size=size, weight=weight)
 
 
 def apply_builder_label_style(

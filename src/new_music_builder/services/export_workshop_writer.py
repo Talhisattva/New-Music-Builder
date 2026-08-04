@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from new_music_builder.domain.models import ExportPlan, PlannedMediaRow, PlannedSide, PlannedTrack, ProjectConfig
+from new_music_builder.platform.i18n import t
 
 NEW_MUSIC_WORKSHOP_URL = "https://steamcommunity.com/sharedfiles/filedetails/?id=3739256725"
 NEW_MUSIC_WORKSHOP_IMAGE = "https://images.steamusercontent.com/ugc/11030006687843634655/D41A026AB76E264A5BDA091F326BFDA74041A401/?imw=268&imh=268&ima=fit&impolicy=Letterbox&imcolor=%23000000&letterbox=true"
@@ -69,8 +70,8 @@ def _render_mode_legend(plan: ExportPlan) -> list[str]:
     if not _has_mixed_modes(plan):
         return []
     lines = ["description=[quote]"]
-    lines.append("description=[b]Singles[/b]: Each song is its own item.")
-    lines.append("description=[b]Mixtape[/b]: Dynamic playlist on one item.")
+    lines.append("description=%s" % t("[b]Singles[/b]: Each song is its own item."))
+    lines.append("description=%s" % t("[b]Mixtape[/b]: Dynamic playlist on one item."))
     lines.extend(["description=[/quote]", "description="])
     return lines
 
@@ -111,20 +112,20 @@ def _ordered_workshop_tables(
 def _singles_workshop_sections(rows: list[PlannedMediaRow], *, mixed_modes: bool) -> list[tuple[str, list[PlannedTrack]]]:
     ordered_rows = sorted(rows, key=lambda row: row.row_id)
     tracks = [track for row in ordered_rows for side in _ordered_sides(row) for track in side.tracks]
-    section_label = "[b]Singles[/b]" if mixed_modes else "[b]Singles[/b] [i]Single Item[/i]"
+    section_label = t("[b]Singles[/b]") if mixed_modes else t("[b]Singles[/b] [i]Single Item[/i]")
     return [(section_label, tracks)]
 
 
 def _row_workshop_sections(row: PlannedMediaRow, *, mixed_modes: bool) -> list[tuple[str, list[PlannedTrack]]]:
     sides = _ordered_sides(row)
-    mode_label = "[b]Singles[/b]" if row.row_mode == "singles" else "[b]Mixtape[/b]"
+    mode_label = t("[b]Singles[/b]") if row.row_mode == "singles" else t("[b]Mixtape[/b]")
     if not _row_has_split_media(row):
         if mixed_modes:
             section_label = mode_label
         else:
-            section_label = f"{mode_label} [i]Single Item[/i]" if row.row_mode == "singles" else f"{mode_label} [b]Full Album[/b]"
+            section_label = f"{mode_label} {t('[i]Single Item[/i]')}" if row.row_mode == "singles" else f"{mode_label} {t('[b]Full Album[/b]')}"
         return [(section_label, [track for side in sides for track in side.tracks])]
-    return [(f"{mode_label} [b]Side {side.side}[/b]", list(side.tracks)) for side in sides]
+    return [(f"{mode_label} [b]{t('Side')} {side.side}[/b]", list(side.tracks)) for side in sides]
 
 
 def _row_has_split_media(row: PlannedMediaRow) -> bool:
@@ -152,10 +153,9 @@ def _render_track_table(
     for index, track in enumerate(tracks, start=1):
         candidate = f"description=[tr][td]{index:02d} {_escape_workshop_text(track.display_label)}[/td][/tr]"
         remaining_count = len(tracks) - index
-        summary_line = (
-            f"description=[tr][td][i]... plus {remaining_count} more song"
-            f"{'' if remaining_count == 1 else 's'} in this section.[/i][/td][/tr]"
-        )
+        summary_line = t(
+            "description=[tr][td][i]... plus {remaining_count} more song{suffix} in this section.[/i][/td][/tr]"
+        ).format(remaining_count=remaining_count, suffix='' if remaining_count == 1 else 's')
         candidate_total = current_chars + _line_char_count(lines + [candidate, "description=[/table]"]) + reserved_chars
         summary_total = current_chars + _line_char_count(lines + [summary_line, "description=[/table]"]) + reserved_chars
         if candidate_total <= WORKSHOP_TOTAL_CHAR_BUDGET:
@@ -168,8 +168,9 @@ def _render_track_table(
         break
     if omitted_count:
         lines.append(
-            f"description=[tr][td][i]... plus {omitted_count} more song"
-            f"{'' if omitted_count == 1 else 's'} in this section.[/i][/td][/tr]"
+            t(
+                "description=[tr][td][i]... plus {omitted_count} more song{suffix} in this section.[/i][/td][/tr]"
+            ).format(omitted_count=omitted_count, suffix='' if omitted_count == 1 else 's')
         )
     lines.append("description=[/table]")
     return lines

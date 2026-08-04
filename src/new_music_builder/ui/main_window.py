@@ -37,6 +37,7 @@ from new_music_builder.domain.models import (
 )
 from new_music_builder.platform.paths import app_root, assets_root
 from new_music_builder.platform.paths import detect_workshop_dir, open_folder
+from new_music_builder.platform.i18n import t
 from new_music_builder.services.asset_catalog import AssetCatalog
 from new_music_builder.services.audio_cache_lookup import refresh_project_cached_ogg_links
 from new_music_builder.services.build_event_pump import BuildEventPump
@@ -151,58 +152,58 @@ class ShortcutMenuSpec:
 
 MENU_SHORTCUT_SPECS: tuple[ShortcutMenuSpec, ...] = (
     ShortcutMenuSpec(
-        menu_name='FILE',
-        label='New',
+        menu_name=t('FILE'),
+        label=t('New'),
         handler_name='new_project',
-        shortcut_label='(Ctrl + N)',
+        shortcut_label=t('(Ctrl + N)'),
         shortcut_sequences=('<Control-KeyPress-n>', '<Control-KeyPress-N>'),
         disabled_during_build=True,
     ),
     ShortcutMenuSpec(
-        menu_name='FILE',
-        label='Open',
+        menu_name=t('FILE'),
+        label=t('Open'),
         handler_name='load_project',
-        shortcut_label='(Ctrl + O)',
+        shortcut_label=t('(Ctrl + O)'),
         shortcut_sequences=('<Control-KeyPress-o>', '<Control-KeyPress-O>'),
         disabled_during_build=True,
     ),
     ShortcutMenuSpec(
-        menu_name='FILE',
-        label='Save',
+        menu_name=t('FILE'),
+        label=t('Save'),
         handler_name='save_project',
-        shortcut_label='(Ctrl + S)',
+        shortcut_label=t('(Ctrl + S)'),
         shortcut_sequences=('<Control-KeyPress-s>',),
         disabled_during_build=True,
     ),
     ShortcutMenuSpec(
-        menu_name='FILE',
-        label='Save As...',
+        menu_name=t('FILE'),
+        label=t('Save As...'),
         handler_name='save_project_as',
-        shortcut_label='(Ctrl + Shift + S)',
+        shortcut_label=t('(Ctrl + Shift + S)'),
         shortcut_sequences=('<Control-KeyPress-S>', '<Control-Shift-KeyPress-S>'),
         disabled_during_build=True,
     ),
     ShortcutMenuSpec(
-        menu_name='FILE',
-        label='Exit',
+        menu_name=t('FILE'),
+        label=t('Exit'),
         handler_name='on_close',
-        shortcut_label='(Ctrl + Q)',
+        shortcut_label=t('(Ctrl + Q)'),
         shortcut_sequences=('<Control-KeyPress-q>', '<Control-KeyPress-Q>'),
         disabled_during_build=True,
     ),
     ShortcutMenuSpec(
-        menu_name='PREFERENCES',
-        label='Audio Settings',
+        menu_name=t('PREFERENCES'),
+        label=t('Audio Settings'),
         handler_name='_show_audio_settings_dialog',
-        shortcut_label='(Ctrl + P)',
+        shortcut_label=t('(Ctrl + P)'),
         shortcut_sequences=('<Control-KeyPress-p>', '<Control-KeyPress-P>'),
         disabled_during_build=True,
     ),
     ShortcutMenuSpec(
-        menu_name='HELP',
-        label='Tutorial',
+        menu_name=t('HELP'),
+        label=t('Tutorial'),
         handler_name='_show_tutorial_placeholder',
-        shortcut_label='(Ctrl + H)',
+        shortcut_label=t('(Ctrl + H)'),
         shortcut_sequences=('<Control-KeyPress-h>', '<Control-KeyPress-H>'),
     ),
 )
@@ -218,7 +219,7 @@ def build_menu_action_map(window: object) -> dict[str, list[MenuAction]]:
                 shortcut_label=spec.shortcut_label,
             )
         )
-    preferences = menu_actions.setdefault('PREFERENCES', [])
+    preferences = menu_actions.setdefault(t('PREFERENCES'), [])
     if preferences:
         first = preferences[0]
         preferences[0] = MenuAction(
@@ -229,7 +230,7 @@ def build_menu_action_map(window: object) -> dict[str, list[MenuAction]]:
         )
     preferences.append(
         MenuAction(
-            label='Automatic Textures',
+            label=t('Automatic Textures'),
             command=getattr(window, '_toggle_automatic_textures_preference'),
             show_check_column=True,
             checked_getter=getattr(window, '_automatic_textures_enabled'),
@@ -239,7 +240,7 @@ def build_menu_action_map(window: object) -> dict[str, list[MenuAction]]:
     )
     preferences.append(
         MenuAction(
-            label='Regenerate on Load',
+            label=t('Regenerate on Load'),
             command=getattr(window, '_toggle_regenerate_textures_on_project_load_preference'),
             show_check_column=True,
             checked_getter=getattr(window, '_regenerate_textures_on_project_load_enabled'),
@@ -249,7 +250,7 @@ def build_menu_action_map(window: object) -> dict[str, list[MenuAction]]:
     )
     preferences.append(
         MenuAction(
-            label='Tooltips',
+            label=t('Tooltips'),
             command=getattr(window, '_toggle_text_tooltips_preference'),
             show_check_column=True,
             checked_getter=getattr(window, '_text_tooltips_enabled'),
@@ -314,7 +315,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
     def __init__(self) -> None:
         super().__init__()
         ctk.set_appearance_mode('dark')
-        self.title(f'New Music Builder v{__version__}')
+        self.title(f'{t("New Music Builder")} v{__version__}')
         self.geometry(f'{spec.APP_WIDTH}x{spec.APP_HEIGHT}')
         self.minsize(spec.APP_MIN_WIDTH, spec.APP_MIN_HEIGHT)
         self.configure(fg_color=spec.APP_BG)
@@ -539,7 +540,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self._locked_module_two_browse_row_id = self._current_expanded_row_id()
         else:
             self._locked_module_two_browse_row_id = None
-        self.phase_three_combo_header.set_right_text('CLICK TO ABORT EXPORT' if locked else 'CLICK TO EXPORT')
+        self.phase_three_combo_header.set_right_text(t('CLICK TO ABORT EXPORT') if locked else t('CLICK TO EXPORT'))
         self.module_one_header.set_icon_path(self._phase_one_disabled_icon_path() if locked else self._phase_one_icon_path())
         self.module_two_header.set_icon_path(self._phase_two_disabled_icon_path() if locked else self._phase_two_icon_path())
         self.module_three_header.set_icon_path(self._phase_three_disabled_icon_path() if locked else self._phase_three_icon_path())
@@ -833,7 +834,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.on_project_change()
 
     def _show_tutorial_placeholder(self) -> None:
-        messagebox.showinfo('Tutorial', 'Tutorial coming soon.')
+        messagebox.showinfo(t('Tutorial'), t('Tutorial coming soon.'))
 
     def _build_layout(self) -> None:
         self.stage = ctk.CTkFrame(self, fg_color=spec.APP_BG, corner_radius=0)
@@ -864,7 +865,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
         self.module_one_header = ModuleHeader(
             self.module_one_background,
-            text='PHASE 1 : MOD SETUP',
+            text=t('PHASE 1 : MOD SETUP'),
             icon_path=self._phase_one_icon_path(),
             bg_color=spec.MODULE_BACKGROUND_BG,
             text_color=spec.MODULE_HEADER_TEXT_COLOR,
@@ -932,7 +933,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
         self.module_two_header = ModuleHeader(
             self.module_two_background,
-            text='PHASE 2 : MEDIA CREATION',
+            text=t('PHASE 2 : MEDIA CREATION'),
             icon_path=self._phase_two_icon_path(),
             bg_color=spec.MODULE_BACKGROUND_BG,
             text_color=spec.MODULE_HEADER_TEXT_COLOR,
@@ -942,7 +943,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
         self.module_three_header = ModuleHeader(
             self.module_three_background,
-            text='PHASE 2 : APPERANCE',
+            text=t('PHASE 2 : APPERANCE'),
             icon_path=self._phase_three_icon_path(),
             bg_color=spec.MODULE_BACKGROUND_BG,
             text_color=spec.MODULE_HEADER_TEXT_COLOR,
@@ -953,9 +954,9 @@ class MainWindow(_DnDCompat, ctk.CTk):
         self.phase_three_combo_header = ModuleActionHeader(
             self.phase_three_combo_midground_border,
             width=spec.PHASE_THREE_COMBO_MIDGROUND_SIZE[0],
-            text='PHASE 3 : BUILD & EXPORT',
+            text=t('PHASE 3 : BUILD & EXPORT'),
             icon_path=self._phase_four_icon_path(),
-            right_text='CLICK TO EXPORT',
+            right_text=t('CLICK TO EXPORT'),
             command=self.run_build_preview,
         )
         self.phase_three_combo_header.place(x=0, y=0)
@@ -969,7 +970,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
         self.module_six_header = ModuleHeader(
             self.module_six_background,
-            text='BUILD SUMMARY',
+            text=t('BUILD SUMMARY'),
             icon_path=self._phase_five_icon_path(),
             bg_color=spec.MODULE_BACKGROUND_BG,
             text_color=spec.MODULE_HEADER_TEXT_COLOR,
@@ -1149,7 +1150,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         row_step = spec.TYPEABLE_FIELD_SIZE[1] + spec.PHASE_ONE_TEXT_ROW_SPACING
         self.module_one_mod_name_field = LabeledTextField(
             self.module_one_midground_border,
-            label_text='Mod Name',
+            label_text=t('Mod Name'),
             bg_color=spec.MODULE_MIDGROUND_BG,
             textvariable=self.mod_name_var,
         )
@@ -1168,7 +1169,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
         self.module_one_mod_id_field = LabeledTextField(
             self.module_one_midground_border,
-            label_text='Mod ID',
+            label_text=t('Mod ID'),
             bg_color=spec.MODULE_MIDGROUND_BG,
             textvariable=self.mod_id_var,
         )
@@ -1187,7 +1188,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
         self.module_one_parent_id_field = LabeledTextField(
             self.module_one_midground_border,
-            label_text='Parent ID',
+            label_text=t('Parent ID'),
             bg_color=spec.MODULE_MIDGROUND_BG,
             textvariable=self.parent_mod_id_var,
         )
@@ -1206,7 +1207,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
         self.module_one_author_field = LabeledTextField(
             self.module_one_midground_border,
-            label_text='Author',
+            label_text=t('Author'),
             bg_color=spec.MODULE_MIDGROUND_BG,
             textvariable=self.author_var,
         )
@@ -1226,7 +1227,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         output_folder_y = mod_name_row_y + (row_step * 3) + spec.TYPEABLE_FIELD_SIZE[1] + spec.PHASE_ONE_OUTPUT_FOLDER_GAP
         self.module_one_ogg_output_folder = OutputFolderField(
             self.module_one_midground_border,
-            label_text='.ogg Output Folder',
+            label_text=t('.ogg Output Folder'),
             folder_icon_path=self._folder_button_icon_path(),
             textvariable=self.ogg_output_folder_var,
             command=self._pick_ogg_output_folder,
@@ -1256,7 +1257,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         )
         self.module_one_workshop_output_folder = OutputFolderField(
             self.module_one_midground_border,
-            label_text='Zomboid Workshop Folder',
+            label_text=t('Zomboid Workshop Folder'),
             folder_icon_path=self._folder_button_icon_path(),
             textvariable=self.workshop_output_folder_var,
             command=self._pick_workshop_output_folder,
@@ -1283,7 +1284,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         action_button_x = spec.PHASE_ONE_TEXT_ROW_X + min(0, spec.OUTPUT_FOLDER_ROW_X_OFFSET)
         self.module_one_save_button = MainButton(
             self.module_one_midground_border,
-            text='SAVE',
+            text=t('SAVE'),
             command=self.save_project,
         )
         self.module_one_save_button.place(x=action_button_x, y=action_button_y)
@@ -1295,7 +1296,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         load_button_x = action_button_x + spec.MAIN_BUTTON_SIZE[0] + spec.PHASE_ONE_ACTION_BUTTON_GAP_X
         self.module_one_load_button = MainButton(
             self.module_one_midground_border,
-            text='OPEN',
+            text=t('OPEN'),
             command=self.load_project,
         )
         self.module_one_load_button.place(x=load_button_x, y=action_button_y)
@@ -1408,7 +1409,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         if not hasattr(self, 'menu_strip'):
             return
         automatic_enabled = (not self._is_build_locked()) and (not self._active_row_uses_singles_mode())
-        self.menu_strip.set_action_enabled('PREFERENCES', 'Automatic Textures', automatic_enabled)
+        self.menu_strip.set_action_enabled(t('PREFERENCES'), t('Automatic Textures'), automatic_enabled)
 
     def _toggle_regenerate_textures_on_project_load_preference(self) -> None:
         if self._is_build_locked():
@@ -1677,16 +1678,16 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
     def _image_filetypes(self) -> list[tuple[str, str]]:
         return [
-            ('Image Files', '*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff'),
-            ('PNG Files', '*.png'),
-            ('JPEG Files', '*.jpg *.jpeg'),
-            ('All Files', '*.*'),
+            (t('Image Files'), '*.png *.jpg *.jpeg *.bmp *.gif *.webp *.tif *.tiff'),
+            (t('PNG Files'), '*.png'),
+            (t('JPEG Files'), '*.jpg *.jpeg'),
+            (t('All Files'), '*.*'),
         ]
 
     def _audio_filetypes(self) -> list[tuple[str, str]]:
         return [
-            ('Audio Files', '*.ogg *.mp3 *.wav *.flac *.m4a *.aac *.wma'),
-            ('All Files', '*.*'),
+            (t('Audio Files'), '*.ogg *.mp3 *.wav *.flac *.m4a *.aac *.wma'),
+            (t('All Files'), '*.*'),
         ]
 
     def _initial_image_dir(self, current_path: str | None) -> str:
@@ -1762,10 +1763,10 @@ class MainWindow(_DnDCompat, ctk.CTk):
 
         detail = str(last_error) if last_error is not None else 'Unknown error.'
         messagebox.showerror(
-            'Open File Dialog Failed',
-            'Could not open the file browser.\n\n'
+            t('Open File Dialog Failed'),
+            t('Could not open the file browser.\n\n'
             'Please try again, or move the target file/folder to a simpler path if the problem persists.\n\n'
-            f'Details: {detail}',
+            f'Details: ') + detail,
             parent=self,
         )
         return ''
@@ -1782,7 +1783,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
                 changed = True
             if not asset.get('label'):
                 inventory_path = asset.get('inventory_full', '')
-                label = Path(inventory_path).stem if inventory_path else f'Custom {index + 1}'
+                label = Path(inventory_path).stem if inventory_path else f'{t("Custom")} {index + 1}'
                 asset['label'] = label
                 changed = True
         if changed:
@@ -2068,7 +2069,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             else:
                 initial_path = selection.world_empty
         selected = self._safe_askopenfilename(
-            title=f"Select {slot.replace('_', ' ').title()} Texture",
+            title=f"{t('Select Texture')} {slot.replace('_', ' ').title()}",
             filetypes=self._image_filetypes(),
             preferred_initialdir=self._module_three_initial_image_dir(initial_path),
         )
@@ -2113,7 +2114,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         custom_key = f'custom:{kind}:{uuid4().hex}'
         custom_record = {
             'key': custom_key,
-            'label': Path(staged['inventory_full']).stem or 'Custom',
+            'label': Path(staged['inventory_full']).stem or t('Custom'),
             'inventory_full': staged['inventory_full'],
             'world_full': staged['world_full'],
             'sprite_mode': sprite_mode,
@@ -2337,7 +2338,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         if self._is_build_locked():
             return
         selected = self._safe_askopenfilename(
-            title='Select Workshop Poster Image',
+            title=t('Select Workshop Poster Image'),
             filetypes=self._image_filetypes(),
             preferred_initialdir=self._initial_image_dir(self.session.project.workshop_poster_path),
         )
@@ -2359,7 +2360,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         if target_row is None:
             return
         selected = self._safe_askopenfilename(
-            title=f'Select Cover Image For Media Row {row_id}',
+            title=f"{t('Select Cover Image For Media Row')} {row_id}",
             filetypes=self._image_filetypes(),
             preferred_initialdir=self._initial_image_dir(target_row.cover_path),
         )
@@ -2428,7 +2429,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         if self._is_build_locked():
             return
         selected = fd.askopenfilenames(
-            title='Add Song(s)',
+            title=t('Add Song(s)'),
             filetypes=self._audio_filetypes(),
             initialdir=self._initial_audio_dir(row_id),
             parent=self,
@@ -3030,14 +3031,14 @@ class MainWindow(_DnDCompat, ctk.CTk):
     def new_project(self) -> None:
         if self._is_build_locked():
             return
-        if not self._confirm_reset_to_defaults('Start New Project', 'YES'):
+        if not self._confirm_reset_to_defaults(t('Start New Project'), t('YES')):
             return
         self._reset_project_to_defaults()
 
     def reset_project_to_defaults(self) -> None:
         if self._is_build_locked():
             return
-        if not self._confirm_reset_to_defaults('Reset Project', 'RESET'):
+        if not self._confirm_reset_to_defaults(t('Reset Project'), t('RESET')):
             return
         self._reset_project_to_defaults()
 
@@ -3083,9 +3084,9 @@ class MainWindow(_DnDCompat, ctk.CTk):
             self,
             icon_path=self._native_icon_path(),
             title=title,
-            label_text='Are you sure you want to reset to default? Any unsaved changes will be lost.',
+            label_text=t('Are you sure you want to reset to default? Any unsaved changes will be lost.'),
             accept_text=accept_text,
-            cancel_text='CANCEL',
+            cancel_text=t('CANCEL'),
         )
         return dialog.show()
 
@@ -3108,7 +3109,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
     def save_project_as(self) -> None:
         if self._is_build_locked():
             return
-        selected = fd.asksaveasfilename(defaultextension='.nmbproj.json', filetypes=[('New Music Builder Project', '*.nmbproj.json')])
+        selected = fd.asksaveasfilename(defaultextension='.nmbproj.json', filetypes=[(t('New Music Builder Project'), '*.nmbproj.json')])
         if not selected:
             return
         self.session.current_path = selected
@@ -3122,7 +3123,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
     def load_project(self) -> None:
         if self._is_build_locked():
             return
-        selected = fd.askopenfilename(filetypes=[('New Music Builder Project', '*.nmbproj.json'), ('JSON', '*.json')])
+        selected = fd.askopenfilename(filetypes=[(t('New Music Builder Project'), '*.nmbproj.json'), (t('JSON'), '*.json')])
         if selected:
             self._load_path(Path(selected))
 
@@ -3133,7 +3134,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
             project = self.project_store.load(path)
         except Exception as exc:
             LOGGER.exception("Failed to load project from %s: %s", path, exc)
-            messagebox.showerror('Load Project Failed', f'Could not load project.\n\n{path}\n\n{exc}')
+            messagebox.showerror(t('Load Project Failed'), f'{t("Could not load project.")}\n\n{path}\n\n{exc}')
             return
         self.session.project = project
         self.session.current_path = str(path)
@@ -3371,10 +3372,10 @@ class MainWindow(_DnDCompat, ctk.CTk):
         dialog = ConfirmDialog(
             self,
             icon_path=self._native_icon_path(),
-            title='Overwrite Existing Mod',
-            label_text='This build will overwrite an existing mod. Proceed?',
-            accept_text='YES',
-            cancel_text='CANCEL',
+            title=t('Overwrite Existing Mod'),
+            label_text=t('This build will overwrite an existing mod. Proceed?'),
+            accept_text=t('YES'),
+            cancel_text=t('CANCEL'),
         )
         return dialog.show()
 
@@ -4002,14 +4003,14 @@ class MainWindow(_DnDCompat, ctk.CTk):
         if output_path.exists():
             open_folder(output_path)
             return
-        messagebox.showinfo('Output Folder', str(output_path))
+        messagebox.showinfo(t('Output Folder'), str(output_path))
 
     def _pick_ogg_output_folder(self) -> None:
         if self._is_build_locked():
             return
         initial_dir = self.session.project.ogg_output_folder or str(Path.home())
         selected = fd.askdirectory(
-            title='Select .ogg Output Folder',
+            title=t('Select .ogg Output Folder'),
             initialdir=initial_dir,
             parent=self,
         )
@@ -4026,7 +4027,7 @@ class MainWindow(_DnDCompat, ctk.CTk):
         detected = detect_workshop_dir()
         initial_dir = self.session.project.workshop_output_folder or (str(detected) if detected else str(Path.home()))
         selected = fd.askdirectory(
-            title='Select Zomboid Workshop Folder',
+            title=t('Select Zomboid Workshop Folder'),
             initialdir=initial_dir,
             parent=self,
         )
@@ -4172,7 +4173,6 @@ class MainWindow(_DnDCompat, ctk.CTk):
         )
         LOGGER.exception("Unhandled Tk callback exception. See %s", crash_path, exc_info=(exc, val, tb))
         messagebox.showerror(
-            'New Music Builder Error',
-            'An unexpected error occurred.\n\n'
-            f'See: {crash_path}',
+            t('New Music Builder Error'),
+            t('An unexpected error occurred.\n\n') + f'See: {crash_path}',
         )
