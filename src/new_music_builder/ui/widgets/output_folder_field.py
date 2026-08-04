@@ -109,7 +109,7 @@ class OutputFolderField(tk.Frame):
             fg=spec.TYPEABLE_LABEL_TEXT_COLOR,
             bd=0,
             highlightthickness=0,
-            font=('Orbitron Medium', spec.TYPEABLE_LABEL_FONT_SIZE),
+            font=(spec.LABEL_CJK_FONT_FAMILY, spec.TYPEABLE_LABEL_FONT_SIZE),
             anchor='w',
             justify='left',
         )

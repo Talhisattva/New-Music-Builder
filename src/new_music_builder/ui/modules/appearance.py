@@ -4,6 +4,7 @@ import tkinter.filedialog as fd
 
 import customtkinter as ctk
 
+from new_music_builder.platform.i18n import t
 from new_music_builder.services.default_appearance_selection import preferred_default_asset_key
 from new_music_builder.ui import theme
 from new_music_builder.ui.widgets.buttons import apply_builder_button_style, make_builder_button
@@ -18,7 +19,7 @@ class AppearanceModule(ModulePanel):
     PREFERRED_WIDTH = 360
 
     def __init__(self, master, session, asset_catalog, on_change):
-        super().__init__(master, 'CUSTOMIZE APPEARANCE')
+        super().__init__(master, t('CUSTOMIZE APPEARANCE'))
         self.session = session
         self.asset_catalog = asset_catalog
         self.on_change = on_change
@@ -34,7 +35,7 @@ class AppearanceModule(ModulePanel):
     def _build(self) -> None:
         self.tabs = ctk.CTkFrame(self.body, fg_color='transparent')
         self.tabs.pack(fill='x', padx=10, pady=(10, 4))
-        kinds = [('cassette', 'Cassette'), ('vinyl', 'Vinyl'), ('cd', 'CD'), ('case', 'Case'), ('jacket', 'Jacket'), ('cd_cover', 'CD Cover')]
+        kinds = [('cassette', t('Cassette')), ('vinyl', t('Vinyl')), ('cd', t('CD')), ('case', t('Case')), ('jacket', t('Jacket')), ('cd_cover', t('CD Cover'))]
         for column in range(3):
             self.tabs.grid_columnconfigure(column, weight=1)
         for index, (kind, label) in enumerate(kinds):
@@ -48,19 +49,19 @@ class AppearanceModule(ModulePanel):
             button.grid(row=index // 3, column=index % 3, padx=3, pady=3, sticky='ew')
             self.kind_buttons[kind] = button
         self.dual_var = ctk.BooleanVar(value=False)
-        self.dual_check = make_builder_checkbox(self.body, 'Dual Sprite Full/Empty', self.dual_var)
+        self.dual_check = make_builder_checkbox(self.body, t('Dual Sprite Full/Empty'), self.dual_var)
         self.dual_check.pack(anchor='w', padx=12, pady=(0, 4))
         self.asset_grid.configure(scrollbar_button_color=theme.ACCENT, scrollbar_button_hover_color=theme.ACCENT_DARK)
         self.asset_grid.pack(fill='both', expand=True, padx=8, pady=(0, 8))
         self.body.bind('<Configure>', self._schedule_layout_refresh)
         self.custom = ctk.CTkFrame(self.body, fg_color=theme.PANEL)
         self.custom.pack(fill='x', padx=10, pady=(0, 10))
-        self.custom_label = make_builder_label(self.custom, 'Add Custom Asset Pair', text_color=theme.TEXT, size=13, weight='bold')
+        self.custom_label = make_builder_label(self.custom, t('Add Custom Asset Pair'), text_color=theme.TEXT, size=13, weight='bold')
         self.custom_label.pack(anchor='w', padx=10, pady=(10, 6))
         self.custom_buttons = ctk.CTkFrame(self.custom, fg_color='transparent')
         self.custom_buttons.pack(fill='x', padx=10, pady=(0, 10))
-        make_builder_button(self.custom_buttons, 'Pick Inventory', lambda: self._pick_custom('inventory')).pack(side='left', padx=(0, 6))
-        make_builder_button(self.custom_buttons, 'Pick World', lambda: self._pick_custom('world'), variant='secondary').pack(side='left')
+        make_builder_button(self.custom_buttons, t('Pick Inventory'), lambda: self._pick_custom('inventory')).pack(side='left', padx=(0, 6))
+        make_builder_button(self.custom_buttons, t('Pick World'), lambda: self._pick_custom('world'), variant='secondary').pack(side='left')
         self.custom_status = make_builder_label(self.custom, '', text_color=theme.MUTED, size=11)
         self.custom_status.pack(anchor='w', padx=10, pady=(0, 10))
         self._custom_pending: dict[str, str] = {}
@@ -165,7 +166,7 @@ class AppearanceModule(ModulePanel):
             'sprite_mode': selection.sprite_mode,
         })
         self._custom_pending = {}
-        self.custom_status.configure(text='Custom asset pair added to project state.')
+        self.custom_status.configure(text=t('Custom asset pair added to project state.'))
         self.on_change()
 
     def _active_row(self):

@@ -82,7 +82,7 @@ class MainButton(tk.Canvas):
             self._size[1] // 2,
             text=text,
             fill=self._colors['text'],
-            font=('Orbitron Bold', spec.MAIN_BUTTON_FONT_SIZE),
+            font=(spec.LABEL_CJK_FONT_FAMILY, spec.MAIN_BUTTON_FONT_SIZE),
             anchor='c',
         )
         self._apply_enabled_state()

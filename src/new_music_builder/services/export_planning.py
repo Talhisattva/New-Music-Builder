@@ -22,6 +22,7 @@ from new_music_builder.domain.models import (
     ResolvedAppearanceSet,
     TrackEntry,
 )
+from new_music_builder.platform.i18n import t
 from new_music_builder.services.asset_catalog import AssetEntry
 from new_music_builder.services.export_ids import unique_export_id
 from new_music_builder.services.generated_asset_registry import visible_generated_entries_for_kind
@@ -131,7 +132,7 @@ def build_export_plan(project: ProjectConfig, asset_catalog: dict[str, list[Asse
         planned_total_sides=len(planned_sides),
         planned_total_songs=sum(side.song_count for side in planned_sides),
         converted=sum(1 for side in planned_sides for track in side.tracks if track.needs_conversion),
-        mod_size_text="0 KB",
+        mod_size_text=t("0 KB"),
         errors=0,
     )
     return ExportPlan(rows=planned_rows, sides=planned_sides, stats=stats)
@@ -161,7 +162,7 @@ def _build_planned_track(
     used_track_ids: set[str],
 ) -> PlannedTrack:
     source_path = str(track.source_path or "")
-    display_label = track.display_label or Path(source_path).stem or "Track"
+    display_label = track.display_label or Path(source_path).stem or t("Track")
     track_id = unique_export_id(
         f"{side_id}_{track_number}_{display_label}",
         used_track_ids,
@@ -344,7 +345,7 @@ def _build_preview_cell(planned_row: PlannedMediaRow, side: PlannedSide, *, mode
         label_text = f"{label_text} ({side.side_display_text})"
     return GeneratedPreviewCell(
         label_text=label_text,
-        section_text="WORLD" if mode == "world" else "INVENTORY",
+        section_text=t("WORLD") if mode == "world" else t("INVENTORY"),
         song_count=side.song_count,
         duration_text=side.duration_text,
         cover_path=planned_row.cover_path,
@@ -358,7 +359,7 @@ def _build_preview_log_lines(plan: ExportPlan, output_path: str) -> list[ExportL
     lines = [
         ExportLogLine(
             timestamp=timestamp,
-            prefix_text="Build plan ready:",
+            prefix_text=t("Build plan ready:"),
             subject_text=f"{plan.stats.total_sides} sides / {plan.stats.total_songs} songs queued.",
             color_role="neutral",
         )

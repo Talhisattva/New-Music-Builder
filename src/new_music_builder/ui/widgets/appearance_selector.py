@@ -8,6 +8,7 @@ import tkinter.font as tkfont
 import customtkinter as ctk
 
 from new_music_builder.domain.models import AppearanceKind, AppearanceSelection, MediaRow
+from new_music_builder.platform.i18n import t
 from new_music_builder.services.asset_catalog import AssetEntry
 from new_music_builder.services.default_appearance_selection import preferred_default_asset_key
 from new_music_builder.ui import spec, theme
@@ -44,13 +45,13 @@ def generate_button_text_for_state(
     enabled: bool,
 ) -> str:
     if enabled:
-        return 'GENERATE FROM COVER'
+        return t('GENERATE FROM COVER')
     if locked or row is None:
-        return 'GENERATE FROM COVER'
+        return t('GENERATE FROM COVER')
     cover_path = str(row.cover_path or '').strip()
     if cover_path and Path(cover_path).is_file():
         return ''
-    return 'GENERATE FROM COVER'
+    return t('GENERATE FROM COVER')
 
 
 @dataclass(frozen=True, slots=True)
@@ -866,8 +867,8 @@ class AppearanceSelector:
         self.generate_from_cover_button.place(x=0, y=0)
         self._preview_mode_toggle = PreviewModeToggle(
             self.shell.preview_mode_pane.content,
-            left_text='INVENTORY',
-            right_text='WORLD',
+            left_text=t('INVENTORY'),
+            right_text=t('WORLD'),
             left_mode='inventory',
             right_mode='world',
             left_width=spec.MODULE_THREE_PREVIEW_MODE_INVENTORY_SIZE[0],
@@ -902,7 +903,7 @@ class AppearanceSelector:
         self.dual_custom_footer.place_forget()
 
     def _refresh_tab_tooltip_copy(self) -> None:
-        mode_label = 'Inventory' if self._preview_mode() == 'inventory' else 'World Model'
+        mode_label = t('Inventory') if self._preview_mode() == 'inventory' else t('World Model')
         for kind, binding in self._tab_tooltip_bindings.items():
             base_segments = tooltip_segments_for_id(f'module_three.tab.{kind}')
             if not base_segments:

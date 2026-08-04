@@ -14,6 +14,7 @@ from new_music_builder.domain.models import (
     ProjectConfig,
     ScaffoldResult,
 )
+from new_music_builder.platform.i18n import t
 from new_music_builder.platform.paths import assets_root
 from new_music_builder.services.asset_catalog import AssetEntry
 from new_music_builder.services.export_ids import sanitize_module_id
@@ -35,37 +36,37 @@ def validate_export_request(project: ProjectConfig, plan: ExportPlan) -> list[st
     mod_id = (project.mod_id or "").strip()
 
     if not ogg_folder:
-        errors.append(".ogg Output Folder is required before Build & Export can run.")
+        errors.append(t(".ogg Output Folder is required before Build & Export can run."))
     else:
         ogg_path = Path(ogg_folder)
         if not ogg_path.exists() or not ogg_path.is_dir():
-            errors.append(".ogg Output Folder must exist and be a valid directory.")
+            errors.append(t(".ogg Output Folder must exist and be a valid directory."))
 
     if not workshop_folder:
-        errors.append("Workshop folder is required before Build & Export can run.")
+        errors.append(t("Workshop folder is required before Build & Export can run."))
     else:
         workshop_path = Path(workshop_folder)
         if not workshop_path.exists() or not workshop_path.is_dir():
-            errors.append("Workshop folder must exist and be a valid directory.")
+            errors.append(t("Workshop folder must exist and be a valid directory."))
 
     if not mod_name:
-        errors.append("Mod Name is required before Build & Export can run.")
+        errors.append(t("Mod Name is required before Build & Export can run."))
     if not mod_id:
-        errors.append("Mod ID is required before Build & Export can run.")
+        errors.append(t("Mod ID is required before Build & Export can run."))
     elif " " in mod_id:
-        errors.append("Mod ID cannot contain spaces.")
+        errors.append(t("Mod ID cannot contain spaces."))
 
     if not plan.sides:
-        errors.append("At least one media side with songs is required before Build & Export can run.")
+        errors.append(t("At least one media side with songs is required before Build & Export can run."))
 
     return errors
 
 
 def resolve_export_target(plan: ExportPlan, workshop_root: str | Path, *, mod_name: str, mod_id: str) -> ExportTargetPaths:
     workshop_path = Path(workshop_root).resolve()
-    outer_folder_name = sanitize_filesystem_component(mod_name, fallback="New Music Pack")
-    inner_folder_name = sanitize_filesystem_component(mod_id, fallback="NewMusicPack")
-    audio_pack_folder_name = sanitize_module_id(mod_id, fallback="NewMusicPack")
+    outer_folder_name = sanitize_filesystem_component(mod_name, fallback=t("New Music Pack"))
+    inner_folder_name = sanitize_filesystem_component(mod_id, fallback=t("NewMusicPack"))
+    audio_pack_folder_name = sanitize_module_id(mod_id, fallback=t("NewMusicPack"))
     root = workshop_path / outer_folder_name
     contents = root / "Contents"
     mods_root = contents / "mods"
@@ -140,7 +141,7 @@ def _write_mod_info(project: ProjectConfig, target: Path) -> None:
         f"id={(project.mod_id or '').strip()}",
         "versionMin=42.13",
         "icon=icon.png",
-        "description=Generated with New Music Builder",
+        "description={}".format(t("Generated with New Music Builder")),
         f"author={(project.author or '').strip()}",
     ]
     parent_mod_id = (project.parent_mod_id or "").strip()
@@ -307,7 +308,7 @@ def _wrap_text(
 ) -> list[str]:
     words = text.strip().split()
     if not words:
-        return [text.strip() or "Untitled"]
+        return [text.strip() or t("Untitled")]
 
     expanded_words: list[str] = []
     for word in words:
@@ -376,7 +377,7 @@ def _apply_mod_name_overlay(image: Image.Image, mod_name: str) -> Image.Image:
         width - margin,
         height - margin,
     )
-    text = (mod_name or "").strip() or "Untitled"
+    text = (mod_name or "").strip() or t("Untitled")
     inner = max(6, width // 24) if compact_preview else max(14, width // 40)
     max_width = max(24, (box[2] - box[0]) - inner * 2)
     max_height = max(18, (box[3] - box[1]) - inner * 2)
@@ -500,7 +501,7 @@ def _format_size_text(size_bytes: int) -> str:
 def _success_log_lines(output_root: Path, mod_size_text: str, texture_file_count: int) -> list[ExportLogLine]:
     timestamp = datetime.now().strftime("%H:%M:%S")
     lines = [
-        ExportLogLine(timestamp=timestamp, prefix_text="Exporting scaffold to:", color_role="neutral"),
+        ExportLogLine(timestamp=timestamp, prefix_text=t("Exporting scaffold to:"), color_role="neutral"),
         ExportLogLine(timestamp="", prefix_text=str(output_root), color_role="neutral"),
     ]
     if texture_file_count:
@@ -514,7 +515,7 @@ def _success_log_lines(output_root: Path, mod_size_text: str, texture_file_count
     lines.append(
         ExportLogLine(
             timestamp=datetime.now().strftime("%H:%M:%S"),
-            prefix_text="Export scaffold complete.",
+            prefix_text=t("Export scaffold complete."),
             trailing_text=f"Size: {mod_size_text}",
             color_role="done",
         )
@@ -524,7 +525,7 @@ def _success_log_lines(output_root: Path, mod_size_text: str, texture_file_count
 
 def _error_log_lines(output_root: Path, errors: list[str]) -> list[ExportLogLine]:
     lines = [
-        ExportLogLine(timestamp=datetime.now().strftime("%H:%M:%S"), prefix_text="Export failed.", color_role="error"),
+        ExportLogLine(timestamp=datetime.now().strftime("%H:%M:%S"), prefix_text=t("Export failed."), color_role="error"),
     ]
     if output_root:
         lines.append(ExportLogLine(timestamp="", prefix_text=str(output_root), color_role="error"))
@@ -553,7 +554,7 @@ def build_validation_log_lines(errors: list[str]) -> list[ExportLogLine]:
     lines = [
         ExportLogLine(
             timestamp=datetime.now().strftime("%H:%M:%S"),
-            prefix_text="Build & Export could not start.",
+            prefix_text=t("Build & Export could not start."),
             color_role="error",
         )
     ]

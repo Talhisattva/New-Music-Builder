@@ -4,6 +4,7 @@ from collections.abc import Callable
 import tkinter as tk
 
 from new_music_builder.domain.models import MediaRow
+from new_music_builder.platform.i18n import t
 from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.images import load_tk_photoimage
 
@@ -43,7 +44,7 @@ class RowModeSwitch(tk.Frame):
         )
         self.left_label = tk.Label(
             self,
-            text="MIXTAPE",
+            text=t("MIXTAPE"),
             bg=resolved_bg,
             bd=0,
             highlightthickness=0,
@@ -53,7 +54,7 @@ class RowModeSwitch(tk.Frame):
         )
         self.right_label = tk.Label(
             self,
-            text="SINGLES",
+            text=t("SINGLES"),
             bg=resolved_bg,
             bd=0,
             highlightthickness=0,

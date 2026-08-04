@@ -5,6 +5,7 @@ import tkinter as tk
 import tkinter.font as tkfont
 
 from new_music_builder.domain.models import BuildSummaryStats
+from new_music_builder.platform.i18n import t
 from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.images import load_tk_photoimage
 from new_music_builder.ui.widgets.module_six_stats_table import ModuleSixStatsTable
@@ -21,8 +22,8 @@ class _BuildStatusCard(tk.Canvas):
             highlightthickness=0,
         )
         self._icon = load_tk_photoimage(icon_path, spec.MODULE_SIX_BUTTON_COMPLETE_ICON_SIZE)
-        self._title_text = 'BUILD COMPLETE'
-        self._summary_text = '0/0 Media - 0 Songs'
+        self._title_text = t('BUILD COMPLETE')
+        self._summary_text = t('0/0 Media - 0 Songs')
         self._state: str = 'idle'
         self._title_font = tkfont.Font(
             family=spec.MODULE_SIX_BUTTON_COMPLETE_TITLE_FONT_FAMILY,
@@ -35,7 +36,7 @@ class _BuildStatusCard(tk.Canvas):
         self._draw()
 
     def set_stats(self, stats: BuildSummaryStats) -> None:
-        self._title_text = 'BUILD ERROR' if stats.errors else 'BUILD COMPLETE'
+        self._title_text = t('BUILD ERROR') if stats.errors else t('BUILD COMPLETE')
         total_media = stats.planned_media_rows or stats.media_rows
         total_songs = stats.planned_total_songs or stats.total_songs
         self._summary_text = f'{stats.exported_media_rows}/{total_media} Media - {stats.built_songs}/{total_songs} Songs'
@@ -43,8 +44,8 @@ class _BuildStatusCard(tk.Canvas):
         self._draw()
 
     def reset(self) -> None:
-        self._title_text = 'BUILD COMPLETE'
-        self._summary_text = '0/0 Media - 0 Songs'
+        self._title_text = t('BUILD COMPLETE')
+        self._summary_text = t('0/0 Media - 0 Songs')
         self._state = 'idle'
         self._draw()
 
@@ -259,7 +260,7 @@ class ModuleSixPanel(tk.Frame):
             hover_bg_color=spec.MODULE_ACTION_HEADER_HOVER_BG,
             pressed_bg_color=spec.MODULE_ACTION_HEADER_PRESSED_BG,
             border_color=None,
-            text='OPEN OUTPUT FOLDER',
+            text=t('OPEN OUTPUT FOLDER'),
             text_color=spec.MODULE_SIX_BUTTON_OPEN_TEXT_COLOR,
             font=(
                 spec.MODULE_SIX_BUTTON_OPEN_FONT_FAMILY,
@@ -282,7 +283,7 @@ class ModuleSixPanel(tk.Frame):
             hover_bg_color=spec.MODULE_SIX_BUTTON_RESET_HOVER_BG,
             pressed_bg_color=spec.MODULE_SIX_BUTTON_RESET_PRESSED_BG,
             border_color=spec.MODULE_SIX_BUTTON_RESET_BORDER_COLOR,
-            text='RESET',
+            text=t('RESET'),
             text_color=spec.MODULE_SIX_BUTTON_RESET_TEXT_COLOR,
             font=(
                 spec.MODULE_SIX_BUTTON_RESET_FONT_FAMILY,

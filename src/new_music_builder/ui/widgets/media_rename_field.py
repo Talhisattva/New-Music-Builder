@@ -6,6 +6,7 @@ import tkinter as tk
 import tkinter.font as tkfont
 
 from new_music_builder.domain.models import MediaRow
+from new_music_builder.platform.i18n import t
 from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.images import load_tk_photoimage
 from new_music_builder.ui.widgets.text_edit_bindings import bind_standard_text_shortcuts
@@ -13,8 +14,8 @@ from new_music_builder.ui.widgets.text_edit_bindings import bind_standard_text_s
 
 def canonical_media_name(row_id: int, value: str) -> str:
     trimmed = value.strip()
-    default_name = f'Media Mix {row_id}'
-    legacy_default = f'Media Row {row_id}'
+    default_name = f"{t('Media Mix')} {row_id}"
+    legacy_default = f"{t('Media Row')} {row_id}"
     if not trimmed or trimmed == legacy_default:
         return default_name
     return trimmed

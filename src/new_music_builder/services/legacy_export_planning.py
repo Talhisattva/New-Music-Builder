@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from new_music_builder.platform.i18n import t
+
 from new_music_builder.domain.models import (
     BuildSummaryStats,
     ExportPlan,
@@ -39,7 +41,7 @@ def build_legacy_export_plan(
         tracks = list(source_row.tracks_a)
         for track_index, track in enumerate(tracks, start=1):
             exported_row_id += 1
-            media_name = track.display_label or Path(track.source_path).stem or f"Track {track_index}"
+            media_name = track.display_label or Path(track.source_path).stem or f"{t('Track')} {track_index}"
             row_export_id = _build_legacy_export_id(
                 media_name,
                 used_ids=used_row_ids,
@@ -77,7 +79,7 @@ def build_legacy_export_plan(
                 side_id=row_export_id,
                 export_folder_name="",
                 export_relative_dir="",
-                queue_label="Singles",
+                queue_label=t("Singles"),
                 show_side_suffix=False,
                 side_display_text="",
                 tracks=[planned_track],

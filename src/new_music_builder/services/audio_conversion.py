@@ -8,6 +8,7 @@ import numpy as np
 import soundfile as sf
 
 from new_music_builder.domain.models import PlannedAudioWorkItem
+from new_music_builder.platform.i18n import t
 from new_music_builder.services.audio_profile import snap_compression_quality
 from new_music_builder.services.cancelable_file_copy import copy_file_with_cancel
 from new_music_builder.services.export_cancellation import ExportAbortedError
@@ -33,10 +34,10 @@ def ensure_cached_ogg(
             emit_progress=emit_progress,
             cancel_requested=cancel_requested,
         )
-        emit_progress(100, "Copied source .ogg.")
+        emit_progress(100, t("Copied source .ogg."))
         return False
     if item.action != "convert_to_ogg":
-        raise RuntimeError(item.reason or "Unsupported audio action.")
+        raise RuntimeError(item.reason or t("Unsupported audio action."))
     _convert_to_cached_ogg(item, cache_path, emit_progress=emit_progress, cancel_requested=cancel_requested)
     return True
 
@@ -50,14 +51,14 @@ def _copy_source_to_cache(
 ) -> None:
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     if cache_path.exists():
-        emit_progress(100, "Using cached source .ogg.")
+        emit_progress(100, t("Using cached source .ogg."))
         return
     copy_file_with_cancel(
         source_path,
         cache_path,
         cancel_requested=cancel_requested,
         emit_progress=emit_progress,
-        progress_message="Caching source .ogg...",
+        progress_message=t("Caching source .ogg..."),
     )
 
 
@@ -70,13 +71,13 @@ def _convert_to_cached_ogg(
 ) -> None:
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     if cache_path.exists():
-        emit_progress(100, "Using cached conversion.")
+        emit_progress(100, t("Using cached conversion."))
         return
 
     _raise_if_cancelled(cancel_requested)
-    emit_progress(5, "Decoding source audio...")
+    emit_progress(5, t("Decoding source audio..."))
     pcm = _decode_audio(Path(item.source_path), target_rate=item.sample_rate, target_channels=2)
-    emit_progress(35, "Preparing PCM data...")
+    emit_progress(35, t("Preparing PCM data..."))
     _write_ogg_vorbis(
         cache_path,
         pcm,
@@ -104,7 +105,7 @@ def _decode_audio(source: Path, *, target_rate: int, target_channels: int) -> np
     if sample_rate != target_rate:
         pcm = _resample_pcm(pcm, sample_rate, target_rate)
     if pcm.size == 0:
-        raise RuntimeError("Decoded audio is empty.")
+        raise RuntimeError(t("Decoded audio is empty."))
     return np.ascontiguousarray(pcm.astype(np.float32, copy=False))
 
 
@@ -129,11 +130,11 @@ def _decode_with_miniaudio(
     sample_rate = int(getattr(decoded, "sample_rate", 0) or 0)
     channels = int(getattr(decoded, "nchannels", 0) or 0)
     if sample_rate <= 0 or channels <= 0:
-        raise RuntimeError("Decoded audio metadata is invalid.")
+        raise RuntimeError(t("Decoded audio metadata is invalid."))
 
     pcm = np.frombuffer(decoded.samples, dtype=np.int16).astype(np.float32)
     if pcm.size == 0:
-        raise RuntimeError("Decoded audio is empty.")
+        raise RuntimeError(t("Decoded audio is empty."))
     pcm = pcm.reshape(-1, channels)
     pcm /= 32768.0
     return _reshape_channels(pcm, target_channels), sample_rate
@@ -201,14 +202,14 @@ def _write_ogg_vorbis(
                 out_sf.write(chunk)
                 written_frames = min(total_frames, frame_index + chunk.shape[0])
                 percent = 35 + int(round((written_frames / total_frames) * 65))
-                emit_progress(min(100, max(35, percent)), "Converting song...")
+                emit_progress(min(100, max(35, percent)), t("Converting song..."))
     except ExportAbortedError:
         try:
             target.unlink(missing_ok=True)
         except OSError:
             pass
         raise
-    emit_progress(100, "Conversion complete.")
+    emit_progress(100, t("Conversion complete."))
 
 
 def _prepare_vorbis_pcm(pcm: np.ndarray) -> np.ndarray:
@@ -223,7 +224,7 @@ def _prepare_vorbis_pcm(pcm: np.ndarray) -> np.ndarray:
 
 def _raise_if_cancelled(cancel_requested: CancelCheck | None) -> None:
     if cancel_requested is not None and cancel_requested():
-        raise ExportAbortedError("Build aborted by user.")
+        raise ExportAbortedError(t("Build aborted by user."))
 
 
 def _coalesced_progress_emitter(emit_progress: ProgressCallback) -> ProgressCallback:

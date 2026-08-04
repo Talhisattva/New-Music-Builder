@@ -1,0 +1,591 @@
+{
+  "__comment": "New Music Builder - Simplified Chinese (zh_CN) Translation",
+
+  "NEW MUSIC BUILDER": "NEW MUSIC BUILDER",
+  "TALISMON": "TALISMON",
+
+  "FILE": "文件",
+  "PREFERENCES": "偏好",
+  "HELP": "帮助",
+
+  "New": "新建",
+  "(Ctrl + N)": "(Ctrl + N)",
+  "Open": "打开",
+  "(Ctrl + O)": "(Ctrl + O)",
+  "Save": "保存",
+  "(Ctrl + S)": "(Ctrl + S)",
+  "Save As...": "另存为...",
+  "(Ctrl + Shift + S)": "(Ctrl + Shift + S)",
+  "Exit": "退出",
+  "(Ctrl + Q)": "(Ctrl + Q)",
+
+  "Audio Settings": "音频设置",
+  "(Ctrl + P)": "(Ctrl + P)",
+
+  "Tutorial": "教程",
+  "(Ctrl + H)": "(Ctrl + H)",
+
+  "Automatic Textures": "自动纹理",
+  "Regenerate on Load": "加载时重新生成",
+  "Tooltips": "工具提示",
+
+  "PHASE 1 : MOD SETUP": "阶段 1 : 模组设置",
+  "PHASE 2 : MEDIA CREATION": "阶段 2 : 媒体制作",
+  "PHASE 2 : APPERANCE": "阶段 2 : 外观定制",
+  "PHASE 3 : BUILD & EXPORT": "阶段 3 : 构建导出",
+  "BUILD SUMMARY": "构建摘要",
+
+  "Mod Name": "模组名称",
+  "Mod ID": "模组 ID",
+  "Parent ID": "父级 ID",
+  "Author": "作者",
+  ".ogg Output Folder": ".ogg 输出文件夹",
+  "Zomboid Workshop Folder": "Zomboid 工坊文件夹",
+
+  "SAVE": "保存",
+  "OPEN": "打开",
+  "RESET": "重置",
+
+  "CLICK TO EXPORT": "点击导出",
+  "CLICK TO ABORT EXPORT": "点击取消导出",
+
+  "Tutorial coming soon.": "教程即将上线，敬请期待。",
+
+  "Image Files": "图片文件",
+  "PNG Files": "PNG 文件",
+  "JPEG Files": "JPEG 文件",
+  "All Files": "所有文件",
+  "Audio Files": "音频文件",
+
+  "Open File Dialog Failed": "打开文件对话框失败",
+  "Could not open the file browser. Please try again or check your system permissions.": "无法打开文件浏览器。请重试或检查系统权限。",
+
+  "Select Workshop Poster Image": "选择工坊海报图片",
+
+  "Add Song(s)": "添加歌曲",
+  "Start New Project": "新建项目",
+  "Reset Project": "重置项目",
+  "Are you sure you want to reset to default? Any unsaved changes will be lost.": "确定要重置为默认设置吗？所有未保存的更改都将丢失。",
+  "YES": "是",
+  "CANCEL": "取消",
+
+  "New Music Builder Project": "New Music Builder 项目",
+  "JSON": "JSON",
+
+  "Load Project Failed": "加载项目失败",
+  "Could not load project.": "无法加载项目。",
+
+  "Overwrite Existing Mod": "覆盖已有模组",
+  "This build will overwrite an existing mod. Proceed?": "本次构建将覆盖已有模组。是否继续？",
+
+  "Output Folder": "输出文件夹",
+  "Select .ogg Output Folder": "选择 .ogg 输出文件夹",
+  "Select Zomboid Workshop Folder": "选择 Zomboid 工坊文件夹",
+
+  "New Music Builder Error": "New Music Builder 错误",
+  "An unexpected error occurred.\n\n": "发生了意外错误。\n\n",
+
+  "New Music Builder failed to start.\n\nSee: ": "New Music Builder 启动失败。\n\n详见: ",
+  "New Music Builder Startup Error": "New Music Builder 启动错误",
+
+  "Dual Sprite Full/Empty": "双精灵 满/空",
+  "GENERATE FROM COVER": "从封面生成",
+  "Write Mod Name on Workshop Poster": "在工坊海报上写入模组名称",
+
+  "ITEM": "项目",
+  "SONG": "歌曲",
+  "PROGRESS": "进度",
+  "STATUS": "状态",
+  "OGG": "OGG",
+  "SONG NAME": "歌曲名称",
+  "LENGTH": "时长",
+
+  "Live Preview": "实时预览",
+
+  "GENERATED ITEM PREVIEW": "生成物品预览",
+
+  "Sample Rate": "采样率",
+  "Enter project sample rate": "请输入项目采样率",
+  "32000 Hz": "32000 Hz",
+  "44100 Hz": "44100 Hz",
+  "48000 Hz": "48000 Hz",
+
+  "Audio Compression Quality": "音频压缩质量",
+  "Slide to adjust audio compression quality.": "拖动滑块来调整音频压缩质量。",
+
+  "Re-encode existing .ogg files": "重新编码已有的 .ogg 文件",
+
+  "OK": "确定",
+
+  "+ Add Media Row": "+ 添加媒体行",
+  "- Remove Row": "- 删除行",
+
+  "+ Add Songs": "+ 添加歌曲",
+  "- Remove Songs": "- 删除歌曲",
+
+  "A-Side": "A面",
+  "B-side": "B面",
+
+  "Inventory": "物品栏",
+  "World": "世界模型",
+
+  "MEDIA": "介质",
+  "CASE": "盒子",
+
+  "MIXTAPE": "合辑",
+  "SINGLES": "单曲",
+
+  "BUILD COMPLETE": "构建完成",
+  "BUILD ERROR": "构建错误",
+  "OPEN OUTPUT FOLDER": "打开输出文件夹",
+
+  "Media Rows": "媒体行数",
+  "Total Sides": "总面数",
+  "Total Songs": "总歌曲数",
+  "Converted": "已转码",
+  "Mod Size": "模组大小",
+  "Errors": "错误数",
+
+  "QUEUED": "排队中",
+  "DONE": "完成",
+  "CONVERTING": "转码中",
+  "ERROR": "错误",
+
+  "INVENTORY": "物品栏",
+  "WORLD": "世界",
+
+  "Add Custom": "添加自定义",
+  "ADD CUSTOM": "添加自定义",
+
+  "FULL": "满",
+  "EMPTY": "空",
+
+  "Cassette": "卡带",
+  "Vinyl": "黑胶唱片",
+  "CD": "CD",
+  "Case": "卡带盒",
+  "Jacket": "唱片套",
+  "CD Case": "CD 盒",
+  "CD Cover": "CD 封面",
+
+  "Singles": "单曲",
+  "Mixtape": "合辑",
+
+  "Lowest": "最低",
+  "Low": "低",
+  "Medium": "中",
+  "High": "高",
+  "Highest": "最高",
+
+  "New Album": "新建专辑",
+  "NewMusic": "NewMusic",
+
+  "Dual Sprite Full/Empty.": "双精灵 满/空。",
+
+  "New Music Pack": "新建音乐包",
+  "NewMusicPack": "NewMusicPack",
+
+  ".ogg Output Folder is required before Build & Export can run.": "构建导出前需要设置 .ogg 输出文件夹。",
+  ".ogg Output Folder must exist and be a valid directory.": ".ogg 输出文件夹必须存在且为有效目录。",
+  "Workshop folder is required before Build & Export can run.": "构建导出前需要设置工坊文件夹。",
+  "Workshop folder must exist and be a valid directory.": "工坊文件夹必须存在且为有效目录。",
+  "Mod Name is required before Build & Export can run.": "构建导出前需要填写模组名称。",
+  "Mod ID is required before Build & Export can run.": "构建导出前需要填写模组 ID。",
+  "Mod ID cannot contain spaces.": "模组 ID 不能包含空格。",
+  "At least one media side with songs is required before Build & Export can run.": "构建导出前至少需要一面包含歌曲。",
+
+  "description=Generated with New Music Builder": "description=由 New Music Builder 生成",
+
+  "Untitled": "未命名",
+
+  "Exporting scaffold to:": "正在导出脚手架到:",
+  "Export scaffold complete.": "脚手架导出完成。",
+  "Export failed.": "导出失败。",
+  "Build & Export could not start.": "构建导出无法启动。",
+
+  "Preparing export...": "正在准备导出...",
+  "Writing export scaffold...": "正在写入导出脚手架...",
+  "Build aborted by user.": "用户取消了构建。",
+
+  "Cover image was not provided.": "未提供封面图片。",
+  "Donor cassette shell was unavailable.": "卡带模板不可用。",
+  "Donor cassette world shell was unavailable.": "卡带世界模型模板不可用。",
+
+  "Missing source path.": "缺少源文件路径。",
+  "Source file is missing.": "源文件丢失。",
+  "Re-encoding existing .ogg to match audio settings.": "正在按音频设置重新编码已有的 .ogg 文件。",
+  "Source audio is already .ogg.": "源音频已是 .ogg 格式。",
+  "Source audio requires conversion.": "源音频需要转码。",
+  "Unsupported audio format.": "不支持的音频格式。",
+
+  "Audio export run complete.": "音频导出运行完成。",
+  "Copying exported song...": "正在复制导出的歌曲...",
+  "Exported song.": "歌曲已导出。",
+  "Side complete.": "处理完成。",
+
+  "Copied source .ogg.": "已复制源 .ogg 文件。",
+  "Unsupported audio action.": "不支持的音频操作。",
+  "Using cached source .ogg.": "正在使用缓存的 .ogg 文件。",
+  "Caching source .ogg...": "正在缓存 .ogg 源文件...",
+  "Using cached conversion.": "正在使用缓存的转码文件。",
+  "Decoding source audio...": "正在解码源音频...",
+  "Preparing PCM data...": "正在准备 PCM 数据...",
+  "Decoded audio is empty.": "解码后的音频为空。",
+  "Decoded audio metadata is invalid.": "解码后的音频元数据无效。",
+  "Converting song...": "正在转码歌曲...",
+  "Conversion complete.": "转码完成。",
+
+  "Copying file...": "正在复制文件...",
+
+  "Build plan ready:": "构建方案就绪:",
+
+  "Unknown export error: emitted pack is empty (0 KB). Please try different songs or images.": "未知导出错误: 生成的包为空 (0 KB)。请尝试更换歌曲或图片。",
+  "0 KB": "0 KB",
+
+  "Track": "曲目",
+
+  "Select ": "选择 ",
+  "Steam Workshop": "Steam 工坊",
+  " Preview. ": " 预览。 ",
+  "Drag and Drop": "拖放",
+
+  "example: \"": "示例: \"",
+
+  "Must remain \"": "必须保持为 \"",
+  "\" for loot distribution.": "\" 以确保掉落分布。",
+  "Change at your own risk": "修改风险自负",
+
+  "Location for audio that is converted to ": "音频转换为 ",
+  " on build": " 的存储位置",
+  "Check preferences for encoding settings": "检查偏好中的编码设置",
+
+  "Location for ": "用于 ",
+  " staging folder.": " 暂存文件夹的位置。",
+  "Automatically Aquired": "自动获取",
+
+  " the current project to file.": "当前项目到文件。",
+  " an existing project file.": "已有项目文件。",
+
+  "Add a ": "添加一个 ",
+  "media item": "媒体项目",
+  " row to this pack.": "行到此包。",
+  "Click the number to expand": "点击编号展开",
+
+  "Remove selected ": "移除选中的 ",
+  "media item(s)": "媒体项目",
+  " from this pack.": "从此包中。",
+  "Ctrl + Click or Shift + Click collapsed rows": "Ctrl + 点击或 Shift + 点击折叠行",
+
+  " for media item row. ": "为媒体项目行选择。 ",
+  "Automatic Textures created on upload": "上传时自动创建纹理",
+
+  "Name": "名称",
+  " of media item.": "的媒体项目。",
+  "Double Click to Rename": "双击重命名",
+
+  "Shows ": "显示 ",
+  " song list": "歌曲列表",
+
+  " Enabled.": " 已启用。",
+
+  "Click to enable ": "点击启用 ",
+  " media for this row.": " 为此行启用。",
+  "Includes a Case": "包含卡带盒",
+  "Includes a Jacket": "包含唱片套",
+
+  "Song List:": "歌曲列表:",
+  " Click header to Sort.": " 点击表头排序。",
+  "Or Drag and Drop song rows": "或拖放歌曲行",
+
+  "Song(s)": "歌曲",
+  " to this media row side.": "到此媒体行。",
+  "Or Drag and Drop onto table": "或拖放到表格",
+
+  " from this media row side.": "从此媒体行。",
+  "Or use Delete key with selection": "或选中后按 Delete 键",
+
+  "Selected media row ": "选中媒体行的 ",
+  "Textures": "纹理",
+  "Select between Inventory sprite and World model texture": "在物品栏精灵和世界模型纹理之间选择",
+
+  "Click to ": "点击 ",
+  "Expand": "展开",
+  " and ": "并 ",
+  "Edit": "编辑",
+  " a media row.": "媒体行。",
+  "Shows order #": "显示排序编号",
+
+  " textures.": "纹理。",
+  "For inventory and world model": "用于物品栏和世界模型",
+
+  "Cassette Case": "卡带盒",
+  "Vinyl Jacket": "唱片套",
+  "CD Cases": "CD 盒",
+
+  "Select between ": "在 ",
+  " textures and ": "纹理与 ",
+  " model textures.": "模型纹理之间选择。",
+
+  "Enable ": "启用 ",
+  " and ": "和 ",
+  " upload mode for custom case textures.": "上传模式用于自定义盒子纹理。",
+  "Swaps between two sprite sets in-game": "游戏中在两个精灵组之间切换",
+
+  "Generate ": "生成 ",
+  "World": "世界模型",
+  " textures from media row ": "纹理，来自媒体行 ",
+  "Cover": "封面",
+
+  "Upload ": "上传 ",
+  " texture.": "纹理。",
+  " texture for ": "纹理，用于 ",
+  " case item.": "盒子物品。",
+
+  "Click to add ": "点击添加 ",
+  "Custom Textures": "自定义纹理",
+  " to grid.": "到网格。",
+
+  " custom texture uploader.": "自定义纹理上传器。",
+
+  "Build": "构建",
+  "Export": "导出",
+  " music pack mod.": "音乐包模组。",
+  "This will start the audio conversion process": "这将启动音频转码过程",
+
+  " the project to ": "项目到 ",
+  "Default": "默认",
+  "Unsaved changes to the current project will be lost.": "未保存的更改将丢失。",
+
+  "Adjust export ": "调整导出 ",
+  "Sample Rate": "采样率",
+  "Compressison Quality": "压缩质量",
+  ".ogg Encoding": ".ogg 编码",
+  "Settings retained across all projects": "设置跨所有项目保留",
+
+  "Automatically generates supported ": "自动生成支持的 ",
+  " from ": "来自 ",
+  "Cover Art": "封面图",
+
+  "If enabled, all media rows will regenerate their ": "启用后，所有媒体行将从选定的封面中重新生成 ",
+  " from the selected covers.": "",
+  "If disabled, reselect an image to regenerate its textures": "禁用后，需要重新选择图片来重新生成纹理",
+
+  "Show or hide ": "显示或隐藏 ",
+  "Text Tooltips": "文本提示",
+  "Image preview tooltips remain visible": "图片预览提示保持可见",
+
+  " set to ": " 设为 ",
+  " mode.": " 模式。",
+  "FULL": "合并",
+  "FLIP": "分离",
+  "Side A and Side B will be combined ": "A面和B面将合并",
+  "Side A and Side B will be separate.": "A面和B面将分开。",
+
+  ": exports each song as its own item.": ": 每首歌导出为独立物品。",
+  ": exports songs as dynamic playlist in a single item.": ": 歌曲导出为一个物品内的动态播放列表。",
+
+  "Bundled font missing: %s": "内置字体缺失: %s",
+  "Failed to register bundled font: %s": "注册内置字体失败: %s",
+
+  "\"NewMusic\"": "\"NewMusic\"",
+
+  "New Music Builder v0.4.3": "New Music Builder v0.4.3",
+
+  "Select {slot} Texture": "选择{slot}纹理",
+  "Select Cover Image For Media Row {row_id}": "为媒体行 {row_id} 选择封面",
+
+  "A-Side (": "A面 (",
+  "B-Side (": "B面 (",
+  ")": ")",
+  " Songs": " 首歌曲",
+  "0 Songs": "0 首歌曲",
+  "Duration: ": "时长: ",
+  "00:00:00": "00:00:00",
+
+  "Custom ": "自定义 ",
+
+  "v": "▼",
+
+  "X": "X",
+
+  "Browse": "浏览",
+
+  "WORKSHOP POSTER": "工坊海报",
+  "Click To Pick Poster": "点击选择海报",
+  "Click to choose the Workshop preview/poster image for this project.": "点击为此项目选择工坊预览/海报图片。",
+  "Write Name\nOn Mod Poster": "将名称\n写入模组海报",
+
+  "OGG Output Folder": "OGG 输出文件夹",
+  "Zomboid Workshop Folder": "Zomboid 工坊文件夹",
+
+  "✓ DETECTED": "✓ 已检测到",
+
+  "PHASE 1: MOD SETUP": "阶段 1: 模组设置",
+  "PHASE 2: MEDIA CREATION": "阶段 2: 媒体制作",
+
+  "Click to add a new media row to your project.": "点击添加新的媒体行到项目中。",
+  "X Remove Media Row": "X 删除媒体行",
+  "Remove the current expanded active media row.": "删除当前展开的活动媒体行。",
+
+  "Cas": "卡",
+  "Vin": "黑",
+  "No Media": "无介质",
+
+  "ARTWORK": "美术资源",
+  "Pick Cover": "选择封面",
+
+  "MEDIA DETAILS": "媒体详情",
+  "Side": "面",
+  "LIVE PREVIEW": "实时预览",
+  "Enable media types to preview selected art.": "启用的介质类型即可预览选中的美术资源。",
+  "SIDE TRACKS": "面曲目",
+  "Empty Track": "空曲目",
+  "--:--": "--:--",
+  "- Clear Side": "- 清空",
+
+  "CUSTOMIZE APPEARANCE": "自定义外观",
+  "Add Custom Asset Pair": "添加自定义资源对",
+  "Pick Inventory": "选择物品栏",
+  "Pick World": "选择世界",
+
+  "QUEUE / PROGRESS": "队列 / 进度",
+  "BUILD LOG": "构建日志",
+
+  "CANCEL / RESET": "取消 / 重置",
+  "Build has not started yet.": "构建尚未开始。",
+  "{media_name} (Side {side_name})": "{media_name} (面 {side_name})",
+  "{songs} songs queued": "{songs} 首歌曲已排队",
+
+  "Custom asset pair added to project state.": "自定义资源对已添加到项目。",
+  "{which} selected: {selected}": "已选择 {which}: {selected}",
+
+  "New Music Builder v{__version__}": "New Music Builder v{__version__}",
+
+  "Select Texture": "选择纹理",
+  "Custom": "自定义",
+  "Start New Project": "新建项目",
+
+  "Are you sure you want to start a new project? Any unsaved changes will be lost.": "确定要新建项目吗？所有未保存的更改都将丢失。",
+
+  "QUEUED ": "排队中 ",
+  "DONE ": "完成 ",
+  "CONVERTING ": "转码中 ",
+  "ERROR ": "错误 ",
+
+  "Export scaffold complete. Size: ": "脚手架导出完成。大小: ",
+
+  "Cover": "封面",
+  "Select ": "选择 ",
+  "Steam Workshop Preview": "Steam 工坊预览",
+  "Cassette Case": "卡带盒",
+
+  "Full": "满",
+  "Empty": "空",
+
+  "Browse...": "浏览...",
+
+  " Confirm": " 确认",
+
+  "Module 1: Mod Setup": "模块 1: 模组设置",
+  "Module 2: Media Creation": "模块 2: 媒体制作",
+  "Module 3: Appearance": "模块 3: 外观",
+  "Module 4: Build & Export": "模块 4: 构建与导出",
+
+  "description=[h2]{name}[/h2]": "description=[h2]{name}[/h2]",
+  "description=[td][i]MADE FOR:[/i] [b]NEW MUSIC [42+][/b][/td]": "description=[td][i]创建用于:[/i] [b]NEW MUSIC [42+][/b][/td]",
+  "description=[td][i]GENERATED BY:[/i] [b]NEW MUSIC BUILDER[/b][/td]": "description=[td][i]由以下工具生成:[/i] [b]NEW MUSIC BUILDER[/b][/td]",
+  "description=[b]Singles[/b]: Each song is its own item.": "description=[b]单曲模式[/b]: 每首歌是独立物品。",
+  "description=[b]Mixtape[/b]: Dynamic playlist on one item.": "description=[b]合辑模式[/b]: 一个物品内的动态播放列表。",
+
+  "[b]Singles[/b]": "[b]单曲[/b]",
+  "[b]Mixtape[/b]": "[b]合辑[/b]",
+
+  "[b]Singles[/b] [i]Single Item[/i]": "[b]单曲[/b] [i]单个物品[/i]",
+  "[b]Full Album[/b]": "[b]完整专辑[/b]",
+
+  "{mode_label} [i]Single Item[/i]": "{mode_label} [i]单个物品[/i]",
+  "{mode_label} [b]Full Album[/b]": "{mode_label} [b]完整专辑[/b]",
+  "{mode_label} [b]Side {side}[/b]": "{mode_label} [b]{side}面[/b]",
+
+  "Track {track_index}": "曲目 {track_index}",
+  "LegacyTrack{exported_row_id}": "LegacyTrack{exported_row_id}",
+  "MediaRow{row_id}": "MediaRow{row_id}",
+
+  "Conflicting texture sources for {target_relative_path}.": "{target_relative_path} 的纹理源存在冲突。",
+  "Missing custom texture source for {description}: {path}": "{description} 缺少自定义纹理源: {path}",
+
+  "Missing generated translation resources: {missing_text}": "缺少生成的翻译资源: {missing_text}",
+  "Custom textures exported: {texture_file_count}": "已导出自定义纹理: {texture_file_count}",
+
+  "Single Item": "单个物品",
+  "Full Album": "完整专辑",
+
+  "{row.media_name} (Side {side_name})": "{row.media_name} ({side_name}面)",
+
+  "title={mod_name}": "title={mod_name}",
+  "description=[h2]{mod_name}[/h2]": "description=[h2]{mod_name}[/h2]",
+
+  "description=[tr][td]{index:02d} {track}": "description=[tr][td]{index:02d} {track}",
+  "description=[tr][td][i]... plus {remaining_count} more song{plural} in this section.[/i][/td][/tr]": "description=[tr][td][i]... 此部分还有 {remaining_count} 首歌曲。[/i][/td][/tr]",
+  "description=[tr][td][i]... plus {omitted_count} more song{plural} in this section.[/i][/td][/tr]": "description=[tr][td][i]... 此部分另有 {omitted_count} 首歌曲。[/i][/td][/tr]",
+
+  "{row.media_name} Casette Case (Empty)": "{row.media_name} 卡带盒 (空)",
+  "{row.media_name} Cassette Case (Full)": "{row.media_name} 卡带盒 (满)",
+  "{title} ({media_label})": "{title} ({media_label})",
+  "{title} ({media_label} {side_name}-side)": "{title} ({media_label} {side_name}面)",
+
+  "{media_name} (Side {side_name})": "{media_name} ({side_name}面)",
+  "{songs} songs queued": "{songs} 首歌曲排队中",
+
+  "{row.media_name} {container_label} (Empty)": "{row.media_name} {container_label} (空)",
+  "{row.media_name} {container_label} (Full)": "{row.media_name} {container_label} (满)",
+
+  "Missing": "缺失",
+
+  "Audio export run complete. ({songs} songs)": "音频导出完成。({songs} 首歌曲)",
+
+  "description={rows}": "description={rows}",
+  "No Audio Tracks": "无音轨",
+  "No Audio Tracks.": "无音轨。",
+
+  "0/0 Media - 0 Songs": "0/0 介质 - 0 首歌曲",
+  "\"": "\"",
+  ", ": "，",
+  ", and ": "，以及",
+  ".": "。",
+  ".ogg": ".ogg",
+  "Add ": "添加 ",
+  "B-Side": "B面",
+  "Cat Mixtape": "猫合辑",
+  "CatMixtape": "猫合辑",
+  "Cover image was not found: {}": "未找到封面图片: {}",
+  "Cover image was not found: {path}": "未找到封面图片: {path}",
+  "Donor cassette shell was not found: {}": "未找到卡带模板: {}",
+  "Donor cassette world shell was not found: {}": "未找到卡带世界模型模板: {}",
+  "Generated with New Music Builder": "由 New Music Builder 生成",
+  "Load": "加载",
+  "Media Mix": "媒体混音",
+  "Media Row": "媒体行",
+  "Media Row {}": "媒体行 {}",
+  "New Music Builder": "New Music Builder",
+  "Parent Mod ID": "父级模组 ID",
+  "Remove ": "移除 ",
+  "Reset": "重置",
+  "SIDE": "面",
+  "Select Cover Image For Media Row": "为媒体行选择封面图片",
+  "Songs": "首歌曲",
+  "Starting {}-Side": "正在开始 {}面",
+  "TRACKS": "曲目",
+  "Talismon": "Talismon",
+  "World Model": "世界模型",
+  "Zomboid Workshop": "Zomboid 工坊",
+  "[b]Mixtape[/b]: Dynamic playlist on one item.": "[b]合辑[/b]: 一个物品内的动态播放列表。",
+  "[b]Singles[/b]: Each song is its own item.": "[b]单曲[/b]: 每首歌导出为独立物品。",
+  "[i]Single Item[/i]": "[i]单个物品[/i]",
+  "description=[tr][td][i]... plus {remaining_count} more song{suffix} in this section.[/i][/td][/tr]": "description=[tr][td][i]... 此部分还有 {remaining_count} 首歌曲。[/i][/td][/tr]",
+  "description=[tr][td][i]... plus {omitted_count} more song{suffix} in this section.[/i][/td][/tr]": "description=[tr][td][i]... 此部分另有 {omitted_count} 首歌曲。[/i][/td][/tr]",
+  "songs queued": "首歌曲排队中",
+  "Queued": "排队中",
+  "track": "首曲目",
+  "tracks": "首曲目"
+}

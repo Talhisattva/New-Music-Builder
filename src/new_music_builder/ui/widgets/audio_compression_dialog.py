@@ -4,6 +4,7 @@ from collections.abc import Callable
 from pathlib import Path
 import tkinter as tk
 
+from new_music_builder.platform.i18n import t
 from new_music_builder.services.audio_profile import AUDIO_COMPRESSION_PRESETS, nearest_compression_preset
 from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.dialog_shell import DialogShell
@@ -165,9 +166,9 @@ class AudioCompressionDialog(DialogShell):
         button_width = spec.MAIN_BUTTON_SIZE[0]
         total_buttons_width = (button_width * 2) + spec.SAMPLE_RATE_DIALOG_BUTTON_GAP_X
         button_x = ((spec.COMPRESSION_DIALOG_SIZE[0] - 20) - total_buttons_width) // 2
-        self.ok_button = MainButton(self.panel_inner, text="OK", command=self._accept, variant="positive")
+        self.ok_button = MainButton(self.panel_inner, text=t("OK"), command=self._accept, variant="positive")
         self.ok_button.place(x=button_x, y=spec.COMPRESSION_DIALOG_BUTTON_Y, width=button_width, height=spec.MAIN_BUTTON_SIZE[1])
-        self.cancel_button = MainButton(self.panel_inner, text="CANCEL", command=self._cancel, variant="negative")
+        self.cancel_button = MainButton(self.panel_inner, text=t("CANCEL"), command=self._cancel, variant="negative")
         self.cancel_button.place(
             x=button_x + button_width + spec.SAMPLE_RATE_DIALOG_BUTTON_GAP_X,
             y=spec.COMPRESSION_DIALOG_BUTTON_Y,

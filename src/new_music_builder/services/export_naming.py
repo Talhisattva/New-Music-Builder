@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from new_music_builder.platform.i18n import t
+
 _INVALID_FS_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1F]')
 _SOUND_SCRIPT_UNSAFE_CHARS = re.compile(r"[,]+")
 
@@ -17,7 +19,7 @@ def sanitize_filesystem_component(value: str, *, fallback: str) -> str:
 def build_audio_row_folder_name(media_name: str, row_id: int, *, export_id: str | None = None) -> str:
     if export_id:
         return sanitize_filesystem_component(export_id, fallback=f"MediaRow{row_id}")
-    return sanitize_sound_script_path_component(media_name, fallback=f"Media Row {row_id}")
+    return sanitize_sound_script_path_component(media_name, fallback=t("Media Row {}").format(row_id))
 
 
 def build_audio_side_folder_name(side: str) -> str:

@@ -4,6 +4,7 @@ from collections.abc import Callable
 from pathlib import Path
 import shutil
 
+from new_music_builder.platform.i18n import t
 from new_music_builder.services.export_cancellation import ExportAbortedError
 
 
@@ -18,9 +19,11 @@ def copy_file_with_cancel(
     *,
     cancel_requested: CancelCheck = None,
     emit_progress: ProgressCallback = None,
-    progress_message: str = "Copying file...",
+    progress_message: str | None = None,
     emit_every_percent: int = 1,
 ) -> None:
+    if progress_message is None:
+        progress_message = t("Copying file...")
     destination.parent.mkdir(parents=True, exist_ok=True)
     _raise_if_cancelled(cancel_requested)
     total_size = max(1, source.stat().st_size)
@@ -50,4 +53,4 @@ def copy_file_with_cancel(
 
 def _raise_if_cancelled(cancel_requested: CancelCheck) -> None:
     if cancel_requested is not None and cancel_requested():
-        raise ExportAbortedError("Build aborted by user.")
+        raise ExportAbortedError(t("Build aborted by user."))

@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Literal
 
 from new_music_builder.domain.models import AppearanceKind, GeneratedAssetRecord, MediaRow, ProjectConfig
+from new_music_builder.platform.i18n import t
 from new_music_builder.services.cover_texture_generator import (
     CoverGenerationResult,
     generate_cd_cover_textures_from_cover,
@@ -75,10 +76,10 @@ def generate_supported_cover_set_for_row(
 ) -> GeneratedCoverSetResult:
     normalized_cover = normalize_cover_path(row.cover_path)
     if not normalized_cover:
-        raise FileNotFoundError("Cover image was not provided.")
+        raise FileNotFoundError(t("Cover image was not provided."))
     cover_path = Path(normalized_cover)
     if not cover_path.is_file():
-        raise FileNotFoundError(f"Cover image was not found: {cover_path}")
+        raise FileNotFoundError(t("Cover image was not found: {path}").format(path=cover_path))
 
     row.ensure_appearances()
     source_name = cover_path.name or "cover"

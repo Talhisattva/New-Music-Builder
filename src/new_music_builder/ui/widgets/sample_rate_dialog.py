@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import tkinter as tk
 
+from new_music_builder.platform.i18n import t
 from new_music_builder.ui import spec
 from new_music_builder.ui.widgets.dialog_shell import DialogShell
 from new_music_builder.ui.widgets.main_button import MainButton
@@ -63,7 +64,7 @@ class SampleRateDropdown(tk.Frame):
             fg=spec.HEADER_TEXT,
             bd=0,
             highlightthickness=0,
-            font=('Orbitron Medium', 8),
+            font=(spec.LABEL_CJK_FONT_FAMILY, 8),
             anchor='center',
         )
         self.arrow.place(
@@ -175,9 +176,9 @@ class SampleRateDialog(DialogShell):
         self.dropdown = SampleRateDropdown(
             self.panel_inner,
             options=[
-                ('32000 Hz', 32000),
-                ('44100 Hz', 44100),
-                ('48000 Hz', 48000),
+                (t('32000 Hz'), 32000),
+                (t('44100 Hz'), 44100),
+                (t('48000 Hz'), 48000),
             ],
             initial_value=initial_value,
         )
@@ -189,9 +190,9 @@ class SampleRateDialog(DialogShell):
         button_width = spec.MAIN_BUTTON_SIZE[0]
         total_buttons_width = (button_width * 2) + spec.SAMPLE_RATE_DIALOG_BUTTON_GAP_X
         button_x = ((spec.SAMPLE_RATE_DIALOG_SIZE[0] - 20) - total_buttons_width) // 2
-        self.ok_button = MainButton(self.panel_inner, text='OK', command=self._accept, variant='positive')
+        self.ok_button = MainButton(self.panel_inner, text=t('OK'), command=self._accept, variant='positive')
         self.ok_button.place(x=button_x, y=spec.SAMPLE_RATE_DIALOG_BUTTON_Y, width=button_width, height=spec.MAIN_BUTTON_SIZE[1])
-        self.cancel_button = MainButton(self.panel_inner, text='CANCEL', command=self._cancel, variant='negative')
+        self.cancel_button = MainButton(self.panel_inner, text=t('CANCEL'), command=self._cancel, variant='negative')
         self.cancel_button.place(
             x=button_x + button_width + spec.SAMPLE_RATE_DIALOG_BUTTON_GAP_X,
             y=spec.SAMPLE_RATE_DIALOG_BUTTON_Y,

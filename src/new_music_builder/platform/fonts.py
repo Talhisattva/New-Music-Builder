@@ -11,6 +11,17 @@ from .paths import assets_root
 LOGGER = logging.getLogger("new_music_builder")
 _FR_PRIVATE = 0x10
 
+CJK_FONT_FAMILY = "Microsoft YaHei"
+CJK_MONO_FONT_FAMILY = "Microsoft YaHei"
+
+
+def get_cjk_font_family() -> str:
+    return CJK_FONT_FAMILY
+
+
+def get_cjk_mono_font_family() -> str:
+    return CJK_MONO_FONT_FAMILY
+
 
 def bundled_font_paths() -> list[Path]:
     font_root = assets_root() / "fonts"

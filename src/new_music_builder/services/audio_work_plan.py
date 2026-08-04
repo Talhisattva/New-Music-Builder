@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from new_music_builder.domain.models import AudioWorkPlan, ExportPlan, ExportTargetPaths, PlannedAudioWorkItem, ProjectConfig
+from new_music_builder.platform.i18n import t
 from new_music_builder.services.audio_profile import effective_export_compression_quality
 from new_music_builder.services.track_import import SUPPORTED_AUDIO_SUFFIXES
 
@@ -42,15 +43,15 @@ def build_audio_work_plan(project: ProjectConfig, plan: ExportPlan, targets: Exp
 
 def _classify_audio_action(source_path: Path | None, reencode_existing_ogg: bool = True) -> tuple[str, str]:
     if source_path is None or not str(source_path).strip():
-        return "error", "Missing source path."
+        return "error", t("Missing source path.")
     if not source_path.exists() or not source_path.is_file():
-        return "error", "Source file is missing."
+        return "error", t("Source file is missing.")
 
     suffix = source_path.suffix.lower()
     if suffix == ".ogg":
         if reencode_existing_ogg:
-            return "convert_to_ogg", "Re-encoding existing .ogg to match audio settings."
-        return "copy_ogg", "Source audio is already .ogg."
+            return "convert_to_ogg", t("Re-encoding existing .ogg to match audio settings.")
+        return "copy_ogg", t("Source audio is already .ogg.")
     if suffix in SUPPORTED_AUDIO_SUFFIXES:
-        return "convert_to_ogg", "Source audio requires conversion."
-    return "error", "Unsupported audio format."
+        return "convert_to_ogg", t("Source audio requires conversion.")
+    return "error", t("Unsupported audio format.")

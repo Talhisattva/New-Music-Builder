@@ -4,17 +4,18 @@ from dataclasses import dataclass
 from typing import Literal
 
 from new_music_builder.domain.models import AppearanceKind, AppearanceSelection, MediaKind
+from new_music_builder.platform.i18n import t
 from new_music_builder.services.asset_catalog import AssetEntry
 
 PreviewMode = Literal['inventory', 'world']
 
 TAB_KINDS: tuple[tuple[AppearanceKind, str], ...] = (
-    ('cassette', 'Cassette'),
-    ('vinyl', 'Vinyl'),
-    ('cd', 'CD'),
-    ('case', 'Case'),
-    ('jacket', 'Jacket'),
-    ('cd_cover', 'CD Case'),
+    ('cassette', t('Cassette')),
+    ('vinyl', t('Vinyl')),
+    ('cd', t('CD')),
+    ('case', t('Case')),
+    ('jacket', t('Jacket')),
+    ('cd_cover', t('CD Case')),
 )
 
 DUAL_SPRITE_KINDS: frozenset[AppearanceKind] = frozenset({'case', 'jacket', 'cd_cover'})

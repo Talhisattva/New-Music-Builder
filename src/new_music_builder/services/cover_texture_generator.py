@@ -8,6 +8,7 @@ import numpy as np
 from PIL import Image, ImageChops
 
 from new_music_builder.domain.models import GeneratedAssetRecord
+from new_music_builder.platform.i18n import t
 from new_music_builder.platform.paths import assets_root, generated_textures_root
 from new_music_builder.services.generated_asset_registry import build_generated_asset_key, build_generated_cover_id, normalize_cover_path
 
@@ -82,23 +83,23 @@ def generate_cassette_textures_from_cover(
 ) -> CoverGenerationResult:
     normalized_cover = normalize_cover_path(cover_path)
     if not normalized_cover:
-        raise FileNotFoundError("Cover image was not provided.")
+        raise FileNotFoundError(t("Cover image was not provided."))
 
     source_path = Path(normalized_cover)
     if not source_path.is_file():
-        raise FileNotFoundError(f"Cover image was not found: {source_path}")
+        raise FileNotFoundError(t("Cover image was not found: {}").format(source_path))
     normalized_donor_inventory = normalize_cover_path(donor_inventory_path)
     if not normalized_donor_inventory:
-        raise FileNotFoundError("Donor cassette shell was unavailable.")
+        raise FileNotFoundError(t("Donor cassette shell was unavailable."))
     donor_source_path = Path(normalized_donor_inventory)
     if not donor_source_path.is_file():
-        raise FileNotFoundError(f"Donor cassette shell was not found: {donor_source_path}")
+        raise FileNotFoundError(t("Donor cassette shell was not found: {}").format(donor_source_path))
     normalized_donor_world = normalize_cover_path(donor_world_path)
     if not normalized_donor_world:
-        raise FileNotFoundError("Donor cassette world shell was unavailable.")
+        raise FileNotFoundError(t("Donor cassette world shell was unavailable."))
     donor_world_source_path = Path(normalized_donor_world)
     if not donor_world_source_path.is_file():
-        raise FileNotFoundError(f"Donor cassette world shell was not found: {donor_world_source_path}")
+        raise FileNotFoundError(t("Donor cassette world shell was not found: {}").format(donor_world_source_path))
 
     resolved_mask_root = mask_root or (assets_root() / "Mask")
     resolved_output_root = output_root or generated_textures_root()
@@ -152,11 +153,11 @@ def generate_vinyl_textures_from_cover(
 ) -> CoverGenerationResult:
     normalized_cover = normalize_cover_path(cover_path)
     if not normalized_cover:
-        raise FileNotFoundError("Cover image was not provided.")
+        raise FileNotFoundError(t("Cover image was not provided."))
 
     source_path = Path(normalized_cover)
     if not source_path.is_file():
-        raise FileNotFoundError(f"Cover image was not found: {source_path}")
+        raise FileNotFoundError(t("Cover image was not found: {}").format(source_path))
 
     resolved_mask_root = mask_root or (assets_root() / "Mask")
     resolved_output_root = output_root or generated_textures_root()
@@ -219,11 +220,11 @@ def generate_case_textures_from_cover(
 ) -> CoverGenerationResult:
     normalized_cover = normalize_cover_path(cover_path)
     if not normalized_cover:
-        raise FileNotFoundError("Cover image was not provided.")
+        raise FileNotFoundError(t("Cover image was not provided."))
 
     source_path = Path(normalized_cover)
     if not source_path.is_file():
-        raise FileNotFoundError(f"Cover image was not found: {source_path}")
+        raise FileNotFoundError(t("Cover image was not found: {}").format(source_path))
 
     resolved_mask_root = mask_root or (assets_root() / "Mask")
     resolved_output_root = output_root or generated_textures_root()
@@ -277,11 +278,11 @@ def generate_jacket_textures_from_cover(
 ) -> CoverGenerationResult:
     normalized_cover = normalize_cover_path(cover_path)
     if not normalized_cover:
-        raise FileNotFoundError("Cover image was not provided.")
+        raise FileNotFoundError(t("Cover image was not provided."))
 
     source_path = Path(normalized_cover)
     if not source_path.is_file():
-        raise FileNotFoundError(f"Cover image was not found: {source_path}")
+        raise FileNotFoundError(t("Cover image was not found: {}").format(source_path))
 
     resolved_mask_root = mask_root or (assets_root() / "Mask")
     resolved_output_root = output_root or generated_textures_root()
@@ -327,11 +328,11 @@ def generate_cd_cover_textures_from_cover(
 ) -> CoverGenerationResult:
     normalized_cover = normalize_cover_path(cover_path)
     if not normalized_cover:
-        raise FileNotFoundError("Cover image was not provided.")
+        raise FileNotFoundError(t("Cover image was not provided."))
 
     source_path = Path(normalized_cover)
     if not source_path.is_file():
-        raise FileNotFoundError(f"Cover image was not found: {source_path}")
+        raise FileNotFoundError(t("Cover image was not found: {}").format(source_path))
 
     resolved_mask_root = mask_root or (assets_root() / "Mask")
     resolved_output_root = output_root or generated_textures_root()

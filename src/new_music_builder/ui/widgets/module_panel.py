@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import customtkinter as ctk
 
-from new_music_builder.ui import theme
+from new_music_builder.ui import spec, theme
 from new_music_builder.ui.widgets.buttons import apply_builder_button_style
 
 
@@ -18,7 +18,7 @@ class ModulePanel(ctk.CTkFrame):
                 anchor='w',
             )
             apply_builder_button_style(self.header, variant='secondary')
-            self.header.configure(font=ctk.CTkFont(family='Orbitron', size=15, weight='bold'))
+            self.header.configure(font=ctk.CTkFont(family=spec.LABEL_CJK_FONT_FAMILY, size=15, weight='bold'))
             self.header.pack(fill='x', padx=8, pady=(8, 3))
         else:
             header = ctk.CTkFrame(self, fg_color='transparent')
@@ -29,7 +29,7 @@ class ModulePanel(ctk.CTkFrame):
                 header,
                 text=title,
                 text_color=header_fg,
-                font=ctk.CTkFont(family='Orbitron', size=14, weight='bold'),
+                font=ctk.CTkFont(family=spec.LABEL_CJK_FONT_FAMILY, size=14, weight='bold'),
             ).pack(side='left', padx=(8, 0))
         self.body = ctk.CTkFrame(self, fg_color=theme.PANEL_ALT, corner_radius=10)
         self.body.pack(fill='both', expand=True, padx=8, pady=(0, 8))
