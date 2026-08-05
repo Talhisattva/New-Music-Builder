@@ -11,6 +11,7 @@ from new_music_builder.domain.models import PlannedAudioWorkItem
 from new_music_builder.services.audio_profile import snap_compression_quality
 from new_music_builder.services.cancelable_file_copy import copy_file_with_cancel
 from new_music_builder.services.export_cancellation import ExportAbortedError
+from new_music_builder.services.ffmpeg_audio import decode_audio_to_pcm
 
 
 ProgressCallback = Callable[[int, str], None]
@@ -88,17 +89,31 @@ def _convert_to_cached_ogg(
 
 
 def _decode_audio(source: Path, *, target_rate: int, target_channels: int) -> np.ndarray:
-    decode_error: Exception | None = None
-    try:
-        data, sample_rate = sf.read(str(source), dtype="float32", always_2d=True)
-        pcm = np.ascontiguousarray(data.astype(np.float32, copy=False))
-    except Exception as exc:
-        decode_error = exc
-        pcm, sample_rate = _decode_with_miniaudio(
+    if source.suffix.lower() in {".m4a", ".aac", ".wma"}:
+        pcm, sample_rate = decode_audio_to_pcm(
             source,
+            target_rate=target_rate,
             target_channels=target_channels,
-            soundfile_error=decode_error,
         )
+    else:
+        decode_error: Exception | None = None
+        try:
+            data, sample_rate = sf.read(str(source), dtype="float32", always_2d=True)
+            pcm = np.ascontiguousarray(data.astype(np.float32, copy=False))
+        except Exception as exc:
+            decode_error = exc
+            try:
+                pcm, sample_rate = _decode_with_miniaudio(
+                    source,
+                    target_channels=target_channels,
+                    soundfile_error=decode_error,
+                )
+            except Exception:
+                pcm, sample_rate = decode_audio_to_pcm(
+                    source,
+                    target_rate=target_rate,
+                    target_channels=target_channels,
+                )
 
     pcm = _reshape_channels(pcm, target_channels)
     if sample_rate != target_rate:
