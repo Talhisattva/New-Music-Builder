@@ -7,6 +7,7 @@ import miniaudio
 import soundfile as sf
 
 from new_music_builder.domain.models import TrackEntry
+from new_music_builder.services.ffmpeg_audio import probe_audio_duration
 
 
 SUPPORTED_AUDIO_SUFFIXES: tuple[str, ...] = (
@@ -61,6 +62,9 @@ def read_track_duration(source_path: str | Path) -> str:
     except Exception:
         pass
 
+    duration = probe_audio_duration(path)
+    if duration > 0:
+        return _format_duration_seconds(duration)
     return ''
 
 

@@ -228,7 +228,7 @@ class MediaCreationModule(ModulePanel):
         self.refresh()
 
     def _add_songs(self, row_id: int) -> None:
-        selected = fd.askopenfilenames(filetypes=[('Audio', '*.ogg;*.flac;*.wav;*.mp3')])
+        selected = fd.askopenfilenames(filetypes=[('Audio', '*.ogg;*.flac;*.wav;*.mp3;*.m4a;*.aac;*.wma')])
         if not selected:
             return
         for row in self.session.project.media_rows:
